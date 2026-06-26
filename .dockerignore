@@ -1,0 +1,16 @@
+.git
+.gitignore
+.idea
+.vscode
+node_modules
+vendor
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+.phpunit.cache
+.phpunit.result.cache
+npm-debug.log
+Dockerfile
+docker-compose.yml

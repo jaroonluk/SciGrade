@@ -1,0 +1,275 @@
+<?
+  include("../config.inc.php");
+  ConnDB();
+
+If(isset($_REQUEST['startdate']))
+{
+    $ddb1=trim($_REQUEST['startdate']);
+}
+//$ddb1=$_REQUEST['startdate'];
+
+   if($_POST[year]){
+   $term=$_POST[term];
+     $year=$_POST[year];
+
+   
+   }else{
+       $vPdRound		= checkPdRound1();	
+  $tmppdRound=explode("/",$vPdRound);		   
+$term=$tmppdRound[0];
+$year=$tmppdRound[1]; 
+ }
+?>
+<p align="center">&nbsp;</p>
+<p align="center"><strong>รับรอง ผลการสอบไล่สำหรับเจ้าหน้าที่ (สาขาวิชา)</strong></p>
+<form name="form1" method="post" action="" >
+ 
+<!--  --><?php //echo "DDD : ".$datebos1;?>
+    <input type="hidden" id="ddb1" name="ddb1" value=" <?=$ddb1;?>">
+  <div align="center">
+  <strong>เลือกสาขาวิชา :</strong> &nbsp;
+      <?
+      //Get department
+
+      $sql			="select  * from tbluser where username='$username'";
+      $result = mysql_query($sql);
+      $row = mysql_fetch_array($result);
+
+      $dpartid=$row[department_id];
+      //dpart
+     // $sql ="select * from tbldepartment where department_id = $dpartid";
+      if($dpartid == 25) {
+          //dpart
+          $sql = "select * from tbldepartment where department_id = '25' or  department_id = '36'";
+      }else{
+      if($row['userid']== '116412'){
+          $sql = "select * from tbldepartment where department_id = '25' or  department_id = '22' or  department_id = '36'";
+      }else {
+          $sql = "select * from tbldepartment where department_id = $dpartid";
+      }
+      }
+      //echo $sql;
+      $result = mysql_query($sql);
+      $dpartid=$_GET["dpart"];
+		  ?>
+      <select name="dpart" id="dpart" >
+          <?
+          while( $fetcharr = mysql_fetch_array($result) )
+          {
+              $id = $fetcharr[department_id];
+              $department_name = $fetcharr[department_name];
+              if($dpartid==$id){
+                  echo "<option value=\"$id\" selected='selected'>$department_name</option>\n";
+              }else{
+                  echo "<option value=\"$id\">$department_name</option>\n";
+              }
+
+          }
+
+          ?>
+      </select>
+  
+  ภาคการศึกษา&nbsp;&nbsp;
+    <select name="term">
+      <option value="1" <? if($term==1) {?> selected <? } ?>>ภาคต้น</option>
+      <option value="2" <? if($term==2) {?> selected <? } ?>>ภาคปลาย</option>
+      <option value="3" <? if($term==3) {?> selected <? } ?>>ภาคฤดูร้อน</option>
+      
+    </select>
+    
+  
+    
+    &nbsp;&nbsp;&nbsp;ปีการศึกษา  
+    <select name="year">
+      <? for($i=2554;$i<=2580;$i++){?>
+       <option value="<?=$i?>"<? if($year==$i) {?> selected <? } ?>>
+       <?=$i?>
+      </option>
+      <? }?>
+    </select>
+    &nbsp;<br>
+      <select name="typeapprove" id="typeapprove" >
+          <option value="none"  selected ><-------- ทั้งหมด --------></option>
+          <option value="0" >ยังไม่ผ่านการรับรองผลสอบ</option>
+          <option value="1" >ผ่านการรับรองผลสอบ</option>
+      </select>
+    <input name="show" type="submit" value="แสดงข้อมูล">
+  </div>
+</form>
+
+<p align="center"><br>
+</p>
+
+ <div align="center">
+  <?
+ 
+  if($_POST[show]){
+$ap3="<font color='red'>ส่งกลับแก้ไขจากส่วนกลาง</font>";
+      if($_REQUEST['typeapprove'] == "none")
+      {
+        //  $ap="";
+          $ap=" and (approv = '0'  or  approv = '1' )  ";
+      }else{
+          $ap=" and approv = '".$_REQUEST['typeapprove']."' ";
+      }
+     // $ap = " and approv = '".$_REQUEST['typeapprove']."' ";
+      $ap1= " ORDER BY subject_code2 ASC,`subject` asc ,subject_code asc ";
+    // กำหนดเงื่อนไขรหัสวิชา
+	 $depart_id =  $_POST[dpart] ;
+
+	 if($depart_id==4){  //ภาคคอม
+	 $sql =" select * from grade_report where  (subject_code like '320%' or subject_code like '322%' or 
+	           subject_code like '324%'  or  subject_code like '342%' or  subject_code like '340%'    or  subject_code like '%SC3%' ) and term ='$term' and year ='$year'  $ap  $ap1  " ;
+	 }
+
+	  if($depart_id==5){  //ภาควิชาสถิติ
+	 $sql =" select * from grade_report where  (subject_code like '316%' or subject_code like '326%'  or subject_code like '336%'  or  subject_code like '%SC6%' ) and term ='$term' and year ='$year'  $ap  $ap1  " ;
+	 }
+
+	   if($depart_id==6){  //ภาควิชาเคมี
+	 $sql =" select * from grade_report where  (subject_code like '312%' or subject_code like '313%'  or subject_code like '343%'  or subject_code like '332%'  or  subject_code like '%SC2%') and term ='$term' and year ='$year'  $ap   $ap1  " ;
+	 }
+
+	   if($depart_id==7){  //ภาควิชาฟิสิกส์
+	 $sql =" select * from grade_report where  (subject_code like '315%' or subject_code like '301%'  or  subject_code like '%SC5%') and term ='$term' and year ='$year'   $ap  $ap1 " ;
+	 }
+
+	   if($depart_id==8){  //ภาควิชาชีววิทยา
+	 $sql =" select * from grade_report where  (subject_code like '311%' or subject_code like '331%'  or  subject_code like '%SC1%'  ) and term ='$term' and year ='$year'   $ap  $ap1" ;
+	 }
+
+	  if($depart_id==9){  //ภาควิชาจุลชีววิทยา
+	 $sql =" select * from grade_report where  (subject_code like '317%'  or  subject_code like '327%'   or  subject_code like '%SC7%'  or subject_code like '327%'  or  subject_code like 'SC7%' ) and term ='$term' and year ='$year'  $ap   $ap1 " ;
+	 }
+
+	  if($depart_id==10){  //ภาควิชาคณิตศาสตร์
+	 $sql =" select * from grade_report where  (subject_code like '314%' or subject_code like '321%'  or subject_code like '323%'  or  subject_code like '333%' or  subject_code like '%SC4%') and term ='$term' and year ='$year'   $ap  $ap1 " ;
+	 }
+
+	  if($depart_id==11){  //ภาควิชาชีวเคมี
+	 $sql =" select * from grade_report where  (subject_code like '318%'  or  subject_code like '%SC8%') and term ='$term' and year ='$year'  $ap   $ap1 " ;
+	 }
+
+	  if($depart_id==12){  //ภาควิชาวิทยาศาสตร์สิ่งแวดล้อม
+	 $sql =" select * from grade_report where  (subject_code like '319%'  or  subject_code like '%SC9%' ) and term ='$term' and year ='$year'  $ap   $ap1 " ;
+	 }
+
+	  if($depart_id==25){   //วิทยาศาสตร์และบูรณาการ
+//	 $sql =" select * from grade_report where  (subject_code like '3007%'   or subject_code like '302%'  or  subject_code like 'SC01%'  or  subject_code like 'SC02%'  or  subject_code like '3003%' or  subject_code like 'SC057%' or  subject_code like 'SC068%'  or  subject_code like 'SC069%' or  subject_code like 'SC002002'  or  subject_code like 'SC002003'  or  subject_code like 'SC002004'  or  subject_code like 'SC002005'  or  subject_code like 'SC002006'
+//                                or  subject_code like 'SC002007') and term ='$term' and year ='$year'  $ap   $ap1" ;
+          $sql =" select * from grade_report where  (subject_code like '3007%'   or subject_code like '302%'  or  subject_code like 'SC01%'  or  subject_code like 'SC02%'  or  subject_code like '3003%' or  subject_code like 'SC057%' or  subject_code like 'SC068%'  or  subject_code like 'SC069%' or  subject_code like 'SC002002'  or  subject_code like 'SC002003'  or  subject_code like 'SC002004'  or  subject_code like 'SC002005'  or  subject_code like 'SC002006'
+                                or  subject_code like 'SC002007' or subject_code like 'SC017891'  or subject_code like 'SC017892'   or subject_code like 'SC057701' or subject_code like 'SC057702'  
+                                        or  subject_code like 'SC057703'  or  subject_code like 'SC057721'
+     or  subject_code like 'SC057722'  or  subject_code like 'SC057723'  or  subject_code like 'SC057725'   or  subject_code like 'SC057729'  or  subject_code like 'SC057733'  or  subject_code like 'SC017898'  
+      or  subject_code like 'SC017899'  or subject_code like 'SC002001 ' or subject_code like 'SC057738' ) and term ='$term' and year ='$year'  $ap   $ap1" ;
+
+	 }
+
+      if($depart_id==31){   //หลักสูตรนิติวิทยาศาสตร์
+          $sql =" select * from grade_report where  (subject_code like 'SC017891'  or subject_code like 'SC017892'   or subject_code like 'SC057701' or subject_code like 'SC057702'  
+                                        or  subject_code like 'SC057703'  or  subject_code like 'SC057721'
+     or  subject_code like 'SC057722'  or  subject_code like 'SC057723'  or  subject_code like 'SC057725'   or  subject_code like 'SC057729'  or  subject_code like 'SC057733'  or  subject_code like 'SC017898'  
+      or  subject_code like 'SC017899'  or subject_code like 'SC002001 '  ) and term ='$term' and year ='$year'  $ap   $ap1" ;
+      }
+
+      if($depart_id==36){    //คณะวิทยาศาสตร์
+          $sql =" select * from grade_report where  (subject_code like 'SC001%'  or subject_code like 'SC002%'   or subject_code like 'SC003%' or subject_code like '3001%'  or  subject_code like '3002%'  or  subject_code like '3003%'   ) and term ='$term' and year ='$year'   $ap  $ap1" ;
+      }
+
+	 $rs_1=mysql_query($sql);
+	
+	//echo $sql;
+ 
+ ?>
+  <table width="929" border="1"  cellpadding="0" cellspacing="0">
+    <tr>
+      <td width="523" bgcolor="#66CCCC"><div align="center"><strong>รายวิชา</strong></div></td>
+      <td width="400" bgcolor="#66CCCC"><div align="center"><strong>สถานะ</strong></div></td>
+    </tr>
+    <?
+    while($m1 = mysql_fetch_array($rs_1)){
+	
+	
+	  $grade_id =$m1[grade_id] ;
+	  
+	  $check2=($m1[approv]==0) ? "checked":"";
+      $check=($m1[approv]==1) ? "checked":"";
+  ?>
+    <tr>
+      <td><?=$m1[subject_code]?>&nbsp;<?=$m1[subject]?> &nbsp;<?=$m1[teacher]?>
+      <?php
+      if($m1[dateapprove2] != "") {
+          echo $ap3." [".changeDate($m1[dateapprove2])."]";
+      }
+      ?>
+      </td>
+      <td>
+        <label>
+<!--            --><?//echo $grade_id.":".$ddb1.":1";?>
+<!--          <input type="radio" name="--><?//=$grade_id.":".$ddb1;?><!--" id="--><?//=$grade_id.":".$ddb1;?><!--" onclick='doClick(this);' value="1"-->
+            <input type="radio" name="<?=$grade_id.":".$ddb1.":1";?>" id="<?=$grade_id.":".$ddb1.":1";?>" onclick='doClick(this);' value="1"
+        <?=$check?>>
+          ผ่านการรับรองผลสอบ
+          &nbsp;&nbsp;
+          <input type="radio" name="<?=$grade_id.":".$ddb1.":1";?>" id="<?=$grade_id.":".$ddb1.":1";?>" onclick='doClick(this);' value="0"       <?=$check2?>   >
+          ยังไม่ผ่านการรับรองผลสอบ          </label>
+
+          <div id="status<?=$grade_id.":".$ddb1.":1";?>" style=" color:#66CC00"> </div>         </td>
+    </tr>
+    <? } ?>
+  </table>
+  <? }?>
+ </div>
+<p align="center">&nbsp; </p>
+<script>
+    //AJAX สำหรับจัดการบันทึกลงฐานข้อมูล
+    function Inint_AJAX() {
+        try { return new ActiveXObject("Msxml2.XMLHTTP"); } catch(e) {}
+        try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch(e) {}
+        try { return new XMLHttpRequest(); } catch(e) {}
+        alert("XMLHttpRequest not supported");
+        return null;
+    }
+
+    //คำสั่งที่ทำเมื่อคลิก checkbox
+    function doClick(chk) {
+
+        var req = Inint_AJAX();
+        var val=chk.value;
+        //alert(chk.value);
+        var id= String(chk.id);
+        //alert(chk.value);
+        req.open('GET', 'save.php?id='+id+'&val='+val, true);
+        req.onreadystatechange = function() {
+            if (req.readyState==4) {
+                if (req.status==200) {
+                    var data=req.responseText;
+                    //แสดง error ถ้ามี
+                    document.getElementById("status"+id).innerHTML=data;
+                }
+            }
+        };
+        req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=utf-8"); // set Header
+        req.send(null);
+    }
+
+</script>
+
+<?php
+function changeDate($date){
+//ใช้ Function explode ในการแยกไฟล์ ออกเป็น  Array
+    $get_date = explode("-",$date);
+//กำหนดชื่อเดือนใส่ตัวแปร $month
+    $month = array("01"=>"ม.ค.","02"=>"ก.พ","03"=>"มี.ค.","04"=>"เม.ย.","05"=>"พ.ค.","06"=>"มิ.ย.","07"=>"ก.ค.","08"=>"ส.ค.","09"=>"ก.ย.","10"=>"ต.ค.","11"=>"พ.ย.","12"=>"ธ.ค.");
+//month
+    $get_month = $get_date["1"];
+
+//year
+    $year = $get_date["0"]+543;
+
+    return $get_date["2"]." ".$month[$get_month]." ".$year;
+
+}
+//การเรียกใช้งาน Function
+//echo change_date("2015-05-05");
+?>
