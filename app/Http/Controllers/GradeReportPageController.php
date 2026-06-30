@@ -51,10 +51,10 @@ class GradeReportPageController extends Controller
 
     public function edit(GradeReport $gradeReport): View
     {
-        abort_if($gradeReport->user_id !== auth()->id(), 403);
-        abort_if($gradeReport->approv > 0, 403, 'ไม่สามารถแก้ไขรายการที่อนุมัติแล้ว');
+        abort_unless($gradeReport->username === session('staff_username'), 403);
+        abort_if((int) $gradeReport->approv > 0, 403, 'ไม่สามารถแก้ไขรายการที่อนุมัติแล้ว');
 
-        return $this->formView($gradeReport->id);
+        return $this->formView($gradeReport->grade_id);
     }
 
     public function upload(): View
@@ -132,7 +132,7 @@ class GradeReportPageController extends Controller
     public function print(GradeReport $gradeReport): View
     {
         if (session('scigrade_role', 'instructor') === 'instructor') {
-            abort_if($gradeReport->user_id !== auth()->id(), 403);
+            abort_unless($gradeReport->username === session('staff_username'), 403);
         }
 
         $gradeReport->load('gradeStds');

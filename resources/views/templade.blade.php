@@ -13,8 +13,44 @@
 @push('styles')
 <style>
     input:focus, select:focus, textarea:focus { outline: none; border-color: #c4856c; box-shadow: 0 0 0 2px rgba(196,133,108,0.2); }
-    #subject-suggestions { max-height: 14rem; overflow-y: auto; }
-    #subject-suggestions button:hover { background: #fdf6f0; }
+    #subject-suggestions {
+        min-width: min(36rem, calc(100vw - 2.5rem));
+        width: max(100%, 28rem);
+        max-height: 18rem;
+        overflow-y: auto;
+        box-shadow: 0 10px 28px rgba(92, 46, 31, 0.14);
+    }
+    #subject-suggestions .subject-suggestion-btn {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        width: 100%;
+        text-align: left;
+        padding: 0.65rem 0.9rem;
+        border-bottom: 1px solid #f5e6d8;
+        transition: background-color 0.15s ease;
+    }
+    #subject-suggestions .subject-suggestion-btn:last-child { border-bottom: 0; }
+    #subject-suggestions .subject-suggestion-btn:hover,
+    #subject-suggestions .subject-suggestion-btn:focus {
+        background: #fdf6f0;
+        outline: none;
+    }
+    #subject-suggestions .subject-suggestion-code {
+        flex: 0 0 auto;
+        min-width: 5.5rem;
+        font-weight: 700;
+        color: #5C2E1F;
+        font-size: 0.875rem;
+        line-height: 1.35;
+    }
+    #subject-suggestions .subject-suggestion-name {
+        flex: 1 1 auto;
+        color: #4b5563;
+        font-size: 0.875rem;
+        line-height: 1.45;
+        word-break: break-word;
+    }
     #eva-hint-popover { display: none; z-index: 9999; }
     #eva-hint-popover.is-visible { display: block; }
     #eva-hint-popover img { max-width: min(100vw - 2rem, 420px); height: auto; border-radius: 0.5rem; border: 1px solid #e8cdb5; box-shadow: 0 8px 24px rgba(92,46,31,.18); background: #fff; }
@@ -63,7 +99,7 @@
                             <input id="subject-code" type="text" maxlength="20" autocomplete="off"
                                 class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white" placeholder="รหัสวิชา">
                             <div id="subject-suggestions"
-                                class="absolute left-0 right-0 top-full mt-1 z-30 hidden bg-white border border-amber-300 rounded-lg shadow-lg text-sm min-w-[14rem]"></div>
+                                class="absolute left-0 top-full mt-1.5 z-40 hidden bg-white border border-amber-300 rounded-lg"></div>
                         </div>
                         <div class="md:col-span-7">
                             <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">ชื่อวิชา *</label>
@@ -101,7 +137,7 @@
                             </select>
                         </div>
                         <div id="program-field" class="hidden">
-                            <label for="programid" class="block text-sm font-medium mb-1 text-[#5C2E1F]">หลักสูตร</label>
+                            <label for="programid" class="block text-sm font-medium mb-1 text-[#5C2E1F]">หลักสูตร <span class="text-red-600">*</span></label>
                             <select id="programid" class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
                                 <option value="">— เลือกหลักสูตร —</option>
                                 @foreach ($programs as $program)
@@ -113,12 +149,12 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">อาจารย์ผู้สอน</label>
-                            <input id="teacher-input" type="text" readonly
+                            <label for="teacher-input" class="block text-sm font-medium mb-1 text-[#5C2E1F]">อาจารย์ผู้สอน</label>
+                            <input id="teacher-input" type="text"
                                 data-default-teacher="{{ $staffDisplayName }}"
-                                class="w-full border border-amber-200 rounded px-3 py-2 text-sm bg-gray-50 text-gray-800"
-                                value="{{ $staffDisplayName }}">
-                            <p class="text-xs text-[#7A4A3A]/80 mt-1">แสดงจากข้อมูลบุคลากรในระบบ (คำนำหน้าชื่อ ชื่อ-นามสกุล)</p>
+                                class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white"
+                                value="{{ $staffDisplayName }}" placeholder="ชื่ออาจารย์ผู้สอน">
+                            <p class="text-xs text-[#7A4A3A]/80 mt-1">ดึงชื่อจากข้อมูลบุคลากรเป็นค่าเริ่มต้น — สามารถแก้ไขหรือเพิ่มชื่ออาจารย์ผู้สอนได้</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">วันที่บันทึก</label>
@@ -225,15 +261,49 @@
                         </div>
                     </div>
 
-                    <div class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-5 space-y-5 shadow-sm">
-                        <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2 text-base border-b border-amber-200 pb-3">
-                            <i data-lucide="users" class="w-5 h-5 text-[#8B4513]"></i>
-                            กรอกจำนวนนักศึกษา
-                        </h3>
+                    <div id="section-std-form" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-5 space-y-5 shadow-sm">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-3">
+                            <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2 text-base">
+                                <i data-lucide="users" class="w-5 h-5 text-[#8B4513]"></i>
+                                กรอกจำนวนนักศึกษา
+                            </h3>
+                            <p id="section-form-hint" class="text-xs text-[#7A4A3A]/80"></p>
+                        </div>
+
+                        <div id="section-std-list-empty" class="rounded-lg border border-dashed border-amber-300 bg-white px-4 py-6 text-center text-sm text-[#7A4A3A]/80">
+                            ยังไม่มีข้อมูล Section — กรอกด้านล่างแล้วกด «บันทึก Section นี้»
+                        </div>
+
+                        <div id="section-std-list-wrap" class="hidden overflow-x-auto rounded-lg border border-amber-200 bg-white">
+                            <table class="w-full text-xs min-w-[900px]">
+                                <thead>
+                                    <tr class="bg-gradient-to-b from-[#fdf6f0] to-[#f5e6d8]">
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">ดำเนินการ</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">กลุ่ม</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">คณะ</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">รวม</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">A</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">B+</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">B</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">C+</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">C</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">D+</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">D</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">F</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">I</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">S</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">U</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">W</th>
+                                        <th id="section-list-eva-col" class="px-2 py-2 text-center border-b border-amber-200 hidden">คะแนนประเมิน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="section-std-list-body"></tbody>
+                            </table>
+                        </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">กลุ่ม (Section)</label>
+                                <label for="section-input" class="block text-sm font-medium mb-1 text-[#5C2E1F]">กลุ่ม (Section)</label>
                                 <select id="section-input" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                                     @for ($i = 1; $i <= 50; $i++)
                                         <option value="{{ $i }}">{{ $i }}</option>
@@ -320,6 +390,17 @@
                                 <p class="text-xs text-[#7A4A3A]/80 mt-1">ไม่เกิน 5 คะแนน — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
                             </div>
                         </div>
+
+                        <div class="flex flex-wrap gap-2 pt-2 border-t border-amber-200">
+                            <button type="button" id="btn-save-section"
+                                class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
+                                บันทึก Section นี้
+                            </button>
+                            <button type="button" id="btn-cancel-section-edit"
+                                class="hidden px-4 py-2 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50">
+                                ยกเลิกแก้ไข
+                            </button>
+                        </div>
                     </div>
 
                     <div class="flex gap-3 pt-2">
@@ -366,6 +447,10 @@
                 showToast('กรุณากรอกรหัสวิชาและชื่อวิชา', 'error');
                 return;
             }
+            if (payload.selecttype === 1 && !payload.programid) {
+                showToast('กรุณาเลือกหลักสูตร (วิชาในหลักสูตร)', 'error');
+                return;
+            }
             if (payload.reasonid === 1 && !payload.reason) {
                 showToast('กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา', 'error');
                 return;
@@ -373,6 +458,10 @@
             const rangeError = validateGradeRanges();
             if (rangeError) {
                 showToast(rangeError, 'error');
+                return;
+            }
+            if (!payload.grade_stds?.length) {
+                showToast('กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section', 'error');
                 return;
             }
 
@@ -402,6 +491,7 @@
                     document.getElementById('teacher-input').value = teacherDefault;
                     initTempladeForm({ teacherHelpImageUrl });
                     resetJointGradeSubjects();
+                    resetSectionStdRows();
                     if (typeof renderFacTags === 'function') renderFacTags();
                     if (typeof updateGradeRangeColumnHeaders === 'function') updateGradeRangeColumnHeaders();
                 } else {

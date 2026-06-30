@@ -16,7 +16,10 @@
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(data.message || 'เกิดข้อผิดพลาด');
+            const validationMsg = data.errors
+                ? Object.values(data.errors).flat().join(' ')
+                : null;
+            throw new Error(validationMsg || data.message || 'เกิดข้อผิดพลาด');
         }
 
         return data;

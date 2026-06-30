@@ -3,32 +3,28 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GradeReport extends Model
 {
+    protected $connection = 'scigrad';
+
+    protected $table = 'grade_report';
+
+    protected $primaryKey = 'grade_id';
+
+    public $incrementing = true;
+
+    public $timestamps = false;
+
     protected $fillable = [
-        'user_id',
-        'report_date',
+        'created',
         'term',
         'year',
         'subject_code',
         'subject_code2',
         'subject',
-        'teacher',
-        'selecttype',
-        'degree',
-        'programid',
-        'type_course',
-        'mean',
-        'sd',
-        'reasonid',
-        'reason',
-        'statuseva',
-        'totalnumstdevz',
-        'totalevaluationscore',
-        'intflag',
+        'username',
         'score_a',
         'score_bb',
         'score_b',
@@ -37,40 +33,47 @@ class GradeReport extends Model
         'score_dd',
         'score_d',
         'score_f',
+        'mean',
+        'sd',
+        'reasonid',
+        'reason',
+        'teacher',
         'approv',
-        'rejection_reason',
+        'dateapprove1',
         'dateapprove2',
-        'dept_approved_at',
-        'faculty_approved_at',
-        'remark',
+        'type_course',
+        'programid',
+        'degree',
+        'selecttype',
+        'totalnumstdevz',
+        'totalevaluationscore',
+        'statuseva',
+        'intflag',
     ];
 
     protected function casts(): array
     {
         return [
-            'report_date' => 'date',
-            'mean' => 'decimal:2',
-            'sd' => 'decimal:2',
-            'totalevaluationscore' => 'decimal:2',
-            'dateapprove2' => 'datetime',
-            'dept_approved_at' => 'datetime',
-            'faculty_approved_at' => 'datetime',
+            'created' => 'date',
+            'approv' => 'integer',
+            'reasonid' => 'integer',
+            'degree' => 'integer',
+            'selecttype' => 'integer',
+            'statuseva' => 'integer',
+            'intflag' => 'integer',
+            'totalnumstdevz' => 'integer',
+            'totalevaluationscore' => 'float',
         ];
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function gradeStds(): HasMany
     {
-        return $this->hasMany(GradeStd::class);
+        return $this->hasMany(GradeStd::class, 'grade_id', 'grade_id');
     }
 
     public function statusLabel(): string
     {
-        return match ($this->approv) {
+        return match ((int) $this->approv) {
             1 => 'สาขาอนุมัติ',
             2 => 'คณะอนุมัติ',
             -1 => 'ส่งกลับแก้ไข',

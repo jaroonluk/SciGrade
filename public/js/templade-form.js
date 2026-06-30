@@ -56,11 +56,11 @@ function setupSubjectAutocomplete() {
             return;
         }
         list.innerHTML = items.map((item) => `
-            <button type="button" class="w-full text-left px-3 py-2 border-b border-amber-100 last:border-0 hover:bg-amber-50"
+            <button type="button" class="subject-suggestion-btn"
                 data-code="${item.subject_code.replace(/"/g, '&quot;')}"
                 data-name="${item.subject.replace(/"/g, '&quot;')}">
-                <span class="font-semibold text-[#5C2E1F]">${item.subject_code}</span>
-                <span class="text-gray-600"> — ${item.subject}</span>
+                <span class="subject-suggestion-code">${item.subject_code}</span>
+                <span class="subject-suggestion-name">${item.subject}</span>
             </button>
         `).join('');
         list.classList.remove('hidden');
@@ -504,6 +504,8 @@ function renderFacTags() {
             labelEl.classList.add('text-[#5C2E1F]');
         }
     }
+
+    refreshSectionSelectOptions();
 }
 
 function setFacultiesSelected(codes) {
@@ -598,6 +600,309 @@ function collectGradeStd() {
     };
 }
 
+let sectionStdRows = [];
+let editingSectionIndex = null;
+
+const TYPE_COURSE_SUFFIX = {
+    1: '',
+    2: '(โครงการพิเศษ)',
+    3: '(ก้าวหน้า)',
+    4: '(ปกติ นานาชาติ)',
+    5: '(โครงการพิเศษ นานาชาติ)',
+};
+
+function calcSectionTotalStd(row) {
+    const keys = ['num_a', 'num_bb', 'num_b', 'num_cc', 'num_c', 'num_dd', 'num_d', 'num_f', 'num_i', 'num_s', 'num_v', 'num_w', 'num_out'];
+    return keys.reduce((sum, key) => sum + (parseInt(row[key] || 0, 10) || 0), 0);
+}
+
+function normalizeSectionRow(row) {
+    const normalized = { ...row };
+    normalized.total_std = calcSectionTotalStd(normalized);
+    return normalized;
+}
+
+function validateSectionStdForm() {
+    const fac = Array.from(document.querySelectorAll('.fac-checkbox:checked'));
+    if (!fac.length) {
+        return 'กรุณาเลือกคณะก่อนบันทึก Section';
+    }
+    return null;
+}
+
+function getCurrentFacString() {
+    return Array.from(document.querySelectorAll('.fac-checkbox:checked')).map((c) => c.value).join(',');
+}
+
+function isSectionOptionUsed(sec, excludeIndex = null) {
+    const fac = getCurrentFacString();
+    return sectionStdRows.some((row, idx) => {
+        if (excludeIndex !== null && idx === excludeIndex) return false;
+        if (row.sec !== sec) return false;
+        if (!fac) return true;
+        return row.fac === fac;
+    });
+}
+
+function refreshSectionSelectOptions() {
+    const select = document.getElementById('section-input');
+    if (!select) return;
+
+    const excludeIndex = editingSectionIndex;
+    let firstAvailable = null;
+
+    Array.from(select.options).forEach((opt) => {
+        const sec = parseInt(opt.value, 10);
+        const used = isSectionOptionUsed(sec, excludeIndex);
+        opt.hidden = used;
+        opt.disabled = used;
+        if (!used && firstAvailable === null) {
+            firstAvailable = opt.value;
+        }
+    });
+
+    const selected = select.options[select.selectedIndex];
+    if (selected?.disabled && firstAvailable !== null) {
+        select.value = firstAvailable;
+    }
+}
+
+function clearGradeStdFormCounts() {
+    ['a', 'bp', 'b', 'cp', 'c', 'dp', 'd', 'f', 'i', 's', 'u', 'w'].forEach((key) => {
+        const el = document.getElementById(`count-${key}`);
+        if (el) el.value = '0';
+    });
+    const numstdevz = document.getElementById('numstdevz');
+    const evaluationscore = document.getElementById('evaluationscore');
+    if (numstdevz) numstdevz.value = '';
+    if (evaluationscore) evaluationscore.value = '';
+}
+
+function loadGradeStdToForm(row) {
+    if (!row) return;
+
+    document.getElementById('section-input').value = row.sec ?? 1;
+    setFacultiesSelected(row.fac || '');
+    setRadio('type_course', row.type_course ?? 1);
+
+    const map = {
+        'count-a': row.num_a,
+        'count-bp': row.num_bb,
+        'count-b': row.num_b,
+        'count-cp': row.num_cc,
+        'count-c': row.num_c,
+        'count-dp': row.num_dd,
+        'count-d': row.num_d,
+        'count-f': row.num_f,
+        'count-i': row.num_i,
+        'count-s': row.num_s,
+        'count-u': row.num_v,
+        'count-w': row.num_w,
+    };
+    Object.entries(map).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val ?? 0;
+    });
+
+    const numstdevz = document.getElementById('numstdevz');
+    const evaluationscore = document.getElementById('evaluationscore');
+    if (numstdevz) numstdevz.value = row.numstdevz ?? '';
+    if (evaluationscore) evaluationscore.value = row.evaluationscore ?? '';
+    refreshSectionSelectOptions();
+}
+
+function updateSectionFormHint() {
+    const hint = document.getElementById('section-form-hint');
+    if (!hint) return;
+    hint.textContent = editingSectionIndex !== null
+        ? `กำลังแก้ไข Section ${sectionStdRows[editingSectionIndex]?.sec ?? ''} — กด «บันทึก Section นี้» เพื่อยืนยัน`
+        : 'กรอกข้อมูล Section แล้วกด «บันทึก Section นี้» — Section ที่บันทึกแล้วจะไม่แสดงในรายการ';
+}
+
+function cancelSectionEdit() {
+    editingSectionIndex = null;
+    clearGradeStdFormCounts();
+    document.getElementById('section-input').value = '1';
+    document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
+    renderFacTags();
+    setRadio('type_course', 1);
+    updateSectionFormHint();
+    const cancelBtn = document.getElementById('btn-cancel-section-edit');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+    refreshSectionSelectOptions();
+}
+
+function addOrUpdateSectionFromForm() {
+    const error = validateSectionStdForm();
+    if (error) return { ok: false, error };
+
+    const row = normalizeSectionRow(collectGradeStd());
+    const duplicateIndex = sectionStdRows.findIndex((item, idx) => (
+        idx !== editingSectionIndex
+        && item.sec === row.sec
+        && item.fac === row.fac
+    ));
+    if (duplicateIndex !== -1) {
+        return { ok: false, error: `Section ${row.sec} คณะ ${row.fac} มีอยู่แล้ว` };
+    }
+
+    if (editingSectionIndex !== null) {
+        row.id = sectionStdRows[editingSectionIndex].id ?? null;
+        sectionStdRows[editingSectionIndex] = row;
+        editingSectionIndex = null;
+    } else {
+        sectionStdRows.push(row);
+    }
+
+    renderSectionStdList();
+    clearGradeStdFormCounts();
+    document.getElementById('section-input').value = '1';
+    document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
+    renderFacTags();
+    setRadio('type_course', 1);
+    updateSectionFormHint();
+    const cancelBtn = document.getElementById('btn-cancel-section-edit');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+
+    return { ok: true };
+}
+
+function editSectionStd(index) {
+    editingSectionIndex = index;
+    loadGradeStdToForm(sectionStdRows[index]);
+    updateSectionFormHint();
+    const cancelBtn = document.getElementById('btn-cancel-section-edit');
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    document.getElementById('section-std-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function removeSectionStd(index) {
+    sectionStdRows.splice(index, 1);
+    if (editingSectionIndex === index) {
+        cancelSectionEdit();
+    } else if (editingSectionIndex !== null && editingSectionIndex > index) {
+        editingSectionIndex -= 1;
+    }
+    renderSectionStdList();
+    updateSectionFormHint();
+}
+
+function resetSectionStdRows() {
+    sectionStdRows = [];
+    editingSectionIndex = null;
+    renderSectionStdList();
+    cancelSectionEdit();
+}
+
+function setSectionStdRows(rows) {
+    sectionStdRows = (rows || []).map((row) => normalizeSectionRow({
+        id: row.id ?? null,
+        sec: row.sec ?? 1,
+        fac: row.fac ?? '',
+        type_course: row.type_course ?? 1,
+        num_a: row.num_a ?? 0,
+        num_bb: row.num_bb ?? 0,
+        num_b: row.num_b ?? 0,
+        num_cc: row.num_cc ?? 0,
+        num_c: row.num_c ?? 0,
+        num_dd: row.num_dd ?? 0,
+        num_d: row.num_d ?? 0,
+        num_f: row.num_f ?? 0,
+        num_i: row.num_i ?? 0,
+        num_s: row.num_s ?? 0,
+        num_v: row.num_v ?? 0,
+        num_w: row.num_w ?? 0,
+        num_out: row.num_out ?? 0,
+        numstdevz: row.numstdevz ?? null,
+        evaluationscore: row.evaluationscore ?? null,
+    }));
+    editingSectionIndex = null;
+    renderSectionStdList();
+    updateSectionFormHint();
+}
+
+function renderSectionStdList() {
+    const tbody = document.getElementById('section-std-list-body');
+    const empty = document.getElementById('section-std-list-empty');
+    const wrap = document.getElementById('section-std-list-wrap');
+    if (!tbody) return;
+
+    if (!sectionStdRows.length) {
+        tbody.innerHTML = '';
+        empty?.classList.remove('hidden');
+        wrap?.classList.add('hidden');
+        return;
+    }
+
+    empty?.classList.add('hidden');
+    wrap?.classList.remove('hidden');
+
+    const statuseva = document.querySelector('input[name="statuseva"]:checked')?.value || '2';
+    const showEva = statuseva === '1';
+
+    tbody.innerHTML = sectionStdRows.map((row, index) => {
+        const facLabel = `${String(row.fac || '').toUpperCase()}${TYPE_COURSE_SUFFIX[row.type_course] || ''}`;
+        const evaCell = showEva
+            ? `<td class="px-2 py-2 text-center border-t border-amber-100">${row.evaluationscore ?? '—'}</td>`
+            : '';
+        return `
+            <tr class="${editingSectionIndex === index ? 'bg-amber-50' : ''}">
+                <td class="px-2 py-2 text-center border-t border-amber-100 whitespace-nowrap">
+                    <button type="button" class="text-[#8B4513] hover:underline text-xs section-edit-btn" data-index="${index}">แก้ไข</button>
+                    <button type="button" class="text-red-600 hover:underline text-xs ml-1 section-delete-btn" data-index="${index}">ลบ</button>
+                </td>
+                <td class="px-2 py-2 text-center border-t border-amber-100 font-semibold">${row.sec}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100 text-xs">${facLabel}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100 font-medium">${row.total_std}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_a}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_bb}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_b}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_cc}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_c}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_dd}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_d}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_f}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_i}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_s}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_v}</td>
+                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_w}</td>
+                ${evaCell}
+            </tr>
+        `;
+    }).join('');
+
+    tbody.querySelectorAll('.section-edit-btn').forEach((btn) => {
+        btn.addEventListener('click', () => editSectionStd(parseInt(btn.dataset.index, 10)));
+    });
+    tbody.querySelectorAll('.section-delete-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (confirm('คุณต้องการลบ Section นี้หรือไม่?')) {
+                removeSectionStd(parseInt(btn.dataset.index, 10));
+            }
+        });
+    });
+
+    const evaHeader = document.getElementById('section-list-eva-col');
+    if (evaHeader) evaHeader.classList.toggle('hidden', !showEva);
+
+    refreshSectionSelectOptions();
+}
+
+function setupSectionStdManager() {
+    document.getElementById('btn-save-section')?.addEventListener('click', () => {
+        const result = addOrUpdateSectionFromForm();
+        if (!result.ok) {
+            alert(result.error);
+            return;
+        }
+    });
+    document.getElementById('btn-cancel-section-edit')?.addEventListener('click', cancelSectionEdit);
+    document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
+        el.addEventListener('change', renderSectionStdList);
+    });
+    updateSectionFormHint();
+}
+
 function collectGradeReportPayload() {
     const { reasonid, reason } = buildReason();
     const selecttype = parseInt(document.getElementById('selecttype')?.value || '1', 10);
@@ -616,7 +921,7 @@ function collectGradeReportPayload() {
         degree: selecttype === 1
             ? parseInt(document.getElementById('degree')?.value || '3', 10)
             : 3,
-        programid: selecttype === 2
+        programid: selecttype === 1
             ? document.getElementById('programid')?.value?.trim() || null
             : null,
         type_course: parseInt(document.querySelector('input[name="type_course"]:checked')?.value || '1', 10),
@@ -647,7 +952,11 @@ function collectGradeReportPayload() {
         score_d: buildScoreRange('range-d-max', 'range-d-min'),
         score_f: buildScoreRange('range-f-max', 'range-f-min'),
         remark: null,
-        grade_std: collectGradeStd(),
+        grade_stds: sectionStdRows.map((row) => {
+            const payload = { ...row };
+            delete payload.total_std;
+            return payload;
+        }),
     };
 }
 
@@ -764,14 +1073,20 @@ function toggleSelecttypeFields() {
     const selecttype = document.getElementById('selecttype')?.value;
     const programField = document.getElementById('program-field');
     const degree = document.getElementById('degree');
+    const masterOpt = document.getElementById('degree-opt-master');
+    const phdOpt = document.getElementById('degree-opt-phd');
 
-    if (selecttype === '2') {
+    if (selecttype === '1') {
         programField?.classList.remove('hidden');
+        if (masterOpt) masterOpt.disabled = false;
+        if (phdOpt) phdOpt.disabled = false;
     } else {
         programField?.classList.add('hidden');
         const programSelect = document.getElementById('programid');
         if (programSelect) programSelect.value = '';
         if (degree) degree.value = '3';
+        if (masterOpt) masterOpt.disabled = true;
+        if (phdOpt) phdOpt.disabled = true;
     }
 }
 
@@ -782,6 +1097,7 @@ function toggleEvaFields() {
 
     if (reportEva) reportEva.classList.toggle('hidden', statuseva === '1');
     if (sectionEva) sectionEva.classList.toggle('hidden', statuseva === '2');
+    renderSectionStdList();
 }
 
 function parseScoreRange(value, maxId, minId) {
@@ -828,36 +1144,18 @@ function populateFormFromRecord(record) {
     parseScoreRange(record.score_f, 'range-f-max', 'range-f-min');
 
     const std = record.grade_std || {};
-    document.getElementById('section-input').value = std.sec ?? record.section ?? 1;
-    if (std.fac || record.fac) {
-        setFacultiesSelected(std.fac || record.fac);
+    if (Array.isArray(record.grade_stds) && record.grade_stds.length) {
+        setSectionStdRows(record.grade_stds);
+    } else if (std.sec || std.fac) {
+        setSectionStdRows([std]);
+    } else {
+        resetSectionStdRows();
     }
-
-    const counts = {
-        'count-a': std.num_a ?? record.count_a,
-        'count-bp': std.num_bb ?? record.count_bp,
-        'count-b': std.num_b ?? record.count_b,
-        'count-cp': std.num_cc ?? record.count_cp,
-        'count-c': std.num_c ?? record.count_c,
-        'count-dp': std.num_dd ?? record.count_dp,
-        'count-d': std.num_d ?? record.count_d,
-        'count-f': std.num_f ?? record.count_f,
-        'count-i': std.num_i ?? record.count_i,
-        'count-s': std.num_s ?? record.count_s,
-        'count-u': std.num_v ?? record.count_u,
-        'count-w': std.num_w ?? record.count_w,
-    };
-    Object.entries(counts).forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if (el && val != null) el.value = val;
-    });
 
     if (record.mean != null) document.getElementById('mean-score').value = formatDecimal2(record.mean);
     if (record.sd != null) document.getElementById('sd-score').value = formatDecimal2(record.sd);
     if (record.totalnumstdevz != null) document.getElementById('totalnumstdevz').value = record.totalnumstdevz;
     if (record.totalevaluationscore != null) document.getElementById('totalevaluationscore').value = record.totalevaluationscore;
-    if (std.numstdevz != null) document.getElementById('numstdevz').value = std.numstdevz;
-    if (std.evaluationscore != null) document.getElementById('evaluationscore').value = std.evaluationscore;
 
     if (record.reasonid) {
         setRadio('reasonid', record.reasonid);
@@ -893,6 +1191,7 @@ function initTempladeForm(options = {}) {
         setupSubjectAutocomplete();
         setupJointGradeSubjectSearch();
         setupReasonIdFields();
+        setupSectionStdManager();
         setupFacMultiSelect();
         document.getElementById('selecttype')?.addEventListener('change', toggleSelecttypeFields);
         document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
@@ -908,4 +1207,7 @@ function initTempladeForm(options = {}) {
     updateGradeRangeColumnHeaders();
     renderFacTags();
     updateReasonFieldsState();
+    renderSectionStdList();
+    updateSectionFormHint();
+    refreshSectionSelectOptions();
 }
