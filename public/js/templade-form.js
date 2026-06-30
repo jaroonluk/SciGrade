@@ -1,3 +1,159 @@
+function formatDecimal2(value) {
+    if (value === '' || value == null) return '';
+    const num = parseFloat(String(value).replace(/,/g, ''));
+    if (Number.isNaN(num)) return '';
+    return num.toFixed(2);
+}
+
+function setupScoreDecimalInputs() {
+    document.querySelectorAll('.score-decimal-input').forEach((input) => {
+        input.addEventListener('input', () => {
+            const parts = input.value.replace(/[^\d.]/g, '').split('.');
+            if (parts.length > 2) {
+                input.value = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (parts[1]?.length > 2) {
+                input.value = parts[0] + '.' + parts[1].slice(0, 2);
+            }
+        });
+        input.addEventListener('blur', () => {
+            if (input.value.trim() !== '') {
+                input.value = formatDecimal2(input.value);
+            }
+        });
+    });
+}
+
+function setupSubjectAutocomplete() {
+    const input = document.getElementById('subject-code');
+    const list = document.getElementById('subject-suggestions');
+    const nameInput = document.getElementById('subject-name');
+    if (!input || !list || !nameInput) return;
+
+    let timer = null;
+
+    const hideList = () => {
+        list.classList.add('hidden');
+        list.innerHTML = '';
+    };
+
+    const selectSubject = (code, name) => {
+        input.value = code;
+        nameInput.value = name;
+        hideList();
+    };
+
+    const render = (items) => {
+        if (!items.length) {
+            hideList();
+            return;
+        }
+        list.innerHTML = items.map((item) => `
+            <button type="button" class="w-full text-left px-3 py-2 border-b border-amber-100 last:border-0 hover:bg-amber-50"
+                data-code="${item.subject_code.replace(/"/g, '&quot;')}"
+                data-name="${item.subject.replace(/"/g, '&quot;')}">
+                <span class="font-semibold text-[#5C2E1F]">${item.subject_code}</span>
+                <span class="text-gray-600"> — ${item.subject}</span>
+            </button>
+        `).join('');
+        list.classList.remove('hidden');
+        list.querySelectorAll('button').forEach((btn) => {
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                selectSubject(btn.dataset.code, btn.dataset.name);
+            });
+        });
+    };
+
+    const search = async (q) => {
+        if (q.length < 1) {
+            hideList();
+            return;
+        }
+        try {
+            const res = await fetch(`/api/subjects/search?q=${encodeURIComponent(q)}`, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            render(await res.json());
+        } catch {
+            hideList();
+        }
+    };
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => search(input.value.trim()), 250);
+    });
+
+    input.addEventListener('focus', () => {
+        if (input.value.trim()) search(input.value.trim());
+    });
+
+    input.addEventListener('blur', () => setTimeout(hideList, 150));
+
+    document.addEventListener('click', (e) => {
+        if (!list.contains(e.target) && e.target !== input) hideList();
+    });
+}
+
+let evaHintHideTimer = null;
+
+function setupEvaHintPopover(imageUrl) {
+    const popover = document.getElementById('eva-hint-popover');
+    if (!popover || !imageUrl) return;
+
+    const img = popover.querySelector('img');
+    if (img && img.src !== imageUrl) {
+        img.src = imageUrl;
+    }
+
+    if (popover.parentElement !== document.body) {
+        document.body.appendChild(popover);
+    }
+
+    if (popover.dataset.evaHintBound === '1') return;
+    popover.dataset.evaHintBound = '1';
+
+    const showNear = (el) => {
+        if (el.closest('.hidden')) return;
+
+        clearTimeout(evaHintHideTimer);
+        const rect = el.getBoundingClientRect();
+        const popW = 440;
+        let left = rect.left;
+        if (left + popW > window.innerWidth - 16) {
+            left = window.innerWidth - popW - 16;
+        }
+        let top = rect.bottom + 8;
+        const popH = img?.offsetHeight || 280;
+        if (top + popH > window.innerHeight - 16) {
+            top = Math.max(16, rect.top - popH - 8);
+        }
+        popover.style.left = `${Math.max(16, left)}px`;
+        popover.style.top = `${top}px`;
+        popover.classList.add('is-visible');
+    };
+
+    const scheduleHide = () => {
+        clearTimeout(evaHintHideTimer);
+        evaHintHideTimer = setTimeout(() => {
+            const active = document.activeElement;
+            if (active?.classList.contains('eva-hint-field')) return;
+            popover.classList.remove('is-visible');
+        }, 200);
+    };
+
+    document.addEventListener('focusin', (e) => {
+        if (e.target.matches?.('.eva-hint-field')) showNear(e.target);
+    });
+    document.addEventListener('focusout', (e) => {
+        if (e.target.matches?.('.eva-hint-field')) scheduleHide();
+    });
+    document.addEventListener('mousedown', (e) => {
+        if (e.target.matches?.('.eva-hint-field')) showNear(e.target);
+    });
+}
+
 function buildScoreRange(maxId, minId) {
     const max = document.getElementById(maxId)?.value?.trim();
     const min = document.getElementById(minId)?.value?.trim();
@@ -45,16 +201,108 @@ function setupGradeRangeInputs() {
     });
 }
 
+function updateGradeBoundaryHint() {
+    const el = document.getElementById('grade-boundary-hint');
+    if (!el) return;
+    el.textContent = isDecimalMode()
+        ? 'กรุณากรอกเฉพาะขอบเขตล่างของช่วงคะแนน เป็นจำนวนทศนิยม เท่านั้น!!'
+        : 'กรุณากรอกเฉพาะขอบเขตล่างของช่วงคะแนน เป็นเลขจำนวนเต็ม เท่านั้น!!';
+}
+
+function getDisplayedRange(key) {
+    const max = document.getElementById(`range-${key}-max`)?.value?.trim();
+    const min = document.getElementById(`range-${key}-min`)?.value?.trim();
+    if (max && min) return `${max} – ${min}`;
+    if (max || min) return `${max || '?'} – ${min || '?'}`;
+    return '—';
+}
+
+function updateGradeRangeColumnHeaders() {
+    GRADE_RANGE_KEYS.forEach((key) => {
+        const cell = document.querySelector(`.grade-range-col[data-grade="${key}"]`);
+        if (cell) cell.textContent = getDisplayedRange(key);
+    });
+}
+
+function renderFacTags() {
+    const tagsEl = document.getElementById('fac-selected-tags');
+    const labelEl = document.getElementById('fac-dropdown-label');
+    const checked = Array.from(document.querySelectorAll('.fac-checkbox:checked'));
+
+    if (tagsEl) {
+        tagsEl.innerHTML = checked.map((cb) => `
+            <span class="fac-tag inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs">
+                ${cb.value}
+                <button type="button" class="fac-tag-remove text-gray-400 hover:text-red-600" data-code="${cb.value}">×</button>
+            </span>
+        `).join('');
+        tagsEl.querySelectorAll('.fac-tag-remove').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const box = document.querySelector(`.fac-checkbox[value="${btn.dataset.code}"]`);
+                if (box) box.checked = false;
+                renderFacTags();
+            });
+        });
+    }
+
+    if (labelEl) {
+        if (!checked.length) {
+            labelEl.textContent = '— เลือกคณะ —';
+            labelEl.classList.add('text-gray-500');
+        } else {
+            labelEl.textContent = `เลือกแล้ว ${checked.length} คณะ`;
+            labelEl.classList.remove('text-gray-500');
+            labelEl.classList.add('text-[#5C2E1F]');
+        }
+    }
+}
+
+function setFacultiesSelected(codes) {
+    const set = new Set((codes || '').split(',').map((c) => c.trim()).filter(Boolean));
+    document.querySelectorAll('.fac-checkbox').forEach((cb) => {
+        cb.checked = set.has(cb.value);
+    });
+    renderFacTags();
+}
+
+function setupFacMultiSelect() {
+    const btn = document.getElementById('fac-dropdown-btn');
+    const panel = document.getElementById('fac-dropdown-panel');
+    if (!btn || !panel) return;
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.classList.toggle('hidden');
+    });
+
+    panel.addEventListener('click', (e) => e.stopPropagation());
+
+    document.querySelectorAll('.fac-checkbox').forEach((cb) => {
+        cb.addEventListener('change', renderFacTags);
+    });
+
+    document.addEventListener('click', () => panel.classList.add('hidden'));
+
+    renderFacTags();
+}
+
 function setupIntflagMode() {
     document.querySelectorAll('input[name="intflag"]').forEach((radio) => {
         radio.addEventListener('change', () => {
+            const maxA = document.getElementById('range-a-max');
+            if (maxA) maxA.value = defaultAMaxValue();
             document.querySelectorAll('.grade-range-input').forEach((input) => {
                 if (!input.readOnly && input.value !== '') {
                     applyGradeRangeFormat(input);
                 }
             });
+            recalcAllGradeChains();
+            updateGradeBoundaryHint();
+            updateGradeRangeColumnHeaders();
         });
     });
+    updateGradeBoundaryHint();
 }
 
 function buildReason() {
@@ -75,10 +323,7 @@ function buildReason() {
 
 function collectGradeStd() {
     const statuseva = parseInt(document.querySelector('input[name="statuseva"]:checked')?.value || '2', 10);
-    const facSelect = document.getElementById('fac-select');
-    const fac = facSelect
-        ? Array.from(facSelect.selectedOptions).map(o => o.value).join(',')
-        : '';
+    const fac = Array.from(document.querySelectorAll('.fac-checkbox:checked')).map((c) => c.value).join(',');
 
     return {
         sec: parseInt(document.getElementById('section-input')?.value || '1', 10),
@@ -124,10 +369,18 @@ function collectGradeReportPayload() {
         degree: selecttype === 1
             ? parseInt(document.getElementById('degree')?.value || '3', 10)
             : 3,
-        programid: selecttype === 1 ? document.getElementById('programid')?.value?.trim() || null : null,
+        programid: selecttype === 2
+            ? document.getElementById('programid')?.value?.trim() || null
+            : null,
         type_course: parseInt(document.querySelector('input[name="type_course"]:checked')?.value || '1', 10),
-        mean: document.getElementById('mean-score')?.value || null,
-        sd: document.getElementById('sd-score')?.value || null,
+        mean: (() => {
+            const v = document.getElementById('mean-score')?.value?.trim();
+            return v ? formatDecimal2(v) : null;
+        })(),
+        sd: (() => {
+            const v = document.getElementById('sd-score')?.value?.trim();
+            return v ? formatDecimal2(v) : null;
+        })(),
         reasonid,
         reason,
         statuseva,
@@ -146,35 +399,133 @@ function collectGradeReportPayload() {
         score_dd: buildScoreRange('range-dp-max', 'range-dp-min'),
         score_d: buildScoreRange('range-d-max', 'range-d-min'),
         score_f: buildScoreRange('range-f-max', 'range-f-min'),
-        remark: document.getElementById('remark-input')?.value?.trim() || null,
+        remark: null,
         grade_std: collectGradeStd(),
     };
 }
 
+const GRADE_RANGE_KEYS = ['a', 'bp', 'b', 'cp', 'c', 'dp', 'd', 'f'];
+const GRADE_RANGE_LABELS = { a: 'A', bp: 'B+', b: 'B', cp: 'C+', c: 'C', dp: 'D+', d: 'D', f: 'F' };
+
+function defaultAMaxValue() {
+    return isDecimalMode() ? '100.00' : '100';
+}
+
+function chainGradeFromMin(gradeKey) {
+    const idx = GRADE_RANGE_KEYS.indexOf(gradeKey);
+    if (idx < 0) return;
+
+    const minEl = document.getElementById(`range-${gradeKey}-min`);
+    const minRaw = minEl?.value?.trim() ?? '';
+    const minVal = parseFloat(minRaw);
+    const decimal = isDecimalMode();
+
+    if (gradeKey === 'a' && minRaw !== '') {
+        const maxA = document.getElementById('range-a-max');
+        if (maxA) maxA.value = defaultAMaxValue();
+    }
+
+    const nextKey = GRADE_RANGE_KEYS[idx + 1];
+    if (!nextKey) return;
+
+    const nextMax = document.getElementById(`range-${nextKey}-max`);
+    if (!nextMax) return;
+
+    if (minRaw === '' || Number.isNaN(minVal)) {
+        if (minRaw.length > 0 && idx > 0) {
+            const prevMin = parseFloat(document.getElementById(`range-${GRADE_RANGE_KEYS[idx - 1]}-min`)?.value);
+            if (!Number.isNaN(prevMin)) {
+                nextMax.value = decimal ? (prevMin - 0.01).toFixed(2) : String(Math.round(prevMin - 1));
+            }
+        } else {
+            nextMax.value = '';
+        }
+        return;
+    }
+
+    if (minVal > 0 || gradeKey === 'f') {
+        nextMax.value = decimal ? (minVal - 0.01).toFixed(2) : String(Math.round(minVal - 1));
+    }
+    updateGradeRangeColumnHeaders();
+}
+
+function recalcAllGradeChains() {
+    GRADE_RANGE_KEYS.forEach((key) => chainGradeFromMin(key));
+}
+
+function parseRangeInput(id) {
+    const raw = document.getElementById(id)?.value?.trim();
+    if (raw === '') return null;
+    const num = parseFloat(String(raw).replace(/,/g, ''));
+    return Number.isNaN(num) ? null : num;
+}
+
+function isGradeRangeFilled(key) {
+    const max = document.getElementById(`range-${key}-max`)?.value?.trim();
+    const min = document.getElementById(`range-${key}-min`)?.value?.trim();
+    return Boolean(max && min);
+}
+
+function validateGradeRanges() {
+    for (const key of GRADE_RANGE_KEYS) {
+        const max = parseRangeInput(`range-${key}-max`);
+        const min = parseRangeInput(`range-${key}-min`);
+        if (max !== null && min !== null && max < min) {
+            return `ช่วงคะแนนเกรด ${GRADE_RANGE_LABELS[key]}: ค่าสูงสุดต้องมากกว่าหรือเท่ากับค่าต่ำสุด`;
+        }
+    }
+
+    for (let i = GRADE_RANGE_KEYS.length - 1; i >= 0; i--) {
+        const key = GRADE_RANGE_KEYS[i];
+        if (isGradeRangeFilled(key)) {
+            for (let j = 0; j < i; j++) {
+                if (!isGradeRangeFilled(GRADE_RANGE_KEYS[j])) {
+                    return `กรุณากรอกช่วงคะแนนให้ครบถึงเกรด ${GRADE_RANGE_LABELS[GRADE_RANGE_KEYS[j]]} ด้วย`;
+                }
+            }
+            break;
+        }
+    }
+
+    return null;
+}
+
 function chainGradeRanges() {
-    const grades = ['a', 'bp', 'b', 'cp', 'c', 'dp', 'd', 'f'];
-    grades.forEach((g, i) => {
-        const minEl = document.getElementById(`range-${g}-min`);
+    GRADE_RANGE_KEYS.forEach((key) => {
+        const minEl = document.getElementById(`range-${key}-min`);
         if (!minEl) return;
+        minEl.addEventListener('input', () => chainGradeFromMin(key));
         minEl.addEventListener('change', () => {
             applyGradeRangeFormat(minEl);
-            const next = grades[i + 1];
-            if (!next) return;
-            const nextMax = document.getElementById(`range-${next}-max`);
-            if (nextMax && !nextMax.readOnly) {
-                nextMax.value = minEl.value;
-            }
+            chainGradeFromMin(key);
+        });
+    });
+
+    document.querySelectorAll('.grade-range-clear').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const key = btn.dataset.grade;
+            const maxEl = document.getElementById(`range-${key}-max`);
+            const minEl = document.getElementById(`range-${key}-min`);
+            if (maxEl) maxEl.value = key === 'a' ? defaultAMaxValue() : '';
+            if (minEl) minEl.value = '';
+            updateGradeRangeColumnHeaders();
         });
     });
 }
 
 function toggleSelecttypeFields() {
     const selecttype = document.getElementById('selecttype')?.value;
-    const curriculum = document.getElementById('curriculum-fields');
-    const service = document.getElementById('service-degree-field');
+    const programField = document.getElementById('program-field');
+    const degree = document.getElementById('degree');
 
-    if (curriculum) curriculum.classList.toggle('hidden', selecttype !== '1');
-    if (service) service.classList.toggle('hidden', selecttype !== '2');
+    if (selecttype === '2') {
+        programField?.classList.remove('hidden');
+    } else {
+        programField?.classList.add('hidden');
+        const programSelect = document.getElementById('programid');
+        if (programSelect) programSelect.value = '';
+        if (degree) degree.value = '3';
+    }
 }
 
 function toggleEvaFields() {
@@ -209,7 +560,10 @@ function populateFormFromRecord(record) {
     setRadio('term', record.term ?? 1);
     if (record.year) document.getElementById('year-input').value = record.year;
     if (record.degree) document.getElementById('degree').value = record.degree;
-    if (record.programid) document.getElementById('programid').value = record.programid;
+    if (record.programid) {
+        const programSelect = document.getElementById('programid');
+        if (programSelect) programSelect.value = String(record.programid);
+    }
     document.getElementById('teacher-input').value = record.teacher || '';
     if (record.report_date) document.getElementById('report-date').value = record.report_date;
 
@@ -229,13 +583,7 @@ function populateFormFromRecord(record) {
     const std = record.grade_std || {};
     document.getElementById('section-input').value = std.sec ?? record.section ?? 1;
     if (std.fac || record.fac) {
-        const facSelect = document.getElementById('fac-select');
-        const facVal = std.fac || record.fac;
-        if (facSelect) {
-            Array.from(facSelect.options).forEach((o) => {
-                o.selected = facVal.split(',').includes(o.value);
-            });
-        }
+        setFacultiesSelected(std.fac || record.fac);
     }
 
     const counts = {
@@ -257,27 +605,40 @@ function populateFormFromRecord(record) {
         if (el && val != null) el.value = val;
     });
 
-    if (record.mean != null) document.getElementById('mean-score').value = record.mean;
-    if (record.sd != null) document.getElementById('sd-score').value = record.sd;
+    if (record.mean != null) document.getElementById('mean-score').value = formatDecimal2(record.mean);
+    if (record.sd != null) document.getElementById('sd-score').value = formatDecimal2(record.sd);
     if (record.totalnumstdevz != null) document.getElementById('totalnumstdevz').value = record.totalnumstdevz;
     if (record.totalevaluationscore != null) document.getElementById('totalevaluationscore').value = record.totalevaluationscore;
     if (std.numstdevz != null) document.getElementById('numstdevz').value = std.numstdevz;
     if (std.evaluationscore != null) document.getElementById('evaluationscore').value = std.evaluationscore;
-    if (record.remark) document.getElementById('remark-input').value = record.remark;
 
     toggleSelecttypeFields();
     toggleEvaFields();
+    updateGradeBoundaryHint();
+    updateGradeRangeColumnHeaders();
 }
 
-function initTempladeForm() {
-    chainGradeRanges();
-    setupGradeRangeInputs();
-    setupIntflagMode();
+let templadeFormBootstrapped = false;
+
+function initTempladeForm(options = {}) {
+    if (!templadeFormBootstrapped) {
+        chainGradeRanges();
+        setupGradeRangeInputs();
+        setupIntflagMode();
+        setupScoreDecimalInputs();
+        setupSubjectAutocomplete();
+        setupFacMultiSelect();
+        document.getElementById('selecttype')?.addEventListener('change', toggleSelecttypeFields);
+        document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
+            el.addEventListener('change', toggleEvaFields);
+        });
+        templadeFormBootstrapped = true;
+    }
+
+    setupEvaHintPopover(options.teacherHelpImageUrl);
     toggleSelecttypeFields();
     toggleEvaFields();
-
-    document.getElementById('selecttype')?.addEventListener('change', toggleSelecttypeFields);
-    document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
-        el.addEventListener('change', toggleEvaFields);
-    });
+    updateGradeBoundaryHint();
+    updateGradeRangeColumnHeaders();
+    renderFacTags();
 }

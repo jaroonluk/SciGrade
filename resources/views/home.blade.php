@@ -36,8 +36,8 @@
         <div class="grid sm:grid-cols-2 gap-4">
             <a href="{{ route('grade-reports.create') }}" class="menu-card rounded-xl p-5 block">
                 <div class="flex items-start gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
-                        <i data-lucide="edit-3" class="w-5 h-5"></i>
+                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513] shrink-0">
+                        <i data-lucide="file-text" class="w-5 h-5"></i>
                     </div>
                     <div>
                         <p class="font-semibold text-[#5C2E1F]">กรอกผลสอบ</p>

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
+use App\Models\TblProgramQa;
+use App\Services\StaffAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -10,9 +12,41 @@ use Illuminate\View\View;
 
 class GradeReportPageController extends Controller
 {
+    public function __construct(
+        private readonly StaffAuthService $staffAuth,
+    ) {}
+
+    private function formView(?int $reportId): View
+    {
+        $deptId = session('staff_department_id');
+        if ($deptId === null && auth()->user()) {
+            $staff = $this->staffAuth->findByEmail(auth()->user()->email);
+            if ($staff) {
+                $this->staffAuth->storeInSession($staff);
+                $deptId = (int) $staff->department_id;
+            }
+        }
+
+        $teacherHelpImageUrl = file_exists(public_path('images/teacher2.png'))
+            ? asset('images/teacher2.png')
+            : (Storage::disk('public')->exists('teacher2.png')
+                ? asset('storage/teacher2.png')
+                : 'https://e.sc.kku.ac.th/sci-eoffice/teacher/images2/teacher2.png');
+
+        return view('templade', [
+            'reportId' => $reportId,
+            'staffDisplayName' => $this->staffAuth->displayNameFor(
+                auth()->user()->email,
+                auth()->user()->name,
+            ),
+            'teacherHelpImageUrl' => $teacherHelpImageUrl,
+            'programs' => TblProgramQa::forDepartment($deptId),
+        ]);
+    }
+
     public function create(): View
     {
-        return view('templade', ['reportId' => null]);
+        return $this->formView(null);
     }
 
     public function edit(GradeReport $gradeReport): View
@@ -20,7 +54,7 @@ class GradeReportPageController extends Controller
         abort_if($gradeReport->user_id !== auth()->id(), 403);
         abort_if($gradeReport->approv > 0, 403, 'ไม่สามารถแก้ไขรายการที่อนุมัติแล้ว');
 
-        return view('templade', ['reportId' => $gradeReport->id]);
+        return $this->formView($gradeReport->id);
     }
 
     public function upload(): View

@@ -23,5 +23,6 @@ fi
 php artisan migrate --force --no-interaction || true
 
 php artisan config:clear --no-interaction 2>/dev/null || true
+php artisan storage:link --force --no-interaction 2>/dev/null || true
 
 exec "$@"

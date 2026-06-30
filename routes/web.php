@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\SubjectController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -36,6 +37,8 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
+
+    Route::get('/api/subjects/search', [SubjectController::class, 'search']);
 
     Route::get('/api/grade-reports', [GradeReportController::class, 'index']);
     Route::get('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'show']);
