@@ -24,6 +24,13 @@ function setupScoreDecimalInputs() {
     });
 }
 
+async function fetchSubjectSuggestions(q) {
+    const res = await fetch(`/api/subjects/search?q=${encodeURIComponent(q)}`, {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    return res.json();
+}
+
 function setupSubjectAutocomplete() {
     const input = document.getElementById('subject-code');
     const list = document.getElementById('subject-suggestions');
@@ -71,10 +78,7 @@ function setupSubjectAutocomplete() {
             return;
         }
         try {
-            const res = await fetch(`/api/subjects/search?q=${encodeURIComponent(q)}`, {
-                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            });
-            render(await res.json());
+            render(await fetchSubjectSuggestions(q));
         } catch {
             hideList();
         }
@@ -94,6 +98,250 @@ function setupSubjectAutocomplete() {
     document.addEventListener('click', (e) => {
         if (!list.contains(e.target) && e.target !== input) hideList();
     });
+}
+
+let jointGradeSubjects = [];
+
+function parseJointGradeReason(reason) {
+    if (!reason) return [];
+
+    const prefixes = ['ตัดเกรดร่วมกับ :', 'ตัดเกรดร่วมกับ:', 'ซ้อนวิชากับ :', 'ซ้อนวิชากับ:'];
+    let rest = String(reason).trim();
+    for (const prefix of prefixes) {
+        if (rest.startsWith(prefix)) {
+            rest = rest.slice(prefix.length).trim();
+            break;
+        }
+    }
+
+    return rest.split(',').map((pair) => {
+        const trimmed = pair.trim();
+        if (!trimmed) return null;
+        const pipeIdx = trimmed.indexOf('|');
+        if (pipeIdx === -1) {
+            return { code: trimmed, name: '' };
+        }
+        return {
+            code: trimmed.slice(0, pipeIdx).trim(),
+            name: trimmed.slice(pipeIdx + 1).trim(),
+        };
+    }).filter((item) => item && item.code);
+}
+
+function serializeJointGradeReason(subjects) {
+    if (!subjects.length) return null;
+    return `ตัดเกรดร่วมกับ :${subjects.map((s) => `${s.code}|${s.name}`).join(',')}`;
+}
+
+function setJointGradeSubjects(subjects) {
+    jointGradeSubjects = subjects.filter((s) => s.code);
+    renderJointGradeTags();
+}
+
+async function enrichJointGradeSubjectNames(subjects) {
+    const enriched = await Promise.all(subjects.map(async (s) => {
+        if (s.name) return s;
+        try {
+            const items = await fetchSubjectSuggestions(s.code);
+            const match = items.find((item) => item.subject_code === s.code);
+            return match ? { code: s.code, name: match.subject } : s;
+        } catch {
+            return s;
+        }
+    }));
+    return enriched;
+}
+
+function resetJointGradeSubjects() {
+    jointGradeSubjects = [];
+    renderJointGradeTags();
+    const search = document.getElementById('joint-subject-search');
+    if (search) search.value = '';
+}
+
+function addJointGradeSubject(code, name) {
+    const normalized = String(code).trim().replace(/\s+/g, '');
+    if (!normalized) return false;
+    if (jointGradeSubjects.some((s) => s.code === normalized)) return false;
+
+    jointGradeSubjects.push({ code: normalized, name: String(name || '').trim() });
+    renderJointGradeTags();
+    return true;
+}
+
+async function commitJointGradeSubjectInput(rawCode) {
+    const code = String(rawCode).trim().replace(/\s+/g, '');
+    if (!code) return false;
+
+    const radio = document.querySelector('input[name="reasonid"][value="1"]');
+    if (radio) radio.checked = true;
+    updateReasonFieldsState();
+
+    if (jointGradeSubjects.some((s) => s.code === code)) return false;
+
+    let name = '';
+    try {
+        const items = await fetchSubjectSuggestions(code);
+        const exact = items.find((item) => item.subject_code === code);
+        if (exact) name = exact.subject;
+    } catch {
+        /* allow manual code without name */
+    }
+
+    return addJointGradeSubject(code, name);
+}
+
+function removeJointGradeSubject(code) {
+    jointGradeSubjects = jointGradeSubjects.filter((s) => s.code !== code);
+    renderJointGradeTags();
+}
+
+function renderJointGradeTags() {
+    const tagsEl = document.getElementById('joint-subject-tags');
+    if (!tagsEl) return;
+
+    if (!jointGradeSubjects.length) {
+        tagsEl.innerHTML = '';
+        return;
+    }
+
+    tagsEl.innerHTML = jointGradeSubjects.map((s) => `
+        <span class="joint-subject-tag inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs max-w-full">
+            <span class="font-semibold shrink-0">${s.code}</span>
+            ${s.name ? `<span class="text-gray-600 truncate">— ${s.name}</span>` : ''}
+            <button type="button" class="joint-subject-remove text-gray-400 hover:text-red-600 shrink-0" data-code="${s.code}" title="ลบ">×</button>
+        </span>
+    `).join('');
+
+    tagsEl.querySelectorAll('.joint-subject-remove').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            removeJointGradeSubject(btn.dataset.code);
+        });
+    });
+}
+
+function updateReasonFieldsState() {
+    const isJoint = document.querySelector('input[name="reasonid"]:checked')?.value === '1';
+    const search = document.getElementById('joint-subject-search');
+    const panel = document.getElementById('joint-grade-panel');
+    if (search) search.disabled = !isJoint;
+    if (panel) panel.classList.toggle('opacity-50', !isJoint);
+}
+
+function setupJointGradeSubjectSearch() {
+    const input = document.getElementById('joint-subject-search');
+    const list = document.getElementById('joint-subject-suggestions');
+    if (!input || !list) return;
+
+    let timer = null;
+
+    const hideList = () => {
+        list.classList.add('hidden');
+        list.innerHTML = '';
+    };
+
+    const selectFromList = async (code, name) => {
+        const radio = document.querySelector('input[name="reasonid"][value="1"]');
+        if (radio) radio.checked = true;
+        updateReasonFieldsState();
+        if (addJointGradeSubject(code, name)) {
+            input.value = '';
+        }
+        hideList();
+    };
+
+    const bindListButtons = () => {
+        list.querySelectorAll('[data-joint-code]').forEach((btn) => {
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                selectFromList(btn.dataset.jointCode, btn.dataset.jointName || '');
+            });
+        });
+        list.querySelectorAll('.joint-subject-manual').forEach((btn) => {
+            btn.addEventListener('mousedown', async (e) => {
+                e.preventDefault();
+                if (await commitJointGradeSubjectInput(btn.dataset.jointCode || input.value)) {
+                    input.value = '';
+                }
+                hideList();
+            });
+        });
+    };
+
+    const render = (items, q) => {
+        const query = String(q || '').trim().replace(/\s+/g, '');
+        if (!query) {
+            hideList();
+            return;
+        }
+
+        const hasExact = items.some((item) => item.subject_code === query);
+        let html = items.map((item) => `
+            <button type="button" class="w-full text-left px-3 py-2 border-b border-amber-100 hover:bg-amber-50"
+                data-joint-code="${item.subject_code.replace(/"/g, '&quot;')}"
+                data-joint-name="${item.subject.replace(/"/g, '&quot;')}">
+                <span class="font-semibold text-[#5C2E1F]">${item.subject_code}</span>
+                <span class="text-gray-600"> — ${item.subject}</span>
+            </button>
+        `).join('');
+
+        if (!items.length || !hasExact) {
+            const label = items.length
+                ? `ใช้รหัส <span class="font-semibold">${query}</span> ที่กรอกเอง`
+                : `เพิ่มรหัสวิชา <span class="font-semibold">${query}</span> (ไม่มีในฐานข้อมูล)`;
+            html += `<button type="button" class="joint-subject-manual w-full text-left px-3 py-2 border-t border-amber-200 text-[#5C2E1F] hover:bg-amber-50"
+                data-joint-code="${query.replace(/"/g, '&quot;')}">${label}</button>`;
+        }
+
+        list.innerHTML = html;
+        list.classList.remove('hidden');
+        bindListButtons();
+    };
+
+    const search = async (q) => {
+        const query = q.trim();
+        if (query.length < 1) {
+            hideList();
+            return;
+        }
+        try {
+            render(await fetchSubjectSuggestions(query), query);
+        } catch {
+            render([], query);
+        }
+    };
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => search(input.value.trim()), 250);
+    });
+
+    input.addEventListener('focus', () => {
+        if (!input.disabled && input.value.trim()) search(input.value.trim());
+    });
+
+    input.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        if (await commitJointGradeSubjectInput(input.value)) {
+            input.value = '';
+        }
+        hideList();
+    });
+
+    input.addEventListener('blur', () => setTimeout(hideList, 150));
+
+    document.addEventListener('click', (e) => {
+        if (!list.contains(e.target) && e.target !== input) hideList();
+    });
+}
+
+function setupReasonIdFields() {
+    document.querySelectorAll('input[name="reasonid"]').forEach((radio) => {
+        radio.addEventListener('change', updateReasonFieldsState);
+    });
+    updateReasonFieldsState();
 }
 
 let evaHintHideTimer = null;
@@ -308,8 +556,7 @@ function setupIntflagMode() {
 function buildReason() {
     const reasonid = parseInt(document.querySelector('input[name="reasonid"]:checked')?.value || '0', 10);
     if (reasonid === 1) {
-        const code = document.getElementById('std-i1')?.value?.trim();
-        return { reasonid, reason: code ? `ซ้อนวิชากับ :${code}` : null };
+        return { reasonid, reason: serializeJointGradeReason(jointGradeSubjects) };
     }
     if (reasonid === 2) {
         const text = document.getElementById('std-i2')?.value?.trim();
@@ -612,6 +859,23 @@ function populateFormFromRecord(record) {
     if (std.numstdevz != null) document.getElementById('numstdevz').value = std.numstdevz;
     if (std.evaluationscore != null) document.getElementById('evaluationscore').value = std.evaluationscore;
 
+    if (record.reasonid) {
+        setRadio('reasonid', record.reasonid);
+        if (record.reasonid === 1 && record.reason) {
+            const subjects = parseJointGradeReason(record.reason);
+            setJointGradeSubjects(subjects);
+            enrichJointGradeSubjectNames(subjects).then(setJointGradeSubjects);
+        } else if (record.reasonid === 2 && record.reason) {
+            const match = String(record.reason).match(/ได้ I เนื่องจาก\s*:?\s*(.*)/);
+            const el = document.getElementById('std-i2');
+            if (el) el.value = match?.[1]?.trim() || record.reason;
+        } else if (record.reasonid === 3 && record.reason) {
+            const el = document.getElementById('std-i3');
+            if (el) el.value = record.reason;
+        }
+    }
+    updateReasonFieldsState();
+
     toggleSelecttypeFields();
     toggleEvaFields();
     updateGradeBoundaryHint();
@@ -627,6 +891,8 @@ function initTempladeForm(options = {}) {
         setupIntflagMode();
         setupScoreDecimalInputs();
         setupSubjectAutocomplete();
+        setupJointGradeSubjectSearch();
+        setupReasonIdFields();
         setupFacMultiSelect();
         document.getElementById('selecttype')?.addEventListener('change', toggleSelecttypeFields);
         document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
@@ -641,4 +907,5 @@ function initTempladeForm(options = {}) {
     updateGradeBoundaryHint();
     updateGradeRangeColumnHeaders();
     renderFacTags();
+    updateReasonFieldsState();
 }

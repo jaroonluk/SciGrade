@@ -21,6 +21,9 @@
     #grade-boundary-hint { color: #92400e; font-weight: 500; }
     .fac-dropdown-panel { max-height: 16rem; overflow-y: auto; }
     .fac-tag { background: #FAF0E6; border: 1px solid #E8C4B8; color: #5C2E1F; }
+    .joint-subject-tag { background: #FAF0E6; border: 1px solid #E8C4B8; color: #5C2E1F; }
+    #joint-subject-suggestions { max-height: 14rem; overflow-y: auto; }
+    #joint-subject-suggestions button:hover { background: #fdf6f0; }
     #student-grade-table th { background: linear-gradient(180deg, #fdf6f0 0%, #f5e6d8 100%); }
     #student-grade-table .grade-range-col { font-size: 0.65rem; line-height: 1.2; color: #8B4513; font-weight: 500; }
     #student-grade-table input[type=number] { min-width: 3rem; }
@@ -138,9 +141,23 @@
                         </div>
                     </div>
 
-                    <div class="bg-white border border-amber-200 rounded-lg p-4 space-y-2">
+                    <div class="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
                         <p class="text-sm font-semibold text-[#5C2E1F]">หมายเหตุ</p>
-                        <label class="flex items-center gap-2 text-sm"><input type="radio" name="reasonid" value="1" class="accent-amber-700"> ซ้อนวิชากับ <input id="std-i1" type="text" maxlength="8" class="border border-amber-200 rounded px-2 py-1 text-sm flex-1" placeholder="รหัสวิชา"></label>
+                        <label class="flex items-start gap-2 text-sm">
+                            <input type="radio" name="reasonid" value="1" class="accent-amber-700 mt-1 shrink-0">
+                            <div class="flex-1 min-w-0">
+                                <span class="text-[#5C2E1F]">ตัดเกรดร่วมกับ</span>
+                                <div id="joint-grade-panel" class="mt-2 relative">
+                                    <input id="joint-subject-search" type="text" maxlength="20" autocomplete="off"
+                                        class="w-full border border-amber-200 rounded px-2 py-1.5 text-sm bg-white"
+                                        placeholder="พิมพ์รหัสวิชา — เลือกจากรายการ หรือกด Enter เพื่อเพิ่มเอง">
+                                    <div id="joint-subject-suggestions"
+                                        class="absolute left-0 right-0 top-full mt-1 z-30 hidden bg-white border border-amber-300 rounded-lg shadow-lg text-sm min-w-[16rem]"></div>
+                                    <div id="joint-subject-tags" class="flex flex-wrap gap-1.5 mt-2"></div>
+                                    <p class="text-xs text-[#7A4A3A]/70 mt-1">เลือกจากรายการเพื่อแสดงชื่อวิชา — หากไม่มีในฐานข้อมูล กด Enter หรือเลือก «กรอกเอง» เพื่อเพิ่มรหัสวิชา</p>
+                                </div>
+                            </div>
+                        </label>
                         <label class="flex items-center gap-2 text-sm"><input type="radio" name="reasonid" value="2" class="accent-amber-700"> ได้ I เนื่องจาก <input id="std-i2" type="text" class="border border-amber-200 rounded px-2 py-1 text-sm flex-1"></label>
                         <label class="flex items-center gap-2 text-sm"><input type="radio" name="reasonid" value="3" class="accent-amber-700"> อื่นๆ <input id="std-i3" type="text" class="border border-amber-200 rounded px-2 py-1 text-sm flex-1"></label>
                     </div>
@@ -349,6 +366,10 @@
                 showToast('กรุณากรอกรหัสวิชาและชื่อวิชา', 'error');
                 return;
             }
+            if (payload.reasonid === 1 && !payload.reason) {
+                showToast('กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา', 'error');
+                return;
+            }
             const rangeError = validateGradeRanges();
             if (rangeError) {
                 showToast(rangeError, 'error');
@@ -380,6 +401,7 @@
                     document.getElementById('range-a-max').value = '100';
                     document.getElementById('teacher-input').value = teacherDefault;
                     initTempladeForm({ teacherHelpImageUrl });
+                    resetJointGradeSubjects();
                     if (typeof renderFacTags === 'function') renderFacTags();
                     if (typeof updateGradeRangeColumnHeaders === 'function') updateGradeRangeColumnHeaders();
                 } else {
