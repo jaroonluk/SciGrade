@@ -26,6 +26,15 @@ class GradeReportController extends Controller
         return response()->json($query->get()->map(fn (GradeReport $r) => $this->formatReport($r)));
     }
 
+    public function show(Request $request, GradeReport $gradeReport): JsonResponse
+    {
+        if ($request->input('role', 'instructor') === 'instructor') {
+            abort_if($gradeReport->user_id !== $request->user()->id, 403);
+        }
+
+        return response()->json($this->formatReport($gradeReport->load('gradeStds')));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateReport($request);
@@ -71,6 +80,11 @@ class GradeReportController extends Controller
         unset($data['grade_std']);
 
         DB::transaction(function () use ($gradeReport, $data, $stdData) {
+            if ($gradeReport->approv === -1) {
+                $data['approv'] = 0;
+                $data['rejection_reason'] = null;
+            }
+
             $gradeReport->update($data);
 
             if ($stdData) {

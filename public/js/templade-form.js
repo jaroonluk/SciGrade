@@ -186,6 +186,89 @@ function toggleEvaFields() {
     if (sectionEva) sectionEva.classList.toggle('hidden', statuseva === '2');
 }
 
+function parseScoreRange(value, maxId, minId) {
+    if (!value) return;
+    const parts = String(value).split('-');
+    const maxEl = document.getElementById(maxId);
+    const minEl = document.getElementById(minId);
+    if (maxEl && parts[0]) maxEl.value = parts[0];
+    if (minEl && parts[1]) minEl.value = parts[1];
+}
+
+function setRadio(name, value) {
+    const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+    if (el) el.checked = true;
+}
+
+function populateFormFromRecord(record) {
+    if (!record) return;
+
+    document.getElementById('selecttype').value = String(record.selecttype ?? 1);
+    document.getElementById('subject-code').value = record.subject_code || '';
+    document.getElementById('subject-name').value = record.subject || '';
+    setRadio('term', record.term ?? 1);
+    if (record.year) document.getElementById('year-input').value = record.year;
+    if (record.degree) document.getElementById('degree').value = record.degree;
+    if (record.programid) document.getElementById('programid').value = record.programid;
+    document.getElementById('teacher-input').value = record.teacher || '';
+    if (record.report_date) document.getElementById('report-date').value = record.report_date;
+
+    setRadio('intflag', record.intflag ?? 0);
+    setRadio('statuseva', record.statuseva ?? 2);
+    setRadio('type_course', record.type_course ?? record.grade_std?.type_course ?? 1);
+
+    parseScoreRange(record.score_a, 'range-a-max', 'range-a-min');
+    parseScoreRange(record.score_bb, 'range-bp-max', 'range-bp-min');
+    parseScoreRange(record.score_b, 'range-b-max', 'range-b-min');
+    parseScoreRange(record.score_cc, 'range-cp-max', 'range-cp-min');
+    parseScoreRange(record.score_c, 'range-c-max', 'range-c-min');
+    parseScoreRange(record.score_dd, 'range-dp-max', 'range-dp-min');
+    parseScoreRange(record.score_d, 'range-d-max', 'range-d-min');
+    parseScoreRange(record.score_f, 'range-f-max', 'range-f-min');
+
+    const std = record.grade_std || {};
+    document.getElementById('section-input').value = std.sec ?? record.section ?? 1;
+    if (std.fac || record.fac) {
+        const facSelect = document.getElementById('fac-select');
+        const facVal = std.fac || record.fac;
+        if (facSelect) {
+            Array.from(facSelect.options).forEach((o) => {
+                o.selected = facVal.split(',').includes(o.value);
+            });
+        }
+    }
+
+    const counts = {
+        'count-a': std.num_a ?? record.count_a,
+        'count-bp': std.num_bb ?? record.count_bp,
+        'count-b': std.num_b ?? record.count_b,
+        'count-cp': std.num_cc ?? record.count_cp,
+        'count-c': std.num_c ?? record.count_c,
+        'count-dp': std.num_dd ?? record.count_dp,
+        'count-d': std.num_d ?? record.count_d,
+        'count-f': std.num_f ?? record.count_f,
+        'count-i': std.num_i ?? record.count_i,
+        'count-s': std.num_s ?? record.count_s,
+        'count-u': std.num_v ?? record.count_u,
+        'count-w': std.num_w ?? record.count_w,
+    };
+    Object.entries(counts).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el && val != null) el.value = val;
+    });
+
+    if (record.mean != null) document.getElementById('mean-score').value = record.mean;
+    if (record.sd != null) document.getElementById('sd-score').value = record.sd;
+    if (record.totalnumstdevz != null) document.getElementById('totalnumstdevz').value = record.totalnumstdevz;
+    if (record.totalevaluationscore != null) document.getElementById('totalevaluationscore').value = record.totalevaluationscore;
+    if (std.numstdevz != null) document.getElementById('numstdevz').value = std.numstdevz;
+    if (std.evaluationscore != null) document.getElementById('evaluationscore').value = std.evaluationscore;
+    if (record.remark) document.getElementById('remark-input').value = record.remark;
+
+    toggleSelecttypeFields();
+    toggleEvaFields();
+}
+
 function initTempladeForm() {
     chainGradeRanges();
     setupGradeRangeInputs();

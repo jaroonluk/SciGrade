@@ -3,6 +3,22 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+if (! function_exists('scigrad_db_host')) {
+    /**
+     * ใน Docker 127.0.0.1 ชี้ไปที่ container เอง — ต้องใช้ host.docker.internal เพื่อเข้า MySQL บนเครื่อง host (XAMPP)
+     */
+    function scigrad_db_host(): string
+    {
+        $host = env('SCIGRAD_DB_HOST', '127.0.0.1');
+
+        if (in_array($host, ['127.0.0.1', 'localhost'], true) && file_exists('/.dockerenv')) {
+            return 'host.docker.internal';
+        }
+
+        return $host;
+    }
+}
+
 return [
 
     /*
@@ -62,6 +78,21 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+        ],
+
+        'scigrad' => [
+            'driver' => 'mysql',
+            'host' => scigrad_db_host(),
+            'port' => env('SCIGRAD_DB_PORT', '3306'),
+            'database' => env('SCIGRAD_DB_DATABASE', 'scigraddb'),
+            'username' => env('SCIGRAD_DB_USERNAME', 'root'),
+            'password' => env('SCIGRAD_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
         ],
 
         'mariadb' => [

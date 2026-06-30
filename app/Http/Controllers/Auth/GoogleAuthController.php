@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\StaffAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
@@ -11,6 +12,10 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse
 
 class GoogleAuthController extends Controller
 {
+    public function __construct(
+        private readonly StaffAuthService $staffAuth,
+    ) {}
+
     public function redirect(): SymfonyRedirectResponse|RedirectResponse
     {
         return Socialite::driver('google')->redirect();
@@ -26,10 +31,19 @@ class GoogleAuthController extends Controller
             ]);
         }
 
+        $email = $googleUser->getEmail();
+        $staff = $this->staffAuth->findByEmail($email);
+
+        if (! $staff) {
+            return redirect()->route('login')->withErrors([
+                'email' => StaffAuthService::ACCESS_DENIED_MESSAGE,
+            ]);
+        }
+
         $user = User::query()->updateOrCreate(
-            ['email' => $googleUser->getEmail()],
+            ['email' => $email],
             [
-                'name' => $googleUser->getName(),
+                'name' => $staff->displayName(),
                 'google_id' => $googleUser->getId(),
                 'avatar' => $googleUser->getAvatar(),
                 'email_verified_at' => now(),
@@ -39,12 +53,16 @@ class GoogleAuthController extends Controller
 
         Auth::login($user, remember: true);
 
+        $this->staffAuth->storeInSession($staff);
+
         return redirect()->intended(route('dashboard'));
     }
 
     public function logout(): RedirectResponse
     {
         Auth::logout();
+
+        $this->staffAuth->clearSession();
 
         request()->session()->invalidate();
         request()->session()->regenerateToken();
