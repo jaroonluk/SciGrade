@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
 use App\Models\GradeStd;
+use App\Services\GradReport2Service;
 use App\Services\StaffAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,7 @@ class GradeReportController extends Controller
 {
     public function __construct(
         private readonly StaffAuthService $staffAuth,
+        private readonly GradReport2Service $gradReport2,
     ) {}
     public function index(Request $request): JsonResponse
     {
@@ -47,6 +49,8 @@ class GradeReportController extends Controller
             $stds = $data['grade_stds'];
             unset($data['grade_stds'], $data['grade_std']);
 
+            $data = $this->applyGradReport2Rules($data);
+
             $report = GradeReport::query()->create(
                 $this->prepareReportAttributes($data, $request, isCreate: true)
             );
@@ -79,6 +83,8 @@ class GradeReportController extends Controller
             if ((int) $gradeReport->approv === -1) {
                 $data['approv'] = 0;
             }
+
+            $data = $this->applyGradReport2Rules($data);
 
             $gradeReport->update($this->prepareReportAttributes($data, $request, isCreate: false));
 
@@ -161,6 +167,42 @@ class GradeReportController extends Controller
         return $report->username === $this->staffUsername();
     }
 
+    /**
+     * เงื่อนไขจาก project_old/grade_add_new.php — checksubject() + checksubjectID()
+     */
+    private function applyGradReport2Rules(array $data): array
+    {
+        $subjectCode = $this->gradReport2->normalizeSubjectCode($data['subject_code'] ?? '');
+        $data['subject_code'] = $subjectCode;
+
+        $jointCodes = array_values(array_filter(
+            array_map(
+                fn ($code) => $this->gradReport2->normalizeSubjectCode((string) $code),
+                $data['joint_subject_codes'] ?? [],
+            ),
+        ));
+
+        if ($jointCodes === [] && (int) ($data['reasonid'] ?? 0) === 1 && ! empty($data['reason'])) {
+            $jointCodes = $this->gradReport2->parseJointCodesFromReason($data['reason']);
+        }
+
+        $firstJoint = $jointCodes[0] ?? null;
+        $data['subject_code2'] = $this->gradReport2->resolveSubjectCode2($subjectCode, $firstJoint);
+
+        if ((int) ($data['reasonid'] ?? 0) === 1 && $jointCodes !== []) {
+            $this->gradReport2->syncJointGradeSubjects(
+                $subjectCode,
+                (string) ($data['subject'] ?? ''),
+                $this->staffUsername(),
+                $jointCodes,
+            );
+        }
+
+        unset($data['joint_subject_codes']);
+
+        return $data;
+    }
+
     private function prepareReportAttributes(array $data, Request $request, bool $isCreate): array
     {
         $attributes = [
@@ -223,6 +265,8 @@ class GradeReportController extends Controller
             'sd' => ['nullable', 'numeric'],
             'reasonid' => ['nullable', 'integer', 'in:1,2,3'],
             'reason' => ['nullable', 'string', 'max:150'],
+            'joint_subject_codes' => ['nullable', 'array'],
+            'joint_subject_codes.*' => ['string', 'max:50'],
             'statuseva' => ['nullable', 'integer', 'in:1,2'],
             'totalnumstdevz' => ['nullable', 'integer', 'min:0'],
             'totalevaluationscore' => ['nullable', 'numeric', 'min:0', 'max:5'],

@@ -63,6 +63,36 @@
     #student-grade-table th { background: linear-gradient(180deg, #fdf6f0 0%, #f5e6d8 100%); }
     #student-grade-table .grade-range-col { font-size: 0.65rem; line-height: 1.2; color: #8B4513; font-weight: 500; }
     #student-grade-table input[type=number] { min-width: 3rem; }
+
+    /* หน้าจอประมวลผลขณะบันทึก — ตัวอักษรใหญ่ อ่านง่าย */
+    #save-overlay { font-family: 'Noto Sans Thai', sans-serif; }
+    #save-overlay .save-overlay-card {
+        animation: saveOverlayIn 0.25s ease-out;
+    }
+    @keyframes saveOverlayIn {
+        from { opacity: 0; transform: scale(0.96) translateY(8px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes saveSpinner {
+        to { transform: rotate(360deg); }
+    }
+    .save-spinner {
+        width: 4.5rem;
+        height: 4.5rem;
+        border: 5px solid #f5e6d8;
+        border-top-color: #8B4513;
+        border-radius: 50%;
+        animation: saveSpinner 0.85s linear infinite;
+        margin: 0 auto;
+    }
+    @keyframes saveSuccessPop {
+        0% { transform: scale(0.5); opacity: 0; }
+        60% { transform: scale(1.08); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .save-success-icon {
+        animation: saveSuccessPop 0.45s ease-out;
+    }
 </style>
 @endpush
 
@@ -151,9 +181,9 @@
                         <div>
                             <label for="teacher-input" class="block text-sm font-medium mb-1 text-[#5C2E1F]">อาจารย์ผู้สอน</label>
                             <input id="teacher-input" type="text"
-                                data-default-teacher="{{ $staffDisplayName }}"
+                                data-default-teacher="{{ $staffTeacherName }}"
                                 class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white"
-                                value="{{ $staffDisplayName }}" placeholder="ชื่ออาจารย์ผู้สอน">
+                                value="{{ $staffTeacherName }}" placeholder="ชื่ออาจารย์ผู้สอน">
                             <p class="text-xs text-[#7A4A3A]/80 mt-1">ดึงชื่อจากข้อมูลบุคลากรเป็นค่าเริ่มต้น — สามารถแก้ไขหรือเพิ่มชื่ออาจารย์ผู้สอนได้</p>
                         </div>
                         <div>
@@ -407,11 +437,52 @@
                         <button type="submit" id="btn-submit" class="px-6 py-2.5 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800">
                             <i data-lucide="send" class="w-4 h-4 inline mr-1"></i>{{ isset($reportId) ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล' }}
                         </button>
-                        <a href="{{ route('grade-reports.my') }}" class="px-6 py-2.5 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50 inline-flex items-center">ยกเลิก</a>
+                        <a id="btn-cancel" href="{{ route('grade-reports.my') }}" class="px-6 py-2.5 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50 inline-flex items-center">ยกเลิก</a>
                     </div>
                 </form>
             </div>
         </section>
+
+    <div id="save-overlay" class="hidden fixed inset-0 z-[100] no-print" role="dialog" aria-modal="true" aria-labelledby="save-overlay-title">
+        <div class="absolute inset-0 bg-[#3d2418]/70 backdrop-blur-[2px]"></div>
+        <div class="relative z-10 min-h-full flex items-center justify-center p-4 sm:p-6">
+            <div class="save-overlay-card bg-white rounded-2xl shadow-2xl max-w-xl w-full p-8 sm:p-10 text-center border-4 border-amber-300">
+
+                <div id="save-overlay-loading">
+                    <div class="save-spinner mb-6" aria-hidden="true"></div>
+                    <h2 id="save-overlay-title" class="text-2xl sm:text-3xl font-bold text-[#5C2E1F] mb-3">
+                        กำลังบันทึกข้อมูล...
+                    </h2>
+                    <p class="text-lg sm:text-xl text-[#7A4A3A] leading-relaxed">
+                        ระบบกำลังบันทึกแบบรายงานผลการสอบไล่<br>
+                        <strong class="text-[#8B4513]">กรุณารอสักครู่</strong> และ<strong class="text-red-700">อย่าปิดหน้านี้</strong>
+                    </p>
+                    <p class="mt-4 text-base text-gray-500">อาจใช้เวลา 5–15 วินาที</p>
+                </div>
+
+                <div id="save-overlay-success" class="hidden">
+                    <div class="save-success-icon w-20 h-20 mx-auto mb-5 rounded-full bg-green-100 flex items-center justify-center">
+                        <i data-lucide="check-circle" class="w-14 h-14 text-green-700"></i>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-green-800 mb-3">บันทึกข้อมูลเรียบร้อยแล้ว</h2>
+                    <p id="save-overlay-success-msg" class="text-lg sm:text-xl text-[#5C2E1F] leading-relaxed"></p>
+                    <p class="mt-4 text-base text-gray-500">ระบบจะดำเนินการต่อให้อัตโนมัติ...</p>
+                </div>
+
+                <div id="save-overlay-error" class="hidden">
+                    <div class="w-20 h-20 mx-auto mb-5 rounded-full bg-red-100 flex items-center justify-center">
+                        <i data-lucide="alert-circle" class="w-14 h-14 text-red-700"></i>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-red-800 mb-3">บันทึกไม่สำเร็จ</h2>
+                    <p id="save-overlay-error-msg" class="text-lg sm:text-xl text-[#5C2E1F] leading-relaxed mb-6"></p>
+                    <button type="button" id="save-overlay-error-close"
+                        class="px-8 py-3 bg-[#8B4513] text-white text-lg font-semibold rounded-xl hover:bg-[#6d3610] min-w-[10rem]">
+                        ตกลง
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-lg shadow-lg text-sm font-medium hidden no-print z-50"></div>
 @endsection
@@ -466,26 +537,41 @@
             }
 
             const btn = document.getElementById('btn-submit');
+            const cancelLink = document.getElementById('btn-cancel');
+            const form = document.getElementById('grade-form');
             btn.disabled = true;
-            btn.textContent = 'กำลังบันทึก...';
+            if (cancelLink) cancelLink.classList.add('pointer-events-none', 'opacity-40');
+            form.querySelectorAll('input, select, textarea, button').forEach((el) => {
+                if (el !== btn) el.disabled = true;
+            });
+
+            showSaveProcessing(reportId ? 'update' : 'create');
 
             let result;
-            if (reportId) {
-                payload.__backendId = String(reportId);
-                result = await window.dataSdk.update(payload);
-            } else {
-                result = await window.dataSdk.create(payload);
+            try {
+                if (reportId) {
+                    payload.__backendId = String(reportId);
+                    result = await window.dataSdk.update(payload);
+                } else {
+                    result = await window.dataSdk.create(payload);
+                }
+            } catch (err) {
+                result = { isOk: false, error: err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ' };
             }
 
-            btn.disabled = false;
-            btn.innerHTML = `<i data-lucide="send" class="w-4 h-4 inline mr-1"></i>${reportId ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล'}`;
-            lucide.createIcons();
-
             if (result.isOk) {
-                showToast(reportId ? 'บันทึกการแก้ไขเรียบร้อย' : 'บันทึกแบบรายงานผลการสอบเรียบร้อย');
+                const successMsg = reportId
+                    ? 'แก้ไขแบบรายงานผลการสอบไล่ของท่านเรียบร้อยแล้ว'
+                    : 'บันทึกแบบรายงานผลการสอบไล่ของท่านเรียบร้อยแล้ว';
+                showSaveSuccess(successMsg);
+                await new Promise((r) => setTimeout(r, reportId ? 2200 : 2800));
+
+                hideSaveOverlay();
+                restoreFormAfterSave(btn, form, cancelLink);
+
                 if (!reportId) {
                     const teacherDefault = document.getElementById('teacher-input')?.dataset.defaultTeacher || '';
-                    document.getElementById('grade-form').reset();
+                    form.reset();
                     document.getElementById('report-date').value = new Date().toISOString().slice(0, 10);
                     document.getElementById('range-a-max').value = '100';
                     document.getElementById('teacher-input').value = teacherDefault;
@@ -495,12 +581,57 @@
                     if (typeof renderFacTags === 'function') renderFacTags();
                     if (typeof updateGradeRangeColumnHeaders === 'function') updateGradeRangeColumnHeaders();
                 } else {
-                    setTimeout(() => { window.location.href = '{{ route('grade-reports.my') }}'; }, 1200);
+                    window.location.href = '{{ route('grade-reports.my') }}';
                 }
             } else {
-                showToast(result.error || 'เกิดข้อผิดพลาด', 'error');
+                showSaveError(result.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+                restoreFormAfterSave(btn, form, cancelLink);
             }
         });
+
+        function restoreFormAfterSave(btn, form, cancelLink) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="send" class="w-4 h-4 inline mr-1"></i>${reportId ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล'}`;
+            if (cancelLink) cancelLink.classList.remove('pointer-events-none', 'opacity-40');
+            form.querySelectorAll('input, select, textarea, button').forEach((el) => {
+                el.disabled = false;
+            });
+            lucide.createIcons();
+        }
+
+        function showSaveProcessing(mode) {
+            const overlay = document.getElementById('save-overlay');
+            document.getElementById('save-overlay-loading').classList.remove('hidden');
+            document.getElementById('save-overlay-success').classList.add('hidden');
+            document.getElementById('save-overlay-error').classList.add('hidden');
+            document.getElementById('save-overlay-title').textContent =
+                mode === 'update' ? 'กำลังบันทึกการแก้ไข...' : 'กำลังบันทึกข้อมูล...';
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function showSaveSuccess(message) {
+            document.getElementById('save-overlay-loading').classList.add('hidden');
+            document.getElementById('save-overlay-error').classList.add('hidden');
+            document.getElementById('save-overlay-success-msg').textContent = message;
+            document.getElementById('save-overlay-success').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function showSaveError(message) {
+            document.getElementById('save-overlay-loading').classList.add('hidden');
+            document.getElementById('save-overlay-success').classList.add('hidden');
+            document.getElementById('save-overlay-error-msg').textContent = message;
+            document.getElementById('save-overlay-error').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function hideSaveOverlay() {
+            document.getElementById('save-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        document.getElementById('save-overlay-error-close')?.addEventListener('click', hideSaveOverlay);
 
         function showToast(msg, type='success') {
             const t = document.getElementById('toast');

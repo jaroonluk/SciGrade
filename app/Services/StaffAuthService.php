@@ -18,13 +18,14 @@ class StaffAuthService
         session([
             'staff_username' => $staff->username,
             'staff_display_name' => $staff->displayName(),
+            'staff_teacher_name' => $staff->teacherName(),
             'staff_department_id' => (int) $staff->department_id,
         ]);
     }
 
     public function clearSession(): void
     {
-        session()->forget(['staff_username', 'staff_display_name', 'staff_department_id']);
+        session()->forget(['staff_username', 'staff_display_name', 'staff_teacher_name', 'staff_department_id']);
     }
 
     public function displayNameFor(?string $email, ?string $fallback = null): string
@@ -37,6 +38,21 @@ class StaffAuthService
             $this->storeInSession($staff);
 
             return $staff->displayName();
+        }
+
+        return $fallback ?? '';
+    }
+
+    public function teacherNameFor(?string $email, ?string $fallback = null): string
+    {
+        if ($name = session('staff_teacher_name')) {
+            return $name;
+        }
+
+        if ($email && ($staff = $this->findByEmail($email))) {
+            $this->storeInSession($staff);
+
+            return $staff->teacherName();
         }
 
         return $fallback ?? '';

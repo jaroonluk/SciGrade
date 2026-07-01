@@ -935,6 +935,7 @@ function collectGradeReportPayload() {
         })(),
         reasonid,
         reason,
+        joint_subject_codes: jointGradeSubjects.map((row) => row.code),
         statuseva,
         totalnumstdevz: statuseva === 2 && document.getElementById('totalnumstdevz')?.value
             ? parseInt(document.getElementById('totalnumstdevz').value, 10)

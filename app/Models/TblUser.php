@@ -42,4 +42,9 @@ class TblUser extends Model
 
         return trim(trim($prefix).' '.$this->fname.' '.$this->lname);
     }
+
+    public function teacherName(): string
+    {
+        return trim($this->fname.' '.$this->lname);
+    }
 }

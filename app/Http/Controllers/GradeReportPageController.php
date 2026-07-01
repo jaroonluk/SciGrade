@@ -39,6 +39,10 @@ class GradeReportPageController extends Controller
                 auth()->user()->email,
                 auth()->user()->name,
             ),
+            'staffTeacherName' => $this->staffAuth->teacherNameFor(
+                auth()->user()->email,
+                auth()->user()->name,
+            ),
             'teacherHelpImageUrl' => $teacherHelpImageUrl,
             'programs' => TblProgramQa::forDepartment($deptId),
         ]);
