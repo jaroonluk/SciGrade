@@ -36,8 +36,39 @@ class GradReport2Service
     }
 
     /**
+     * @param  list<string>  $jointSubjectCodes
+     */
+    public function resolveSubjectCode2Multi(string $subjectCode, array $jointSubjectCodes): string
+    {
+        $subjectCode = $this->normalizeSubjectCode($subjectCode);
+
+        $existing = GradReport2::query()
+            ->where('subject_code', $subjectCode)
+            ->first();
+
+        if ($existing) {
+            return trim((string) $existing->subject_code2);
+        }
+
+        foreach ($this->normalizeJointCodes($jointSubjectCodes, $subjectCode) as $jointCode) {
+            $jointExisting = GradReport2::query()
+                ->where('subject_code', $jointCode)
+                ->first();
+
+            if ($jointExisting) {
+                return trim((string) $jointExisting->subject_code2);
+            }
+        }
+
+        return $subjectCode;
+    }
+
+    /**
      * จาก project_old/grade_add_new.php — function checksubjectID()
-     * เรียกเมื่อ reasonid = 1 (ตัดเกรดร่วมกับ) — ระบบเดิมรองรับวิชาร่วม 1 รหัส (std_i1)
+     * เรียกเมื่อ reasonid = 1 (ตัดเกรดร่วมกับ)
+     *
+     * ถ้ารหัสวิชาหลักมีใน grad_report2 แล้ว แต่ผู้ใช้เพิ่มรหัสวิชาร่วมใหม่
+     * จะ insert เพิ่มเข้ากลุ่มเดิม (subject_code2) โดยไม่ทับข้อมูลเดิม
      */
     public function syncJointGradeSubjects(
         string $mainSubjectCode,
@@ -45,54 +76,130 @@ class GradReport2Service
         string $username,
         array $jointSubjectCodes,
     ): void {
-        $sub1 = $this->normalizeSubjectCode($mainSubjectCode);
-        if ($sub1 === '') {
+        $mainCode = $this->normalizeSubjectCode($mainSubjectCode);
+        if ($mainCode === '') {
             return;
         }
 
-        if (GradReport2::query()->where('subject_code', $sub1)->exists()) {
+        $jointCodes = $this->normalizeJointCodes($jointSubjectCodes, $mainCode);
+        if ($jointCodes === []) {
             return;
         }
 
-        $jointSubjectCodes = array_values(array_unique(array_filter(array_map(
+        $subject = mb_strtoupper(trim($subjectName));
+        $username = trim($username);
+
+        $mainRow = GradReport2::query()->where('subject_code', $mainCode)->first();
+
+        if ($mainRow) {
+            $groupCode = trim((string) $mainRow->subject_code2);
+
+            foreach ($jointCodes as $jointCode) {
+                $this->addSubjectToGroupIfMissing($groupCode, $jointCode, $subject, $username);
+            }
+
+            return;
+        }
+
+        $groupCode = $this->resolveGroupCodeForNewMain($jointCodes);
+        $subjectNameForSelf = $this->subjectNameForCode($groupCode, $jointCodes, $subject);
+
+        if (! $this->groupLinkExists($groupCode, $groupCode)) {
+            $this->insertGroupRow($groupCode, $groupCode, $subjectNameForSelf, $username);
+        }
+
+        foreach ($jointCodes as $jointCode) {
+            $this->addSubjectToGroupIfMissing($groupCode, $jointCode, $subject, $username);
+        }
+
+        $this->addSubjectToGroupIfMissing($groupCode, $mainCode, $subject, $username);
+    }
+
+    /**
+     * @param  list<string>  $jointCodes
+     */
+    private function resolveGroupCodeForNewMain(array $jointCodes): string
+    {
+        foreach ($jointCodes as $jointCode) {
+            $jointRow = GradReport2::query()->where('subject_code', $jointCode)->first();
+            if ($jointRow) {
+                return trim((string) $jointRow->subject_code2);
+            }
+        }
+
+        return $jointCodes[0];
+    }
+
+    /**
+     * @param  list<string>  $jointCodes
+     */
+    private function subjectNameForCode(string $code, array $jointCodes, string $fallback): string
+    {
+        $row = GradReport2::query()->where('subject_code', $code)->first();
+        if ($row && trim((string) $row->subject) !== '') {
+            return mb_strtoupper(trim((string) $row->subject));
+        }
+
+        return $fallback;
+    }
+
+    private function addSubjectToGroupIfMissing(
+        string $groupCode,
+        string $subjectCode,
+        string $subject,
+        string $username,
+    ): void {
+        $groupCode = $this->normalizeSubjectCode($groupCode);
+        $subjectCode = $this->normalizeSubjectCode($subjectCode);
+
+        if ($groupCode === '' || $subjectCode === '') {
+            return;
+        }
+
+        if ($this->groupLinkExists($groupCode, $subjectCode)) {
+            return;
+        }
+
+        $this->insertGroupRow($groupCode, $subjectCode, $subject, $username);
+    }
+
+    private function groupLinkExists(string $groupCode, string $subjectCode): bool
+    {
+        return GradReport2::query()
+            ->where('subject_code2', $groupCode)
+            ->where('subject_code', $subjectCode)
+            ->exists();
+    }
+
+    private function insertGroupRow(
+        string $groupCode,
+        string $subjectCode,
+        string $subject,
+        string $username,
+    ): void {
+        GradReport2::query()->create([
+            'subject_code2' => $groupCode,
+            'subject_code' => $subjectCode,
+            'subject' => $subject,
+            'username' => $username,
+        ]);
+    }
+
+    /**
+     * @param  list<string>  $jointSubjectCodes
+     * @return list<string>
+     */
+    private function normalizeJointCodes(array $jointSubjectCodes, string $mainCode): array
+    {
+        $codes = array_values(array_unique(array_filter(array_map(
             fn (string $code) => $this->normalizeSubjectCode($code),
             $jointSubjectCodes,
         ))));
 
-        if ($jointSubjectCodes === []) {
-            return;
-        }
-
-        $sub2 = $jointSubjectCodes[0];
-        $subject = mb_strtoupper(trim($subjectName));
-        $username = trim($username);
-
-        $jointRow = GradReport2::query()->where('subject_code', $sub2)->first();
-
-        if (! $jointRow) {
-            GradReport2::query()->create([
-                'subject_code2' => $sub2,
-                'subject_code' => $sub2,
-                'subject' => $subject,
-                'username' => $username,
-            ]);
-
-            GradReport2::query()->create([
-                'subject_code2' => $sub2,
-                'subject_code' => $sub1,
-                'subject' => $subject,
-                'username' => $username,
-            ]);
-
-            return;
-        }
-
-        GradReport2::query()->create([
-            'subject_code2' => trim((string) $jointRow->subject_code2),
-            'subject_code' => $sub1,
-            'subject' => $subject,
-            'username' => $username,
-        ]);
+        return array_values(array_filter(
+            $codes,
+            fn (string $code) => $code !== '' && $code !== $mainCode,
+        ));
     }
 
     public function normalizeSubjectCode(string $code): string

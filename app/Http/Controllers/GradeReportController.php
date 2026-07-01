@@ -23,6 +23,7 @@ class GradeReportController extends Controller
             ->when($request->filled('approv'), fn ($q) => $q->where('approv', $request->integer('approv')))
             ->when($request->filled('term'), fn ($q) => $q->where('term', (string) $request->integer('term')))
             ->when($request->filled('year'), fn ($q) => $q->where('year', (string) $request->integer('year')))
+            ->orderByDesc('created_stamp')
             ->orderByDesc('grade_id');
 
         if ($request->input('role', 'instructor') === 'instructor') {
@@ -186,8 +187,7 @@ class GradeReportController extends Controller
             $jointCodes = $this->gradReport2->parseJointCodesFromReason($data['reason']);
         }
 
-        $firstJoint = $jointCodes[0] ?? null;
-        $data['subject_code2'] = $this->gradReport2->resolveSubjectCode2($subjectCode, $firstJoint);
+        $data['subject_code2'] = $this->gradReport2->resolveSubjectCode2Multi($subjectCode, $jointCodes);
 
         if ((int) ($data['reasonid'] ?? 0) === 1 && $jointCodes !== []) {
             $this->gradReport2->syncJointGradeSubjects(

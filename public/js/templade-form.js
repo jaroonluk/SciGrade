@@ -1143,12 +1143,15 @@ function populateFormFromRecord(record) {
     parseScoreRange(record.score_dd, 'range-dp-max', 'range-dp-min');
     parseScoreRange(record.score_d, 'range-d-max', 'range-d-min');
     parseScoreRange(record.score_f, 'range-f-max', 'range-f-min');
+    recalcAllGradeChains();
 
     const std = record.grade_std || {};
     if (Array.isArray(record.grade_stds) && record.grade_stds.length) {
         setSectionStdRows(record.grade_stds);
+        setFacultiesSelected(record.grade_stds[0].fac || '');
     } else if (std.sec || std.fac) {
         setSectionStdRows([std]);
+        setFacultiesSelected(std.fac || '');
     } else {
         resetSectionStdRows();
     }

@@ -74,10 +74,53 @@ class GradeReport extends Model
     public function statusLabel(): string
     {
         return match ((int) $this->approv) {
-            1 => 'สาขาอนุมัติ',
-            2 => 'คณะอนุมัติ',
+            1 => 'ผ่านที่ประชุมกรรมการสาขาวิชา',
+            2 => 'ผ่านที่ประชุมกรรมการคณะ',
             -1 => 'ส่งกลับแก้ไข',
-            default => 'ยังไม่ผ่านกรรมการ',
+            default => 'รอดำเนินการ / ยังไม่อนุมัติ',
+        };
+    }
+
+    public function statusShortLabel(): string
+    {
+        return match ((int) $this->approv) {
+            1 => 'สาขาอนุมัติแล้ว',
+            2 => 'คณะอนุมัติแล้ว',
+            -1 => 'ส่งกลับแก้ไข',
+            default => 'รออนุมัติ',
+        };
+    }
+
+    public function approvalStep(): int
+    {
+        return match ((int) $this->approv) {
+            1 => 1,
+            2 => 2,
+            default => 0,
+        };
+    }
+
+    public function canEdit(): bool
+    {
+        return in_array((int) $this->approv, [0, -1], true);
+    }
+
+    public function canPrint(): bool
+    {
+        return $this->gradeStds->isNotEmpty();
+    }
+
+    public function totalStudents(): int
+    {
+        return (int) $this->gradeStds->sum(fn ($row) => (int) $row->total_std);
+    }
+
+    public function termLabel(): string
+    {
+        return match ((int) $this->term) {
+            1 => 'ภาคต้น',
+            2 => 'ภาคปลาย',
+            default => 'ภาคการศึกษาพิเศษ',
         };
     }
 }

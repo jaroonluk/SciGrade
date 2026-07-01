@@ -98,8 +98,9 @@
 
 @section('content')
         @php
-            $defaultYear = (int) date('Y') + 543;
-            if ((int) date('m') <= 9) { $defaultYear--; }
+            use App\Support\AcademicTerm;
+            $defaultYear = $prefillYear ?? AcademicTerm::defaultYear();
+            $defaultTerm = $prefillTerm ?? AcademicTerm::defaultTerm();
             $faculties = [
                 ['SC', 'คณะวิทยาศาสตร์'], ['EN', 'คณะวิศวกรรมศาสตร์'], ['AG', 'คณะเกษตรศาสตร์'],
                 ['ED', 'คณะศึกษาศาสตร์'], ['NU', 'คณะพยาบาลศาสตร์'], ['MD', 'คณะแพทยศาสตร์'],
@@ -142,9 +143,9 @@
                         <div>
                             <label class="block text-sm font-medium mb-2 text-[#5C2E1F]">ภาคการศึกษา *</label>
                             <div class="flex flex-wrap gap-4">
-                                <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="term" value="1" checked class="accent-amber-700"> ภาคต้น</label>
-                                <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="term" value="2" class="accent-amber-700"> ภาคปลาย</label>
-                                <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="term" value="3" class="accent-amber-700"> ภาคการศึกษาพิเศษ</label>
+                                <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="term" value="1" @checked($defaultTerm === 1) class="accent-amber-700"> ภาคต้น</label>
+                                <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="term" value="2" @checked($defaultTerm === 2) class="accent-amber-700"> ภาคปลาย</label>
+                                <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="term" value="3" @checked($defaultTerm === 3) class="accent-amber-700"> ภาคการศึกษาพิเศษ</label>
                             </div>
                         </div>
                         <div>
@@ -437,7 +438,7 @@
                         <button type="submit" id="btn-submit" class="px-6 py-2.5 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800">
                             <i data-lucide="send" class="w-4 h-4 inline mr-1"></i>{{ isset($reportId) ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล' }}
                         </button>
-                        <a id="btn-cancel" href="{{ route('grade-reports.my') }}" class="px-6 py-2.5 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50 inline-flex items-center">ยกเลิก</a>
+                        <a id="btn-cancel" href="{{ $returnUrl }}" class="px-6 py-2.5 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50 inline-flex items-center">ยกเลิก</a>
                     </div>
                 </form>
             </div>
@@ -494,6 +495,9 @@
     (function() {
         const reportId = @json($reportId ?? null);
         const teacherHelpImageUrl = @json($teacherHelpImageUrl);
+        const returnUrl = @json($returnUrl);
+        const dashboardUrl = @json($dashboardUrl);
+        const uploadParsed = @json($uploadParsed ?? null);
 
         initTempladeForm({ teacherHelpImageUrl });
 
@@ -509,6 +513,9 @@
             if (reportDate && !reportDate.value) reportDate.value = new Date().toISOString().slice(0, 10);
             const rangeA = document.getElementById('range-a-max');
             if (rangeA && !rangeA.value) rangeA.value = '100';
+            if (uploadParsed) {
+                populateFormFromRecord(uploadParsed);
+            }
         }
 
         document.getElementById('grade-form').addEventListener('submit', async (e) => {
@@ -570,18 +577,11 @@
                 restoreFormAfterSave(btn, form, cancelLink);
 
                 if (!reportId) {
-                    const teacherDefault = document.getElementById('teacher-input')?.dataset.defaultTeacher || '';
-                    form.reset();
-                    document.getElementById('report-date').value = new Date().toISOString().slice(0, 10);
-                    document.getElementById('range-a-max').value = '100';
-                    document.getElementById('teacher-input').value = teacherDefault;
-                    initTempladeForm({ teacherHelpImageUrl });
-                    resetJointGradeSubjects();
-                    resetSectionStdRows();
-                    if (typeof renderFacTags === 'function') renderFacTags();
-                    if (typeof updateGradeRangeColumnHeaders === 'function') updateGradeRangeColumnHeaders();
+                    const term = payload.term;
+                    const year = payload.year;
+                    window.location.href = `${dashboardUrl}?term=${term}&year=${year}`;
                 } else {
-                    window.location.href = '{{ route('grade-reports.my') }}';
+                    window.location.href = returnUrl;
                 }
             } else {
                 showSaveError(result.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
