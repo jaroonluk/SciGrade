@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
 use App\Models\GradeReportFile;
+use App\Services\GradeReportAttachmentNameService;
 use App\Services\StaffAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class GradeReportFileController extends Controller
 {
     public function __construct(
         private readonly StaffAuthService $staffAuth,
+        private readonly GradeReportAttachmentNameService $attachmentNames,
     ) {}
 
     public function store(Request $request, GradeReport $gradeReport): JsonResponse
@@ -34,14 +36,12 @@ class GradeReportFileController extends Controller
         ]);
 
         $uploaded = $request->file('attachment');
-        $storedPath = $uploaded->store(
-            'grade-report-files/'.$gradeReport->grade_id,
-            'local',
-        );
+        $displayName = $this->attachmentNames->generateDisplayName($gradeReport);
+        $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded);
 
         $file = GradeReportFile::query()->create([
             'grade_id' => $gradeReport->grade_id,
-            'original_name' => $uploaded->getClientOriginalName(),
+            'original_name' => basename($storedPath) ?: $displayName,
             'stored_path' => $storedPath,
             'uploaded_at' => now(),
             'username' => $this->staffUsername(),

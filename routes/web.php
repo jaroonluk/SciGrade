@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Auth\GoogleAuthController;
-use App\Http\Controllers\GradeReportController;
+use App\Http\Controllers\DeptAdmin\DepartmentReportController;
+use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
+use App\Http\Controllers\DeptAdmin\DeptSubmissionFileController;
+use App\Http\Controllers\FacultyDeptSubmissionController;
 use App\Http\Controllers\GradeReportFileController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
@@ -38,9 +41,24 @@ Route::middleware('auth')->group(function () {
         Route::get('/{gradeReport}/files/{file}', [GradeReportFileController::class, 'show'])->name('files.show');
     });
 
+    Route::middleware('dept.admin')->prefix('dept-admin')->name('dept-admin.')->group(function () {
+        Route::get('/reviews', [GradeReportReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/reviews/{gradeReport}/approve', [GradeReportReviewController::class, 'approve'])->name('reviews.approve');
+        Route::post('/reviews/{gradeReport}/reject', [GradeReportReviewController::class, 'reject'])->name('reviews.reject');
+        Route::get('/reports', [DepartmentReportController::class, 'form'])->name('reports.form');
+        Route::post('/reports/export', [DepartmentReportController::class, 'export'])->name('reports.export');
+    });
+
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
 
     Route::get('/api/subjects/search', [SubjectController::class, 'search']);
+
+    Route::get('/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'show'])->name('dept-submissions.files.show');
+
+    Route::post('/api/dept-submissions/files', [DeptSubmissionFileController::class, 'store']);
+    Route::put('/api/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'update']);
+    Route::delete('/api/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'destroy']);
+    Route::post('/api/faculty-admin/dept-submissions/{submission}/receive', [FacultyDeptSubmissionController::class, 'receive']);
 
     Route::get('/api/grade-reports', [GradeReportController::class, 'index']);
     Route::get('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'show']);

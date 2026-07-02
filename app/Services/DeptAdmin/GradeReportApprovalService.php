@@ -1,0 +1,117 @@
+<?php
+
+namespace App\Services\DeptAdmin;
+
+use App\Enums\GradeApprovalStatus;
+use App\Models\GradeReport;
+use App\Models\GradeReportApprovalLog;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+
+class GradeReportApprovalService
+{
+    public function approve(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from === GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
+            }
+
+            if ($from === GradeApprovalStatus::DepartmentApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว');
+            }
+
+            if ($from !== GradeApprovalStatus::Saved->value) {
+                throw new InvalidArgumentException('รายการนี้ไม่อยู่ในสถานะที่สามารถอนุมัติได้');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::DepartmentApproved->value,
+                'dateapprove1' => now()->toDateString(),
+            ]);
+
+            $this->writeLog($report, 'department_approved', $from, GradeApprovalStatus::DepartmentApproved->value, $approverUsername, $remark);
+
+            return $report->fresh(['gradeStds', 'files', 'latestDeptApprovalLog.approver']);
+        });
+    }
+
+    public function reject(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from === GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
+            }
+
+            if ($from === GradeApprovalStatus::DepartmentApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว ไม่สามารถเปลี่ยนเป็นไม่ผ่านได้');
+            }
+
+            if ($from !== GradeApprovalStatus::Saved->value) {
+                throw new InvalidArgumentException('รายการนี้ไม่อยู่ในสถานะที่สามารถไม่อนุมัติได้');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::DepartmentRejected->value,
+                'reason' => $remark ?? $report->reason,
+                'dateapprove2' => now()->toDateString(),
+            ]);
+
+            $this->writeLog($report, 'department_rejected', $from, GradeApprovalStatus::DepartmentRejected->value, $approverUsername, $remark);
+
+            return $report->fresh(['gradeStds', 'files', 'latestDeptApprovalLog.approver']);
+        });
+    }
+
+    public function resetToSaved(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from === GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว');
+            }
+
+            if ($from === GradeApprovalStatus::Saved->value) {
+                throw new InvalidArgumentException('รายการอยู่ในสถานะรออนุมัติอยู่แล้ว');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::Saved->value,
+                'dateapprove1' => null,
+                'dateapprove2' => null,
+            ]);
+
+            $this->writeLog($report, 'department_reset', $from, GradeApprovalStatus::Saved->value, $approverUsername, $remark);
+
+            return $report->fresh(['gradeStds', 'files', 'latestDeptApprovalLog.approver']);
+        });
+    }
+
+    private function writeLog(
+        GradeReport $report,
+        string $action,
+        int $from,
+        int $to,
+        string $approverUsername,
+        ?string $remark,
+    ): void {
+        GradeReportApprovalLog::query()->create([
+            'grade_id' => $report->grade_id,
+            'action' => $action,
+            'from_status' => $from,
+            'to_status' => $to,
+            'approver_username' => $approverUsername,
+            'approver_role' => 'dept_admin',
+            'remark' => $remark,
+            'created_at' => now(),
+        ]);
+    }
+}

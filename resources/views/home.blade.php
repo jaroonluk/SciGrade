@@ -283,26 +283,139 @@
         <h3 class="text-lg font-bold text-[#5C2E1F] mb-4 flex items-center gap-2">
             <i data-lucide="shield-check" class="w-5 h-5"></i> เมนู Admin สาขา
         </h3>
-        <div class="grid sm:grid-cols-2 gap-4">
-            <a href="{{ route('grade-reports.approve') }}" class="menu-card rounded-xl p-5 block">
+
+        <div class="form-section rounded-xl p-5 mb-6">
+            <h4 class="text-base font-bold text-[#5C2E1F] mb-1 flex items-center gap-2">
+                <i data-lucide="folder-up" class="w-5 h-5"></i>
+                อัปโหลดเอกสารสาขา
+            </h4>
+            <p class="text-sm text-[#7A4A3A]/80 mb-4">
+                ส่งเอกสารรายงานสาขาตามภาคการศึกษา อัปโหลดได้ไม่จำกัดจำนวนไฟล์
+                แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสารในแต่ละรอบ
+            </p>
+
+            <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-4 mb-5">
+                @if ($departments->count() > 1)
+                    <div>
+                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา</label>
+                        <select name="dept_department_id" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
+                            @foreach ($departments as $dept)
+                                <option value="{{ $dept->department_id }}" @selected($deptDepartmentId == $dept->department_id)>
+                                    {{ $dept->department_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+                <div>
+                    <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
+                    <select name="term" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">
+                        <option value="1" @selected($term === 1)>ภาคต้น</option>
+                        <option value="2" @selected($term === 2)>ภาคปลาย</option>
+                        <option value="3" @selected($term === 3)>ภาคการศึกษาพิเศษ</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ปีการศึกษา</label>
+                    <select name="year" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]">
+                        @foreach ($years as $y)
+                            <option value="{{ $y }}" @selected($year === $y)>{{ $y }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">แสดงรายการ</button>
+            </form>
+
+            @php
+                $deptCanModify = ! $deptSubmission || $deptSubmission->isOpen();
+                $deptFiles = $deptSubmission?->files ?? collect();
+            @endphp
+
+            <div class="rounded-lg border border-amber-200 bg-white p-4"
+                 data-dept-submission
+                 data-department-id="{{ $deptDepartmentId }}"
+                 data-term="{{ $term }}"
+                 data-year="{{ $year }}"
+                 data-can-modify="{{ $deptCanModify ? '1' : '0' }}">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <p class="text-sm font-semibold text-[#5C2E1F]">
+                        รอบการส่งปัจจุบัน:
+                        @if ($deptSubmission)
+                            <span class="inline-block px-2 py-0.5 rounded text-xs {{ $deptSubmission->isOpen() ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800' }}">
+                                {{ $deptSubmission->statusLabel() }}
+                            </span>
+                        @else
+                            <span class="inline-block px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">พร้อมเริ่มรอบส่งใหม่</span>
+                        @endif
+                    </p>
+                    @if ($deptSubmission?->isOpen())
+                        <p class="text-xs text-[#7A4A3A]/70">รอบที่ {{ $deptSubmission->submission_id }} — รอ Admin กลางรับเอกสาร</p>
+                    @endif
+                </div>
+
+                @if ($deptFiles->isEmpty())
+                    <p class="text-xs text-gray-500 dept-file-empty-msg mb-3">ยังไม่มีไฟล์ในรอบนี้</p>
+                @else
+                    <div class="flex flex-col gap-2 mb-3 dept-file-list">
+                        @foreach ($deptFiles as $file)
+                            <div class="file-chip items-start sm:items-center flex-wrap" data-file-id="{{ $file->file_id }}">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+                                <a href="{{ route('dept-submissions.files.show', $file->file_id) }}"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="hover:underline truncate max-w-[14rem]" title="{{ $file->original_name }}">
+                                    {{ $file->original_name }}
+                                </a>
+                                <span class="text-xs text-gray-500">{{ $file->uploaded_at?->format('d/m/Y H:i') }}</span>
+                                @if ($deptCanModify)
+                                    <button type="button" class="btn-edit-dept-file text-[#8B4513] hover:text-[#6B3410] text-xs font-medium"
+                                        data-file-id="{{ $file->file_id }}"
+                                        data-file-name="{{ $file->original_name }}">แก้ไขชื่อ</button>
+                                    <label class="btn-replace-dept-file text-[#8B4513] hover:text-[#6B3410] text-xs font-medium cursor-pointer">
+                                        เปลี่ยนไฟล์
+                                        <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden dept-file-replace-input" data-file-id="{{ $file->file_id }}">
+                                    </label>
+                                    <button type="button" class="btn-delete-dept-file text-red-600 hover:text-red-800"
+                                        data-file-id="{{ $file->file_id }}" title="ลบไฟล์">
+                                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                @if ($deptDepartmentId)
+                    <label class="file-upload-zone block cursor-pointer">
+                        <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" id="dept-file-upload-input">
+                        <span class="text-sm text-[#8B4513] font-medium flex items-center gap-1">
+                            <i data-lucide="upload" class="w-4 h-4"></i>
+                            อัปโหลดไฟล์ (PDF / Word) — ไม่จำกัดจำนวน
+                        </span>
+                    </label>
+                @endif
+            </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4 mb-6">
+            <a href="{{ route('dept-admin.reviews.index') }}" class="menu-card rounded-xl p-5 block">
                 <div class="flex items-start gap-3">
                     <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
                         <i data-lucide="list-checks" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <p class="font-semibold text-[#5C2E1F]">ตรวจสอบและอนุมัติ (สาขา)</p>
-                        <p class="text-sm text-[#7A4A3A]/70 mt-1">อนุมัติหรือส่งกลับแก้ไขในระดับสาขา</p>
+                        <p class="font-semibold text-[#5C2E1F]">ตรวจสอบรายวิชา</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">อนุมัติ/ไม่อนุมัติรายการที่อาจารย์ส่งมา พร้อมดูไฟล์แนบ</p>
                     </div>
                 </div>
             </a>
-            <a href="{{ route('grade-reports.print.summary') }}" class="menu-card rounded-xl p-5 block">
+            <a href="{{ route('dept-admin.reports.form') }}" class="menu-card rounded-xl p-5 block">
                 <div class="flex items-start gap-3">
                     <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
                         <i data-lucide="printer" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <p class="font-semibold text-[#5C2E1F]">พิมพ์ใบส่งเกรดภาพรวมสาขา</p>
-                        <p class="text-sm text-[#7A4A3A]/70 mt-1">พิมพ์รายงานสรุปทุกสถานะในสาขา</p>
+                        <p class="font-semibold text-[#5C2E1F]">พิมพ์ใบรายงานสาขา</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">Export PDF/Word ตามสาขา ระดับการศึกษา และสถานะ</p>
                     </div>
                 </div>
             </a>
@@ -324,6 +437,52 @@
         <h3 class="text-lg font-bold text-[#5C2E1F] mb-4 flex items-center gap-2">
             <i data-lucide="building-2" class="w-5 h-5"></i> เมนู Admin กลาง
         </h3>
+
+        <div class="form-section rounded-xl p-5 mb-6">
+            <h4 class="text-base font-bold text-[#5C2E1F] mb-1 flex items-center gap-2">
+                <i data-lucide="inbox" class="w-5 h-5"></i>
+                รับเอกสารจากสาขาวิชา
+            </h4>
+            <p class="text-sm text-[#7A4A3A]/80 mb-4">
+                รายการเอกสารที่สาขาส่งเข้ามาและยังไม่ได้รับ — กดรับเอกสารเมื่อตรวจสอบครบแล้ว
+                (หลังรับแล้วสาขาจะไม่สามารถแก้ไขไฟล์ในรอบนั้นได้)
+            </p>
+
+            @if ($openDeptSubmissions->isEmpty())
+                <p class="text-sm text-gray-500">ไม่มีเอกสารรอรับจากสาขาในขณะนี้</p>
+            @else
+                <div class="space-y-3">
+                    @foreach ($openDeptSubmissions as $submission)
+                        <div class="rounded-lg border border-amber-200 bg-white p-4" data-faculty-submission="{{ $submission->submission_id }}">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold text-[#5C2E1F]">{{ $submission->department?->department_name ?? 'สาขา #'.$submission->department_id }}</p>
+                                    <p class="text-sm text-[#7A4A3A]/80 mt-1">
+                                        {{ $submission->termLabel() }} ปีการศึกษา {{ $submission->year }}
+                                        — {{ $submission->files->count() }} ไฟล์
+                                    </p>
+                                    <div class="flex flex-col gap-1 mt-2">
+                                        @foreach ($submission->files as $file)
+                                            <a href="{{ route('dept-submissions.files.show', $file->file_id) }}" target="_blank" rel="noopener noreferrer"
+                                               class="text-sm text-[#8B4513] hover:underline flex items-center gap-1">
+                                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                                                {{ $file->original_name }}
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <button type="button"
+                                    class="btn-receive-dept-submission px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shrink-0"
+                                    data-submission-id="{{ $submission->submission_id }}">
+                                    รับเอกสาร
+                                </button>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
         <div class="grid sm:grid-cols-2 gap-4">
             <a href="{{ route('grade-reports.approve') }}" class="menu-card rounded-xl p-5 block">
                 <div class="flex items-start gap-3">
@@ -497,6 +656,160 @@
     }
 
     document.querySelectorAll('.btn-delete-file').forEach(bindDeleteFile);
+
+    const deptBox = document.querySelector('[data-dept-submission]');
+    const deptUploadInput = document.getElementById('dept-file-upload-input');
+
+    if (deptUploadInput && deptBox) {
+        deptUploadInput.addEventListener('change', async () => {
+            const file = deptUploadInput.files?.[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('attachment', file);
+            formData.append('department_id', deptBox.dataset.departmentId);
+            formData.append('term', deptBox.dataset.term);
+            formData.append('year', deptBox.dataset.year);
+
+            const res = await fetch('/api/dept-submissions/files', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                body: formData,
+            });
+
+            deptUploadInput.value = '';
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'อัปโหลดไม่สำเร็จ');
+                return;
+            }
+
+            window.location.reload();
+        });
+    }
+
+    function bindDeptDelete(btn) {
+        if (!btn || btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', async () => {
+            if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
+            const fileId = btn.dataset.fileId;
+            const res = await fetch(`/api/dept-submissions/files/${fileId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'ลบไฟล์ไม่สำเร็จ');
+                return;
+            }
+            btn.closest('[data-file-id]')?.remove();
+            if (deptBox && !deptBox.querySelector('.dept-file-list [data-file-id]')) {
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-gray-500 dept-file-empty-msg mb-3';
+                empty.textContent = 'ยังไม่มีไฟล์ในรอบนี้';
+                deptBox.querySelector('.dept-file-list')?.remove();
+                const uploadZone = deptBox.querySelector('.file-upload-zone');
+                if (uploadZone) deptBox.insertBefore(empty, uploadZone);
+            }
+        });
+    }
+
+    document.querySelectorAll('.btn-delete-dept-file').forEach(bindDeptDelete);
+
+    document.querySelectorAll('.btn-edit-dept-file').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const newName = prompt('ชื่อไฟล์', btn.dataset.fileName || '');
+            if (newName === null || newName.trim() === '') return;
+
+            const res = await fetch(`/api/dept-submissions/files/${btn.dataset.fileId}`, {
+                method: 'PUT',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ original_name: newName.trim() }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'แก้ไขชื่อไม่สำเร็จ');
+                return;
+            }
+
+            const data = await res.json();
+            const link = btn.closest('[data-file-id]')?.querySelector('a');
+            if (link) {
+                link.textContent = data.original_name;
+                link.title = data.original_name;
+            }
+            btn.dataset.fileName = data.original_name;
+        });
+    });
+
+    document.querySelectorAll('.dept-file-replace-input').forEach((input) => {
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('attachment', file);
+
+            const res = await fetch(`/api/dept-submissions/files/${input.dataset.fileId}`, {
+                method: 'PUT',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                body: formData,
+            });
+
+            input.value = '';
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'เปลี่ยนไฟล์ไม่สำเร็จ');
+                return;
+            }
+
+            window.location.reload();
+        });
+    });
+
+    document.querySelectorAll('.btn-receive-dept-submission').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('ยืนยันรับเอกสารรอบนี้จากสาขาวิชา?')) return;
+
+            const res = await fetch(`/api/faculty-admin/dept-submissions/${btn.dataset.submissionId}/receive`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'รับเอกสารไม่สำเร็จ');
+                return;
+            }
+
+            document.querySelector(`[data-faculty-submission="${btn.dataset.submissionId}"]`)?.remove();
+        });
+    });
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
 })();

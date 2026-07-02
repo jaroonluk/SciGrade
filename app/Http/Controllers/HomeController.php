@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
+use App\Services\DeptAdmin\DepartmentAccessService;
+use App\Services\DeptAdmin\DeptSubmissionService;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
 use Illuminate\Http\RedirectResponse;
@@ -13,6 +15,8 @@ class HomeController extends Controller
 {
     public function __construct(
         private readonly StaffAuthService $staffAuth,
+        private readonly DepartmentAccessService $departmentAccess,
+        private readonly DeptSubmissionService $deptSubmissionService,
     ) {}
 
     public function index(Request $request): View
@@ -24,6 +28,11 @@ class HomeController extends Controller
         $year = (int) $request->input('year', $defaultYear);
 
         $reports = collect();
+        $departments = collect();
+        $deptDepartmentId = null;
+        $deptSubmission = null;
+        $openDeptSubmissions = collect();
+
         if ($role === 'instructor') {
             $username = $this->resolveStaffUsername();
             if ($username) {
@@ -38,6 +47,22 @@ class HomeController extends Controller
             }
         }
 
+        if ($role === 'dept_admin') {
+            $staff = $this->staffAuth->findByEmail(auth()->user()->email);
+            if ($staff) {
+                $this->staffAuth->storeInSession($staff);
+                $departments = $this->departmentAccess->allowedDepartments($staff);
+                $deptDepartmentId = (int) $request->input('dept_department_id', $departments->first()?->department_id);
+                if ($departments->contains('department_id', $deptDepartmentId)) {
+                    $deptSubmission = $this->deptSubmissionService->openSubmission($deptDepartmentId, $term, $year);
+                }
+            }
+        }
+
+        if ($role === 'faculty_admin') {
+            $openDeptSubmissions = $this->deptSubmissionService->openSubmissionsForFaculty();
+        }
+
         return view('home', [
             'role' => $role,
             'staffDisplayName' => $this->staffAuth->displayNameFor(
@@ -48,6 +73,10 @@ class HomeController extends Controller
             'term' => $term,
             'year' => $year,
             'years' => AcademicTerm::yearOptions(),
+            'departments' => $departments,
+            'deptDepartmentId' => $deptDepartmentId,
+            'deptSubmission' => $deptSubmission,
+            'openDeptSubmissions' => $openDeptSubmissions,
         ]);
     }
 

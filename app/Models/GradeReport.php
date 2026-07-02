@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GradeReport extends Model
 {
@@ -78,6 +79,20 @@ class GradeReport extends Model
             ->orderByDesc('file_id');
     }
 
+    public function approvalLogs(): HasMany
+    {
+        return $this->hasMany(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('log_id');
+    }
+
+    public function latestDeptApprovalLog(): HasOne
+    {
+        return $this->hasOne(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
+            ->whereIn('action', ['department_approved', 'department_rejected', 'department_reset'])
+            ->latestOfMany('log_id');
+    }
+
     public function statusLabel(): string
     {
         return match ((int) $this->approv) {
@@ -90,11 +105,26 @@ class GradeReport extends Model
 
     public function statusShortLabel(): string
     {
+        return $this->workflowStatusLabel();
+    }
+
+    public function workflowStatusLabel(): string
+    {
         return match ((int) $this->approv) {
-            1 => 'สาขาอนุมัติแล้ว',
-            2 => 'คณะอนุมัติแล้ว',
+            1 => 'สาขาอนุมัติ',
+            2 => 'คณะอนุมัติ',
             -1 => 'ส่งกลับแก้ไข',
-            default => 'รออนุมัติ',
+            default => 'บันทึกแล้ว',
+        };
+    }
+
+    public function approvalResultLabel(): string
+    {
+        return match ((int) $this->approv) {
+            1 => 'ผ่านการรับรองผลสอบ',
+            2 => 'ผ่านการรับรองผลสอบ (คณะ)',
+            -1 => 'ยังไม่ผ่านการรับรองผลสอบ',
+            default => 'ยังไม่ผ่านการรับรองผลสอบ',
         };
     }
 
