@@ -62,6 +62,7 @@
                 <th class="px-2 py-2 text-left">รหัสวิชา</th><th class="px-2 py-2 text-left">ชื่อวิชา</th>
                 <th class="px-2 py-2">ภาค/ปี</th><th class="px-2 py-2">คณะ</th><th class="px-2 py-2">จำนวน</th>
                 <th class="px-2 py-2">สถานะ</th><th class="px-2 py-2">ผู้สอน</th>
+                ${role !== 'instructor' ? '<th class="px-2 py-2">จัดการ</th>' : ''}
             </tr></thead>
             <tbody>${rows.map(r => `<tr class="border-t border-amber-100 hover:bg-amber-50/40">
                 <td class="px-2 py-2">${r.subject_code}</td>
@@ -71,7 +72,30 @@
                 <td class="px-2 py-2 text-center">${r.student_count}</td>
                 <td class="px-2 py-2 text-center">${r.status}</td>
                 <td class="px-2 py-2">${r.teacher||'-'}</td>
+                ${role !== 'instructor' ? `<td class="px-2 py-2 text-center">
+                    ${[1, 2].includes(Number(r.approv)) ? `<button type="button" data-reset="${r.__backendId}" class="px-2 py-1 border border-amber-400 rounded text-[10px] hover:bg-amber-50">คืนสถานะรออนุมัติ</button>` : '-'}
+                </td>` : ''}
             </tr>`).join('')}</tbody></table>`;
+
+        el.querySelectorAll('[data-reset]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('คืนสถานะรายงานเป็น «รออนุมัติ» เพื่อให้อาจารย์แก้ไขและอัปโหลดไฟล์ได้หรือไม่?')) return;
+                const res = await fetch(`/api/grade-reports/${btn.dataset.reset}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ approv: 0, role }),
+                });
+                if (res.ok) load();
+                else {
+                    const data = await res.json().catch(() => ({}));
+                    alert(data.message || 'คืนสถานะไม่สำเร็จ');
+                }
+            });
+        });
     }
 
     document.getElementById('filter-approv').addEventListener('change', render);

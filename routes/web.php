@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\GradeReportController;
+use App\Http\Controllers\GradeReportFileController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\SubjectController;
@@ -34,6 +35,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/print-summary', [GradeReportPageController::class, 'printSummary'])->name('print.summary');
         Route::get('/{gradeReport}/edit', [GradeReportPageController::class, 'edit'])->name('edit');
         Route::get('/{gradeReport}/print', [GradeReportPageController::class, 'print'])->name('print');
+        Route::get('/{gradeReport}/files/{file}', [GradeReportFileController::class, 'show'])->name('files.show');
     });
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
@@ -45,4 +47,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/grade-reports', [GradeReportController::class, 'store']);
     Route::put('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'update']);
     Route::delete('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'destroy']);
+    Route::post('/api/grade-reports/{gradeReport}/files', [GradeReportFileController::class, 'store']);
+    Route::delete('/api/grade-reports/{gradeReport}/files/{file}', [GradeReportFileController::class, 'destroy']);
 });

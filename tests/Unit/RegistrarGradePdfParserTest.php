@@ -43,6 +43,43 @@ class RegistrarGradePdfParserTest extends TestCase
     }
 
     #[Test]
+    public function it_parses_decimal_registrar_pdf(): void
+    {
+        $path = base_path('project_old/SC700001-08.pdf');
+        if (! is_file($path)) {
+            $this->markTestSkipped('Decimal sample PDF not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parse($path, 'SC700001-08.pdf', 2, 2568);
+
+        $this->assertSame('SC700001', $parsed['subject_code']);
+        $this->assertSame(0, $parsed['intflag']);
+        $this->assertSame('100-75', $parsed['score_a']);
+        $this->assertSame('74.99-67.00', $parsed['score_bb']);
+        $this->assertSame(21, $parsed['grade_stds'][0]['num_a']);
+        $this->assertSame(33, $parsed['grade_stds'][0]['num_a']
+            + $parsed['grade_stds'][0]['num_bb']
+            + $parsed['grade_stds'][0]['num_b']
+            + $parsed['grade_stds'][0]['num_cc']
+            + $parsed['grade_stds'][0]['num_c']);
+    }
+
+    #[Test]
+    public function it_parses_teacher_with_ajarn_prefix(): void
+    {
+        $path = base_path('project_old/SC700001-06.pdf');
+        if (! is_file($path)) {
+            $this->markTestSkipped('SC700001-06 sample PDF not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parse($path, 'SC700001-06.pdf', 2, 2568);
+
+        $this->assertStringContainsString('ลลิตา', $parsed['teacher']);
+        $this->assertStringContainsString('ฐานวิสัย', $parsed['teacher']);
+        $this->assertSame(6, $parsed['grade_stds'][0]['sec']);
+    }
+
+    #[Test]
     public function it_rejects_invalid_pdf(): void
     {
         $tmp = tempnam(sys_get_temp_dir(), 'pdf');

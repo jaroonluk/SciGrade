@@ -71,6 +71,13 @@ class GradeReport extends Model
         return $this->hasMany(GradeStd::class, 'grade_id', 'grade_id');
     }
 
+    public function files(): HasMany
+    {
+        return $this->hasMany(GradeReportFile::class, 'grade_id', 'grade_id')
+            ->orderByDesc('uploaded_at')
+            ->orderByDesc('file_id');
+    }
+
     public function statusLabel(): string
     {
         return match ((int) $this->approv) {
@@ -103,6 +110,11 @@ class GradeReport extends Model
     public function canEdit(): bool
     {
         return in_array((int) $this->approv, [0, -1], true);
+    }
+
+    public function canUploadFiles(): bool
+    {
+        return $this->canEdit();
     }
 
     public function canPrint(): bool

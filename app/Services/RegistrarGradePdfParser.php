@@ -96,11 +96,10 @@ class RegistrarGradePdfParser
             $year = (int) $termMatch[2];
         }
 
-        $teacher = '';
         $section = $this->sectionFromFilename($originalFilename);
-        if (preg_match('/((?:รศ\.|ผศ\.|ศ\.|ดร\.|นาย|นาง|นางสาว)[^\n]+?)\s+กลุ่ม\s*(\d+)/u', $text, $teacherMatch)) {
-            $teacher = trim(preg_replace('/\s+/u', ' ', $teacherMatch[1]));
-            $section = (int) $teacherMatch[2];
+        [$teacher, $sectionFromPdf] = $this->parseTeacherAndSection($text, $section);
+        if ($teacher !== '') {
+            $section = $sectionFromPdf;
         } elseif ($section === null) {
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
         }
@@ -110,7 +109,7 @@ class RegistrarGradePdfParser
         }
 
         $summary = $this->parseGradeSummary($text);
-        if ($summary['counts'] === []) {
+        if (array_sum($summary['counts']) === 0 && $summary['ranges'] === []) {
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
         }
 
@@ -136,7 +135,7 @@ class RegistrarGradePdfParser
             'degree' => $degree,
             'teacher' => $teacher,
             'type_course' => $typeCourse,
-            'intflag' => 0,
+            'intflag' => $summary['uses_decimal'] ? 0 : 1,
             'statuseva' => 2,
             'reasonid' => null,
             'reason' => null,
@@ -177,6 +176,50 @@ class RegistrarGradePdfParser
     }
 
     /**
+     * @return array{0: string, 1: ?int}
+     */
+    private function parseTeacherAndSection(string $text, ?int $sectionFallback): array
+    {
+        $teacher = '';
+        $section = $sectionFallback;
+
+        if (preg_match(
+            '/ผู้สอน\s+มหาวิทยาลัยขอนแก่น\s+(.+?)\s+กลุ่ม\s*(\d+)/us',
+            $text,
+            $match
+        )) {
+            $teacher = $this->normalizeTeacherName($match[1]);
+            $section = (int) $match[2];
+
+            return [$teacher, $section];
+        }
+
+        $titlePattern = '(?:รศ\.ดร\.|ผศ\.ดร\.|อ\.ดร\.|รศ\.|ผศ\.|อ\.|ศ\.|ดร\.|นาย|นางสาว|นาง)';
+
+        if (preg_match(
+            '/('.$titlePattern.'[^\n]+?)\s+กลุ่ม\s*(\d+)/u',
+            $text,
+            $match
+        )) {
+            $teacher = $this->normalizeTeacherName($match[1]);
+            $section = (int) $match[2];
+        }
+
+        return [$teacher, $section];
+    }
+
+    private function normalizeTeacherName(string $name): string
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', str_replace("\t", ' ', $name)) ?? $name);
+
+        if (str_contains($name, 'อาจารย์ประจำวิชา')) {
+            return '';
+        }
+
+        return $name;
+    }
+
+    /**
      * @return list<array{grade: string}>
      */
     private function parseStudents(string $text): array
@@ -196,91 +239,163 @@ class RegistrarGradePdfParser
     /**
      * Parse ตารางสรุป % / รวม / MANUAL / เกรด ท้ายไฟล์
      *
-     * @return array{counts: array<string, int>, ranges: array<string, string>}
+     * @return array{counts: array<string, int>, ranges: array<string, string>, uses_decimal: bool}
      */
     private function parseGradeSummary(string $text): array
     {
         if (! preg_match('/%รวมMANUALเกรด(.+?)(?:controlcode|CONTROL CODE)/isu', $text, $blockMatch)) {
-            return ['counts' => [], 'ranges' => []];
+            return ['counts' => [], 'ranges' => [], 'uses_decimal' => false];
         }
 
         $counts = array_fill_keys(array_values(self::GRADE_KEYS), 0);
         $ranges = [];
+        $usesDecimal = false;
         $lines = array_filter(array_map('trim', explode("\n", trim($blockMatch[1]))));
+        $totalStudents = $this->parseSummaryTotalStudents($lines);
 
         foreach ($lines as $line) {
             if (str_contains($line, 'รวม')) {
                 continue;
             }
 
-            $row = $this->parseSummaryLine($line);
+            $row = $this->parseSummaryLine($line, $totalStudents);
             if ($row === null) {
                 continue;
             }
 
+            if ($row['uses_decimal']) {
+                $usesDecimal = true;
+            }
+
             $field = self::GRADE_KEYS[$row['grade']] ?? null;
-            if ($field) {
+            if ($field && $row['count'] > 0) {
                 $counts[$field] = $row['count'];
             }
 
             $scoreField = self::SCORE_KEYS[$row['grade']] ?? null;
             if ($scoreField && $row['min'] !== null && $row['max'] !== null) {
-                // ฟอร์มเก็บรูปแบบ ขอบเขตบน-ขอบเขตล่าง (max-min)
-                $ranges[$scoreField] = sprintf('%d-%d', $row['max'], $row['min']);
+                $ranges[$scoreField] = $this->formatScoreRange($row['max'], $row['min'], $row['uses_decimal']);
             }
         }
 
-        return ['counts' => $counts, 'ranges' => $ranges];
+        return ['counts' => $counts, 'ranges' => $ranges, 'uses_decimal' => $usesDecimal];
     }
 
     /**
-     * @return array{percent: string, count: int, min: ?int, max: ?int, grade: string}|null
+     * @param  list<string>  $lines
      */
-    private function parseSummaryLine(string $line): ?array
+    private function parseSummaryTotalStudents(array $lines): ?int
+    {
+        foreach ($lines as $line) {
+            if (preg_match('/(\d+\.\d{2})(\d+)รวม/u', $line, $totalMatch)) {
+                return (int) $totalMatch[2];
+            }
+        }
+
+        return null;
+    }
+
+    private function formatScoreRange(float $max, float $min, bool $decimal): string
+    {
+        if ($decimal) {
+            return sprintf('%s-%s', $this->formatBoundary($max), $this->formatBoundary($min));
+        }
+
+        return sprintf('%d-%d', (int) $max, (int) $min);
+    }
+
+    private function formatBoundary(float $value): string
+    {
+        if (fmod($value, 1.0) === 0.0) {
+            return number_format($value, 2, '.', '');
+        }
+
+        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+    }
+
+    /**
+     * @return array{percent: float, count: int, min: ?float, max: ?float, grade: string, uses_decimal: bool}|null
+     */
+    private function parseSummaryLine(string $line, ?int $totalStudents): ?array
     {
         if (str_contains($line, '<<->>')) {
             if (preg_match('/^(\d+\.\d{2})(\d+)<<->>W$/u', $line, $match)) {
                 return [
-                    'percent' => $match[1],
+                    'percent' => (float) $match[1],
                     'count' => (int) $match[2],
                     'min' => null,
                     'max' => null,
                     'grade' => 'W',
+                    'uses_decimal' => false,
                 ];
             }
 
             return null;
         }
 
-        if (! preg_match('/^(.+)\s+-\s+(\d{1,3})(A|B\+|B|C\+|C|D\+|D|F)$/u', $line, $match)) {
-            return null;
+        if (preg_match('/^(.+?)\s*>>\s*A$/u', $line, $match)) {
+            $split = $this->splitCountAndMin($match[1], 100.0, $totalStudents, 'A');
+            if ($split === null) {
+                return null;
+            }
+
+            return [
+                'percent' => $split['percent'],
+                'count' => $split['count'],
+                'min' => $split['min'],
+                'max' => 100.0,
+                'grade' => 'A',
+                'uses_decimal' => $split['min'] != floor($split['min']),
+            ];
         }
 
-        $left = $match[1];
-        $max = (int) $match[2];
-        $grade = $match[3];
+        if (preg_match('/^(.+)\s+-\s+(\d+(?:\.\d+)?)(A|B\+|B|C\+|C|D\+|D|F)$/u', $line, $match)) {
+            $split = $this->splitCountAndMin($match[1], (float) $match[2], $totalStudents, $match[3]);
+            if ($split === null) {
+                return null;
+            }
 
+            $usesDecimal = str_contains($match[1], '.') && (
+                str_contains($match[2], '.') || $split['min'] != floor($split['min'])
+            );
+
+            return [
+                'percent' => $split['percent'],
+                'count' => $split['count'],
+                'min' => $split['min'],
+                'max' => (float) $match[2],
+                'grade' => $match[3],
+                'uses_decimal' => $usesDecimal || str_contains($match[2], '.'),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{percent: float, count: int, min: float}|null
+     */
+    private function splitCountAndMin(string $left, float $max, ?int $totalStudents, string $grade): ?array
+    {
         if (! preg_match('/^(\d+\.\d{2})(\d+)$/u', $left, $parts)) {
             return null;
         }
 
+        $percent = (float) $parts[1];
         $rest = $parts[2];
-        $percent = $parts[1];
         $candidates = [];
 
-        for ($minLen = 1; $minLen <= 3; $minLen++) {
+        for ($minLen = 1; $minLen <= 4; $minLen++) {
             if (strlen($rest) <= $minLen) {
                 continue;
             }
-            $min = (int) substr($rest, -$minLen);
+            $min = (float) substr($rest, -$minLen);
             $count = (int) substr($rest, 0, -$minLen);
-            if ($count > 0 && $min <= $max) {
+            if ($min <= $max && $count >= 0) {
                 $candidates[] = [
                     'percent' => $percent,
                     'count' => $count,
                     'min' => $min,
-                    'max' => $max,
-                    'grade' => $grade,
                 ];
             }
         }
@@ -289,13 +404,35 @@ class RegistrarGradePdfParser
             return null;
         }
 
+        if ($totalStudents !== null) {
+            $expected = $percent < 0.01 ? 0 : (int) round($totalStudents * $percent / 100);
+
+            usort($candidates, function (array $a, array $b) use ($expected): int {
+                $diff = abs($a['count'] - $expected) <=> abs($b['count'] - $expected);
+                if ($diff !== 0) {
+                    return $diff;
+                }
+
+                return $b['count'] <=> $a['count'];
+            });
+
+            return $candidates[0];
+        }
+
         if ($grade === 'F' || $max <= 29) {
             usort($candidates, fn (array $a, array $b): int => $b['count'] <=> $a['count']);
 
             return $candidates[0];
         }
 
-        usort($candidates, fn (array $a, array $b): int => $b['min'] <=> $a['min']);
+        usort($candidates, function (array $a, array $b): int {
+            $diff = $b['min'] <=> $a['min'];
+            if ($diff !== 0) {
+                return $diff;
+            }
+
+            return $b['count'] <=> $a['count'];
+        });
 
         return $candidates[0];
     }

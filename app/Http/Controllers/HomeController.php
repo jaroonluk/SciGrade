@@ -28,7 +28,7 @@ class HomeController extends Controller
             $username = $this->resolveStaffUsername();
             if ($username) {
                 $reports = GradeReport::query()
-                    ->with('gradeStds')
+                    ->with(['gradeStds', 'files'])
                     ->where('username', $username)
                     ->where('term', (string) $term)
                     ->where('year', (string) $year)

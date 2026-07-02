@@ -106,6 +106,7 @@ class GradeReportController extends Controller
         }
 
         DB::connection('scigrad')->transaction(function () use ($gradeReport) {
+            $gradeReport->files()->each(fn ($file) => $file->delete());
             $gradeReport->gradeStds()->delete();
             $gradeReport->delete();
         });
@@ -128,6 +129,12 @@ class GradeReportController extends Controller
                 'approv' => -1,
                 'dateapprove2' => $today,
                 'reason' => $validated['rejection_reason'] ?? $gradeReport->reason,
+            ]);
+        } elseif ($validated['approv'] === 0) {
+            $gradeReport->update([
+                'approv' => 0,
+                'dateapprove1' => null,
+                'dateapprove2' => null,
             ]);
         } elseif ($validated['role'] === 'dept_admin' && $validated['approv'] === 1) {
             $gradeReport->update([

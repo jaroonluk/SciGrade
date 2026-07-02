@@ -21,6 +21,15 @@
     .report-table td, .report-table th { padding: .65rem .75rem; border-bottom: 1px solid #f0e0d0; vertical-align: top; }
     .report-table tr:hover td { background: #fffaf5; }
     .action-btn { display: inline-flex; align-items: center; gap: .25rem; padding: .4rem .75rem; border-radius: .5rem; font-size: .8rem; font-weight: 600; }
+    .file-chip {
+        display: inline-flex; align-items: center; gap: .35rem;
+        padding: .25rem .5rem; border-radius: .375rem;
+        background: #fffaf5; border: 1px solid #f0e0d0; font-size: .75rem; color: #5C2E1F;
+    }
+    .file-upload-zone {
+        border: 1px dashed #E8C4B8; border-radius: .5rem; padding: .5rem;
+        background: #fffaf5;
+    }
 </style>
 @endpush
 
@@ -131,11 +140,12 @@
                 </div>
             @else
                 <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
-                    <table class="report-table w-full text-sm min-w-[640px]">
+                    <table class="report-table w-full text-sm min-w-[800px]">
                         <thead>
                             <tr>
                                 <th class="text-left">รายวิชา</th>
                                 <th class="text-left" style="min-width:14rem">ความคืบหน้า / สถานะ</th>
+                                <th class="text-left" style="min-width:12rem">ไฟล์แนบ (PDF)</th>
                                 <th class="text-center">ทำรายการ</th>
                             </tr>
                         </thead>
@@ -180,6 +190,50 @@
                                         </span>
                                     </td>
                                     <td>
+                                        <div class="space-y-2" data-report-files="{{ $report->grade_id }}">
+                                            @if ($report->files->isEmpty())
+                                                <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์แนบ</p>
+                                            @else
+                                                <div class="flex flex-col gap-1.5 file-list">
+                                                    @foreach ($report->files as $file)
+                                                        <div class="file-chip" data-file-id="{{ $file->file_id }}">
+                                                            <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+                                                            <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
+                                                               target="_blank" rel="noopener noreferrer"
+                                                               class="hover:underline truncate max-w-[10rem]" title="{{ $file->original_name }}">
+                                                                {{ $file->original_name }}
+                                                            </a>
+                                                            @if ($canEdit)
+                                                                <button type="button"
+                                                                    class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
+                                                                    data-report-id="{{ $report->grade_id }}"
+                                                                    data-file-id="{{ $file->file_id }}"
+                                                                    title="ลบไฟล์">
+                                                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                                                </button>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+
+                                            @if ($canEdit)
+                                                <label class="file-upload-zone block cursor-pointer">
+                                                    <input type="file" accept=".pdf,application/pdf" class="hidden file-upload-input"
+                                                        data-report-id="{{ $report->grade_id }}">
+                                                    <span class="text-xs text-[#8B4513] font-medium flex items-center gap-1">
+                                                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                                                        อัปโหลด PDF
+                                                    </span>
+                                                </label>
+                                            @else
+                                                <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
+                                                    รายงานผ่านการอนุมัติแล้ว — ไม่สามารถอัปโหลดหรือแก้ไขไฟล์ได้จนกว่าเจ้าหน้าที่จะคืนสถานะเป็นรออนุมัติ
+                                                </p>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td>
                                         <div class="flex flex-wrap justify-center gap-2">
                                             @if ($canEdit)
                                                 @if ($canPrint)
@@ -219,7 +273,7 @@
                 </div>
                 <p class="text-xs text-red-700 mt-3 leading-relaxed">
                     ** เมื่อสร้างแบบรายงานแล้ว ต้องกรอกจำนวนนักศึกษาก่อนจึงจะพิมพ์แบบฟอร์มได้<br>
-                    ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด
+                    ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด (อัปโหลดไฟล์ PDF ในคอลัมน์ «ไฟล์แนบ»)
                 </p>
             @endif
         </div>
@@ -337,6 +391,112 @@
             }
         });
     });
+
+    document.querySelectorAll('.file-upload-input').forEach((input) => {
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+
+            if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                alert('รองรับเฉพาะไฟล์ PDF');
+                input.value = '';
+                return;
+            }
+
+            const reportId = input.dataset.reportId;
+            const formData = new FormData();
+            formData.append('attachment', file);
+
+            const res = await fetch(`/api/grade-reports/${reportId}/files`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                body: formData,
+            });
+
+            input.value = '';
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'อัปโหลดไม่สำเร็จ');
+                return;
+            }
+
+            const uploaded = await res.json();
+            const container = document.querySelector(`[data-report-files="${reportId}"]`);
+            if (!container) return;
+
+            container.querySelector('.file-empty-msg')?.remove();
+
+            let list = container.querySelector('.file-list');
+            if (!list) {
+                list = document.createElement('div');
+                list.className = 'flex flex-col gap-1.5 file-list';
+                const uploadZone = container.querySelector('.file-upload-zone');
+                container.insertBefore(list, uploadZone);
+            }
+
+            const chip = document.createElement('div');
+            chip.className = 'file-chip';
+            chip.dataset.fileId = uploaded.file_id;
+            chip.innerHTML = `
+                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+                <a href="${uploaded.view_url}" target="_blank" rel="noopener noreferrer"
+                   class="hover:underline truncate max-w-[10rem]" title="${uploaded.original_name}">
+                    ${uploaded.original_name}
+                </a>
+                <button type="button" class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
+                    data-report-id="${reportId}" data-file-id="${uploaded.file_id}" title="ลบไฟล์">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
+            list.appendChild(chip);
+            bindDeleteFile(chip.querySelector('.btn-delete-file'));
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    });
+
+    function bindDeleteFile(btn) {
+        if (!btn || btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', async () => {
+            if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
+
+            const reportId = btn.dataset.reportId;
+            const fileId = btn.dataset.fileId;
+            const res = await fetch(`/api/grade-reports/${reportId}/files/${fileId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'ลบไฟล์ไม่สำเร็จ');
+                return;
+            }
+
+            btn.closest('.file-chip')?.remove();
+            const container = document.querySelector(`[data-report-files="${reportId}"]`);
+            const list = container?.querySelector('.file-list');
+            if (list && !list.children.length) {
+                list.remove();
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-gray-500 file-empty-msg';
+                empty.textContent = 'ยังไม่มีไฟล์แนบ';
+                const uploadZone = container.querySelector('.file-upload-zone');
+                container.insertBefore(empty, uploadZone);
+            }
+        });
+    }
+
+    document.querySelectorAll('.btn-delete-file').forEach(bindDeleteFile);
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
 })();
