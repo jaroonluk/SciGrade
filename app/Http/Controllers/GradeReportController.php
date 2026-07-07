@@ -42,6 +42,14 @@ class GradeReportController extends Controller
         return response()->json($this->formatReport($gradeReport->load('gradeStds')));
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function formPayload(GradeReport $gradeReport): array
+    {
+        return $this->formatReport($gradeReport->loadMissing('gradeStds'));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateReport($request);

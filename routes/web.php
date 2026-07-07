@@ -5,6 +5,7 @@ use App\Http\Controllers\DeptAdmin\DepartmentReportController;
 use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
 use App\Http\Controllers\DeptAdmin\DeptSubmissionFileController;
 use App\Http\Controllers\FacultyDeptSubmissionController;
+use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportFileController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
@@ -57,6 +58,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/api/dept-submissions/files', [DeptSubmissionFileController::class, 'store']);
     Route::put('/api/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'update']);
+    Route::post('/api/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'update']);
     Route::delete('/api/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'destroy']);
     Route::post('/api/faculty-admin/dept-submissions/{submission}/receive', [FacultyDeptSubmissionController::class, 'receive']);
 

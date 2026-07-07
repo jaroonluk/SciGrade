@@ -327,7 +327,7 @@
             </form>
 
             @php
-                $deptCanModify = ! $deptSubmission || $deptSubmission->isOpen();
+                $deptCanModify = (bool) ($deptSubmission?->isOpen());
                 $deptFiles = $deptSubmission?->files ?? collect();
             @endphp
 
@@ -358,14 +358,14 @@
                 @else
                     <div class="flex flex-col gap-2 mb-3 dept-file-list">
                         @foreach ($deptFiles as $file)
-                            <div class="file-chip items-start sm:items-center flex-wrap" data-file-id="{{ $file->file_id }}">
+                            <div class="file-chip dept-file-row items-start sm:items-center flex-wrap" data-file-id="{{ $file->file_id }}">
                                 <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
-                                <a href="{{ route('dept-submissions.files.show', $file->file_id) }}"
+                                <a href="{{ route('dept-submissions.files.show', $file->file_id) }}{{ $file->uploaded_at ? '?v='.$file->uploaded_at->timestamp : '' }}"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="hover:underline truncate max-w-[14rem]" title="{{ $file->original_name }}">
+                                   class="dept-file-name hover:underline truncate max-w-[14rem]" title="{{ $file->original_name }}">
                                     {{ $file->original_name }}
                                 </a>
-                                <span class="text-xs text-gray-500">{{ $file->uploaded_at?->format('d/m/Y H:i') }}</span>
+                                <span class="text-xs text-gray-500 dept-file-uploaded-at">{{ $file->uploaded_at?->format('d/m/Y H:i') }}</span>
                                 @if ($deptCanModify)
                                     <button type="button" class="btn-edit-dept-file text-[#8B4513] hover:text-[#6B3410] text-xs font-medium"
                                         data-file-id="{{ $file->file_id }}"
@@ -419,17 +419,6 @@
                     </div>
                 </div>
             </a>
-            <a href="{{ route('grade-reports.reports') }}" class="menu-card rounded-xl p-5 block sm:col-span-2">
-                <div class="flex items-start gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
-                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <p class="font-semibold text-[#5C2E1F]">ดูรายงานตามสถานะ</p>
-                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ดูรายงานทุกสถานะ (รออนุมัติ / สาขาอนุมัติ / คณะอนุมัติ / ส่งกลับ)</p>
-                    </div>
-                </div>
-            </a>
         </div>
     @endif
 
@@ -463,7 +452,7 @@
                                     </p>
                                     <div class="flex flex-col gap-1 mt-2">
                                         @foreach ($submission->files as $file)
-                                            <a href="{{ route('dept-submissions.files.show', $file->file_id) }}" target="_blank" rel="noopener noreferrer"
+                                            <a href="{{ route('dept-submissions.files.show', $file->file_id) }}{{ $file->uploaded_at ? '?v='.$file->uploaded_at->timestamp : '' }}" target="_blank" rel="noopener noreferrer"
                                                class="text-sm text-[#8B4513] hover:underline flex items-center gap-1">
                                                 <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
                                                 {{ $file->original_name }}
@@ -526,6 +515,11 @@
 <script>
 (function() {
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    function refreshLucideIcons(root) {
+        if (typeof lucide === 'undefined' || !lucide.createIcons) return;
+        lucide.createIcons(root ? { root } : undefined);
+    }
 
     document.querySelectorAll('.btn-delete-report').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -614,7 +608,7 @@
             `;
             list.appendChild(chip);
             bindDeleteFile(chip.querySelector('.btn-delete-file'));
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            refreshLucideIcons(chip);
         });
     });
 
@@ -660,6 +654,87 @@
     const deptBox = document.querySelector('[data-dept-submission]');
     const deptUploadInput = document.getElementById('dept-file-upload-input');
 
+    function deptApiMessage(data, fallback) {
+        if (data?.message) return data.message;
+        const errors = data?.errors;
+        if (errors && typeof errors === 'object') {
+            const first = Object.values(errors).flat()[0];
+            if (first) return first;
+        }
+        return fallback;
+    }
+
+    function findDeptFileRow(el) {
+        return el?.closest('.dept-file-row') ?? null;
+    }
+
+    function ensureDeptFileList() {
+        if (!deptBox) return null;
+        deptBox.querySelector('.dept-file-empty-msg')?.remove();
+        let list = deptBox.querySelector('.dept-file-list');
+        if (!list) {
+            list = document.createElement('div');
+            list.className = 'flex flex-col gap-2 mb-3 dept-file-list';
+            const uploadZone = deptBox.querySelector('.file-upload-zone');
+            if (uploadZone) {
+                deptBox.insertBefore(list, uploadZone);
+            } else {
+                deptBox.appendChild(list);
+            }
+        }
+        return list;
+    }
+
+    function renderDeptFileRow(file) {
+        const canModify = deptBox?.dataset.canModify === '1';
+        const row = document.createElement('div');
+        row.className = 'file-chip dept-file-row items-start sm:items-center flex-wrap';
+        row.dataset.fileId = file.file_id;
+        const actions = canModify ? `
+            <button type="button" class="btn-edit-dept-file text-[#8B4513] hover:text-[#6B3410] text-xs font-medium"
+                data-file-id="${file.file_id}" data-file-name="${file.original_name}">แก้ไขชื่อ</button>
+            <label class="btn-replace-dept-file text-[#8B4513] hover:text-[#6B3410] text-xs font-medium cursor-pointer">
+                เปลี่ยนไฟล์
+                <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    class="hidden dept-file-replace-input" data-file-id="${file.file_id}">
+            </label>
+            <button type="button" class="btn-delete-dept-file text-red-600 hover:text-red-800"
+                data-file-id="${file.file_id}" title="ลบไฟล์">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+        ` : '';
+        row.innerHTML = `
+            <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+            <a href="${file.view_url}" target="_blank" rel="noopener noreferrer"
+               class="dept-file-name hover:underline truncate max-w-[14rem]" title="${file.original_name}">
+                ${file.original_name}
+            </a>
+            <span class="text-xs text-gray-500 dept-file-uploaded-at">${file.uploaded_at || ''}</span>
+            ${actions}
+        `;
+        if (canModify) {
+            bindDeptDelete(row.querySelector('.btn-delete-dept-file'));
+            bindDeptEdit(row.querySelector('.btn-edit-dept-file'));
+        }
+        return row;
+    }
+
+    function syncDeptEmptyState() {
+        if (!deptBox) return;
+        const list = deptBox.querySelector('.dept-file-list');
+        if (list && list.children.length) return;
+        list?.remove();
+        if (!deptBox.querySelector('.dept-file-empty-msg')) {
+            const empty = document.createElement('p');
+            empty.className = 'text-xs text-gray-500 dept-file-empty-msg mb-3';
+            empty.textContent = 'ยังไม่มีไฟล์ในรอบนี้';
+            const uploadZone = deptBox.querySelector('.file-upload-zone');
+            if (uploadZone) {
+                deptBox.insertBefore(empty, uploadZone);
+            }
+        }
+    }
+
     if (deptUploadInput && deptBox) {
         deptUploadInput.addEventListener('change', async () => {
             const file = deptUploadInput.files?.[0];
@@ -685,11 +760,18 @@
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                alert(data.message || 'อัปโหลดไม่สำเร็จ');
+                alert(deptApiMessage(data, 'อัปโหลดไม่สำเร็จ'));
                 return;
             }
 
-            window.location.reload();
+            const uploaded = await res.json();
+            deptBox.dataset.canModify = '1';
+            const row = renderDeptFileRow(uploaded);
+            const list = ensureDeptFileList();
+            if (list) {
+                list.appendChild(row);
+                refreshLucideIcons(row);
+            }
         });
     }
 
@@ -698,6 +780,7 @@
         btn.dataset.bound = '1';
         btn.addEventListener('click', async () => {
             if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
+            const row = findDeptFileRow(btn);
             const fileId = btn.dataset.fileId;
             const res = await fetch(`/api/dept-submissions/files/${fileId}`, {
                 method: 'DELETE',
@@ -709,25 +792,20 @@
             });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                alert(data.message || 'ลบไฟล์ไม่สำเร็จ');
+                alert(deptApiMessage(data, 'ลบไฟล์ไม่สำเร็จ'));
+                if (res.status === 422) window.location.reload();
                 return;
             }
-            btn.closest('[data-file-id]')?.remove();
-            if (deptBox && !deptBox.querySelector('.dept-file-list [data-file-id]')) {
-                const empty = document.createElement('p');
-                empty.className = 'text-xs text-gray-500 dept-file-empty-msg mb-3';
-                empty.textContent = 'ยังไม่มีไฟล์ในรอบนี้';
-                deptBox.querySelector('.dept-file-list')?.remove();
-                const uploadZone = deptBox.querySelector('.file-upload-zone');
-                if (uploadZone) deptBox.insertBefore(empty, uploadZone);
-            }
+            row?.remove();
+            syncDeptEmptyState();
         });
     }
 
-    document.querySelectorAll('.btn-delete-dept-file').forEach(bindDeptDelete);
-
-    document.querySelectorAll('.btn-edit-dept-file').forEach((btn) => {
+    function bindDeptEdit(btn) {
+        if (!btn || btn.dataset.bound) return;
+        btn.dataset.bound = '1';
         btn.addEventListener('click', async () => {
+            const row = findDeptFileRow(btn);
             const newName = prompt('ชื่อไฟล์', btn.dataset.fileName || '');
             if (newName === null || newName.trim() === '') return;
 
@@ -744,49 +822,81 @@
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                alert(data.message || 'แก้ไขชื่อไม่สำเร็จ');
+                alert(deptApiMessage(data, 'แก้ไขชื่อไม่สำเร็จ'));
+                if (res.status === 422) window.location.reload();
                 return;
             }
 
             const data = await res.json();
-            const link = btn.closest('[data-file-id]')?.querySelector('a');
+            const link = row?.querySelector('.dept-file-name');
             if (link) {
                 link.textContent = data.original_name;
                 link.title = data.original_name;
             }
             btn.dataset.fileName = data.original_name;
         });
-    });
+    }
 
-    document.querySelectorAll('.dept-file-replace-input').forEach((input) => {
-        input.addEventListener('change', async () => {
-            const file = input.files?.[0];
-            if (!file) return;
+    function updateDeptFileRow(row, data) {
+        if (!row || !data) return;
+        const link = row.querySelector('.dept-file-name');
+        if (link) {
+            link.textContent = data.original_name;
+            link.title = data.original_name;
+            link.href = data.view_url;
+        }
+        const uploadedAt = row.querySelector('.dept-file-uploaded-at');
+        if (uploadedAt) {
+            uploadedAt.textContent = data.uploaded_at || '';
+            uploadedAt.classList.add('text-green-700', 'font-medium');
+            setTimeout(() => uploadedAt.classList.remove('text-green-700', 'font-medium'), 2500);
+        }
+        const editBtn = row.querySelector('.btn-edit-dept-file');
+        if (editBtn) editBtn.dataset.fileName = data.original_name;
+    }
 
-            const formData = new FormData();
-            formData.append('attachment', file);
+    async function handleDeptFileReplace(input) {
+        const file = input.files?.[0];
+        if (!file) return;
 
-            const res = await fetch(`/api/dept-submissions/files/${input.dataset.fileId}`, {
-                method: 'PUT',
-                headers: {
-                    'X-CSRF-TOKEN': csrf(),
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-                body: formData,
-            });
+        const row = findDeptFileRow(input);
+        const formData = new FormData();
+        formData.append('attachment', file);
 
-            input.value = '';
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                alert(data.message || 'เปลี่ยนไฟล์ไม่สำเร็จ');
-                return;
-            }
-
-            window.location.reload();
+        const res = await fetch(`/api/dept-submissions/files/${input.dataset.fileId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            body: formData,
         });
-    });
+
+        input.value = '';
+
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            alert(deptApiMessage(data, 'เปลี่ยนไฟล์ไม่สำเร็จ'));
+            if (res.status === 422) window.location.reload();
+            return;
+        }
+
+        const data = await res.json();
+        updateDeptFileRow(row, data);
+    }
+
+    if (deptBox) {
+        deptBox.addEventListener('change', (event) => {
+            const input = event.target;
+            if (!(input instanceof HTMLInputElement)) return;
+            if (!input.classList.contains('dept-file-replace-input')) return;
+            handleDeptFileReplace(input);
+        });
+    }
+
+    document.querySelectorAll('.btn-delete-dept-file').forEach(bindDeptDelete);
+    document.querySelectorAll('.btn-edit-dept-file').forEach(bindDeptEdit);
 
     document.querySelectorAll('.btn-receive-dept-submission').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -811,7 +921,7 @@
         });
     });
 
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+    refreshLucideIcons();
 })();
 </script>
 @endpush

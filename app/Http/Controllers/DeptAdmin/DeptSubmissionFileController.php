@@ -78,16 +78,24 @@ class DeptSubmissionFileController extends Controller
             'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:20480'],
         ], [
             'attachment.mimes' => 'รองรับเฉพาะไฟล์ PDF หรือ Word',
+            'attachment.file' => 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาลองเลือกไฟล์ใหม่',
         ]);
 
-        if ($request->hasFile('attachment')) {
-            $storedPath = $this->submissionService->replaceFile($file, $request->file('attachment'));
+        if ($request->has('attachment') && $request->file('attachment') === null) {
+            throw ValidationException::withMessages([
+                'attachment' => 'อัปโหลดไฟล์ไม่สำเร็จ (ไฟล์ใหญ่เกินกำหนดหรือรูปแบบไม่ถูกต้อง)',
+            ]);
+        }
+
+        $uploaded = $request->file('attachment');
+        if ($uploaded !== null && $uploaded->isValid()) {
+            $storedPath = $this->submissionService->replaceFile($file, $uploaded);
             $file->stored_path = $storedPath;
             $file->original_name = basename($storedPath);
             $file->uploaded_at = now();
             $file->username = $staff->username;
-        } elseif (! empty($validated['original_name'])) {
-            $file->original_name = trim($validated['original_name']);
+        } elseif ($request->filled('original_name')) {
+            $file->original_name = trim((string) $request->input('original_name'));
         } else {
             throw ValidationException::withMessages([
                 'original_name' => 'กรุณาระบุชื่อไฟล์หรือเลือกไฟล์ใหม่',
@@ -117,6 +125,9 @@ class DeptSubmissionFileController extends Controller
 
         return response()->file($absolutePath, [
             'Content-Disposition' => 'inline; filename="'.addslashes($file->original_name).'"',
+            'Cache-Control' => 'private, no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
 
@@ -145,12 +156,17 @@ class DeptSubmissionFileController extends Controller
      */
     private function formatFile(DeptSubmissionFile $file): array
     {
+        $viewUrl = route('dept-submissions.files.show', $file->file_id);
+        if ($file->uploaded_at) {
+            $viewUrl .= '?v='.$file->uploaded_at->timestamp;
+        }
+
         return [
             'file_id' => $file->file_id,
             'submission_id' => $file->submission_id,
             'original_name' => $file->original_name,
             'uploaded_at' => $file->uploaded_at?->format('d/m/Y H:i'),
-            'view_url' => route('dept-submissions.files.show', $file->file_id),
+            'view_url' => $viewUrl,
         ];
     }
 

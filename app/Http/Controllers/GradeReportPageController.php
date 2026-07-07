@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\GradeReportController;
 use App\Models\GradeReport;
 use App\Models\TblProgramQa;
 use App\Services\RegistrarGradePdfParser;
@@ -21,7 +22,7 @@ class GradeReportPageController extends Controller
         private readonly RegistrarGradePdfParser $pdfParser,
     ) {}
 
-    private function formView(?int $reportId, array $nav = [], ?array $uploadParsed = null): View
+    private function formView(?int $reportId, array $nav = [], ?array $uploadParsed = null, ?array $prefillReport = null): View
     {
         $deptId = session('staff_department_id');
         if ($deptId === null && auth()->user()) {
@@ -62,6 +63,7 @@ class GradeReportPageController extends Controller
             'returnUrl' => $nav['returnUrl'] ?? route('grade-reports.my'),
             'dashboardUrl' => route('dashboard'),
             'uploadParsed' => $uploadParsed,
+            'prefillReport' => $prefillReport,
         ]);
     }
 
@@ -111,12 +113,20 @@ class GradeReportPageController extends Controller
         );
     }
 
-    public function edit(Request $request, GradeReport $gradeReport): View
+    public function edit(Request $request, GradeReport $gradeReport, GradeReportController $gradeReports): View
     {
-        abort_unless($gradeReport->username === session('staff_username'), 403);
+        $username = $this->resolveStaffUsername();
+        abort_unless($username && $gradeReport->username === $username, 403);
         abort_if((int) $gradeReport->approv > 0, 403, 'ไม่สามารถแก้ไขรายการที่อนุมัติแล้ว');
 
-        return $this->formView($gradeReport->grade_id, $this->buildReturnContext($request, $gradeReport));
+        $gradeReport->load('gradeStds');
+
+        return $this->formView(
+            $gradeReport->grade_id,
+            $this->buildReturnContext($request, $gradeReport),
+            null,
+            $gradeReports->formPayload($gradeReport),
+        );
     }
 
     public function upload(): View

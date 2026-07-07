@@ -498,16 +498,25 @@
         const returnUrl = @json($returnUrl);
         const dashboardUrl = @json($dashboardUrl);
         const uploadParsed = @json($uploadParsed ?? null);
+        const prefillReport = @json($prefillReport ?? null);
 
         initTempladeForm({ teacherHelpImageUrl });
 
-        if (reportId) {
+        if (prefillReport) {
+            populateFormFromRecord(prefillReport);
+        } else if (reportId) {
             fetch(`/api/grade-reports/${reportId}?role=instructor`, {
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             })
-                .then(r => r.json())
+                .then(async (r) => {
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) {
+                        throw new Error(data.message || 'โหลดข้อมูลไม่สำเร็จ');
+                    }
+                    return data;
+                })
                 .then(populateFormFromRecord)
-                .catch(() => showToast('โหลดข้อมูลไม่สำเร็จ', 'error'));
+                .catch((err) => showToast(err?.message || 'โหลดข้อมูลไม่สำเร็จ', 'error'));
         } else {
             const reportDate = document.getElementById('report-date');
             if (reportDate && !reportDate.value) reportDate.value = new Date().toISOString().slice(0, 10);
