@@ -32,6 +32,7 @@ class HomeController extends Controller
         $deptDepartmentId = null;
         $deptSubmission = null;
         $openDeptSubmissions = collect();
+        $receivedDeptSubmissionsGrouped = collect();
 
         if ($role === 'instructor') {
             $username = $this->resolveStaffUsername();
@@ -60,7 +61,8 @@ class HomeController extends Controller
         }
 
         if ($role === 'faculty_admin') {
-            $openDeptSubmissions = $this->deptSubmissionService->openSubmissionsForFaculty();
+            $openDeptSubmissions = $this->deptSubmissionService->openSubmissionsForFaculty($term, $year);
+            $receivedDeptSubmissionsGrouped = $this->deptSubmissionService->receivedSubmissionsGroupedForFaculty($term, $year);
         }
 
         return view('home', [
@@ -77,6 +79,7 @@ class HomeController extends Controller
             'deptDepartmentId' => $deptDepartmentId,
             'deptSubmission' => $deptSubmission,
             'openDeptSubmissions' => $openDeptSubmissions,
+            'receivedDeptSubmissionsGrouped' => $receivedDeptSubmissionsGrouped,
         ]);
     }
 

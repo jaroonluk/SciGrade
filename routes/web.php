@@ -4,6 +4,10 @@ use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\DeptAdmin\DepartmentReportController;
 use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
 use App\Http\Controllers\DeptAdmin\DeptSubmissionFileController;
+use App\Http\Controllers\FacultyAdmin\GradeReportReviewController as FacultyGradeReportReviewController;
+use App\Http\Controllers\FacultyAdmin\GradeTermController;
+use App\Http\Controllers\FacultyAdmin\PrivilegeController;
+use App\Http\Controllers\FacultyAdmin\ProgramController;
 use App\Http\Controllers\FacultyDeptSubmissionController;
 use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportFileController;
@@ -48,6 +52,28 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/{gradeReport}/reject', [GradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::get('/reports', [DepartmentReportController::class, 'form'])->name('reports.form');
         Route::post('/reports/export', [DepartmentReportController::class, 'export'])->name('reports.export');
+    });
+
+    Route::middleware('faculty.admin')->prefix('faculty-admin')->name('faculty-admin.')->group(function () {
+        Route::get('/reviews', [FacultyGradeReportReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/reviews/bulk-approve', [FacultyGradeReportReviewController::class, 'bulkApprove'])->name('reviews.bulk-approve');
+        Route::post('/reviews/{gradeReport}/approve', [FacultyGradeReportReviewController::class, 'approve'])->name('reviews.approve');
+        Route::post('/reviews/{gradeReport}/reject', [FacultyGradeReportReviewController::class, 'reject'])->name('reviews.reject');
+
+        Route::get('/settings/term', [GradeTermController::class, 'edit'])->name('settings.term');
+        Route::put('/settings/term', [GradeTermController::class, 'update'])->name('settings.term.update');
+
+        Route::get('/settings/programs', [ProgramController::class, 'index'])->name('settings.programs.index');
+        Route::get('/settings/programs/create', [ProgramController::class, 'create'])->name('settings.programs.create');
+        Route::post('/settings/programs', [ProgramController::class, 'store'])->name('settings.programs.store');
+        Route::get('/settings/programs/{program}/edit', [ProgramController::class, 'edit'])->name('settings.programs.edit');
+        Route::put('/settings/programs/{program}', [ProgramController::class, 'update'])->name('settings.programs.update');
+        Route::delete('/settings/programs/{program}', [ProgramController::class, 'destroy'])->name('settings.programs.destroy');
+
+        Route::get('/settings/privileges', [PrivilegeController::class, 'index'])->name('settings.privileges.index');
+        Route::post('/settings/privileges', [PrivilegeController::class, 'store'])->name('settings.privileges.store');
+        Route::put('/settings/privileges/{privilege}', [PrivilegeController::class, 'update'])->name('settings.privileges.update');
+        Route::delete('/settings/privileges/{privilege}', [PrivilegeController::class, 'destroy'])->name('settings.privileges.destroy');
     });
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');

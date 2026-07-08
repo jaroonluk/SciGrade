@@ -18,6 +18,15 @@ class TblProgramQa extends Model
 
     public $incrementing = false;
 
+    protected $fillable = [
+        'programid',
+        'programname',
+        'departmentid',
+        'depart_id',
+        'department_id',
+        'typestudy',
+    ];
+
     public static function forDepartment(?int $departmentId): \Illuminate\Database\Eloquent\Collection
     {
         $query = static::query()->orderBy('typestudy');

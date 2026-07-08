@@ -47,6 +47,11 @@ class DeptSubmission extends Model
         return $this->belongsTo(TblDepartment::class, 'department_id', 'department_id');
     }
 
+    public function receivedByUser(): BelongsTo
+    {
+        return $this->belongsTo(TblUser::class, 'received_by', 'username');
+    }
+
     public function files(): HasMany
     {
         return $this->hasMany(DeptSubmissionFile::class, 'submission_id', 'submission_id')
@@ -74,5 +79,19 @@ class DeptSubmission extends Model
             2 => 'ภาคปลาย',
             default => 'ภาคการศึกษาพิเศษ',
         };
+    }
+
+    public function latestSubmittedAt(): ?\Illuminate\Support\Carbon
+    {
+        $latestFile = $this->relationLoaded('files')
+            ? $this->files->first()
+            : $this->files()->orderByDesc('uploaded_at')->first();
+
+        return $latestFile?->uploaded_at ?? $this->created_at;
+    }
+
+    public function receiverDisplayName(): string
+    {
+        return $this->receivedByUser?->displayName() ?? ($this->received_by ?: '-');
     }
 }

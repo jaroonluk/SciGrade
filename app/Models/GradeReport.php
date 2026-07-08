@@ -93,6 +93,13 @@ class GradeReport extends Model
             ->latestOfMany('log_id');
     }
 
+    public function latestCentralApprovalLog(): HasOne
+    {
+        return $this->hasOne(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
+            ->whereIn('action', ['central_approved', 'central_rejected'])
+            ->latestOfMany('log_id');
+    }
+
     public function statusLabel(): string
     {
         return match ((int) $this->approv) {

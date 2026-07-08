@@ -86,6 +86,12 @@ class DeptSubmissionService
             ]);
         }
 
+        if (! $submission->files()->exists()) {
+            throw ValidationException::withMessages([
+                'submission' => 'ไม่มีไฟล์เอกสารในรอบการส่งนี้',
+            ]);
+        }
+
         $submission->update([
             'status' => DeptSubmission::STATUS_RECEIVED,
             'received_at' => now(),
@@ -99,15 +105,33 @@ class DeptSubmissionService
     /**
      * @return \Illuminate\Database\Eloquent\Collection<int, DeptSubmission>
      */
-    public function openSubmissionsForFaculty()
+    public function openSubmissionsForFaculty(int $term, int $year)
     {
         return DeptSubmission::query()
             ->with(['department', 'files'])
             ->where('status', DeptSubmission::STATUS_OPEN)
-            ->orderBy('year')
-            ->orderBy('term')
+            ->where('term', $term)
+            ->where('year', $year)
+            ->whereHas('files')
             ->orderBy('department_id')
             ->get();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, \Illuminate\Database\Eloquent\Collection<int, DeptSubmission>>
+     */
+    public function receivedSubmissionsGroupedForFaculty(int $term, int $year)
+    {
+        return DeptSubmission::query()
+            ->with(['department', 'files', 'receivedByUser.titleRelation'])
+            ->where('status', DeptSubmission::STATUS_RECEIVED)
+            ->where('term', $term)
+            ->where('year', $year)
+            ->whereHas('files')
+            ->orderBy('department_id')
+            ->orderByDesc('received_at')
+            ->get()
+            ->groupBy('department_id');
     }
 
     public function assertDepartmentAccess(TblUser $staff, int $departmentId): void

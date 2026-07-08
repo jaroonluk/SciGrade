@@ -433,36 +433,75 @@
                 รับเอกสารจากสาขาวิชา
             </h4>
             <p class="text-sm text-[#7A4A3A]/80 mb-4">
-                รายการเอกสารที่สาขาส่งเข้ามาและยังไม่ได้รับ — กดรับเอกสารเมื่อตรวจสอบครบแล้ว
-                (หลังรับแล้วสาขาจะไม่สามารถแก้ไขไฟล์ในรอบนั้นได้)
+                เลือกภาคการศึกษาเพื่อดูเอกสารที่สาขาส่งเข้ามา — กดรับเอกสารทีละสาขาเมื่อตรวจสอบครบแล้ว
+                (หลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนั้นได้)
             </p>
 
+            <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-4 mb-5">
+                <div>
+                    <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
+                    <select name="term" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">
+                        <option value="1" @selected($term === 1)>ภาคต้น</option>
+                        <option value="2" @selected($term === 2)>ภาคปลาย</option>
+                        <option value="3" @selected($term === 3)>ภาคการศึกษาพิเศษ</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ปีการศึกษา</label>
+                    <select name="year" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]">
+                        @foreach ($years as $y)
+                            <option value="{{ $y }}" @selected($year === $y)>{{ $y }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">แสดงรายการ</button>
+            </form>
+
+            @php
+                $facultyTermLabel = match ($term) {
+                    1 => 'ภาคต้น',
+                    2 => 'ภาคปลาย',
+                    default => 'ภาคการศึกษาพิเศษ',
+                };
+            @endphp
+
             @if ($openDeptSubmissions->isEmpty())
-                <p class="text-sm text-gray-500">ไม่มีเอกสารรอรับจากสาขาในขณะนี้</p>
+                <p class="text-sm text-gray-500">
+                    ไม่มีเอกสารรอรับจากสาขาใน{{ $facultyTermLabel }} ปีการศึกษา {{ $year }}
+                </p>
             @else
+                <p class="text-xs text-[#7A4A3A]/70 mb-3">
+                    {{ $facultyTermLabel }} ปีการศึกษา {{ $year }} — รอรับ {{ $openDeptSubmissions->count() }} สาขา
+                </p>
                 <div class="space-y-3">
                     @foreach ($openDeptSubmissions as $submission)
+                        @php
+                            $deptName = $submission->department?->department_name ?? 'สาขา #'.$submission->department_id;
+                            $submittedAt = $submission->latestSubmittedAt();
+                        @endphp
                         <div class="rounded-lg border border-amber-200 bg-white p-4" data-faculty-submission="{{ $submission->submission_id }}">
                             <div class="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <p class="font-semibold text-[#5C2E1F]">{{ $submission->department?->department_name ?? 'สาขา #'.$submission->department_id }}</p>
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-semibold text-[#5C2E1F]">สาขาวิชา: {{ $deptName }}</p>
                                     <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                                        {{ $submission->termLabel() }} ปีการศึกษา {{ $submission->year }}
+                                        ส่งเมื่อ {{ \App\Support\ThaiDateTime::formatDateTime($submittedAt) }}
                                         — {{ $submission->files->count() }} ไฟล์
                                     </p>
-                                    <div class="flex flex-col gap-1 mt-2">
+                                    <div class="flex flex-col gap-1.5 mt-3">
                                         @foreach ($submission->files as $file)
                                             <a href="{{ route('dept-submissions.files.show', $file->file_id) }}{{ $file->uploaded_at ? '?v='.$file->uploaded_at->timestamp : '' }}" target="_blank" rel="noopener noreferrer"
-                                               class="text-sm text-[#8B4513] hover:underline flex items-center gap-1">
-                                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-                                                {{ $file->original_name }}
+                                               class="text-sm text-[#8B4513] hover:underline flex items-center gap-1.5">
+                                                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
+                                                <span class="truncate" title="{{ $file->original_name }}">{{ $file->original_name }}</span>
+                                                <span class="text-xs text-gray-500 shrink-0">{{ $file->uploaded_at?->format('d/m/Y H:i') }}</span>
                                             </a>
                                         @endforeach
                                     </div>
                                 </div>
                                 <button type="button"
                                     class="btn-receive-dept-submission px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 shrink-0"
-                                    data-submission-id="{{ $submission->submission_id }}">
+                                    data-submission-id="{{ $submission->submission_id }}"
+                                    data-department-name="{{ $deptName }}">
                                     รับเอกสาร
                                 </button>
                             </div>
@@ -472,15 +511,118 @@
             @endif
         </div>
 
-        <div class="grid sm:grid-cols-2 gap-4">
-            <a href="{{ route('grade-reports.approve') }}" class="menu-card rounded-xl p-5 block">
+        <div class="form-section rounded-xl p-5 mb-6">
+            <h4 class="text-base font-bold text-[#5C2E1F] mb-1 flex items-center gap-2">
+                <i data-lucide="history" class="w-5 h-5"></i>
+                ประวัติการรับเอกสารจากสาขาวิชา
+            </h4>
+            <p class="text-sm text-[#7A4A3A]/80 mb-4">
+                รายการเอกสารที่รับแล้ว แยกตามหน่วยงาน/สาขาวิชาที่ส่ง — ใช้ตัวกรองภาคการศึกษาด้านบน
+            </p>
+
+            @if ($receivedDeptSubmissionsGrouped->isEmpty())
+                <p class="text-sm text-gray-500">
+                    ยังไม่มีประวัติการรับเอกสารใน{{ $facultyTermLabel }} ปีการศึกษา {{ $year }}
+                </p>
+            @else
+                <p class="text-xs text-[#7A4A3A]/70 mb-3">
+                    {{ $facultyTermLabel }} ปีการศึกษา {{ $year }} — รับแล้ว {{ $receivedDeptSubmissionsGrouped->count() }} หน่วยงาน
+                </p>
+                <div class="space-y-4">
+                    @foreach ($receivedDeptSubmissionsGrouped as $departmentId => $submissions)
+                        @php
+                            $first = $submissions->first();
+                            $deptName = $first->department?->department_name ?? 'สาขา #'.$departmentId;
+                        @endphp
+                        <div class="rounded-lg border border-green-200 bg-white overflow-hidden">
+                            <div class="px-4 py-3 bg-green-50 border-b border-green-200">
+                                <p class="font-semibold text-[#5C2E1F] flex items-center gap-2">
+                                    <i data-lucide="building" class="w-4 h-4 text-green-800"></i>
+                                    {{ $deptName }}
+                                </p>
+                                <p class="text-xs text-[#7A4A3A]/70 mt-0.5">รับเอกสารแล้ว {{ $submissions->count() }} รอบ</p>
+                            </div>
+                            <div class="divide-y divide-green-100">
+                                @foreach ($submissions as $submission)
+                                    @php $submittedAt = $submission->latestSubmittedAt(); @endphp
+                                    <div class="px-4 py-3">
+                                        <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+                                            <div class="text-sm text-[#7A4A3A]/90">
+                                                <p>
+                                                    <span class="font-medium text-[#5C2E1F]">ส่งเมื่อ</span>
+                                                    {{ \App\Support\ThaiDateTime::formatDateTime($submittedAt) }}
+                                                </p>
+                                                <p class="mt-0.5">
+                                                    <span class="font-medium text-[#5C2E1F]">รับเมื่อ</span>
+                                                    {{ \App\Support\ThaiDateTime::formatDateTime($submission->received_at) }}
+                                                    <span class="text-gray-500">โดย {{ $submission->receiverDisplayName() }}</span>
+                                                </p>
+                                            </div>
+                                            <span class="inline-block px-2 py-0.5 rounded text-xs bg-green-100 text-green-800 shrink-0">
+                                                รับแล้ว — {{ $submission->files->count() }} ไฟล์
+                                            </span>
+                                        </div>
+                                        <div class="flex flex-col gap-1.5">
+                                            @foreach ($submission->files as $file)
+                                                <a href="{{ route('dept-submissions.files.show', $file->file_id) }}{{ $file->uploaded_at ? '?v='.$file->uploaded_at->timestamp : '' }}"
+                                                   target="_blank" rel="noopener noreferrer"
+                                                   class="text-sm text-[#8B4513] hover:underline flex items-center gap-1.5">
+                                                    <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
+                                                    <span class="truncate" title="{{ $file->original_name }}">{{ $file->original_name }}</span>
+                                                </a>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <a href="{{ route('faculty-admin.reviews.index', ['term' => $term, 'year' => $year]) }}" class="menu-card rounded-xl p-5 block">
                 <div class="flex items-start gap-3">
                     <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
                         <i data-lucide="badge-check" class="w-5 h-5"></i>
                     </div>
                     <div>
                         <p class="font-semibold text-[#5C2E1F]">อนุมัติระดับคณะ</p>
-                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ตรวจสอบรายการที่สาขาอนุมัติแล้ว</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ตรวจสอบทุกสถานะ อนุมัติ/ส่งกลับเมื่อสาขาอนุมัติแล้ว</p>
+                    </div>
+                </div>
+            </a>
+            <a href="{{ route('faculty-admin.settings.term') }}" class="menu-card rounded-xl p-5 block">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-[#5C2E1F]">กำหนดภาคการศึกษา</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ตั้งค่าภาค/ปีการศึกษาเริ่มต้นของระบบ</p>
+                    </div>
+                </div>
+            </a>
+            <a href="{{ route('faculty-admin.settings.programs.index') }}" class="menu-card rounded-xl p-5 block">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                        <i data-lucide="book-open" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-[#5C2E1F]">จัดการหลักสูตร</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">เพิ่ม/แก้ไขหลักสูตรใน tblprogram_qa</p>
+                    </div>
+                </div>
+            </a>
+            <a href="{{ route('faculty-admin.settings.privileges.index') }}" class="menu-card rounded-xl p-5 block">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-[#5C2E1F]">ผู้มีสิทธิใช้งาน</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">กำหนดเจ้าหน้าที่สาขา/งานบริการ และสิทธิพิเศษ</p>
                     </div>
                 </div>
             </a>
@@ -900,7 +1042,10 @@
 
     document.querySelectorAll('.btn-receive-dept-submission').forEach((btn) => {
         btn.addEventListener('click', async () => {
-            if (!confirm('ยืนยันรับเอกสารรอบนี้จากสาขาวิชา?')) return;
+            const deptName = btn.dataset.departmentName || 'สาขานี้';
+            if (!confirm(`ยืนยันรับเอกสารจากสาขา "${deptName}" หรือไม่?\n\nหลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนี้ได้`)) return;
+
+            btn.disabled = true;
 
             const res = await fetch(`/api/faculty-admin/dept-submissions/${btn.dataset.submissionId}/receive`, {
                 method: 'POST',
@@ -913,7 +1058,8 @@
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                alert(data.message || 'รับเอกสารไม่สำเร็จ');
+                alert(data.message || data.errors?.submission?.[0] || 'รับเอกสารไม่สำเร็จ');
+                btn.disabled = false;
                 return;
             }
 

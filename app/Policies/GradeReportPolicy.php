@@ -16,6 +16,12 @@ class GradeReportPolicy
         private readonly DepartmentSubjectFilter $subjectFilter,
     ) {}
 
+    public function reviewFaculty(User $user, GradeReport $report): bool
+    {
+        return session('scigrade_role') === 'faculty_admin'
+            && $this->staffAuth->findByEmail($user->email) !== null;
+    }
+
     public function reviewDept(User $user, GradeReport $report): bool
     {
         if (session('scigrade_role') !== 'dept_admin') {

@@ -222,12 +222,17 @@ class GradeReportPageController extends Controller
         ]);
     }
 
-    public function approve(): View
+    public function approve(): RedirectResponse
     {
         $role = session('scigrade_role', 'dept_admin');
         abort_if(! in_array($role, ['dept_admin', 'faculty_admin'], true), 403);
 
-        return view('grade-reports.approve', compact('role'));
+        $params = request()->only(['term', 'year', 'status', 'department_id']);
+
+        return redirect()->route(
+            $role === 'faculty_admin' ? 'faculty-admin.reviews.index' : 'dept-admin.reviews.index',
+            $params,
+        );
     }
 
     public function reports(): View
