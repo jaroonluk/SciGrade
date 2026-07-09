@@ -84,15 +84,15 @@ class GradeReportController extends Controller
             return response()->json(['message' => 'ไม่สามารถแก้ไขรายการที่อนุมัติแล้ว'], 422);
         }
 
+        if ($gradeReport->awaitingDeptResubmit()) {
+            return response()->json(['message' => 'รายการส่งการแก้ไขแล้ว รอสาขาวิชาดำเนินการ'], 422);
+        }
+
         $data = $this->validateReport($request, updating: true);
         $stds = $data['grade_stds'] ?? null;
         unset($data['grade_stds'], $data['grade_std']);
 
         DB::connection('scigrad')->transaction(function () use ($gradeReport, $data, $stds, $request) {
-            if ((int) $gradeReport->approv === -1) {
-                $data['approv'] = 0;
-            }
-
             $data = $this->applyGradReport2Rules($data);
 
             $gradeReport->update($this->prepareReportAttributes($data, $request, isCreate: false));

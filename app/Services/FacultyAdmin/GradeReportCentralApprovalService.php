@@ -61,6 +61,35 @@ class GradeReportCentralApprovalService
         });
     }
 
+    public function sendBackForInstructorEdit(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from !== GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('สามารถส่งกลับให้อาจารย์แก้ไขได้เฉพาะรายการที่คณะอนุมัติแล้วเท่านั้น');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::DepartmentRejected->value,
+                'reason' => $remark ?? 'ส่งกลับให้อาจารย์แก้ไข',
+                'dateapprove2' => null,
+            ]);
+
+            $this->writeLog(
+                $report,
+                'central_send_back',
+                $from,
+                GradeApprovalStatus::DepartmentRejected->value,
+                $approverUsername,
+                $remark,
+            );
+
+            return $report->fresh(['gradeStds', 'files', 'latestCentralApprovalLog.approver']);
+        });
+    }
+
     private function writeLog(
         GradeReport $report,
         string $action,

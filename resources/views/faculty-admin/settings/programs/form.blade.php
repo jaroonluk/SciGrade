@@ -13,19 +13,16 @@
             @csrf
             @if ($program->exists) @method('PUT') @endif
 
-            <div>
-                <label class="block text-sm font-medium mb-1">รหัสหลักสูตร (programid)</label>
-                <input type="text" name="programid" value="{{ old('programid', $program->programid) }}"
-                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
-                    {{ $program->exists ? 'readonly' : '' }} required>
-            </div>
+            @if ($program->exists)
+                <input type="hidden" name="programid" value="{{ old('programid', $program->programid) }}">
+            @endif
             <div>
                 <label class="block text-sm font-medium mb-1">ชื่อหลักสูตร</label>
                 <input type="text" name="programname" value="{{ old('programname', $program->programname) }}"
                     class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
             </div>
             <div>
-                <label class="block text-sm font-medium mb-1">สาขา (department_id)</label>
+                <label class="block text-sm font-medium mb-1">สาขาวิชา</label>
                 <select name="department_id" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
                     <option value="">— เลือก —</option>
                     @foreach ($departments as $dept)
@@ -36,7 +33,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium mb-1">ระดับการศึกษา (typestudy)</label>
+                <label class="block text-sm font-medium mb-1">ระดับการศึกษา</label>
                 <select name="typestudy" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
                     @foreach (['3' => 'ปริญญาตรี', '5' => 'ปริญญาโท', '7' => 'ปริญญาเอก'] as $val => $label)
                         <option value="{{ $val }}" @selected(old('typestudy', $program->typestudy) == $val)>{{ $label }}</option>

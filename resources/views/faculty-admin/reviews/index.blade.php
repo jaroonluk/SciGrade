@@ -214,13 +214,14 @@
                 </button>
             </div>
         </div>
+    </form>
 
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
         <table class="w-full text-sm min-w-[1150px]">
             <thead class="bg-amber-50">
                 <tr>
                     <th class="px-3 py-2 text-center w-10">
-                        <input type="checkbox" id="select-all-checkbox" class="rounded border-amber-400"
+                        <input type="checkbox" id="select-all-checkbox" form="bulk-approve-form" class="rounded border-amber-400"
                             title="เลือกทั้งหมดในหน้านี้" {{ $approvableCount === 0 ? 'disabled' : '' }}>
                     </th>
                     <th class="px-3 py-2 text-left">สาขาวิชา</th>
@@ -252,6 +253,7 @@
                 @forelse ($reports as $report)
                     @php
                         $canAct = (int) $report->approv === 1;
+                        $canSendBack = (int) $report->approv === 2;
                         $badge = match ((int) $report->approv) {
                             1 => 'status-dept',
                             2 => 'status-approved',
@@ -264,7 +266,7 @@
                         <td class="px-3 py-2 text-center">
                             @if ($canAct)
                                 <input type="checkbox" name="grade_ids[]" value="{{ $report->grade_id }}"
-                                    class="row-select rounded border-amber-400">
+                                    form="bulk-approve-form" class="row-select rounded border-amber-400">
                             @endif
                         </td>
                         <td class="px-3 py-2 text-xs text-gray-600">{{ $deptName ?? '-' }}</td>
@@ -315,8 +317,13 @@
                                         data-action="{{ route('faculty-admin.reviews.reject', $report) }}">
                                         ส่งกลับแก้ไข
                                     </button>
-                                @elseif ((int) $report->approv === 2)
-                                    <span class="text-xs text-green-700">{{ $report->approvalResultLabel() }}</span>
+                                @elseif ($canSendBack)
+                                    <button type="button"
+                                        class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 btn-send-back"
+                                        data-action="{{ route('faculty-admin.reviews.send-back', $report) }}"
+                                        data-subject="{{ $report->subject_code }}">
+                                        ส่งกลับแก้ไข
+                                    </button>
                                 @elseif ((int) $report->approv === -1)
                                     <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
                                 @else
@@ -333,7 +340,6 @@
             </tbody>
         </table>
     </div>
-    </form>
 
     <div>{{ $reports->links() }}</div>
 </div>
@@ -347,6 +353,21 @@
             <div class="flex gap-3 justify-end">
                 <button type="button" id="btn-cancel-reject" class="px-4 py-2 border rounded-lg text-sm">ยกเลิก</button>
                 <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">ยืนยัน</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="send-back-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden no-print">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl mx-4">
+        <h3 class="font-bold text-lg mb-2 text-[#5C2E1F]">ส่งกลับให้อาจารย์แก้ไข</h3>
+        <p id="send-back-subject" class="text-sm text-gray-600 mb-3"></p>
+        <form id="send-back-form" method="POST">
+            @csrf
+            <textarea name="remark" rows="3" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm mb-4" placeholder="ระบุเหตุผล (ถ้ามี)"></textarea>
+            <div class="flex gap-3 justify-end">
+                <button type="button" id="btn-cancel-send-back" class="px-4 py-2 border rounded-lg text-sm">ยกเลิก</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">ยืนยันส่งกลับ</button>
             </div>
         </form>
     </div>
@@ -499,6 +520,18 @@
         });
     });
     document.getElementById('btn-cancel-reject').onclick = () => modal.classList.add('hidden');
+
+    const sendBackModal = document.getElementById('send-back-modal');
+    const sendBackForm = document.getElementById('send-back-form');
+    const sendBackSubject = document.getElementById('send-back-subject');
+    document.querySelectorAll('.btn-send-back').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            sendBackForm.action = btn.dataset.action;
+            sendBackSubject.textContent = `รายวิชา ${btn.dataset.subject} (คณะอนุมัติแล้ว) จะถูกส่งกลับให้อาจารย์แก้ไข`;
+            sendBackModal.classList.remove('hidden');
+        });
+    });
+    document.getElementById('btn-cancel-send-back').onclick = () => sendBackModal.classList.add('hidden');
 })();
 </script>
 @endpush

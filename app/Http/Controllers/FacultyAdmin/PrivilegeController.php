@@ -4,10 +4,11 @@ namespace App\Http\Controllers\FacultyAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FacultyAdmin\PrivilegeRequest;
-use App\Models\TblDepartment;
 use App\Models\TblPrivilege;
 use App\Models\TblUser;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class PrivilegeController extends Controller
@@ -23,14 +24,51 @@ class PrivilegeController extends Controller
 
         return view('faculty-admin.settings.privileges.index', [
             'privileges' => $privileges,
-            'departments' => TblDepartment::query()->orderBy('department_name')->get(),
         ]);
+    }
+
+    public function searchUsers(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->get('q', ''));
+
+        if ($q === '') {
+            return response()->json([]);
+        }
+
+        $like = '%'.$q.'%';
+        $existingUsernames = TblPrivilege::query()
+            ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
+            ->pluck('username');
+
+        $users = TblUser::query()
+            ->with('titleRelation')
+            ->whereNotIn('username', $existingUsernames)
+            ->where(function ($query) use ($like) {
+                $query->where('fname', 'like', $like)
+                    ->orWhere('lname', 'like', $like)
+                    ->orWhere('username', 'like', $like)
+                    ->orWhere('userid', 'like', $like);
+            })
+            ->orderBy('fname')
+            ->orderBy('lname')
+            ->limit(15)
+            ->get()
+            ->map(fn (TblUser $user) => [
+                'username' => $user->username,
+                'userid' => $user->userid,
+                'display_name' => $user->displayName(),
+            ]);
+
+        return response()->json($users);
     }
 
     public function store(PrivilegeRequest $request): RedirectResponse
     {
+        $level = (int) $request->input('level');
+
         TblPrivilege::query()->create([
-            ...$request->validated(),
+            'username' => $request->input('username'),
+            'level' => $level,
             'system_id' => TblPrivilege::SYSTEM_GRADE_REPORT,
         ]);
 
@@ -43,7 +81,11 @@ class PrivilegeController extends Controller
     {
         abort_unless((int) $privilege->system_id === TblPrivilege::SYSTEM_GRADE_REPORT, 404);
 
-        $privilege->update($request->validated());
+        $level = (int) $request->input('level');
+
+        $privilege->update([
+            'level' => $level,
+        ]);
 
         return redirect()
             ->route('faculty-admin.settings.privileges.index')
@@ -59,20 +101,5 @@ class PrivilegeController extends Controller
         return redirect()
             ->route('faculty-admin.settings.privileges.index')
             ->with('status', 'ลบสิทธิ์เรียบร้อย');
-    }
-
-    public function lookupUser(string $username): \Illuminate\Http\JsonResponse
-    {
-        $user = TblUser::query()->with('titleRelation')->find($username);
-
-        if (! $user) {
-            return response()->json(['message' => 'ไม่พบผู้ใช้'], 404);
-        }
-
-        return response()->json([
-            'username' => $user->username,
-            'display_name' => $user->displayName(),
-            'department_id' => $user->department_id,
-        ]);
     }
 }

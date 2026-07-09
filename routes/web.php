@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\DeptAdmin\DepartmentReportController;
 use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
 use App\Http\Controllers\DeptAdmin\DeptSubmissionFileController;
+use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\FacultyAdmin\GradeReportReviewController as FacultyGradeReportReviewController;
 use App\Http\Controllers\FacultyAdmin\GradeTermController;
 use App\Http\Controllers\FacultyAdmin\PrivilegeController;
@@ -38,8 +39,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/upload', [GradeReportPageController::class, 'upload'])->name('upload');
         Route::post('/upload', [GradeReportPageController::class, 'storeUpload'])->name('upload.store');
         Route::get('/my', [GradeReportPageController::class, 'my'])->name('my');
+        Route::post('/{gradeReport}/submit-corrections', [GradeReportPageController::class, 'submitCorrections'])->name('submit-corrections');
         Route::get('/approve', [GradeReportPageController::class, 'approve'])->name('approve');
         Route::get('/reports', [GradeReportPageController::class, 'reports'])->name('reports');
+        Route::post('/reports/export', [FacultyReportController::class, 'export'])->name('reports.export');
         Route::get('/print-summary', [GradeReportPageController::class, 'printSummary'])->name('print.summary');
         Route::get('/{gradeReport}/edit', [GradeReportPageController::class, 'edit'])->name('edit');
         Route::get('/{gradeReport}/print', [GradeReportPageController::class, 'print'])->name('print');
@@ -50,6 +53,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/reviews', [GradeReportReviewController::class, 'index'])->name('reviews.index');
         Route::post('/reviews/{gradeReport}/approve', [GradeReportReviewController::class, 'approve'])->name('reviews.approve');
         Route::post('/reviews/{gradeReport}/reject', [GradeReportReviewController::class, 'reject'])->name('reviews.reject');
+        Route::post('/reviews/{gradeReport}/send-back', [GradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
         Route::get('/reports', [DepartmentReportController::class, 'form'])->name('reports.form');
         Route::post('/reports/export', [DepartmentReportController::class, 'export'])->name('reports.export');
     });
@@ -59,6 +63,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/bulk-approve', [FacultyGradeReportReviewController::class, 'bulkApprove'])->name('reviews.bulk-approve');
         Route::post('/reviews/{gradeReport}/approve', [FacultyGradeReportReviewController::class, 'approve'])->name('reviews.approve');
         Route::post('/reviews/{gradeReport}/reject', [FacultyGradeReportReviewController::class, 'reject'])->name('reviews.reject');
+        Route::post('/reviews/{gradeReport}/send-back', [FacultyGradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
 
         Route::get('/settings/term', [GradeTermController::class, 'edit'])->name('settings.term');
         Route::put('/settings/term', [GradeTermController::class, 'update'])->name('settings.term.update');
@@ -71,6 +76,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/settings/programs/{program}', [ProgramController::class, 'destroy'])->name('settings.programs.destroy');
 
         Route::get('/settings/privileges', [PrivilegeController::class, 'index'])->name('settings.privileges.index');
+        Route::get('/settings/privileges/users/search', [PrivilegeController::class, 'searchUsers'])->name('settings.privileges.users.search');
         Route::post('/settings/privileges', [PrivilegeController::class, 'store'])->name('settings.privileges.store');
         Route::put('/settings/privileges/{privilege}', [PrivilegeController::class, 'update'])->name('settings.privileges.update');
         Route::delete('/settings/privileges/{privilege}', [PrivilegeController::class, 'destroy'])->name('settings.privileges.destroy');

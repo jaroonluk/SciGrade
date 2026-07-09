@@ -84,6 +84,15 @@
                             @if ($report->canPrint())
                                 <a href="{{ route('grade-reports.print', $report) }}" target="_blank" class="px-3 py-1.5 text-xs bg-amber-700 text-white rounded-lg hover:bg-amber-800">พิมพ์ PDF</a>
                             @endif
+                            @if ($report->canSubmitCorrections())
+                                <form method="POST" action="{{ route('grade-reports.submit-corrections', $report) }}" class="inline">
+                                    @csrf
+                                    <button type="submit" class="px-3 py-1.5 text-xs bg-[#8B4513] text-white rounded-lg hover:bg-[#6B3410]"
+                                        onclick="return confirm('ยืนยันส่งการแก้ไขให้สาขาวิชาดำเนินการ?')">
+                                        ส่งการแก้ไข
+                                    </button>
+                                </form>
+                            @endif
                             @if ($report->canEdit())
                                 <button type="button" data-delete="{{ $report->grade_id }}" class="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700">ลบ</button>
                             @endif

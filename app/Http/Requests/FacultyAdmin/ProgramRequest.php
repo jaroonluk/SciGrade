@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\FacultyAdmin;
 
+use App\Models\TblProgramQa;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,9 +20,12 @@ class ProgramRequest extends FormRequest
     {
         $programId = $this->route('program')?->programid;
 
+        $isUpdate = $this->route('program') !== null;
+
         return [
             'programid' => [
-                'required',
+                Rule::requiredIf($isUpdate),
+                'nullable',
                 'string',
                 'max:255',
                 Rule::unique('scigrad.tblprogram_qa', 'programid')->ignore($programId, 'programid'),
@@ -29,7 +33,7 @@ class ProgramRequest extends FormRequest
             'programname' => ['required', 'string', 'max:255'],
             'departmentid' => ['nullable', 'string', 'max:255'],
             'depart_id' => ['nullable', 'string', 'max:255'],
-            'department_id' => ['required', 'string', 'max:255'],
+            'department_id' => ['required', 'string', 'max:255', Rule::in(TblProgramQa::ALLOWED_DEPARTMENT_IDS)],
             'typestudy' => ['required', 'string', 'max:255'],
         ];
     }

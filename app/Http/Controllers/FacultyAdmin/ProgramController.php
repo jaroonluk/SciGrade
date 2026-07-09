@@ -7,20 +7,37 @@ use App\Http\Requests\FacultyAdmin\ProgramRequest;
 use App\Models\TblDepartment;
 use App\Models\TblProgramQa;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ProgramController extends Controller
 {
-    public function index(): View
+    /** @var list<int|string> */
+    private const EXCLUDED_DEPARTMENT_IDS = [4];
+
+    public function index(Request $request): View
     {
+        $search = trim((string) $request->input('search', ''));
+
         $programs = TblProgramQa::query()
+            ->with('department')
+            ->whereNotIn('department_id', self::EXCLUDED_DEPARTMENT_IDS)
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.$search.'%';
+                $query->where(function ($q) use ($like) {
+                    $q->where('programname', 'like', $like)
+                        ->orWhereHas('department', fn ($dept) => $dept->where('department_name', 'like', $like));
+                });
+            })
             ->orderBy('department_id')
             ->orderBy('typestudy')
             ->orderBy('programid')
-            ->paginate(30);
+            ->paginate(30)
+            ->withQueryString();
 
         return view('faculty-admin.settings.programs.index', [
             'programs' => $programs,
+            'search' => $search,
         ]);
     }
 
@@ -28,13 +45,16 @@ class ProgramController extends Controller
     {
         return view('faculty-admin.settings.programs.form', [
             'program' => new TblProgramQa,
-            'departments' => TblDepartment::query()->orderBy('department_name')->get(),
+            'departments' => $this->allowedDepartments(),
         ]);
     }
 
     public function store(ProgramRequest $request): RedirectResponse
     {
-        TblProgramQa::query()->create($request->validated());
+        $data = $request->validated();
+        $data['programid'] = (string) $this->nextProgramId();
+
+        TblProgramQa::query()->create($data);
 
         return redirect()
             ->route('faculty-admin.settings.programs.index')
@@ -45,7 +65,7 @@ class ProgramController extends Controller
     {
         return view('faculty-admin.settings.programs.form', [
             'program' => $program,
-            'departments' => TblDepartment::query()->orderBy('department_name')->get(),
+            'departments' => $this->allowedDepartments(),
         ]);
     }
 
@@ -65,5 +85,23 @@ class ProgramController extends Controller
         return redirect()
             ->route('faculty-admin.settings.programs.index')
             ->with('status', 'ลบหลักสูตรเรียบร้อย');
+    }
+
+    private function nextProgramId(): int
+    {
+        $max = TblProgramQa::query()
+            ->pluck('programid')
+            ->map(fn (string $id) => (int) $id)
+            ->max();
+
+        return ($max ?? 0) + 1;
+    }
+
+    private function allowedDepartments()
+    {
+        return TblDepartment::query()
+            ->whereIn('department_id', TblProgramQa::ALLOWED_DEPARTMENT_IDS)
+            ->orderBy('department_name')
+            ->get();
     }
 }

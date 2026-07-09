@@ -13,10 +13,26 @@
 <div class="max-w-6xl mx-auto space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการหลักสูตร (tblprogram_qa)</h2>
+            <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการหลักสูตร</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">หลักสูตรที่ใช้ในฟอร์มกรอกผลสอบ</p>
         </div>
         <a href="{{ route('faculty-admin.settings.programs.create') }}" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">เพิ่มหลักสูตร</a>
+    </div>
+
+    <div class="form-section rounded-xl p-5">
+        <form method="GET" id="program-search-form" class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[16rem]">
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ค้นหา</label>
+                <input type="text" id="program-search-input" name="search" value="{{ $search }}"
+                    placeholder="ชื่อหลักสูตร หรือชื่อสาขาวิชา" autocomplete="off"
+                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+            </div>
+            @if ($search !== '')
+                <a href="{{ route('faculty-admin.settings.programs.index') }}"
+                   class="px-5 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
+            @endif
+        </form>
+        <p class="text-xs text-gray-500 mt-2">พิมพ์ชื่อหลักสูตรหรือชื่อสาขาวิชา ระบบกรองรายการให้ทันที</p>
     </div>
 
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
@@ -35,8 +51,8 @@
                     <tr class="border-t border-amber-100">
                         <td class="px-3 py-2 font-medium">{{ $program->programid }}</td>
                         <td class="px-3 py-2">{{ $program->programname }}</td>
-                        <td class="px-3 py-2 text-center">{{ $program->department_id }}</td>
-                        <td class="px-3 py-2 text-center">{{ $program->typestudy }}</td>
+                        <td class="px-3 py-2">{{ $program->department?->department_name ?? '-' }}</td>
+                        <td class="px-3 py-2 text-center">{{ $program->typestudyLabel() }}</td>
                         <td class="px-3 py-2 text-center">
                             <a href="{{ route('faculty-admin.settings.programs.edit', $program) }}" class="text-[#8B4513] hover:underline text-xs mr-2">แก้ไข</a>
                             <form method="POST" action="{{ route('faculty-admin.settings.programs.destroy', $program) }}" class="inline"
@@ -48,7 +64,9 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-3 py-8 text-center text-gray-500">ยังไม่มีหลักสูตร</td></tr>
+                    <tr><td colspan="5" class="px-3 py-8 text-center text-gray-500">
+                        {{ $search !== '' ? 'ไม่พบหลักสูตรตามคำค้นหา' : 'ยังไม่มีหลักสูตร' }}
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -56,3 +74,25 @@
     <div>{{ $programs->links() }}</div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function() {
+    const form = document.getElementById('program-search-form');
+    const input = document.getElementById('program-search-input');
+    if (!form || !input) return;
+
+    let timer = null;
+    let lastSubmitted = input.value;
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            if (input.value === lastSubmitted) return;
+            lastSubmitted = input.value;
+            form.requestSubmit();
+        }, 300);
+    });
+})();
+</script>
+@endpush

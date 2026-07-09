@@ -58,6 +58,7 @@ class GradeReportReviewController extends Controller
         $this->authorize('reviewDept', $gradeReport);
 
         try {
+            $wasResubmit = $gradeReport->awaitingDeptResubmit();
             $this->approvalService->approve(
                 $gradeReport,
                 $this->staffUsername(),
@@ -67,7 +68,12 @@ class GradeReportReviewController extends Controller
             return $this->failureResponse($request, $e->getMessage(), 422);
         }
 
-        return $this->successResponse($request, 'บันทึกผ่านการรับรองผลสอบเรียบร้อย');
+        return $this->successResponse(
+            $request,
+            $wasResubmit
+                ? 'ส่งรายงานผลการสอบไล่อีกครั้งเรียบร้อย'
+                : 'บันทึกผ่านการรับรองผลสอบเรียบร้อย',
+        );
     }
 
     public function reject(GradeReportApprovalRequest $request, GradeReport $gradeReport): JsonResponse|RedirectResponse
@@ -85,6 +91,23 @@ class GradeReportReviewController extends Controller
         }
 
         return $this->successResponse($request, 'บันทึกสถานะยังไม่ผ่านการรับรองผลสอบเรียบร้อย');
+    }
+
+    public function sendBack(GradeReportApprovalRequest $request, GradeReport $gradeReport): JsonResponse|RedirectResponse
+    {
+        $this->authorize('reviewDept', $gradeReport);
+
+        try {
+            $this->approvalService->sendBackForInstructorEdit(
+                $gradeReport,
+                $this->staffUsername(),
+                $request->input('remark'),
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->failureResponse($request, $e->getMessage(), 422);
+        }
+
+        return $this->successResponse($request, 'ส่งกลับให้อาจารย์แก้ไขเรียบร้อย');
     }
 
     private function requireStaff()

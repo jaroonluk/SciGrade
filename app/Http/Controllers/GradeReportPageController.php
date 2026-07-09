@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\GradeReportController;
 use App\Models\GradeReport;
 use App\Models\TblProgramQa;
+use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Services\StaffAuthService;
@@ -20,6 +22,7 @@ class GradeReportPageController extends Controller
     public function __construct(
         private readonly StaffAuthService $staffAuth,
         private readonly RegistrarGradePdfParser $pdfParser,
+        private readonly GradeReportSubmissionService $submissionService,
     ) {}
 
     private function formView(?int $reportId, array $nav = [], ?array $uploadParsed = null, ?array $prefillReport = null): View
@@ -117,7 +120,7 @@ class GradeReportPageController extends Controller
     {
         $username = $this->resolveStaffUsername();
         abort_unless($username && $gradeReport->username === $username, 403);
-        abort_if((int) $gradeReport->approv > 0, 403, 'ไม่สามารถแก้ไขรายการที่อนุมัติแล้ว');
+        abort_unless($gradeReport->canEdit(), 403, 'ไม่สามารถแก้ไขรายการนี้ได้');
 
         $gradeReport->load('gradeStds');
 
@@ -127,6 +130,20 @@ class GradeReportPageController extends Controller
             null,
             $gradeReports->formPayload($gradeReport),
         );
+    }
+
+    public function submitCorrections(GradeReport $gradeReport): RedirectResponse
+    {
+        $username = $this->resolveStaffUsername();
+        abort_unless($username && $gradeReport->username === $username, 403);
+
+        try {
+            $this->submissionService->submitCorrections($gradeReport, $username);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['status' => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'ส่งการแก้ไขเรียบร้อยแล้ว รอสาขาวิชาส่งรายงานผลการสอบไล่อีกครั้ง');
     }
 
     public function upload(): View
@@ -205,7 +222,7 @@ class GradeReportPageController extends Controller
         $username = $this->resolveStaffUsername();
         if ($username) {
             $reports = GradeReport::query()
-                ->with('gradeStds')
+                ->with(['gradeStds', 'approvalLogs'])
                 ->where('username', $username)
                 ->where('term', (string) $term)
                 ->where('year', (string) $year)
@@ -235,9 +252,13 @@ class GradeReportPageController extends Controller
         );
     }
 
-    public function reports(): View
+    public function reports(FacultyReportController $facultyReports): View
     {
         $role = session('scigrade_role', 'instructor');
+
+        if ($role === 'faculty_admin') {
+            return $facultyReports->form();
+        }
 
         return view('grade-reports.reports', compact('role'));
     }

@@ -113,6 +113,8 @@
                 @forelse ($reports as $report)
                     @php
                         $canAct = (int) $report->approv === 0;
+                        $isDeptResubmit = $canAct && $report->awaitingDeptResubmit();
+                        $canSendBack = $canAct && ! $isDeptResubmit;
                         $badge = match ((int) $report->approv) {
                             1 => 'status-dept',
                             2 => 'status-approved',
@@ -158,18 +160,23 @@
                                     <form method="POST" action="{{ route('dept-admin.reviews.approve', $report) }}" class="inline">
                                         @csrf
                                         <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
-                                            onclick="return confirm('ยืนยันผ่านการรับรองผลสอบ?')">
-                                            ผ่านการรับรอง
+                                            onclick="return confirm('{{ $isDeptResubmit ? 'ยืนยันส่งรายงานผลการสอบไล่อีกครั้ง?' : 'ยืนยันผ่านการรับรองผลสอบ?' }}')">
+                                            {{ $isDeptResubmit ? 'ส่งรายงานผลการสอบไล่อีกครั้ง' : 'ผ่านการรับรอง' }}
                                         </button>
                                     </form>
-                                    <button type="button" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 btn-reject"
-                                        data-action="{{ route('dept-admin.reviews.reject', $report) }}">
-                                        ยังไม่ผ่าน
+                                    @if ($canSendBack)
+                                    <button type="button" class="px-3 py-1.5 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 btn-send-back"
+                                        data-action="{{ route('dept-admin.reviews.send-back', $report) }}"
+                                        data-subject="{{ $report->subject_code }}">
+                                        ส่งกลับให้แก้ไข
                                     </button>
+                                    @endif
                                 @else
                                     <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
                                        class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
-                                    @if (in_array((int) $report->approv, [1, -1], true))
+                                    @if ((int) $report->approv === -1)
+                                        <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
+                                    @elseif (in_array((int) $report->approv, [1, 2], true))
                                         <span class="text-xs text-gray-500 w-full text-center">{{ $report->approvalResultLabel() }}</span>
                                     @endif
                                 @endif
@@ -201,6 +208,21 @@
         </form>
     </div>
 </div>
+
+<div id="send-back-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden no-print">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl mx-4">
+        <h3 class="font-bold text-lg mb-2 text-[#5C2E1F]">ส่งกลับให้อาจารย์แก้ไข</h3>
+        <p id="send-back-subject" class="text-sm text-gray-600 mb-3"></p>
+        <form id="send-back-form" method="POST">
+            @csrf
+            <textarea name="remark" rows="3" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm mb-4" placeholder="ระบุเหตุผลหรือข้อแนะนำ (ถ้ามี)"></textarea>
+            <div class="flex gap-3 justify-end">
+                <button type="button" id="btn-cancel-send-back" class="px-4 py-2 border rounded-lg text-sm">ยกเลิก</button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium">ยืนยันส่งกลับ</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -215,6 +237,18 @@
         });
     });
     document.getElementById('btn-cancel-reject').onclick = () => modal.classList.add('hidden');
+
+    const sendBackModal = document.getElementById('send-back-modal');
+    const sendBackForm = document.getElementById('send-back-form');
+    const sendBackSubject = document.getElementById('send-back-subject');
+    document.querySelectorAll('.btn-send-back').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            sendBackForm.action = btn.dataset.action;
+            sendBackSubject.textContent = `รายวิชา ${btn.dataset.subject} จะถูกส่งกลับให้อาจารย์แก้ไข (ก่อนผ่านการรับรองจากสาขา)`;
+            sendBackModal.classList.remove('hidden');
+        });
+    });
+    document.getElementById('btn-cancel-send-back').onclick = () => sendBackModal.classList.add('hidden');
 })();
 </script>
 @endpush

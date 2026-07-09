@@ -154,6 +154,8 @@
                                 @php
                                     $step = $report->approvalStep();
                                     $rejected = (int) $report->approv === -1;
+                                    $canSubmitCorrections = $report->canSubmitCorrections();
+                                    $awaitingDept = $report->awaitingDeptResubmit();
                                     $canEdit = $report->canEdit();
                                     $canPrint = $report->canPrint();
                                 @endphp
@@ -188,6 +190,32 @@
                                         <span class="inline-block px-2 py-1 rounded text-xs font-semibold {{ $badge }}">
                                             {{ $report->statusShortLabel() }}
                                         </span>
+                                        @php $adminComments = $report->instructorAdminComments(); @endphp
+                                        @if ($adminComments->isNotEmpty())
+                                            <div class="mt-2 space-y-1.5 max-w-sm">
+                                                @foreach ($adminComments as $comment)
+                                                    <div @class([
+                                                        'rounded px-2 py-1.5 text-left border text-xs leading-relaxed',
+                                                        'bg-red-50 border-red-200 text-red-800' => $comment['tone'] === 'warning',
+                                                        'bg-amber-50 border-amber-200 text-amber-900' => $comment['tone'] === 'info',
+                                                    ])>
+                                                        <p class="font-semibold">
+                                                            {{ $comment['role_label'] }}
+                                                            <span class="font-normal opacity-80">· {{ $comment['action_label'] }}</span>
+                                                        </p>
+                                                        <p class="mt-0.5 whitespace-pre-line">{{ $comment['text'] }}</p>
+                                                        @if ($comment['at'])
+                                                            <p class="mt-1 text-[10px] opacity-70">
+                                                                {{ \App\Support\ThaiDateTime::formatDateTime($comment['at']) }}
+                                                                @if ($comment['approver'])
+                                                                    — {{ $comment['approver'] }}
+                                                                @endif
+                                                            </p>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     </td>
                                     <td>
                                         <div class="space-y-2" data-report-files="{{ $report->grade_id }}">
@@ -226,6 +254,15 @@
                                                         อัปโหลด PDF
                                                     </span>
                                                 </label>
+                                                @if ($canSubmitCorrections)
+                                                    <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5 leading-relaxed">
+                                                        แก้ไขครบแล้ว กด «ส่งการแก้ไข» เพื่อส่งให้สาขาวิชาดำเนินการ
+                                                    </p>
+                                                @endif
+                                            @elseif ($awaitingDept)
+                                                <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
+                                                    ส่งการแก้ไขแล้ว — รอสาขาวิชาส่งรายงานผลการสอบไล่อีกครั้ง
+                                                </p>
                                             @else
                                                 <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
                                                     รายงานผ่านการอนุมัติแล้ว — ไม่สามารถอัปโหลดหรือแก้ไขไฟล์ได้จนกว่าเจ้าหน้าที่จะคืนสถานะเป็นรออนุมัติ
@@ -255,6 +292,23 @@
                                                     data-subject="{{ $report->subject_code }}">
                                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ลบ
                                                 </button>
+                                                @if ($canSubmitCorrections)
+                                                    <form method="POST" action="{{ route('grade-reports.submit-corrections', $report) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="action-btn bg-[#8B4513] text-white hover:bg-[#6B3410]"
+                                                            onclick="return confirm('ยืนยันส่งการแก้ไขให้สาขาวิชาดำเนินการ?')">
+                                                            <i data-lucide="send" class="w-3.5 h-3.5"></i> ส่งการแก้ไข
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @elseif ($awaitingDept)
+                                                @if ($canPrint)
+                                                    <a href="{{ route('grade-reports.print', $report->grade_id) }}" target="_blank"
+                                                       class="action-btn bg-amber-700 text-white hover:bg-amber-800">
+                                                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
+                                                    </a>
+                                                @endif
+                                                <span class="text-xs text-amber-800 text-center block w-full mt-1">{{ $report->workflowStatusLabel() }}</span>
                                             @else
                                                 @if ($canPrint)
                                                     <a href="{{ route('grade-reports.print', $report->grade_id) }}" target="_blank"

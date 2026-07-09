@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TblProgramQa extends Model
 {
+    /** @var list<int> */
+    public const ALLOWED_DEPARTMENT_IDS = [5, 6, 7, 8, 9, 10, 11, 12, 21, 25, 31, 32, 35, 37];
+
     protected $connection = 'scigrad';
 
     protected $table = 'tblprogram_qa';
@@ -41,5 +45,20 @@ class TblProgramQa extends Model
                     ->orWhereIn('programid', ['46', '47']);
             })
             ->get();
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(TblDepartment::class, 'department_id', 'department_id');
+    }
+
+    public function typestudyLabel(): string
+    {
+        return match ((string) $this->typestudy) {
+            '3' => 'ปริญญาตรี',
+            '5' => 'ปริญญาโท',
+            '7' => 'ปริญญาเอก',
+            default => (string) $this->typestudy,
+        };
     }
 }

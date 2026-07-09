@@ -25,8 +25,6 @@ class TblPrivilege extends Model
         'system_id',
         'username',
         'level',
-        'can_print_report',
-        'can_view_all_instructors',
     ];
 
     protected function casts(): array
@@ -34,8 +32,6 @@ class TblPrivilege extends Model
         return [
             'system_id' => 'integer',
             'level' => 'integer',
-            'can_print_report' => 'boolean',
-            'can_view_all_instructors' => 'boolean',
         ];
     }
 

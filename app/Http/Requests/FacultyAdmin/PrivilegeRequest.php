@@ -18,6 +18,14 @@ class PrivilegeRequest extends FormRequest
      */
     public function rules(): array
     {
+        $isUpdate = $this->route('privilege') !== null;
+
+        if ($isUpdate) {
+            return [
+                'level' => ['required', 'integer', 'in:0,1'],
+            ];
+        }
+
         $privilegeId = $this->route('privilege')?->privilegs_id;
 
         return [
@@ -31,16 +39,6 @@ class PrivilegeRequest extends FormRequest
                     ->ignore($privilegeId, 'privilegs_id'),
             ],
             'level' => ['required', 'integer', 'in:0,1'],
-            'can_print_report' => ['nullable', 'boolean'],
-            'can_view_all_instructors' => ['nullable', 'boolean'],
         ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'can_print_report' => $this->boolean('can_print_report'),
-            'can_view_all_instructors' => $this->boolean('can_view_all_instructors'),
-        ]);
     }
 }

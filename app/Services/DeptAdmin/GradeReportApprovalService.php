@@ -69,6 +69,42 @@ class GradeReportApprovalService
         });
     }
 
+    public function sendBackForInstructorEdit(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from === GradeApprovalStatus::DepartmentApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว ไม่สามารถส่งกลับให้แก้ไขได้');
+            }
+
+            if ($from !== GradeApprovalStatus::Saved->value) {
+                throw new InvalidArgumentException('สามารถส่งกลับให้อาจารย์แก้ไขได้เฉพาะรายการที่อาจารย์ส่งแล้วและยังไม่ผ่านการรับรองจากสาขา');
+            }
+
+            if ($report->awaitingDeptResubmit()) {
+                throw new InvalidArgumentException('รายการนี้รอส่งรายงานผลการสอบไล่อีกครั้ง ไม่สามารถส่งกลับให้แก้ไขได้');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::DepartmentRejected->value,
+                'reason' => $remark ?? 'ส่งกลับให้อาจารย์แก้ไข',
+            ]);
+
+            $this->writeLog(
+                $report,
+                'department_send_back',
+                $from,
+                GradeApprovalStatus::DepartmentRejected->value,
+                $approverUsername,
+                $remark,
+            );
+
+            return $report->fresh(['gradeStds', 'files', 'latestDeptApprovalLog.approver', 'approvalLogs']);
+        });
+    }
+
     public function resetToSaved(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
     {
         return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class GradeReport extends Model
 {
@@ -89,14 +90,14 @@ class GradeReport extends Model
     public function latestDeptApprovalLog(): HasOne
     {
         return $this->hasOne(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
-            ->whereIn('action', ['department_approved', 'department_rejected', 'department_reset'])
+            ->whereIn('action', ['department_approved', 'department_rejected', 'department_reset', 'department_send_back'])
             ->latestOfMany('log_id');
     }
 
     public function latestCentralApprovalLog(): HasOne
     {
         return $this->hasOne(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
-            ->whereIn('action', ['central_approved', 'central_rejected'])
+            ->whereIn('action', ['central_approved', 'central_rejected', 'central_send_back'])
             ->latestOfMany('log_id');
     }
 
@@ -117,6 +118,10 @@ class GradeReport extends Model
 
     public function workflowStatusLabel(): string
     {
+        if ((int) $this->approv === 0 && $this->awaitingDeptResubmit()) {
+            return 'ส่งการแก้ไขแล้ว — รอสาขา';
+        }
+
         return match ((int) $this->approv) {
             1 => 'สาขาอนุมัติ',
             2 => 'คณะอนุมัติ',
@@ -146,7 +151,27 @@ class GradeReport extends Model
 
     public function canEdit(): bool
     {
-        return in_array((int) $this->approv, [0, -1], true);
+        return in_array((int) $this->approv, [0, -1], true) && ! $this->awaitingDeptResubmit();
+    }
+
+    public function canSubmitCorrections(): bool
+    {
+        return (int) $this->approv === -1;
+    }
+
+    public function awaitingDeptResubmit(): bool
+    {
+        if ((int) $this->approv !== 0) {
+            return false;
+        }
+
+        $logs = $this->relationLoaded('approvalLogs')
+            ? $this->approvalLogs
+            : $this->approvalLogs()->orderByDesc('log_id')->get();
+
+        $latest = $logs->first();
+
+        return $latest !== null && $latest->action === 'instructor_resubmitted';
     }
 
     public function canUploadFiles(): bool
@@ -170,6 +195,91 @@ class GradeReport extends Model
             1 => 'ภาคต้น',
             2 => 'ภาคปลาย',
             default => 'ภาคการศึกษาพิเศษ',
+        };
+    }
+
+    /**
+     * @return Collection<int, array{
+     *     role_label: string,
+     *     action_label: string,
+     *     text: string,
+     *     at: \Illuminate\Support\Carbon|null,
+     *     approver: string|null,
+     *     tone: string,
+     * }>
+     */
+    public function instructorAdminComments(): Collection
+    {
+        $logs = $this->relationLoaded('approvalLogs')
+            ? $this->approvalLogs
+            : $this->approvalLogs()->with('approver')->get();
+
+        $comments = $logs
+            ->filter(fn (GradeReportApprovalLog $log) => trim((string) $log->remark) !== '')
+            ->map(fn (GradeReportApprovalLog $log) => [
+                'role_label' => $this->approverRoleLabel($log->approver_role),
+                'action_label' => $this->approvalLogActionLabel($log->action),
+                'text' => trim((string) $log->remark),
+                'at' => $log->created_at,
+                'approver' => $log->approver?->displayName(),
+                'tone' => $this->approvalLogTone($log->action),
+            ]);
+
+        if ((int) $this->approv === -1) {
+            $reason = trim((string) $this->reason);
+            if ($reason !== '' && ! $comments->contains(fn (array $comment) => $comment['text'] === $reason)) {
+                $latestFeedback = $logs->first(fn (GradeReportApprovalLog $log) => in_array($log->action, [
+                    'department_rejected',
+                    'department_send_back',
+                    'central_rejected',
+                    'central_send_back',
+                ], true));
+
+                $comments->prepend([
+                    'role_label' => $latestFeedback
+                        ? $this->approverRoleLabel($latestFeedback->approver_role)
+                        : 'เจ้าหน้าที่',
+                    'action_label' => $latestFeedback
+                        ? $this->approvalLogActionLabel($latestFeedback->action)
+                        : 'ส่งกลับแก้ไข',
+                    'text' => $reason,
+                    'at' => $latestFeedback?->created_at,
+                    'approver' => $latestFeedback?->approver?->displayName(),
+                    'tone' => 'warning',
+                ]);
+            }
+        }
+
+        return $comments
+            ->sortByDesc(fn (array $comment) => $comment['at']?->timestamp ?? 0)
+            ->values();
+    }
+
+    private function approverRoleLabel(?string $role): string
+    {
+        return match ($role) {
+            'faculty_admin' => 'Admin กลาง',
+            'dept_admin' => 'Admin สาขา',
+            default => 'เจ้าหน้าที่',
+        };
+    }
+
+    private function approvalLogActionLabel(string $action): string
+    {
+        return match ($action) {
+            'department_approved', 'central_approved' => 'อนุมัติ',
+            'department_rejected', 'central_rejected' => 'ไม่อนุมัติ',
+            'department_send_back', 'central_send_back' => 'ส่งกลับแก้ไข',
+            'instructor_resubmitted' => 'ส่งการแก้ไข',
+            default => 'หมายเหตุ',
+        };
+    }
+
+    private function approvalLogTone(string $action): string
+    {
+        return match ($action) {
+            'department_rejected', 'central_rejected', 'department_send_back', 'central_send_back' => 'warning',
+            default => 'info',
         };
     }
 }
