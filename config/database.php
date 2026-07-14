@@ -7,9 +7,9 @@ if (! function_exists('scigrad_db_host')) {
     /**
      * ใน Docker 127.0.0.1 ชี้ไปที่ container เอง — ต้องใช้ host.docker.internal เพื่อเข้า MySQL บนเครื่อง host (XAMPP)
      */
-    function scigrad_db_host(): string
+    function scigrad_db_host(?string $host = null): string
     {
-        $host = env('SCIGRAD_DB_HOST', '127.0.0.1');
+        $host = $host ?? env('SCIGRAD_DB_HOST', '127.0.0.1');
 
         if (in_array($host, ['127.0.0.1', 'localhost'], true) && file_exists('/.dockerenv')) {
             return 'host.docker.internal';
@@ -87,6 +87,21 @@ return [
             'database' => env('SCIGRAD_DB_DATABASE', 'scigraddb'),
             'username' => env('SCIGRAD_DB_USERNAME', 'root'),
             'password' => env('SCIGRAD_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+        ],
+
+        'reg' => [
+            'driver' => 'mysql',
+            'host' => scigrad_db_host(env('REG_DB_HOST', env('SCIGRAD_DB_HOST', '127.0.0.1'))),
+            'port' => env('REG_DB_PORT', env('SCIGRAD_DB_PORT', '3306')),
+            'database' => env('REG_DB_DATABASE', 'reg'),
+            'username' => env('REG_DB_USERNAME', env('SCIGRAD_DB_USERNAME', 'root')),
+            'password' => env('REG_DB_PASSWORD', env('SCIGRAD_DB_PASSWORD', '')),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',

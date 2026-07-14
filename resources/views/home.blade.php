@@ -680,6 +680,28 @@
                     </div>
                 </div>
             </a>
+            <a href="{{ route('faculty-admin.settings.reg-courses.index') }}" class="menu-card rounded-xl p-5 block">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                        <i data-lucide="book-marked" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-[#5C2E1F]">ดึงข้อมูลรายวิชาจาก REG</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ดึงชื่อวิชาเข้า pdcourse เพื่อให้อาจารย์เลือกตอนรายงานผลการสอบ</p>
+                    </div>
+                </div>
+            </a>
+            <a href="{{ route('faculty-admin.settings.reg-grade-dump.index') }}" class="menu-card rounded-xl p-5 block">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                        <i data-lucide="download-cloud" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-[#5C2E1F]">Download ข้อมูลรายวิชา</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ดึงรายวิชาที่เปิดสอนจาก REG ตามภาค/ปี เข้า grade_report_reg</p>
+                    </div>
+                </div>
+            </a>
             <a href="{{ route('grade-reports.reports') }}" class="menu-card rounded-xl p-5 block">
                 <div class="flex items-start gap-3">
                     <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">

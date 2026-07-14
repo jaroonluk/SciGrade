@@ -17,6 +17,11 @@ services:
       SCIGRAD_DB_DATABASE: scigraddb
       SCIGRAD_DB_USERNAME: root
       SCIGRAD_DB_PASSWORD: ""
+      REG_DB_HOST: host.docker.internal
+      REG_DB_PORT: 3306
+      REG_DB_DATABASE: reg
+      REG_DB_USERNAME: root
+      REG_DB_PASSWORD: ""
     networks:
       - scigrade
 

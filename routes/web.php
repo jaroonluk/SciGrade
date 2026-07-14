@@ -9,6 +9,8 @@ use App\Http\Controllers\FacultyAdmin\GradeReportReviewController as FacultyGrad
 use App\Http\Controllers\FacultyAdmin\GradeTermController;
 use App\Http\Controllers\FacultyAdmin\PrivilegeController;
 use App\Http\Controllers\FacultyAdmin\ProgramController;
+use App\Http\Controllers\FacultyAdmin\RegCourseController;
+use App\Http\Controllers\FacultyAdmin\RegGradeDumpController;
 use App\Http\Controllers\FacultyDeptSubmissionController;
 use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportFileController;
@@ -80,6 +82,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/settings/privileges', [PrivilegeController::class, 'store'])->name('settings.privileges.store');
         Route::put('/settings/privileges/{privilege}', [PrivilegeController::class, 'update'])->name('settings.privileges.update');
         Route::delete('/settings/privileges/{privilege}', [PrivilegeController::class, 'destroy'])->name('settings.privileges.destroy');
+
+        Route::get('/settings/reg-courses', [RegCourseController::class, 'index'])->name('settings.reg-courses.index');
+        Route::post('/settings/reg-courses/sync', [RegCourseController::class, 'sync'])->name('settings.reg-courses.sync');
+
+        Route::get('/settings/reg-grade-dump', [RegGradeDumpController::class, 'index'])->name('settings.reg-grade-dump.index');
+        Route::post('/settings/reg-grade-dump', [RegGradeDumpController::class, 'dump'])->name('settings.reg-grade-dump.dump');
     });
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
