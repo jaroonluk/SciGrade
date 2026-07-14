@@ -627,6 +627,18 @@ function validateSectionStdForm() {
     if (!fac.length) {
         return 'กรุณาเลือกคณะก่อนบันทึก Section';
     }
+
+    const statuseva = parseInt(document.querySelector('input[name="statuseva"]:checked')?.value || '2', 10);
+    if (statuseva === 1) {
+        const scoreRaw = document.getElementById('evaluationscore')?.value?.trim();
+        if (scoreRaw !== '') {
+            const score = Number(scoreRaw);
+            if (Number.isNaN(score) || score < 0 || score > 5) {
+                return 'ผลการประเมินรายวิชาโดยนักศึกษาต้องอยู่ระหว่าง 0–5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)';
+            }
+        }
+    }
+
     return null;
 }
 
@@ -910,6 +922,20 @@ function collectGradeReportPayload() {
 
     document.querySelectorAll('.grade-range-input').forEach((input) => applyGradeRangeFormat(input));
 
+    const gradeStds = sectionStdRows.map((row) => {
+        const payload = { ...row };
+        delete payload.total_std;
+
+        // โหมดรวม (2): ผลประเมินอยู่ที่ระดับรายงาน ไม่ส่งค่าในแต่ละ Section
+        // โหมดตาม Section (1): ใช้เฉพาะค่าใน Section
+        if (statuseva === 2) {
+            payload.evaluationscore = null;
+            payload.numstdevz = null;
+        }
+
+        return payload;
+    });
+
     return {
         report_date: document.getElementById('report-date')?.value || new Date().toISOString().slice(0, 10),
         term: getTermFromForm(),
@@ -953,12 +979,29 @@ function collectGradeReportPayload() {
         score_d: buildScoreRange('range-d-max', 'range-d-min'),
         score_f: buildScoreRange('range-f-max', 'range-f-min'),
         remark: null,
-        grade_stds: sectionStdRows.map((row) => {
-            const payload = { ...row };
-            delete payload.total_std;
-            return payload;
-        }),
+        grade_stds: gradeStds,
     };
+}
+
+function validateEvaluationScores(payload) {
+    const statuseva = parseInt(payload.statuseva || 2, 10);
+
+    if (statuseva === 2) {
+        const total = payload.totalevaluationscore;
+        if (total !== null && total !== '' && Number(total) > 5) {
+            return 'ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)';
+        }
+        return null;
+    }
+
+    for (let i = 0; i < (payload.grade_stds || []).length; i += 1) {
+        const score = payload.grade_stds[i]?.evaluationscore;
+        if (score !== null && score !== '' && Number(score) > 5) {
+            return `Section ${payload.grade_stds[i]?.sec ?? (i + 1)}: ผลการประเมินรายวิชาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)`;
+        }
+    }
+
+    return null;
 }
 
 const GRADE_RANGE_KEYS = ['a', 'bp', 'b', 'cp', 'c', 'dp', 'd', 'f'];
@@ -1098,6 +1141,29 @@ function toggleEvaFields() {
 
     if (reportEva) reportEva.classList.toggle('hidden', statuseva === '1');
     if (sectionEva) sectionEva.classList.toggle('hidden', statuseva === '2');
+
+    // เคลียร์ค่าโหมดที่ไม่ได้ใช้ เพื่อกันค่าค้างจาก autofill / สลับโหมด
+    if (statuseva === '1') {
+        const totalNum = document.getElementById('totalnumstdevz');
+        const totalScore = document.getElementById('totalevaluationscore');
+        if (totalNum) totalNum.value = '';
+        if (totalScore) totalScore.value = '';
+        sectionStdRows = sectionStdRows.map((row) => ({
+            ...row,
+            // คงค่าเดิมของ section ที่บันทึกไว้แล้วในโหมด 1
+        }));
+    } else if (statuseva === '2') {
+        const num = document.getElementById('numstdevz');
+        const score = document.getElementById('evaluationscore');
+        if (num) num.value = '';
+        if (score) score.value = '';
+        sectionStdRows = sectionStdRows.map((row) => ({
+            ...row,
+            evaluationscore: null,
+            numstdevz: null,
+        }));
+    }
+
     renderSectionStdList();
 }
 

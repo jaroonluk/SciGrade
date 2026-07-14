@@ -36,9 +36,17 @@
                 </div>
             </a>
             <div class="flex items-center gap-2 shrink-0">
-                @php $currentRole = session('scigrade_role', 'instructor'); @endphp
+                @php
+                    $currentRole = session('scigrade_role', 'instructor');
+                    $isImpersonating = session()->has('impersonator_user_id');
+                @endphp
                 <span class="hidden sm:inline text-xs text-white/80 px-2 py-1 rounded bg-white/15">
-                    {{ match($currentRole) { 'dept_admin' => 'Admin สาขา', 'faculty_admin' => 'Admin กลาง', default => 'อาจารย์' } }}
+                    {{ match($currentRole) {
+                        'dept_admin' => 'Admin สาขา',
+                        'faculty_admin' => 'Admin กลาง',
+                        'super_admin' => 'Super Admin',
+                        default => 'อาจารย์',
+                    } }}
                 </span>
                 <span class="text-sm text-white/90 hidden md:inline">{{ session('staff_display_name', auth()->user()->name) }}</span>
                 <form method="POST" action="{{ route('logout') }}">
@@ -48,6 +56,30 @@
             </div>
         </div>
     </header>
+
+    @if ($isImpersonating)
+        <div class="no-print bg-amber-900 text-amber-50">
+            <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <p>
+                    กำลังเข้าใช้งานแทน
+                    <span class="font-semibold">{{ session('staff_display_name') }}</span>
+                    ในบทบาท
+                    <span class="font-semibold">{{ match($currentRole) {
+                        'dept_admin' => 'Admin สาขา',
+                        'faculty_admin' => 'Admin กลาง',
+                        default => 'อาจารย์',
+                    } }}</span>
+                    (บัญชีจริง: {{ session('impersonator_display_name') }})
+                </p>
+                <form method="POST" action="{{ route('impersonate.stop') }}">
+                    @csrf
+                    <button type="submit" class="rounded px-3 py-1.5 text-sm bg-white text-amber-900 font-semibold hover:bg-amber-50">
+                        กลับสู่ Super Admin
+                    </button>
+                </form>
+            </div>
+        </div>
+    @endif
 
     @hasSection('subnav')
         <nav class="no-print bg-white border-b border-amber-200">

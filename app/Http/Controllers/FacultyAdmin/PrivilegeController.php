@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\FacultyAdmin\PrivilegeRequest;
 use App\Models\TblPrivilege;
 use App\Models\TblUser;
+use App\Support\SciGradeRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class PrivilegeController extends Controller
 
         return view('faculty-admin.settings.privileges.index', [
             'privileges' => $privileges,
+            'canAssignSuper' => SciGradeRole::canAssignSuperPrivilege(),
         ]);
     }
 
@@ -80,6 +82,11 @@ class PrivilegeController extends Controller
     public function update(PrivilegeRequest $request, TblPrivilege $privilege): RedirectResponse
     {
         abort_unless((int) $privilege->system_id === TblPrivilege::SYSTEM_GRADE_REPORT, 404);
+        abort_if(
+            (int) $privilege->level === TblPrivilege::LEVEL_SUPER && ! SciGradeRole::canAssignSuperPrivilege(),
+            403,
+            'เฉพาะ Super Admin เท่านั้นที่แก้ไขสิทธิ์ Super Admin ได้',
+        );
 
         $level = (int) $request->input('level');
 
@@ -95,6 +102,11 @@ class PrivilegeController extends Controller
     public function destroy(TblPrivilege $privilege): RedirectResponse
     {
         abort_unless((int) $privilege->system_id === TblPrivilege::SYSTEM_GRADE_REPORT, 404);
+        abort_if(
+            (int) $privilege->level === TblPrivilege::LEVEL_SUPER && ! SciGradeRole::canAssignSuperPrivilege(),
+            403,
+            'เฉพาะ Super Admin เท่านั้นที่ลบสิทธิ์ Super Admin ได้',
+        );
 
         $privilege->delete();
 

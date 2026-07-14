@@ -7,8 +7,10 @@ use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DeptSubmissionService;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
+use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class HomeController extends Controller
@@ -21,7 +23,7 @@ class HomeController extends Controller
 
     public function index(Request $request): View
     {
-        $role = session('scigrade_role', 'instructor');
+        $role = SciGradeRole::current();
         $defaultYear = AcademicTerm::defaultYear();
         $defaultTerm = AcademicTerm::defaultTerm();
         $term = (int) $request->input('term', $defaultTerm);
@@ -34,7 +36,7 @@ class HomeController extends Controller
         $openDeptSubmissions = collect();
         $receivedDeptSubmissionsGrouped = collect();
 
-        if ($role === 'instructor') {
+        if ($role === SciGradeRole::INSTRUCTOR) {
             $username = $this->resolveStaffUsername();
             if ($username) {
                 $reports = GradeReport::query()
@@ -48,7 +50,7 @@ class HomeController extends Controller
             }
         }
 
-        if ($role === 'dept_admin') {
+        if ($role === SciGradeRole::DEPT_ADMIN) {
             $staff = $this->staffAuth->findByEmail(auth()->user()->email);
             if ($staff) {
                 $this->staffAuth->storeInSession($staff);
@@ -60,13 +62,19 @@ class HomeController extends Controller
             }
         }
 
-        if ($role === 'faculty_admin') {
+        if (SciGradeRole::isFacultyCapable($role)) {
             $openDeptSubmissions = $this->deptSubmissionService->openSubmissionsForFaculty($term, $year);
             $receivedDeptSubmissionsGrouped = $this->deptSubmissionService->receivedSubmissionsGroupedForFaculty($term, $year);
         }
 
+        $selectableRoles = SciGradeRole::selectableRolesForCurrentUser();
+        $canImpersonate = SciGradeRole::canImpersonate();
+
         return view('home', [
             'role' => $role,
+            'selectableRoles' => $selectableRoles,
+            'canImpersonate' => $canImpersonate,
+            'isImpersonating' => SciGradeRole::isImpersonating(),
             'staffDisplayName' => $this->staffAuth->displayNameFor(
                 auth()->user()->email,
                 auth()->user()->name,
@@ -85,9 +93,15 @@ class HomeController extends Controller
 
     public function setRole(Request $request): RedirectResponse
     {
+        $allowed = SciGradeRole::selectableRolesForCurrentUser();
+
         $request->validate([
-            'role' => ['required', 'in:instructor,dept_admin,faculty_admin'],
+            'role' => ['required', Rule::in($allowed)],
         ]);
+
+        if ($request->role === SciGradeRole::SUPER_ADMIN && ! SciGradeRole::staffHasSuperPrivilege()) {
+            abort(403);
+        }
 
         session(['scigrade_role' => $request->role]);
 

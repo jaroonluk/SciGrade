@@ -11,6 +11,7 @@ use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
+use App\Support\SciGradeRole;
 use App\Support\ThaiDateTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -242,12 +243,12 @@ class GradeReportPageController extends Controller
     public function approve(): RedirectResponse
     {
         $role = session('scigrade_role', 'dept_admin');
-        abort_if(! in_array($role, ['dept_admin', 'faculty_admin'], true), 403);
+        abort_if(! in_array($role, ['dept_admin', 'faculty_admin', 'super_admin'], true), 403);
 
         $params = request()->only(['term', 'year', 'status', 'department_id']);
 
         return redirect()->route(
-            $role === 'faculty_admin' ? 'faculty-admin.reviews.index' : 'dept-admin.reviews.index',
+            SciGradeRole::isFacultyCapable($role) ? 'faculty-admin.reviews.index' : 'dept-admin.reviews.index',
             $params,
         );
     }
@@ -256,7 +257,7 @@ class GradeReportPageController extends Controller
     {
         $role = session('scigrade_role', 'instructor');
 
-        if ($role === 'faculty_admin') {
+        if (SciGradeRole::isFacultyCapable($role)) {
             return $facultyReports->form();
         }
 
@@ -266,7 +267,7 @@ class GradeReportPageController extends Controller
     public function printSummary(Request $request): View
     {
         $role = session('scigrade_role', 'dept_admin');
-        abort_if(! in_array($role, ['dept_admin', 'faculty_admin'], true), 403);
+        abort_if(! in_array($role, ['dept_admin', 'faculty_admin', 'super_admin'], true), 403);
 
         $query = GradeReport::query()->with('gradeStds')->orderBy('subject_code');
 

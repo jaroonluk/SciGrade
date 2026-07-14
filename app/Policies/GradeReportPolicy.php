@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Services\StaffAuthService;
+use App\Support\SciGradeRole;
 
 class GradeReportPolicy
 {
@@ -18,7 +19,7 @@ class GradeReportPolicy
 
     public function reviewFaculty(User $user, GradeReport $report): bool
     {
-        return session('scigrade_role') === 'faculty_admin'
+        return SciGradeRole::isFacultyCapable()
             && $this->staffAuth->findByEmail($user->email) !== null;
     }
 

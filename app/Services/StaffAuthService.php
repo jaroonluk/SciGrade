@@ -25,7 +25,17 @@ class StaffAuthService
 
     public function clearSession(): void
     {
-        session()->forget(['staff_username', 'staff_display_name', 'staff_teacher_name', 'staff_department_id']);
+        session()->forget([
+            'staff_username',
+            'staff_display_name',
+            'staff_teacher_name',
+            'staff_department_id',
+            'scigrade_role',
+            'impersonator_user_id',
+            'impersonator_staff_username',
+            'impersonator_role',
+            'impersonator_display_name',
+        ]);
     }
 
     public function displayNameFor(?string $email, ?string $fallback = null): string

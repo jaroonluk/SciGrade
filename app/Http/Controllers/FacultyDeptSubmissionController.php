@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DeptSubmission;
 use App\Services\DeptAdmin\DeptSubmissionService;
 use App\Services\StaffAuthService;
+use App\Support\SciGradeRole;
 use Illuminate\Http\JsonResponse;
 
 class FacultyDeptSubmissionController extends Controller
@@ -16,7 +17,7 @@ class FacultyDeptSubmissionController extends Controller
 
     public function receive(DeptSubmission $submission): JsonResponse
     {
-        abort_unless(session('scigrade_role') === 'faculty_admin', 403);
+        abort_unless(SciGradeRole::isFacultyCapable(), 403);
 
         $staff = $this->staffAuth->findByEmail(auth()->user()->email);
         abort_unless($staff, 403, 'ไม่พบข้อมูลเจ้าหน้าที่');

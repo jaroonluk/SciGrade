@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\DeptAdmin\DepartmentReportController;
 use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
 use App\Http\Controllers\DeptAdmin\DeptSubmissionFileController;
+use App\Http\Controllers\DeptAdmin\RegGradeStatusController as DeptRegGradeStatusController;
 use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\FacultyAdmin\GradeReportReviewController as FacultyGradeReportReviewController;
 use App\Http\Controllers\FacultyAdmin\GradeTermController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportFileController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\SubjectController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +39,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
     Route::post('/role', [HomeController::class, 'setRole'])->name('role.set');
     Route::post('/logout', [GoogleAuthController::class, 'logout'])->name('logout');
+
+    Route::post('/impersonate/stop', [ImpersonationController::class, 'stop'])->name('impersonate.stop');
+
+    Route::middleware('super.admin')->prefix('super-admin')->name('super-admin.')->group(function () {
+        Route::get('/impersonate', [ImpersonationController::class, 'index'])->name('impersonate');
+        Route::post('/impersonate', [ImpersonationController::class, 'start'])->name('impersonate.start');
+        Route::get('/impersonate/users/search', [ImpersonationController::class, 'searchUsers'])->name('impersonate.users.search');
+    });
 
     Route::prefix('grade-reports')->name('grade-reports.')->group(function () {
         Route::get('/create', [GradeReportPageController::class, 'create'])->name('create');
@@ -60,6 +70,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/{gradeReport}/send-back', [GradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
         Route::get('/reports', [DepartmentReportController::class, 'form'])->name('reports.form');
         Route::post('/reports/export', [DepartmentReportController::class, 'export'])->name('reports.export');
+        Route::get('/reg-grade-status', [DeptRegGradeStatusController::class, 'index'])->name('reg-grade-status.index');
+        Route::post('/reg-grade-status/{gradeReport}/approve-dept', [DeptRegGradeStatusController::class, 'approveDepartment'])->name('reg-grade-status.approve-dept');
+        Route::post('/reg-grade-status/{gradeReport}/revert-dept', [DeptRegGradeStatusController::class, 'revertDepartment'])->name('reg-grade-status.revert-dept');
     });
 
     Route::middleware('faculty.admin')->prefix('faculty-admin')->name('faculty-admin.')->group(function () {
@@ -100,6 +113,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/settings/reg-grade-status', [RegGradeStatusController::class, 'index'])->name('settings.reg-grade-status.index');
         Route::post('/settings/reg-grade-status/{gradeReport}/approve-faculty', [RegGradeStatusController::class, 'approveFaculty'])->name('settings.reg-grade-status.approve-faculty');
+        Route::post('/settings/reg-grade-status/{gradeReport}/revert-faculty', [RegGradeStatusController::class, 'revertFaculty'])->name('settings.reg-grade-status.revert-faculty');
     });
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');

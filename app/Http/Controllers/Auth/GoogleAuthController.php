@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\StaffAuthService;
+use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
@@ -54,6 +55,12 @@ class GoogleAuthController extends Controller
         Auth::login($user, remember: true);
 
         $this->staffAuth->storeInSession($staff);
+
+        session([
+            'scigrade_role' => SciGradeRole::staffHasSuperPrivilege($staff->username)
+                ? SciGradeRole::SUPER_ADMIN
+                : SciGradeRole::INSTRUCTOR,
+        ]);
 
         return redirect()->intended(route('dashboard'));
     }

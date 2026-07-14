@@ -36,6 +36,11 @@
             ระบบรายงานผลการสอบ (system_id = 11) —
             <span class="font-medium">0</span> = เจ้าหน้าที่งานบริการ,
             <span class="font-medium">1</span> = เจ้าหน้าที่สาขาวิชา
+            @if ($canAssignSuper ?? false)
+                , <span class="font-medium">2</span> = Super Admin
+            @else
+                <span class="block mt-1 text-xs text-amber-800">ระดับ Super Admin กำหนดได้เฉพาะ Super Admin เท่านั้น</span>
+            @endif
         </p>
     </div>
 
@@ -58,6 +63,9 @@
                 <select name="level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
                     <option value="0" @selected(old('level') === '0')>เจ้าหน้าที่งานบริการ</option>
                     <option value="1" @selected(old('level', '1') === '1')>เจ้าหน้าที่สาขาวิชา</option>
+                    @if ($canAssignSuper ?? false)
+                        <option value="2" @selected(old('level') === '2')>Super Admin</option>
+                    @endif
                 </select>
             </div>
             <div class="md:col-span-2">
@@ -89,23 +97,31 @@
                         </td>
                         <td class="px-3 py-2 text-center text-xs">{{ $privilege->levelLabel() }}</td>
                         <td class="px-3 py-2 text-center">
-                            <div class="flex flex-wrap justify-center gap-2">
-                                <button type="button"
-                                    class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50 btn-edit-privilege"
-                                    data-action="{{ route('faculty-admin.settings.privileges.update', $privilege) }}"
-                                    data-name="{{ $privilege->user?->displayName() ?? $privilege->username }}"
-                                    data-level="{{ $privilege->level }}">
-                                    แก้ไขสิทธิ
-                                </button>
-                                <form method="POST" action="{{ route('faculty-admin.settings.privileges.destroy', $privilege) }}"
-                                    class="inline" onsubmit="return confirm('ลบสิทธิ์นี้?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
-                                        ลบสิทธิ
+                            @php
+                                $isSuperRow = (int) $privilege->level === \App\Models\TblPrivilege::LEVEL_SUPER;
+                                $canManageRow = ! $isSuperRow || ($canAssignSuper ?? false);
+                            @endphp
+                            @if ($canManageRow)
+                                <div class="flex flex-wrap justify-center gap-2">
+                                    <button type="button"
+                                        class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50 btn-edit-privilege"
+                                        data-action="{{ route('faculty-admin.settings.privileges.update', $privilege) }}"
+                                        data-name="{{ $privilege->user?->displayName() ?? $privilege->username }}"
+                                        data-level="{{ $privilege->level }}">
+                                        แก้ไขสิทธิ
                                     </button>
-                                </form>
-                            </div>
+                                    <form method="POST" action="{{ route('faculty-admin.settings.privileges.destroy', $privilege) }}"
+                                        class="inline" onsubmit="return confirm('ลบสิทธิ์นี้?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
+                                            ลบสิทธิ
+                                        </button>
+                                    </form>
+                                </div>
+                            @else
+                                <span class="text-xs text-gray-400">เฉพาะ Super Admin</span>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -129,6 +145,9 @@
                 <select name="level" id="edit-privilege-level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
                     <option value="0">เจ้าหน้าที่งานบริการ</option>
                     <option value="1">เจ้าหน้าที่สาขาวิชา</option>
+                    @if ($canAssignSuper ?? false)
+                        <option value="2">Super Admin</option>
+                    @endif
                 </select>
             </div>
             <div class="flex gap-3 justify-end">

@@ -1,10 +1,10 @@
 @extends('layouts.scigrad')
 
-@section('title', 'ตรวจสอบสถานะการส่งผลการสอบ — Admin กลาง')
+@section('title', 'ตรวจสอบสถานะการส่งผลการสอบ — Admin สาขา')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
-<a href="{{ route('faculty-admin.reviews.index') }}" class="text-[#8B4513] hover:underline">Admin กลาง</a>
+<a href="{{ route('dept-admin.reviews.index') }}" class="text-[#8B4513] hover:underline">Admin สาขา</a>
 <span class="text-gray-400">/</span>
 <span class="text-[#5C2E1F] font-medium">ตรวจสอบสถานะการส่งผลการสอบ</span>
 @endsection
@@ -51,7 +51,7 @@
         place-content: center;
         cursor: default;
         vertical-align: middle;
-        transition: box-shadow .15s ease, border-color .15s ease, background .15s ease;
+        transition: box-shadow .15s ease, border-color .15s ease, background .15s ease, transform .12s ease;
     }
     .status-radio::before {
         content: "";
@@ -74,11 +74,11 @@
     .status-radio.is-clickable {
         cursor: pointer;
         border-width: 3px;
-        box-shadow: 0 0 0 2px rgba(22,163,74,.12);
+        box-shadow: 0 0 0 2px rgba(14,165,233,.18);
     }
     .status-radio.is-clickable:hover {
         transform: scale(1.08);
-        box-shadow: 0 0 0 4px rgba(22,163,74,.2);
+        box-shadow: 0 0 0 4px rgba(14,165,233,.25);
     }
     .status-radio:disabled { opacity: .95; }
     .status-cell-active-0 { background: #f8fafc; }
@@ -114,17 +114,19 @@
     <div>
         <h2 class="text-xl font-bold text-[#5C2E1F]">ตรวจสอบสถานะการส่งผลการสอบไล่</h2>
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
-            เทียบรายวิชาจาก REG กับสถานะในระบบ — คลิกชื่อวิชาเพื่อเปิดไฟล์ PDF ที่อาจารย์อัปโหลด
-            และติก “ผ่านคณะฯ” ได้ทันทีเมื่อรายวิชาผ่านสาขาแล้ว
+            แสดงเฉพาะสาขาวิชาที่คุณรับผิดชอบ — เมื่ออาจารย์ส่งผลสอบแล้ว สามารถติก “ผ่านสาขาฯ” ได้ทันที
+            (ระบบบันทึกผู้กดและวันที่ให้อัตโนมัติ)
         </p>
     </div>
 
     <div class="form-section rounded-xl p-6">
-        <form method="GET" action="{{ route('faculty-admin.settings.reg-grade-status.index') }}" class="flex flex-wrap items-end gap-4">
+        <form method="GET" action="{{ route('dept-admin.reg-grade-status.index') }}" class="flex flex-wrap items-end gap-4">
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา</label>
                 <select name="department_id" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
-                    <option value="">ทั้งหมด</option>
+                    @if ($departments->count() > 1)
+                        <option value="">ทุกสาขาที่มีสิทธิ์</option>
+                    @endif
                     @foreach ($departments as $dept)
                         <option value="{{ $dept->department_id }}" @selected($departmentId === (int) $dept->department_id)>
                             {{ $dept->department_name }}
@@ -201,7 +203,7 @@
             @if (($statusFilter ?? 'all') !== 'all')
                 <span class="text-xs text-sky-700 ml-1">(กรองตามสถานะแล้ว)</span>
             @endif
-            <span class="text-xs text-gray-500 ml-2">ติกสลับได้: ผ่านสาขาฯ ↔ ผ่านคณะฯ</span>
+            <span class="text-xs text-gray-500 ml-2">ติกสลับได้: ส่งแล้ว ↔ ผ่านสาขาฯ (ถ้าคณะยังไม่อนุมัติ)</span>
         </div>
         <table class="w-full text-sm min-w-[900px]" id="status-table">
             <thead class="bg-amber-50/60">
@@ -224,16 +226,16 @@
                         $rowClass = $isContinuation
                             ? 'bg-[#F8FBFF] course-group-cont'
                             : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
-                        $canApproveFaculty = (int) $row->status === 2 && $row->grade_id;
-                        $canRevertFaculty = (int) $row->status === 3 && $row->grade_id;
+                        $canApproveDept = (int) $row->status === 1 && $row->grade_id;
+                        $canRevertDept = (int) $row->status === 2 && $row->grade_id;
                         $radioName = 'status-'.$index.'-'.($row->grade_id ?: $row->COURSECODE.'-'.$row->SECTION);
                     @endphp
                     <tr class="border-t border-amber-100 {{ $rowClass }}"
                         data-grade-id="{{ $row->grade_id }}"
                         data-status="{{ $row->status }}"
                         @if ($row->grade_id)
-                            data-approve-url="{{ route('faculty-admin.settings.reg-grade-status.approve-faculty', $row->grade_id) }}"
-                            data-revert-url="{{ route('faculty-admin.settings.reg-grade-status.revert-faculty', $row->grade_id) }}"
+                            data-approve-url="{{ route('dept-admin.reg-grade-status.approve-dept', $row->grade_id) }}"
+                            data-revert-url="{{ route('dept-admin.reg-grade-status.revert-dept', $row->grade_id) }}"
                         @endif>
                         <td class="px-3 py-2 text-gray-500">{{ $index + 1 }}</td>
                         <td class="px-3 py-2 col-course">
@@ -275,20 +277,21 @@
                             @if ($row->officers)
                                 <div class="text-xs text-gray-500 mt-0.5">{{ $row->officers }}</div>
                             @endif
+                            <div class="approve-meta text-xs text-sky-700 mt-0.5 hidden"></div>
                         </td>
                         <td class="px-3 py-2 text-center"><span class="sec-badge">{{ $row->SECTION }}</span></td>
                         @foreach ([0, 1, 2, 3] as $statusValue)
                             @php
                                 $isActive = (int) $row->status === $statusValue;
-                                $isClickable = ($statusValue === 3 && $canApproveFaculty) || ($statusValue === 2 && $canRevertFaculty);
-                                $action = $statusValue === 3 && $canApproveFaculty
+                                $isClickable = ($statusValue === 2 && $canApproveDept) || ($statusValue === 1 && $canRevertDept);
+                                $action = $statusValue === 2 && $canApproveDept
                                     ? 'approve'
-                                    : ($statusValue === 2 && $canRevertFaculty ? 'revert' : null);
+                                    : ($statusValue === 1 && $canRevertDept ? 'revert' : null);
                             @endphp
                             <td class="px-3 py-2 text-center status-cell {{ $isActive ? 'status-cell-active-'.$statusValue : '' }}">
                                 <div class="status-cell-wrap">
                                     <input type="radio"
-                                        class="status-radio status-{{ $statusValue }} {{ $isClickable ? 'is-clickable btn-faculty-status' : '' }}"
+                                        class="status-radio status-{{ $statusValue }} {{ $isClickable ? 'is-clickable btn-dept-status' : '' }}"
                                         name="{{ $radioName }}"
                                         value="{{ $statusValue }}"
                                         @checked($isActive)
@@ -297,7 +300,7 @@
                                         @else
                                             disabled
                                         @endif
-                                        title="{{ $action === 'approve' ? 'คลิกเพื่อผ่านคณะฯ' : ($action === 'revert' ? 'คลิกเพื่อกลับเป็นผ่านสาขาฯ' : '') }}">
+                                        title="{{ $action === 'approve' ? 'คลิกเพื่อผ่านสาขาฯ' : ($action === 'revert' ? 'คลิกเพื่อกลับเป็นส่งแล้ว' : '') }}">
                                     <span class="status-toast" aria-live="polite"></span>
                                 </div>
                             </td>
@@ -346,22 +349,22 @@
         radios.forEach((r) => {
             const value = Number(r.value);
             r.checked = value === targetStatus;
-            r.classList.remove('is-clickable', 'btn-faculty-status');
+            r.classList.remove('is-clickable', 'btn-dept-status');
             r.removeAttribute('data-action');
             r.removeAttribute('title');
             r.disabled = true;
             r.style.cursor = 'default';
             r.dataset.busy = '0';
 
-            const canApprove = targetStatus === 2 && value === 3 && approveUrl;
-            const canRevert = targetStatus === 3 && value === 2 && revertUrl;
+            const canApprove = targetStatus === 1 && value === 2 && approveUrl;
+            const canRevert = targetStatus === 2 && value === 1 && revertUrl;
             if (canApprove || canRevert) {
                 r.disabled = false;
-                r.classList.add('is-clickable', 'btn-faculty-status');
+                r.classList.add('is-clickable', 'btn-dept-status');
                 r.dataset.action = canApprove ? 'approve' : 'revert';
-                r.title = canApprove ? 'คลิกเพื่อผ่านคณะฯ' : 'คลิกเพื่อกลับเป็นผ่านสาขาฯ';
+                r.title = canApprove ? 'คลิกเพื่อผ่านสาขาฯ' : 'คลิกเพื่อกลับเป็นส่งแล้ว';
                 r.style.cursor = 'pointer';
-                bindFacultyRadio(r);
+                bindDeptRadio(r);
             }
         });
 
@@ -373,7 +376,7 @@
         row.dataset.status = String(targetStatus);
     };
 
-    const bindFacultyRadio = (radio) => {
+    const bindDeptRadio = (radio) => {
         if (radio.dataset.bound === '1') return;
         radio.dataset.bound = '1';
         radio.addEventListener('click', async (e) => {
@@ -384,7 +387,7 @@
             if (!url || !action || radio.dataset.busy === '1') return;
 
             const fromStatus = Number(row.dataset.status || 0);
-            const targetStatus = action === 'approve' ? 3 : 2;
+            const targetStatus = action === 'approve' ? 2 : 1;
 
             radio.dataset.busy = '1';
             radio.disabled = true;
@@ -408,6 +411,20 @@
                 }
 
                 paintRow(row, targetStatus);
+
+                const meta = row.querySelector('.approve-meta');
+                if (meta) {
+                    if (targetStatus === 2) {
+                        const who = data.approver ? `โดย ${data.approver}` : '';
+                        const when = data.approved_at ? `เมื่อ ${data.approved_at}` : '';
+                        meta.textContent = ['ผ่านสาขาฯ แล้ว', who, when].filter(Boolean).join(' · ');
+                        meta.classList.remove('hidden');
+                    } else {
+                        meta.textContent = '';
+                        meta.classList.add('hidden');
+                    }
+                }
+
                 const activeRadio = row.querySelector('.status-radio[value="' + targetStatus + '"]');
                 if (activeRadio) showToast(activeRadio, 'บันทึกสำเร็จ');
                 bumpSummary(fromStatus, targetStatus);
@@ -419,7 +436,7 @@
         });
     };
 
-    document.querySelectorAll('.btn-faculty-status').forEach(bindFacultyRadio);
+    document.querySelectorAll('.btn-dept-status').forEach(bindDeptRadio);
 })();
 </script>
 @endpush

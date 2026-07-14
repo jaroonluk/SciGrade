@@ -10,7 +10,7 @@
 @section('content')
 <div>
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-6">
-        {{ $role === 'faculty_admin' ? 'รายงานทุกสาขา' : ($role === 'dept_admin' ? 'รายงานตามสถานะ (สาขา)' : 'รายงานของฉัน') }}
+        {{ in_array($role, ['faculty_admin', 'super_admin'], true) ? 'รายงานทุกสาขา' : ($role === 'dept_admin' ? 'รายงานตามสถานะ (สาขา)' : 'รายงานของฉัน') }}
     </h2>
 
     <div class="flex flex-wrap gap-3 mb-6 no-print">
@@ -21,7 +21,7 @@
             <option value="2">คณะอนุมัติ</option>
             <option value="-1">ส่งกลับแก้ไข</option>
         </select>
-        @if ($role === 'faculty_admin')
+        @if (in_array($role, ['faculty_admin', 'super_admin'], true))
             <input id="filter-fac" type="text" placeholder="กรองคณะ (เช่น SC)" class="border border-amber-300 rounded px-3 py-2 text-sm w-40">
         @endif
         <button type="button" id="btn-print" class="px-4 py-2 bg-amber-700 text-white rounded text-sm hover:bg-amber-800">พิมพ์รายงาน</button>

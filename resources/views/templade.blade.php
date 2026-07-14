@@ -239,13 +239,15 @@
                         <div class="relative">
                             <label for="totalnumstdevz" class="block text-sm font-medium mb-1 text-[#5C2E1F]">จำนวนนักศึกษาที่เข้าประเมิน</label>
                             <input id="totalnumstdevz" type="number" min="0"
+                                autocomplete="off"
                                 class="eva-hint-field w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
                         </div>
                         <div class="relative">
                             <label for="totalevaluationscore" class="block text-sm font-medium mb-1 text-[#5C2E1F]">ผลการประเมินรายวิชาโดยนักศึกษา</label>
-                            <input id="totalevaluationscore" type="number" min="1" max="5" step="0.01"
+                            <input id="totalevaluationscore" type="number" min="0" max="5" step="0.01"
+                                autocomplete="off" inputmode="decimal"
                                 class="eva-hint-field w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
-                            <p class="text-xs text-[#7A4A3A]/80 mt-1">ไม่เกิน 5 คะแนน — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
+                            <p class="text-xs text-[#7A4A3A]/80 mt-1">คะแนนเฉลี่ย 0–5 เท่านั้น — ไม่ใช่จำนวนนักศึกษา — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
                         </div>
                     </div>
 
@@ -411,14 +413,16 @@
                             <div class="relative">
                                 <label for="numstdevz" class="block text-sm font-medium mb-1 text-[#5C2E1F]">จำนวนนักศึกษาที่เข้าประเมิน</label>
                                 <input id="numstdevz" type="number" min="0"
+                                    autocomplete="off"
                                     class="eva-hint-field w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                                 <p class="text-xs text-[#7A4A3A]/70 mt-1">กรอกจำนวนนักศึกษาที่เข้าประเมินรายวิชาใน Section นี้</p>
                             </div>
                             <div class="relative">
                                 <label for="evaluationscore" class="block text-sm font-medium mb-1 text-[#5C2E1F]">ผลการประเมินรายวิชาโดยนักศึกษา</label>
-                                <input id="evaluationscore" type="number" min="1" max="5" step="0.01"
+                                <input id="evaluationscore" type="number" min="0" max="5" step="0.01"
+                                    autocomplete="off" inputmode="decimal"
                                     class="eva-hint-field w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                                <p class="text-xs text-[#7A4A3A]/80 mt-1">ไม่เกิน 5 คะแนน — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
+                                <p class="text-xs text-[#7A4A3A]/80 mt-1">คะแนนเฉลี่ย 0–5 เท่านั้น — ไม่ใช่จำนวนนักศึกษา — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
                             </div>
                         </div>
 
@@ -490,7 +494,7 @@
 
 @push('scripts')
     <script src="{{ asset('js/templade-data-sdk.js') }}"></script>
-    <script src="{{ asset('js/templade-form.js') }}"></script>
+    <script src="{{ asset('js/templade-form.js') }}?v={{ filemtime(public_path('js/templade-form.js')) }}"></script>
     <script>
     (function() {
         const reportId = @json($reportId ?? null);
@@ -549,6 +553,11 @@
             }
             if (!payload.grade_stds?.length) {
                 showToast('กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section', 'error');
+                return;
+            }
+            const evaError = validateEvaluationScores(payload);
+            if (evaError) {
+                showToast(evaError, 'error');
                 return;
             }
 

@@ -14,6 +14,9 @@
             <h2 class="text-xl font-bold text-[#5C2E1F]">ตรวจสอบรายการรายวิชา</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">รายวิชาที่อาจารย์ส่งเกรดมาในสาขาที่คุณมีสิทธิ์ตรวจสอบ</p>
         </div>
+        <a href="{{ route('dept-admin.reg-grade-status.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+            ตรวจสอบสถานะการส่ง
+        </a>
         <a href="{{ route('dept-admin.reports.form') }}" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
             พิมพ์รายงานสาขา
         </a>

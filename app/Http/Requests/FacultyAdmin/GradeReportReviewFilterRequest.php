@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\FacultyAdmin;
 
+use App\Support\SciGradeRole;
+
 use App\Services\FacultyAdmin\FacultyReportQueryService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,7 +12,7 @@ class GradeReportReviewFilterRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return session('scigrade_role') === 'faculty_admin';
+        return SciGradeRole::isFacultyCapable();
     }
 
     /**

@@ -44,11 +44,15 @@
         <p class="text-sm font-semibold text-[#5C2E1F] mb-3">เลือกบทบาทการใช้งาน</p>
         <form method="POST" action="{{ route('role.set') }}" class="flex flex-wrap gap-3">
             @csrf
-            @foreach ([
-                'instructor' => 'อาจารย์',
-                'dept_admin' => 'Admin สาขา',
-                'faculty_admin' => 'Admin กลาง',
-            ] as $value => $label)
+            @foreach ($selectableRoles as $value)
+                @php
+                    $label = match ($value) {
+                        'dept_admin' => 'Admin สาขา',
+                        'faculty_admin' => 'Admin กลาง',
+                        'super_admin' => 'Super Admin',
+                        default => 'อาจารย์',
+                    };
+                @endphp
                 <button type="submit" name="role" value="{{ $value }}"
                     class="px-5 py-2.5 rounded-lg text-sm font-medium border transition
                     {{ $role === $value
@@ -58,6 +62,9 @@
                 </button>
             @endforeach
         </form>
+        @if ($errors->has('role'))
+            <p class="text-sm text-red-600 mt-2">{{ $errors->first('role') }}</p>
+        @endif
     </div>
 
     @if ($role === 'instructor')
@@ -450,7 +457,7 @@
             </div>
         </div>
 
-        <div class="grid sm:grid-cols-2 gap-4 mb-6">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <a href="{{ route('dept-admin.reviews.index') }}" class="menu-card rounded-xl p-5 block">
                 <div class="flex items-start gap-3">
                     <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
@@ -459,6 +466,17 @@
                     <div>
                         <p class="font-semibold text-[#5C2E1F]">ตรวจสอบรายวิชา</p>
                         <p class="text-sm text-[#7A4A3A]/70 mt-1">อนุมัติ/ไม่อนุมัติรายการที่อาจารย์ส่งมา พร้อมดูไฟล์แนบ</p>
+                    </div>
+                </div>
+            </a>
+            <a href="{{ route('dept-admin.reg-grade-status.index') }}" class="menu-card rounded-xl p-5 block">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                        <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-[#5C2E1F]">ตรวจสอบสถานะการส่งผลการสอบ</p>
+                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ดูสถานะตามรายวิชา REG และติกผ่านสาขาฯ ได้ทันที</p>
                     </div>
                 </div>
             </a>
@@ -476,9 +494,10 @@
         </div>
     @endif
 
-    @if ($role === 'faculty_admin')
+    @if (in_array($role, ['faculty_admin', 'super_admin'], true))
         <h3 class="text-lg font-bold text-[#5C2E1F] mb-4 flex items-center gap-2">
-            <i data-lucide="building-2" class="w-5 h-5"></i> เมนู Admin กลาง
+            <i data-lucide="building-2" class="w-5 h-5"></i>
+            เมนู {{ $role === 'super_admin' ? 'Super Admin' : 'Admin กลาง' }}
         </h3>
 
         <div class="form-section rounded-xl p-5 mb-6">
@@ -797,6 +816,19 @@
                             </div>
                         </div>
                     </a>
+                    @if ($canImpersonate ?? false)
+                        <a href="{{ route('super-admin.impersonate') }}" class="menu-card rounded-xl p-5 block border-2 border-[#8B4513]/25">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                                    <i data-lucide="user-cog" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-[#5C2E1F]">เข้าใช้งานแทนบุคลากร</p>
+                                    <p class="text-sm text-[#7A4A3A]/70 mt-1">เข้าแทนอาจารย์ / Admin สาขา / Admin กลาง</p>
+                                </div>
+                            </div>
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>

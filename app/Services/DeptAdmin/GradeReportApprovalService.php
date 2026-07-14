@@ -112,17 +112,16 @@ class GradeReportApprovalService
             $from = (int) $report->approv;
 
             if ($from === GradeApprovalStatus::CentralApproved->value) {
-                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว');
+                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
             }
 
-            if ($from === GradeApprovalStatus::Saved->value) {
-                throw new InvalidArgumentException('รายการอยู่ในสถานะรออนุมัติอยู่แล้ว');
+            if ($from !== GradeApprovalStatus::DepartmentApproved->value) {
+                throw new InvalidArgumentException('สามารถเปลี่ยนกลับเป็น “ส่งแล้ว” ได้เฉพาะรายการที่ผ่านสาขาฯ แล้วเท่านั้น');
             }
 
             $report->update([
                 'approv' => GradeApprovalStatus::Saved->value,
                 'dateapprove1' => null,
-                'dateapprove2' => null,
             ]);
 
             $this->writeLog($report, 'department_reset', $from, GradeApprovalStatus::Saved->value, $approverUsername, $remark);

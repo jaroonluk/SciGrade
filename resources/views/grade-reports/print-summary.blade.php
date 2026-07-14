@@ -17,7 +17,7 @@
 </head>
 <body>
     <div class="no-print">
-        @if ($role === 'faculty_admin')
+        @if (in_array($role, ['faculty_admin', 'super_admin'], true))
             <form method="GET" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <select name="approv" style="padding:6px">
                     <option value="">ทุกสถานะ (คณะอนุมัติเป็นค่าเริ่มต้น)</option>
@@ -37,7 +37,7 @@
     <h1>รายงานสรุปผลการสอบไล่</h1>
     <h2>คณะวิทยาศาสตร์ มหาวิทยาลัยขอนแก่น</h2>
     <p style="text-align:center">
-        {{ $role === 'faculty_admin' ? 'รายงานระดับคณะ' : 'รายงานภาพรวมสาขา' }}
+        {{ in_array($role, ['faculty_admin', 'super_admin'], true) ? 'รายงานระดับคณะ' : 'รายงานภาพรวมสาขา' }}
         @if ($fac) — กรองคณะ: {{ $fac }} @endif
         ({{ $reports->count() }} รายการ)
     </p>

@@ -13,6 +13,8 @@ class TblPrivilege extends Model
 
     public const LEVEL_DEPT = 1;
 
+    public const LEVEL_SUPER = 2;
+
     protected $connection = 'scigrad';
 
     protected $table = 'tblprivileges';
@@ -43,6 +45,7 @@ class TblPrivilege extends Model
     public function levelLabel(): string
     {
         return match ((int) $this->level) {
+            self::LEVEL_SUPER => 'Super Admin',
             self::LEVEL_DEPT => 'เจ้าหน้าที่สาขาวิชา',
             default => 'เจ้าหน้าที่งานบริการ',
         };

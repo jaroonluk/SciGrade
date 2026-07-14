@@ -7,6 +7,7 @@ use App\Models\DeptSubmission;
 use App\Models\DeptSubmissionFile;
 use App\Services\DeptAdmin\DeptSubmissionService;
 use App\Services\StaffAuthService;
+use App\Support\SciGradeRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -116,7 +117,7 @@ class DeptSubmissionFileController extends Controller
         $role = session('scigrade_role', 'instructor');
         if ($role === 'dept_admin') {
             $this->submissionService->assertDepartmentAccess($staff, (int) $submission->department_id);
-        } elseif ($role !== 'faculty_admin') {
+        } elseif (! SciGradeRole::isFacultyCapable($role)) {
             abort(403);
         }
 

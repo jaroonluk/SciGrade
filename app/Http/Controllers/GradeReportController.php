@@ -127,7 +127,7 @@ class GradeReportController extends Controller
         $validated = $request->validate([
             'approv' => ['required', 'integer', 'in:-1,0,1,2'],
             'rejection_reason' => ['nullable', 'string', 'max:1000'],
-            'role' => ['required', 'in:dept_admin,faculty_admin'],
+            'role' => ['required', 'in:dept_admin,faculty_admin,super_admin'],
         ]);
 
         $today = now()->toDateString();
@@ -149,7 +149,7 @@ class GradeReportController extends Controller
                 'approv' => 1,
                 'dateapprove1' => $today,
             ]);
-        } elseif ($validated['role'] === 'faculty_admin' && $validated['approv'] === 2) {
+        } elseif (in_array($validated['role'], ['faculty_admin', 'super_admin'], true) && $validated['approv'] === 2) {
             $gradeReport->update([
                 'approv' => 2,
                 'dateapprove2' => $today,
@@ -264,6 +264,27 @@ class GradeReportController extends Controller
 
     private function validateReport(Request $request, bool $updating = false): array
     {
+        $payload = $request->all();
+        $statuseva = (int) ($payload['statuseva'] ?? 2);
+
+        // กันค่าผลประเมินค้างผิดโหมด (เช่น สลับ radio / autofill แล้วไปติด grade_stds)
+        if ($statuseva === 2) {
+            $payload['grade_stds'] = array_map(function ($std) {
+                if (! is_array($std)) {
+                    return $std;
+                }
+                $std['evaluationscore'] = null;
+                $std['numstdevz'] = null;
+
+                return $std;
+            }, $payload['grade_stds'] ?? []);
+        } else {
+            $payload['totalevaluationscore'] = null;
+            $payload['totalnumstdevz'] = null;
+        }
+
+        $request->merge($payload);
+
         return $request->validate([
             'report_date' => [$updating ? 'sometimes' : 'required', 'date'],
             'term' => [$updating ? 'sometimes' : 'required', 'integer', 'in:1,2,3'],
@@ -296,6 +317,16 @@ class GradeReportController extends Controller
             'score_f' => ['nullable', 'string', 'max:20'],
             'grade_stds' => [$updating ? 'sometimes' : 'required', 'array', 'min:1'],
             ...$this->gradeStdItemRules('grade_stds.*'),
+        ], [
+            'totalevaluationscore.max' => 'ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)',
+            'totalevaluationscore.numeric' => 'ผลการประเมินรายวิชาโดยนักศึกษาต้องเป็นตัวเลข',
+            'grade_stds.*.evaluationscore.max' => 'ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)',
+            'grade_stds.*.evaluationscore.numeric' => 'ผลการประเมินรายวิชาโดยนักศึกษาต้องเป็นตัวเลข',
+        ], [
+            'totalevaluationscore' => 'ผลการประเมินรายวิชาโดยนักศึกษา',
+            'grade_stds.*.evaluationscore' => 'ผลการประเมินรายวิชาโดยนักศึกษา',
+            'totalnumstdevz' => 'จำนวนนักศึกษาที่เข้าประเมิน',
+            'grade_stds.*.numstdevz' => 'จำนวนนักศึกษาที่เข้าประเมิน',
         ]);
     }
 

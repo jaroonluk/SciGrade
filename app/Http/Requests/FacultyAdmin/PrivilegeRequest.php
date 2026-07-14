@@ -3,6 +3,7 @@
 namespace App\Http\Requests\FacultyAdmin;
 
 use App\Models\TblPrivilege;
+use App\Support\SciGradeRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,7 @@ class PrivilegeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return session('scigrade_role') === 'faculty_admin';
+        return SciGradeRole::isFacultyCapable();
     }
 
     /**
@@ -18,11 +19,16 @@ class PrivilegeRequest extends FormRequest
      */
     public function rules(): array
     {
+        $allowedLevels = ['0', '1'];
+        if (SciGradeRole::canAssignSuperPrivilege()) {
+            $allowedLevels[] = '2';
+        }
+
         $isUpdate = $this->route('privilege') !== null;
 
         if ($isUpdate) {
             return [
-                'level' => ['required', 'integer', 'in:0,1'],
+                'level' => ['required', 'integer', Rule::in($allowedLevels)],
             ];
         }
 
@@ -38,7 +44,7 @@ class PrivilegeRequest extends FormRequest
                     ->where(fn ($q) => $q->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT))
                     ->ignore($privilegeId, 'privilegs_id'),
             ],
-            'level' => ['required', 'integer', 'in:0,1'],
+            'level' => ['required', 'integer', Rule::in($allowedLevels)],
         ];
     }
 }

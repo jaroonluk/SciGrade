@@ -90,6 +90,34 @@ class GradeReportCentralApprovalService
         });
     }
 
+    public function revertToDepartmentApproved(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from !== GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('สามารถเปลี่ยนกลับเป็น “ผ่านสาขาฯ” ได้เฉพาะรายการที่ผ่านคณะฯ แล้วเท่านั้น');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::DepartmentApproved->value,
+                'dateapprove2' => null,
+            ]);
+
+            $this->writeLog(
+                $report,
+                'central_revert',
+                $from,
+                GradeApprovalStatus::DepartmentApproved->value,
+                $approverUsername,
+                $remark,
+            );
+
+            return $report->fresh(['gradeStds', 'files', 'latestCentralApprovalLog.approver']);
+        });
+    }
+
     private function writeLog(
         GradeReport $report,
         string $action,

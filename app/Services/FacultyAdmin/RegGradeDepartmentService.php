@@ -42,6 +42,7 @@ class RegGradeDepartmentService
         ?int $departmentId = null,
         string $q = '',
         int $perPage = 40,
+        ?array $allowedDepartmentIds = null,
     ): LengthAwarePaginator {
         $query = GradeReportReg::query()
             ->selectRaw('
@@ -56,7 +57,7 @@ class RegGradeDepartmentService
             ->where('ACADYEAR', (string) $year)
             ->where('SEMESTER', (string) $term);
 
-        $this->applyDepartmentFilter($query, $departmentId);
+        $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
         $this->applySearchFilter($query, $q);
 
         $paginator = $query
@@ -72,6 +73,7 @@ class RegGradeDepartmentService
             $year,
             $departmentId,
             $q,
+            $allowedDepartmentIds,
         );
 
         $paginator->setCollection(
@@ -98,11 +100,17 @@ class RegGradeDepartmentService
     }
 
     /**
+     * @param  list<int>|null  $allowedDepartmentIds
      * @return Collection<int, object>
      */
-    public function groupedCourses(int $term, int $year, ?int $departmentId = null, string $q = ''): Collection
-    {
-        return $this->groupedCoursesPaginated($term, $year, $departmentId, $q, 100000)->getCollection();
+    public function groupedCourses(
+        int $term,
+        int $year,
+        ?int $departmentId = null,
+        string $q = '',
+        ?array $allowedDepartmentIds = null,
+    ): Collection {
+        return $this->groupedCoursesPaginated($term, $year, $departmentId, $q, 100000, $allowedDepartmentIds)->getCollection();
     }
 
     /**
@@ -223,9 +231,19 @@ class RegGradeDepartmentService
      *
      * @return Collection<int, object>
      */
-    public function coursesWithStatus(int $term, int $year, ?int $departmentId = null): Collection
-    {
-        $courses = $this->groupedCourses($term, $year, $departmentId);
+    /**
+     * สถานะการส่งผลสอบเทียบกับ grade_report
+     *
+     * @param  list<int>|null  $allowedDepartmentIds
+     * @return Collection<int, object>
+     */
+    public function coursesWithStatus(
+        int $term,
+        int $year,
+        ?int $departmentId = null,
+        ?array $allowedDepartmentIds = null,
+    ): Collection {
+        $courses = $this->groupedCourses($term, $year, $departmentId, '', $allowedDepartmentIds);
 
         $sectionCounts = $courses
             ->groupBy(fn (object $course) => (string) $course->COURSECODE)
@@ -295,13 +313,32 @@ class RegGradeDepartmentService
         });
     }
 
-    private function applyDepartmentFilter(Builder $query, ?int $departmentId): void
+    /**
+     * @param  list<int>|null  $allowedDepartmentIds
+     */
+    private function applyDepartmentFilter(Builder $query, ?int $departmentId, ?array $allowedDepartmentIds = null): void
     {
-        if ($departmentId) {
-            $this->subjectFilter->applyCourseCodeToQuery($query, $departmentId);
-        } else {
-            $this->subjectFilter->applyCourseCodeDepartmentsToQuery($query, self::DEPARTMENT_IDS);
+        $allowed = $allowedDepartmentIds ?? self::DEPARTMENT_IDS;
+        $allowed = array_values(array_unique(array_map('intval', $allowed)));
+
+        if ($allowed === []) {
+            $query->whereRaw('1 = 0');
+
+            return;
         }
+
+        if ($departmentId) {
+            if (! in_array($departmentId, $allowed, true)) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+            $this->subjectFilter->applyCourseCodeToQuery($query, $departmentId);
+
+            return;
+        }
+
+        $this->subjectFilter->applyCourseCodeDepartmentsToQuery($query, $allowed);
     }
 
     private function applySearchFilter(Builder $query, string $q): void
@@ -333,6 +370,7 @@ class RegGradeDepartmentService
         int $year,
         ?int $departmentId,
         string $q,
+        ?array $allowedDepartmentIds = null,
     ): array {
         if ($courseCodes === []) {
             return [];
@@ -344,7 +382,7 @@ class RegGradeDepartmentService
             ->where('SEMESTER', (string) $term)
             ->whereIn('COURSECODE', $courseCodes);
 
-        $this->applyDepartmentFilter($query, $departmentId);
+        $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
         $this->applySearchFilter($query, $q);
 
         return $query

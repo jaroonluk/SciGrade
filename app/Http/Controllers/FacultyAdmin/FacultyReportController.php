@@ -9,6 +9,7 @@ use App\Models\TblProgramQa;
 use App\Services\DeptAdmin\DepartmentReportExportService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Support\AcademicTerm;
+use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
@@ -23,7 +24,7 @@ class FacultyReportController extends Controller
 
     public function form(): View
     {
-        abort_unless(session('scigrade_role') === 'faculty_admin', 403);
+        abort_unless(SciGradeRole::isFacultyCapable(), 403);
 
         $departments = TblDepartment::query()
             ->whereIn('department_id', TblProgramQa::ALLOWED_DEPARTMENT_IDS)

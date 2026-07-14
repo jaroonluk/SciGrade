@@ -6,6 +6,7 @@ use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Services\GradeReportAttachmentNameService;
 use App\Services\StaffAuthService;
+use App\Support\SciGradeRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -110,7 +111,7 @@ class GradeReportFileController extends Controller
 
         $role = session('scigrade_role', 'instructor');
 
-        return in_array($role, ['dept_admin', 'faculty_admin'], true);
+        return $role === 'dept_admin' || SciGradeRole::isFacultyCapable($role);
     }
 
     private function staffUsername(): string

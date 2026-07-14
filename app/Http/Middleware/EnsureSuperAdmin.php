@@ -7,12 +7,14 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureFacultyAdmin
+class EnsureSuperAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! SciGradeRole::isFacultyCapable()) {
-            abort(403, 'เฉพาะ Admin กลาง หรือ Super Admin เท่านั้น');
+        if (! SciGradeRole::isSuperAdmin()
+            || ! SciGradeRole::staffHasSuperPrivilege()
+            || SciGradeRole::isImpersonating()) {
+            abort(403, 'เฉพาะ Super Admin เท่านั้น');
         }
 
         return $next($request);

@@ -10,10 +10,10 @@
 @section('content')
 <div>
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">
-        {{ $role === 'faculty_admin' ? 'อนุมัติระดับคณะ' : 'ตรวจสอบและอนุมัติ (สาขา)' }}
+        {{ in_array($role, ['faculty_admin', 'super_admin'], true) ? 'อนุมัติระดับคณะ' : 'ตรวจสอบและอนุมัติ (สาขา)' }}
     </h2>
     <p class="text-sm text-[#7A4A3A]/80 mb-6">
-        {{ $role === 'faculty_admin' ? 'อนุมัติรายการที่สาขาอนุมัติแล้ว' : 'อนุมัติหรือส่งกลับรายการที่ยังไม่ผ่านกรรมการ' }}
+        {{ in_array($role, ['faculty_admin', 'super_admin'], true) ? 'อนุมัติรายการที่สาขาอนุมัติแล้ว' : 'อนุมัติหรือส่งกลับรายการที่ยังไม่ผ่านกรรมการ' }}
     </p>
     <div id="approve-list" class="space-y-3">
         <p class="text-gray-500 text-center py-8">กำลังโหลด...</p>
