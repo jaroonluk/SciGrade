@@ -11,6 +11,8 @@ use App\Http\Controllers\FacultyAdmin\PrivilegeController;
 use App\Http\Controllers\FacultyAdmin\ProgramController;
 use App\Http\Controllers\FacultyAdmin\RegCourseController;
 use App\Http\Controllers\FacultyAdmin\RegGradeDumpController;
+use App\Http\Controllers\FacultyAdmin\RegGradeManageController;
+use App\Http\Controllers\FacultyAdmin\RegGradeStatusController;
 use App\Http\Controllers\FacultyDeptSubmissionController;
 use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportFileController;
@@ -88,6 +90,16 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/settings/reg-grade-dump', [RegGradeDumpController::class, 'index'])->name('settings.reg-grade-dump.index');
         Route::post('/settings/reg-grade-dump', [RegGradeDumpController::class, 'dump'])->name('settings.reg-grade-dump.dump');
+
+        Route::get('/settings/reg-grade-manage', [RegGradeManageController::class, 'index'])->name('settings.reg-grade-manage.index');
+        Route::post('/settings/reg-grade-manage', [RegGradeManageController::class, 'store'])->name('settings.reg-grade-manage.store');
+        Route::get('/settings/reg-grade-manage/instructors/search', [RegGradeManageController::class, 'searchInstructors'])->name('settings.reg-grade-manage.instructors.search');
+        Route::get('/settings/reg-grade-manage/edit', [RegGradeManageController::class, 'edit'])->name('settings.reg-grade-manage.edit');
+        Route::put('/settings/reg-grade-manage', [RegGradeManageController::class, 'update'])->name('settings.reg-grade-manage.update');
+        Route::delete('/settings/reg-grade-manage', [RegGradeManageController::class, 'destroy'])->name('settings.reg-grade-manage.destroy');
+
+        Route::get('/settings/reg-grade-status', [RegGradeStatusController::class, 'index'])->name('settings.reg-grade-status.index');
+        Route::post('/settings/reg-grade-status/{gradeReport}/approve-faculty', [RegGradeStatusController::class, 'approveFaculty'])->name('settings.reg-grade-status.approve-faculty');
     });
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
