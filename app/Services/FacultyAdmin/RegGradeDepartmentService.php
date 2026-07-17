@@ -57,9 +57,10 @@ class RegGradeDepartmentService
             ->where('ACADYEAR', (string) $year)
             ->where('SEMESTER', (string) $term);
 
-        // มีคำค้น = ค้นทั้งภาค/ปี โดยไม่บังคับ pattern สาขา
-        // (รหัสที่เพิ่มเองเช่น 000111XXX อยู่นอก pattern จึงไม่ขึ้นถ้ารองด้วยสาขา)
-        if (trim($q) === '') {
+        // เลือกสาขาแล้ว = กรองตามสาขาเสมอ
+        // ไม่เลือกสาขาและไม่มีคำค้น = กรองรวมทุกสาขาตาม pattern
+        // ไม่เลือกสาขาแต่มีคำค้น = ค้นทั้งภาค/ปี (รวมรหัสนอก pattern)
+        if ($departmentId || trim($q) === '') {
             $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
         }
         $this->applySearchFilter($query, $q);
@@ -255,7 +256,7 @@ class RegGradeDepartmentService
             ->where('ACADYEAR', (string) $year)
             ->where('SEMESTER', (string) $term);
 
-        if (trim($q) === '') {
+        if ($departmentId || trim($q) === '') {
             $this->applyDepartmentFilter($query, $departmentId);
         }
         $this->applySearchFilter($query, $q);
@@ -542,7 +543,7 @@ class RegGradeDepartmentService
             ->where('SEMESTER', (string) $term)
             ->whereIn('COURSECODE', $courseCodes);
 
-        if (trim($q) === '') {
+        if ($departmentId || trim($q) === '') {
             $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
         }
         $this->applySearchFilter($query, $q);

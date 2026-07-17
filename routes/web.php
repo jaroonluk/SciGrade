@@ -111,6 +111,9 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/settings/reg-grade-dump', [RegGradeDumpController::class, 'index'])->name('settings.reg-grade-dump.index');
         Route::post('/settings/reg-grade-dump', [RegGradeDumpController::class, 'dump'])->name('settings.reg-grade-dump.dump');
+        Route::post('/settings/reg-grade-dump/store', [RegGradeDumpController::class, 'store'])->name('settings.reg-grade-dump.store');
+        Route::delete('/settings/reg-grade-dump', [RegGradeDumpController::class, 'destroy'])->name('settings.reg-grade-dump.destroy');
+        Route::delete('/settings/reg-grade-dump/bulk', [RegGradeDumpController::class, 'bulkDestroy'])->name('settings.reg-grade-dump.bulk-destroy');
 
         Route::get('/settings/reg-grade-manage', [RegGradeManageController::class, 'index'])->name('settings.reg-grade-manage.index');
         Route::post('/settings/reg-grade-manage', [RegGradeManageController::class, 'store'])->name('settings.reg-grade-manage.store');
