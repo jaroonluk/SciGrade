@@ -40,7 +40,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
     Route::post('/role', [HomeController::class, 'setRole'])->name('role.set');
-    Route::post('/logout', [GoogleAuthController::class, 'logout'])->name('logout');
+    Route::match(['get', 'post'], '/logout', [GoogleAuthController::class, 'logout'])->name('logout');
 
     Route::post('/impersonate/stop', [ImpersonationController::class, 'stop'])->name('impersonate.stop');
 
