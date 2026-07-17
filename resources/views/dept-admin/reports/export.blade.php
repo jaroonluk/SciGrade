@@ -144,9 +144,9 @@
         </p>
     @endif
 
-    @forelse ($reports as $index => $report)
+    @forelse ($courseGroups as $index => $course)
         @include('dept-admin.reports.partials.course-table', [
-            'report' => $report,
+            'course' => $course,
             'number' => $index + 1,
             'presenter' => $presenter,
             'format' => $format ?? 'pdf',
@@ -155,7 +155,7 @@
         <p class="meta">ไม่มีข้อมูล</p>
     @endforelse
 
-    @if ($reports->isNotEmpty())
+    @if ($courseGroups->isNotEmpty())
         <div class="dept-sign-wrap">
             <div class="dept-sign-block">
                 <div class="sign-space" aria-hidden="true"></div>

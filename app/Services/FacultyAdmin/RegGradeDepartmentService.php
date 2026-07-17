@@ -228,11 +228,8 @@ class RegGradeDepartmentService
 
     /**
      * สถานะการส่งผลสอบเทียบกับ grade_report
-     *
-     * @return Collection<int, object>
-     */
-    /**
-     * สถานะการส่งผลสอบเทียบกับ grade_report
+     * ฐานหลักจาก grade_report_reg และเติมรายวิชาที่มีใน grade_report
+     * (เช่น หน้ารีวิว) แต่ยังไม่ถูก sync เข้า REG ให้ครบด้วย
      *
      * @param  list<int>|null  $allowedDepartmentIds
      * @return Collection<int, object>
@@ -245,72 +242,188 @@ class RegGradeDepartmentService
     ): Collection {
         $courses = $this->groupedCourses($term, $year, $departmentId, '', $allowedDepartmentIds);
 
-        $sectionCounts = $courses
-            ->groupBy(fn (object $course) => (string) $course->COURSECODE)
+        $reports = $this->departmentGradeReports($term, $year, $departmentId, $allowedDepartmentIds);
+
+        $reportIndex = [];
+        foreach ($reports as $report) {
+            foreach ($report->gradeStds as $std) {
+                $key = $this->courseSectionKey((string) $report->subject_code, $std->sec);
+                if (! isset($reportIndex[$key]) || $this->approvalRank($report) > $this->approvalRank($reportIndex[$key])) {
+                    $reportIndex[$key] = $report;
+                }
+            }
+        }
+
+        $rows = $courses->map(function (object $course) use ($reportIndex) {
+            $key = $this->courseSectionKey((string) $course->COURSECODE, $course->SECTION);
+            $report = $reportIndex[$key] ?? null;
+
+            return $this->statusRowFromCourse($course, $report);
+        });
+
+        $existingKeys = $rows
+            ->map(fn (object $row) => $this->courseSectionKey((string) $row->COURSECODE, $row->SECTION))
+            ->flip();
+
+        $extraRows = collect();
+        foreach ($reports as $report) {
+            foreach ($report->gradeStds as $std) {
+                $key = $this->courseSectionKey((string) $report->subject_code, $std->sec);
+                if (isset($existingKeys[$key])) {
+                    continue;
+                }
+
+                $existingKeys[$key] = true;
+                $extraRows->push($this->statusRowFromReport($report, (string) $std->sec, $term, $year));
+            }
+        }
+
+        $merged = $rows->concat($extraRows)->values();
+
+        $sectionCounts = $merged
+            ->groupBy(fn (object $course) => strtoupper(trim((string) $course->COURSECODE)))
             ->map(fn (Collection $group) => $group->count());
 
-        $reports = GradeReport::query()
+        return $merged
+            ->map(function (object $course) use ($sectionCounts) {
+                $code = strtoupper(trim((string) $course->COURSECODE));
+                $sectionCount = (int) ($sectionCounts[$code] ?? 1);
+                $course->section_count = $sectionCount;
+                $course->has_multi_section = $sectionCount > 1;
+
+                return $course;
+            })
+            ->sortBy(fn (object $course) => sprintf(
+                '%s|%05d',
+                strtoupper(trim((string) $course->COURSECODE)),
+                (int) $course->SECTION,
+            ))
+            ->values();
+    }
+
+    /**
+     * @param  list<int>|null  $allowedDepartmentIds
+     * @return Collection<int, GradeReport>
+     */
+    private function departmentGradeReports(
+        int $term,
+        int $year,
+        ?int $departmentId,
+        ?array $allowedDepartmentIds = null,
+    ): Collection {
+        $query = GradeReport::query()
             ->with([
                 'gradeStds' => fn ($q) => $q->orderBy('sec'),
                 'files' => fn ($q) => $q->orderByDesc('file_id'),
             ])
             ->where('term', (string) $term)
             ->where('year', (string) $year)
-            ->get();
+            ->whereHas('gradeStds');
 
-        $reportIndex = [];
-        foreach ($reports as $report) {
-            foreach ($report->gradeStds as $std) {
-                $key = strtoupper(trim($report->subject_code)).'|'.trim((string) $std->sec);
-                $reportIndex[$key] = $report;
+        $allowed = $allowedDepartmentIds ?? self::DEPARTMENT_IDS;
+        $allowed = array_values(array_unique(array_map('intval', $allowed)));
+
+        if ($departmentId) {
+            if (! in_array($departmentId, $allowed, true)) {
+                return collect();
             }
+            $this->subjectFilter->applyToQuery($query, $departmentId);
+        } else {
+            if ($allowed === []) {
+                return collect();
+            }
+            $this->subjectFilter->applyDepartmentsToQuery($query, $allowed);
         }
 
-        return $courses->map(function (object $course) use ($reportIndex, $sectionCounts) {
-            $key = strtoupper(trim($course->COURSECODE)).'|'.trim((string) $course->SECTION);
-            $report = $reportIndex[$key] ?? null;
+        return $query->get();
+    }
 
-            $status = 0;
-            $gradeId = null;
-            $fileId = null;
-            $fileName = null;
-            $approv = null;
+    private function courseSectionKey(string $courseCode, string|int|null $section): string
+    {
+        return strtoupper(trim($courseCode)).'|'.(string) ((int) $section);
+    }
 
-            if ($report) {
-                $gradeId = $report->grade_id;
-                $approv = (int) $report->approv;
-                $status = match (true) {
-                    $approv === 2 => 3,
-                    $approv === 1 => 2,
-                    $approv === -1 => 1,
-                    default => 1,
-                };
+    private function statusRowFromCourse(object $course, ?GradeReport $report): object
+    {
+        $status = 0;
+        $gradeId = null;
+        $fileId = null;
+        $fileName = null;
+        $approv = null;
 
-                $file = $report->files->first();
-                if ($file) {
-                    $fileId = $file->file_id;
-                    $fileName = $file->original_name;
-                }
-            }
+        if ($report) {
+            [$status, $gradeId, $fileId, $fileName, $approv] = $this->statusFieldsFromReport($report);
+        }
 
-            $sectionCount = (int) ($sectionCounts[(string) $course->COURSECODE] ?? 1);
+        return (object) [
+            'COURSECODE' => $course->COURSECODE,
+            'COURSENAMEENG' => $course->COURSENAMEENG,
+            'SECTION' => $course->SECTION,
+            'ACADYEAR' => $course->ACADYEAR,
+            'SEMESTER' => $course->SEMESTER,
+            'officers' => $course->officers,
+            'status' => $status,
+            'grade_id' => $gradeId,
+            'file_id' => $fileId,
+            'file_name' => $fileName,
+            'approv' => $approv,
+            'section_count' => 1,
+            'has_multi_section' => false,
+        ];
+    }
 
-            return (object) [
-                'COURSECODE' => $course->COURSECODE,
-                'COURSENAMEENG' => $course->COURSENAMEENG,
-                'SECTION' => $course->SECTION,
-                'ACADYEAR' => $course->ACADYEAR,
-                'SEMESTER' => $course->SEMESTER,
-                'officers' => $course->officers,
-                'status' => $status,
-                'grade_id' => $gradeId,
-                'file_id' => $fileId,
-                'file_name' => $fileName,
-                'approv' => $approv,
-                'section_count' => $sectionCount,
-                'has_multi_section' => $sectionCount > 1,
-            ];
-        });
+    private function statusRowFromReport(GradeReport $report, string $section, int $term, int $year): object
+    {
+        [$status, $gradeId, $fileId, $fileName, $approv] = $this->statusFieldsFromReport($report);
+
+        return (object) [
+            'COURSECODE' => strtoupper(trim((string) $report->subject_code)),
+            'COURSENAMEENG' => (string) $report->subject,
+            'SECTION' => $section,
+            'ACADYEAR' => (string) $year,
+            'SEMESTER' => (string) $term,
+            'officers' => trim((string) $report->teacher),
+            'status' => $status,
+            'grade_id' => $gradeId,
+            'file_id' => $fileId,
+            'file_name' => $fileName,
+            'approv' => $approv,
+            'section_count' => 1,
+            'has_multi_section' => false,
+        ];
+    }
+
+    /**
+     * @return array{0: int, 1: int|null, 2: int|null, 3: string|null, 4: int|null}
+     */
+    private function statusFieldsFromReport(GradeReport $report): array
+    {
+        $approv = (int) $report->approv;
+        $status = match (true) {
+            $approv === 2 => 3,
+            $approv === 1 => 2,
+            $approv === -1 => 1,
+            default => 1,
+        };
+
+        $file = $report->files->first();
+
+        return [
+            $status,
+            $report->grade_id,
+            $file?->file_id,
+            $file?->original_name,
+            $approv,
+        ];
+    }
+
+    private function approvalRank(GradeReport $report): int
+    {
+        return match ((int) $report->approv) {
+            2 => 3,
+            1 => 2,
+            default => 1,
+        };
     }
 
     /**

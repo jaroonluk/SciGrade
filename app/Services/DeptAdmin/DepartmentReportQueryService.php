@@ -137,6 +137,9 @@ class DepartmentReportQueryService
     }
 
     /**
+     * เรียงตามเงื่อนไขเดิมใน project_old/eservice/gt_report_68.php:
+     * ORDER BY MIN(subject_code) ของกลุ่ม subject_code2 ASC, subject_code ASC
+     *
      * @param  Collection<int, GradeReport>  $reports
      * @return Collection<int, GradeReport>
      */
@@ -147,14 +150,22 @@ class DepartmentReportQueryService
         }
 
         $minCodes = $reports
-            ->groupBy(fn (GradeReport $report) => $report->subject_code2 ?: $report->subject_code)
-            ->map(fn (Collection $group) => $group->min('subject_code'));
+            ->groupBy(fn (GradeReport $report) => trim((string) ($report->subject_code2 ?: $report->subject_code)))
+            ->map(fn (Collection $group) => strtoupper(trim((string) $group->min('subject_code'))))
+            ->all();
 
         return $reports
-            ->sortBy([
-                fn (GradeReport $report) => $minCodes[$report->subject_code2 ?: $report->subject_code] ?? $report->subject_code,
-                fn (GradeReport $report) => $report->subject_code,
-            ])
+            ->sortBy(function (GradeReport $report) use ($minCodes) {
+                $code2 = trim((string) ($report->subject_code2 ?: $report->subject_code));
+                $minCode = $minCodes[$code2] ?? strtoupper(trim((string) $report->subject_code));
+
+                return sprintf(
+                    "%s\0%s\0%010d",
+                    $minCode,
+                    strtoupper(trim((string) $report->subject_code)),
+                    (int) $report->grade_id,
+                );
+            })
             ->values();
     }
 

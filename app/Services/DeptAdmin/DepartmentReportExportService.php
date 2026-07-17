@@ -96,9 +96,11 @@ class DepartmentReportExportService
         ?int $year = null,
     ): array {
         $firstReport = $reports->first();
+        $courseGroups = $this->presenter->groupBySubjectCode($reports);
 
         return [
             'reports' => $reports,
+            'courseGroups' => $courseGroups,
             'department' => $department,
             'startDate' => $startDate,
             'endDate' => $endDate,
