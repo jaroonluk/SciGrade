@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\FacultyAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Services\FacultyAdmin\RegGradeDepartmentService;
 use App\Support\AcademicTerm;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,7 @@ class RegGradeManageController extends Controller
 {
     public function __construct(
         private readonly RegGradeDepartmentService $service,
+        private readonly DepartmentSubjectFilter $subjectFilter,
     ) {}
 
     public function index(Request $request): View
@@ -22,6 +24,31 @@ class RegGradeManageController extends Controller
         [$term, $year, $departmentId, $q] = $this->filters($request);
 
         $courses = $this->service->groupedCoursesPaginated($term, $year, $departmentId, $q, 40);
+
+        $selectedDepartment = null;
+        $departmentPatterns = [];
+        $outsidePatternCount = 0;
+        $outsidePatternCodes = [];
+
+        if ($departmentId) {
+            $selectedDepartment = $this->service->departments()
+                ->firstWhere('department_id', $departmentId);
+            $departmentPatterns = $this->subjectFilter->patternDetailsForDepartment($departmentId);
+
+            $outsidePatternCodes = [];
+            if ($q !== '') {
+                $outsidePatternCodes = $courses->getCollection()
+                    ->filter(fn ($row) => ! $this->subjectFilter->courseMatchesDepartment(
+                        (string) $row->COURSECODE,
+                        $departmentId,
+                    ))
+                    ->pluck('COURSECODE')
+                    ->unique()
+                    ->values()
+                    ->all();
+                $outsidePatternCount = count($outsidePatternCodes);
+            }
+        }
 
         return view('faculty-admin.settings.reg-grade-manage.index', [
             'departments' => $this->service->departments(),
@@ -31,6 +58,10 @@ class RegGradeManageController extends Controller
             'departmentId' => $departmentId,
             'q' => $q,
             'years' => AcademicTerm::yearOptions(2565, 2580),
+            'selectedDepartment' => $selectedDepartment,
+            'departmentPatterns' => $departmentPatterns,
+            'outsidePatternCount' => $outsidePatternCount,
+            'outsidePatternCodes' => $outsidePatternCodes ?? [],
         ]);
     }
 
@@ -191,6 +222,62 @@ class RegGradeManageController extends Controller
                 'year' => $validated['ACADYEAR'],
                 'department_id' => $validated['department_id'] ?? null,
                 'q' => $validated['q'] ?? null,
+            ])
+            ->with('status', $message);
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'scope' => ['required', 'string', 'in:selected,filtered'],
+            'ACADYEAR' => ['required', 'integer', 'min:2565', 'max:2580'],
+            'SEMESTER' => ['required', 'integer', 'in:1,2,3'],
+            'department_id' => ['nullable', 'integer'],
+            'q' => ['nullable', 'string', 'max:255'],
+            'items' => ['nullable', 'array'],
+            'items.*.COURSECODE' => ['required_with:items', 'string', 'max:255'],
+            'items.*.SECTION' => ['required_with:items', 'string', 'max:5'],
+        ]);
+
+        $term = (int) $validated['SEMESTER'];
+        $year = (int) $validated['ACADYEAR'];
+        $departmentId = isset($validated['department_id']) ? (int) $validated['department_id'] : null;
+        $q = trim((string) ($validated['q'] ?? ''));
+
+        if ($departmentId !== null && ! in_array($departmentId, RegGradeDepartmentService::DEPARTMENT_IDS, true)) {
+            $departmentId = null;
+        }
+
+        if ($validated['scope'] === 'filtered') {
+            $deleted = $this->service->deleteFilteredCourses($term, $year, $departmentId, $q);
+            $message = $deleted > 0
+                ? 'ลบรายวิชาตามเงื่อนไขที่กรองเรียบร้อย ('.$deleted.' แถว)'
+                : 'ไม่พบข้อมูลที่จะลบตามเงื่อนไขที่กรอง';
+        } else {
+            $items = $validated['items'] ?? [];
+            if ($items === []) {
+                return redirect()
+                    ->route('faculty-admin.settings.reg-grade-manage.index', [
+                        'term' => $term,
+                        'year' => $year,
+                        'department_id' => $departmentId,
+                        'q' => $q !== '' ? $q : null,
+                    ])
+                    ->withErrors(['manage' => 'กรุณาเลือกรายวิชาที่ต้องการลบ']);
+            }
+
+            $deleted = $this->service->deleteSections($items, (string) $year, (string) $term);
+            $message = $deleted > 0
+                ? 'ลบรายวิชาที่เลือกเรียบร้อย ('.$deleted.' แถว / '.count($items).' กลุ่ม)'
+                : 'ไม่พบข้อมูลที่จะลบจากรายการที่เลือก';
+        }
+
+        return redirect()
+            ->route('faculty-admin.settings.reg-grade-manage.index', [
+                'term' => $term,
+                'year' => $year,
+                'department_id' => $departmentId,
+                'q' => $q !== '' ? $q : null,
             ])
             ->with('status', $message);
     }

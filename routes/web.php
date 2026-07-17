@@ -5,6 +5,7 @@ use App\Http\Controllers\DeptAdmin\DepartmentReportController;
 use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
 use App\Http\Controllers\DeptAdmin\DeptSubmissionFileController;
 use App\Http\Controllers\DeptAdmin\RegGradeStatusController as DeptRegGradeStatusController;
+use App\Http\Controllers\FacultyAdmin\DeptSubmissionHistoryController;
 use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\FacultyAdmin\GradeReportReviewController as FacultyGradeReportReviewController;
 use App\Http\Controllers\FacultyAdmin\GradeTermController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\GradeReportFileController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\SuperAdmin\DepartmentSubjectPatternController;
 use App\Http\Controllers\SubjectController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +48,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/impersonate', [ImpersonationController::class, 'index'])->name('impersonate');
         Route::post('/impersonate', [ImpersonationController::class, 'start'])->name('impersonate.start');
         Route::get('/impersonate/users/search', [ImpersonationController::class, 'searchUsers'])->name('impersonate.users.search');
+
+        Route::get('/department-patterns', [DepartmentSubjectPatternController::class, 'index'])->name('department-patterns.index');
+        Route::post('/department-patterns', [DepartmentSubjectPatternController::class, 'store'])->name('department-patterns.store');
+        Route::put('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'update'])->name('department-patterns.update');
+        Route::delete('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'destroy'])->name('department-patterns.destroy');
+        Route::post('/department-patterns/restore', [DepartmentSubjectPatternController::class, 'restoreDefaults'])->name('department-patterns.restore');
     });
 
     Route::prefix('grade-reports')->name('grade-reports.')->group(function () {
@@ -110,10 +118,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/settings/reg-grade-manage/edit', [RegGradeManageController::class, 'edit'])->name('settings.reg-grade-manage.edit');
         Route::put('/settings/reg-grade-manage', [RegGradeManageController::class, 'update'])->name('settings.reg-grade-manage.update');
         Route::delete('/settings/reg-grade-manage', [RegGradeManageController::class, 'destroy'])->name('settings.reg-grade-manage.destroy');
+        Route::delete('/settings/reg-grade-manage/bulk', [RegGradeManageController::class, 'bulkDestroy'])->name('settings.reg-grade-manage.bulk-destroy');
 
         Route::get('/settings/reg-grade-status', [RegGradeStatusController::class, 'index'])->name('settings.reg-grade-status.index');
         Route::post('/settings/reg-grade-status/{gradeReport}/approve-faculty', [RegGradeStatusController::class, 'approveFaculty'])->name('settings.reg-grade-status.approve-faculty');
         Route::post('/settings/reg-grade-status/{gradeReport}/revert-faculty', [RegGradeStatusController::class, 'revertFaculty'])->name('settings.reg-grade-status.revert-faculty');
+
+        Route::get('/dept-submission-history', [DeptSubmissionHistoryController::class, 'index'])->name('dept-submission-history.index');
     });
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');

@@ -8,6 +8,7 @@ use App\Models\TblDepartment;
 use App\Models\TblProgramQa;
 use App\Services\DeptAdmin\DepartmentReportExportService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
+use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Support\AcademicTerm;
 use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class FacultyReportController extends Controller
     public function __construct(
         private readonly DepartmentReportQueryService $queryService,
         private readonly DepartmentReportExportService $exportService,
+        private readonly DepartmentSubjectFilter $subjectFilter,
     ) {}
 
     public function form(): View
@@ -31,11 +33,24 @@ class FacultyReportController extends Controller
             ->orderBy('department_name')
             ->get();
 
+        $patternsByDepartment = [];
+        foreach ($departments as $dept) {
+            $id = (int) $dept->department_id;
+            $patternsByDepartment[$id] = [
+                'name' => (string) $dept->department_name,
+                'patterns' => $this->subjectFilter->patternDetailsForDepartment($id),
+            ];
+        }
+
+        $initialDepartmentId = old('department_id', $departments->first()?->department_id);
+
         return view('faculty-admin.reports.form', [
             'departments' => $departments,
             'term' => AcademicTerm::defaultTerm(),
             'year' => AcademicTerm::defaultYear(),
             'years' => AcademicTerm::yearOptions(),
+            'patternsByDepartment' => $patternsByDepartment,
+            'initialDepartmentId' => $initialDepartmentId,
         ]);
     }
 

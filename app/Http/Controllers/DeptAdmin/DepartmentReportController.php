@@ -8,6 +8,7 @@ use App\Models\TblDepartment;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DepartmentReportExportService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
+use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,7 @@ class DepartmentReportController extends Controller
         private readonly DepartmentAccessService $departmentAccess,
         private readonly DepartmentReportQueryService $queryService,
         private readonly DepartmentReportExportService $exportService,
+        private readonly DepartmentSubjectFilter $subjectFilter,
     ) {}
 
     public function form(): View
@@ -29,11 +31,24 @@ class DepartmentReportController extends Controller
         $staff = $this->requireStaff();
         $departments = $this->departmentAccess->allowedDepartments($staff);
 
+        $patternsByDepartment = [];
+        foreach ($departments as $dept) {
+            $id = (int) $dept->department_id;
+            $patternsByDepartment[$id] = [
+                'name' => (string) $dept->department_name,
+                'patterns' => $this->subjectFilter->patternDetailsForDepartment($id),
+            ];
+        }
+
+        $initialDepartmentId = old('department_id', $departments->first()?->department_id);
+
         return view('dept-admin.reports.form', [
             'departments' => $departments,
             'term' => AcademicTerm::defaultTerm(),
             'year' => AcademicTerm::defaultYear(),
             'years' => AcademicTerm::yearOptions(),
+            'patternsByDepartment' => $patternsByDepartment,
+            'initialDepartmentId' => $initialDepartmentId,
         ]);
     }
 

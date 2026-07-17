@@ -57,6 +57,39 @@
         font-weight: 600;
         vertical-align: middle;
     }
+    .pattern-chip {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        min-width: 7.5rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e8c4b8;
+        background: linear-gradient(180deg, #fffdfb 0%, #faf0e6 100%);
+        box-shadow: 0 1px 2px rgba(139, 69, 19, 0.06);
+    }
+    .pattern-chip code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #8B4513;
+        letter-spacing: 0.02em;
+    }
+    .pattern-chip span {
+        font-size: 0.68rem;
+        color: #7A4A3A;
+        line-height: 1.25;
+    }
+    .pattern-chip.is-exact {
+        border-color: #c4d4e8;
+        background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
+    }
+    .pattern-chip.is-exact code { color: #1e4b7b; }
+    .pattern-chip.is-contains {
+        border-color: #c9dfc8;
+        background: linear-gradient(180deg, #ffffff 0%, #f1f8f0 100%);
+    }
+    .pattern-chip.is-contains code { color: #2f6b3a; }
 </style>
 @endpush
 
@@ -172,11 +205,85 @@
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ค้นหา</label>
                 <input type="text" name="q" value="{{ $q }}" placeholder="รหัสวิชา / ชื่อวิชา / ชื่ออาจารย์"
                     class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <p class="text-xs text-gray-500 mt-1">เมื่อพิมพ์คำค้น ระบบจะค้นทั้งภาค/ปี (รวมรหัสที่อยู่นอกกลุ่มสาขา)</p>
             </div>
             <button type="submit" class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
                 แสดงข้อมูล
             </button>
         </form>
+
+        @if ($departmentId && $selectedDepartment)
+            <div class="mt-5 rounded-xl border border-[#E8C4B8]/80 bg-gradient-to-br from-[#FFFBF7] via-[#FAF0E6]/70 to-[#F5E6D8]/40 overflow-hidden">
+                <div class="px-4 py-3 border-b border-[#E8C4B8]/60 flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-[#A0522D]/80">เงื่อนไขรหัสวิชาของสาขา</p>
+                        <h4 class="text-base font-bold text-[#5C2E1F] mt-0.5 flex items-center gap-2">
+                            <i data-lucide="filter" class="w-4 h-4 text-[#8B4513]"></i>
+                            {{ $selectedDepartment->department_name }}
+                        </h4>
+                        <p class="text-xs text-[#7A4A3A]/80 mt-1">
+                            เมื่อเลือกสาขานี้โดยไม่พิมพ์คำค้น ระบบจะแสดงเฉพาะรายวิชาที่รหัสตรงตามเงื่อนไขด้านล่าง
+                            — ใช้ตรวจสอบก่อนเพิ่ม/ลบข้อมูล
+                        </p>
+                    </div>
+                    <div class="shrink-0 rounded-lg bg-white/80 border border-[#E8C4B8]/70 px-3 py-2 text-center">
+                        <p class="text-[0.65rem] text-[#A0522D]/70">จำนวนเงื่อนไข</p>
+                        <p class="text-lg font-bold text-[#8B4513] leading-none">{{ count($departmentPatterns) }}</p>
+                    </div>
+                </div>
+
+                @if ($departmentPatterns !== [])
+                    <div class="px-4 py-4">
+                        <div class="flex flex-wrap gap-2.5">
+                            @foreach ($departmentPatterns as $item)
+                                <div class="pattern-chip is-{{ $item['kind'] }}" title="{{ $item['label'] }}">
+                                    <code>{{ $item['pattern'] }}</code>
+                                    <span>{{ $item['label'] }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="mt-4 flex flex-wrap gap-4 text-[0.7rem] text-[#7A4A3A]/75">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-[#C4725C]"></span> ขึ้นต้น / ลงท้าย
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-[#5a9a63]"></span> มีข้อความในรหัส
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-[#4a7fb0]"></span> รหัสตรงทั้งหมด
+                            </span>
+                        </div>
+                    </div>
+                @else
+                    <div class="px-4 py-4 text-sm text-amber-800 bg-amber-50/80">
+                        ยังไม่ได้กำหนดเงื่อนไขรหัสวิชาสำหรับสาขานี้
+                    </div>
+                @endif
+
+                @if ($q !== '' && $outsidePatternCount > 0)
+                    <div class="px-4 py-3 border-t border-amber-200/80 bg-amber-50/90 text-sm text-amber-900 flex items-start gap-2">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 shrink-0 text-amber-700"></i>
+                        <div>
+                            พบ <strong>{{ $outsidePatternCount }}</strong> รายการจากการค้นหา “{{ $q }}”
+                            ที่<strong>อยู่นอกเงื่อนไขรหัสสาขานี้</strong>
+                            (เช่น รหัสทดสอบหรือรหัสที่เพิ่มเอง) — เมื่อล้างคำค้น รายการเหล่านี้อาจไม่แสดงในสาขานี้
+                        </div>
+                    </div>
+                @elseif ($q !== '')
+                    <div class="px-4 py-3 border-t border-[#E8C4B8]/50 bg-white/50 text-xs text-[#7A4A3A]/80">
+                        กำลังค้นหา “{{ $q }}” ทั้งภาค/ปี — ผลลัพธ์อาจรวมรหัสนอกเงื่อนไขสาขาด้านบน
+                    </div>
+                @endif
+            </div>
+        @elseif (! $departmentId)
+            <div class="mt-4 rounded-lg border border-dashed border-[#E8C4B8] bg-[#FFFBF7]/70 px-4 py-3 text-xs text-[#7A4A3A]/85 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 mt-0.5 shrink-0 text-[#8B4513]"></i>
+                <span>
+                    เลือกสาขาวิชาเพื่อดูเงื่อนไขรหัสที่ใช้กรองรายการของสาขานั้น
+                    หรือพิมพ์คำค้นเพื่อหารหัสที่อยู่นอกกลุ่มสาขา (เช่น รหัสทดสอบ)
+                </span>
+            </div>
+        @endif
     </div>
 
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
@@ -192,9 +299,42 @@
                 (หน้าละ {{ $courses->perPage() }})
             </span>
         </div>
-        <table class="w-full text-sm min-w-[860px]">
+
+        @if ($courses->total() > 0)
+            <div class="px-4 py-3 border-b border-amber-100 bg-white flex flex-wrap items-center gap-3">
+                <span class="text-sm text-[#5C2E1F] font-medium">ลบหลายรายการ:</span>
+                <span id="bulk-selected-count" class="text-xs text-gray-500">เลือกแล้ว 0 รายการ</span>
+                <button type="button" id="btn-bulk-delete-selected"
+                    class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    disabled>
+                    ลบที่เลือก
+                </button>
+                <button type="button" id="btn-bulk-delete-all"
+                    class="px-3 py-1.5 border border-red-300 text-red-700 rounded text-xs font-medium hover:bg-red-50">
+                    ลบทั้งหมดตามเงื่อนไขที่กรอง ({{ number_format($courses->total()) }} กลุ่ม)
+                </button>
+            </div>
+        @endif
+
+        <form id="form-bulk-delete" method="POST" action="{{ route('faculty-admin.settings.reg-grade-manage.bulk-destroy') }}" class="hidden">
+            @csrf
+            @method('DELETE')
+            <input type="hidden" name="scope" id="bulk-scope" value="selected">
+            <input type="hidden" name="ACADYEAR" value="{{ $year }}">
+            <input type="hidden" name="SEMESTER" value="{{ $term }}">
+            <input type="hidden" name="department_id" value="{{ $departmentId }}">
+            <input type="hidden" name="q" value="{{ $q }}">
+            <div id="bulk-items-container"></div>
+        </form>
+
+        <table class="w-full text-sm min-w-[900px]">
             <thead class="bg-amber-50/60">
                 <tr>
+                    <th class="px-3 py-2 text-center w-12">
+                        @if ($courses->total() > 0)
+                            <input type="checkbox" id="check-all-courses" class="rounded border-amber-300 text-[#8B4513] focus:ring-[#8B4513]" title="เลือกทั้งหมดในหน้านี้">
+                        @endif
+                    </th>
                     <th class="px-3 py-2 text-left w-14">ลำดับ</th>
                     <th class="px-3 py-2 text-left">รายวิชา</th>
                     <th class="px-3 py-2 text-center">Sec.</th>
@@ -213,16 +353,33 @@
                             : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
                     @endphp
                     <tr class="border-t border-amber-100 {{ $rowClass }} {{ $isContinuation ? 'course-group-cont' : '' }}">
+                        <td class="px-3 py-2 text-center">
+                            <input type="checkbox"
+                                class="course-row-check rounded border-amber-300 text-[#8B4513] focus:ring-[#8B4513]"
+                                value="{{ $row->COURSECODE }}|{{ $row->SECTION }}"
+                                data-code="{{ $row->COURSECODE }}"
+                                data-section="{{ $row->SECTION }}">
+                        </td>
                         <td class="px-3 py-2 text-gray-500">{{ $courses->firstItem() + $index }}</td>
                         <td class="px-3 py-2 col-course">
                             @if ($isContinuation)
                                 <span class="text-xs text-sky-700 font-medium">↳ Sec. ต่อเนื่อง · วิชาเดียวกัน</span>
-                                <div class="text-xs text-gray-500">{{ $row->COURSECODE }}</div>
+                                <div class="text-xs text-gray-500">
+                                    {{ $row->COURSECODE }}
+                                    @if ($departmentId && in_array($row->COURSECODE, $outsidePatternCodes ?? [], true))
+                                        <span class="inline-flex items-center ml-1 px-1.5 py-0.5 rounded-full text-[0.6rem] font-semibold bg-amber-100 text-amber-800 border border-amber-200">นอกเงื่อนไขสาขา</span>
+                                    @endif
+                                </div>
                             @else
                                 <span class="font-medium text-[#5C2E1F]">{{ $row->COURSECODE }}</span>
                                 {{ $row->COURSENAMEENG }}
                                 @if ($row->has_multi_section)
                                     <span class="multi-sec-tag">{{ $row->section_count }} Sec.</span>
+                                @endif
+                                @if ($departmentId && in_array($row->COURSECODE, $outsidePatternCodes ?? [], true))
+                                    <span class="inline-flex items-center ml-1.5 px-2 py-0.5 rounded-full text-[0.65rem] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                        นอกเงื่อนไขสาขา
+                                    </span>
                                 @endif
                             @endif
                         </td>
@@ -260,7 +417,7 @@
                     @php $prevCode = $row->COURSECODE; @endphp
                 @empty
                     <tr>
-                        <td colspan="5" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
+                        <td colspan="6" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -384,6 +541,86 @@
             alert('กรุณาเลือกอาจารย์ผู้สอนจากรายการค้นหา');
         }
     });
+
+    // Bulk delete
+    const checkAll = document.getElementById('check-all-courses');
+    const rowChecks = Array.from(document.querySelectorAll('.course-row-check'));
+    const selectedCountEl = document.getElementById('bulk-selected-count');
+    const btnDeleteSelected = document.getElementById('btn-bulk-delete-selected');
+    const btnDeleteAll = document.getElementById('btn-bulk-delete-all');
+    const bulkForm = document.getElementById('form-bulk-delete');
+    const bulkScope = document.getElementById('bulk-scope');
+    const bulkItemsContainer = document.getElementById('bulk-items-container');
+    const filteredTotal = {{ (int) $courses->total() }};
+
+    const syncBulkUi = () => {
+        const selected = rowChecks.filter((el) => el.checked);
+        if (selectedCountEl) {
+            selectedCountEl.textContent = `เลือกแล้ว ${selected.length} รายการ`;
+        }
+        if (btnDeleteSelected) {
+            btnDeleteSelected.disabled = selected.length === 0;
+        }
+        if (checkAll) {
+            checkAll.checked = rowChecks.length > 0 && selected.length === rowChecks.length;
+            checkAll.indeterminate = selected.length > 0 && selected.length < rowChecks.length;
+        }
+    };
+
+    checkAll?.addEventListener('change', () => {
+        rowChecks.forEach((el) => { el.checked = checkAll.checked; });
+        syncBulkUi();
+    });
+
+    rowChecks.forEach((el) => el.addEventListener('change', syncBulkUi));
+    syncBulkUi();
+
+    const submitBulk = (scope) => {
+        if (!bulkForm || !bulkScope || !bulkItemsContainer) return;
+
+        bulkScope.value = scope;
+        bulkItemsContainer.innerHTML = '';
+
+        if (scope === 'selected') {
+            const selected = rowChecks.filter((el) => el.checked);
+            if (!selected.length) {
+                alert('กรุณาเลือกรายวิชาที่ต้องการลบ');
+                return;
+            }
+            if (!confirm(`ต้องการลบรายวิชาที่เลือก ${selected.length} กลุ่ม หรือไม่?\n\nการลบจะลบทุกอาจารย์ในกลุ่มวิชา/Sec. นั้น`)) {
+                return;
+            }
+            selected.forEach((el, index) => {
+                const codeInput = document.createElement('input');
+                codeInput.type = 'hidden';
+                codeInput.name = `items[${index}][COURSECODE]`;
+                codeInput.value = el.dataset.code || '';
+                bulkItemsContainer.appendChild(codeInput);
+
+                const secInput = document.createElement('input');
+                secInput.type = 'hidden';
+                secInput.name = `items[${index}][SECTION]`;
+                secInput.value = el.dataset.section || '';
+                bulkItemsContainer.appendChild(secInput);
+            });
+        } else {
+            if (filteredTotal <= 0) {
+                alert('ไม่มีรายวิชาตามเงื่อนไขที่กรอง');
+                return;
+            }
+            if (!confirm(`ต้องการลบรายวิชาทั้งหมดตามเงื่อนไขที่กรอง (${filteredTotal} กลุ่ม) หรือไม่?\n\nรวมทุกหน้า ไม่ใช่เฉพาะหน้านี้`)) {
+                return;
+            }
+            if (!confirm('ยืนยันอีกครั้ง: ลบทั้งหมดตามตัวกรอง สาขา/ภาค/ปี/คำค้น ปัจจุบัน?')) {
+                return;
+            }
+        }
+
+        bulkForm.submit();
+    };
+
+    btnDeleteSelected?.addEventListener('click', () => submitBulk('selected'));
+    btnDeleteAll?.addEventListener('click', () => submitBulk('filtered'));
 })();
 </script>
 @endpush

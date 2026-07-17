@@ -10,9 +10,9 @@
 @endsection
 
 @section('content')
-<div class="max-w-3xl mx-auto">
+<div class="max-w-4xl mx-auto">
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">แบบรายงานผลการสอบไล่สำหรับเจ้าหน้าที่</h2>
-    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชา ระดับการศึกษา และรูปแบบรายงานตามเงื่อนไขเดิม</p>
+    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชาเพื่อดูเงื่อนไขรหัสที่ใช้กรองรายงาน แล้วกำหนดรูปแบบการส่งออก</p>
 
     @error('export')
         <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
@@ -25,12 +25,20 @@
             <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา *</label>
             <select name="department_id" required class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                 @foreach ($departments as $dept)
-                    <option value="{{ $dept->department_id }}" @selected(old('department_id') == $dept->department_id)>
+                    <option value="{{ $dept->department_id }}" @selected(old('department_id', $initialDepartmentId ?? null) == $dept->department_id)>
                         {{ $dept->department_name }}
                     </option>
                 @endforeach
             </select>
         </div>
+
+        @include('partials.department-code-patterns', [
+            'patternsByDepartment' => $patternsByDepartment ?? [],
+            'initialDepartmentId' => $initialDepartmentId ?? $departments->first()?->department_id,
+            'selectName' => 'department_id',
+            'panelId' => 'dept-report-dept-patterns',
+            'helpText' => 'รายงานจะรวมเฉพาะรายวิชาที่รหัสตรงตามเงื่อนไขของสาขานี้ — ใช้ตรวจสอบก่อนเพิ่ม/ลบข้อมูลในอนาคต',
+        ])
 
         <div>
             <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับการศึกษา *</label>

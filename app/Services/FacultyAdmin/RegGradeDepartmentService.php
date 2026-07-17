@@ -57,7 +57,11 @@ class RegGradeDepartmentService
             ->where('ACADYEAR', (string) $year)
             ->where('SEMESTER', (string) $term);
 
-        $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
+        // มีคำค้น = ค้นทั้งภาค/ปี โดยไม่บังคับ pattern สาขา
+        // (รหัสที่เพิ่มเองเช่น 000111XXX อยู่นอก pattern จึงไม่ขึ้นถ้ารองด้วยสาขา)
+        if (trim($q) === '') {
+            $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
+        }
         $this->applySearchFilter($query, $q);
 
         $paginator = $query
@@ -212,6 +216,49 @@ class RegGradeDepartmentService
         if ($officerId !== null && $officerId !== '') {
             $query->where('OFFICERID', $officerId);
         }
+
+        return $query->delete();
+    }
+
+    /**
+     * ลบหลายกลุ่มวิชา (COURSECODE + SECTION) ในภาค/ปีเดียวกัน
+     *
+     * @param  list<array{COURSECODE: string, SECTION: string}>  $items
+     */
+    public function deleteSections(array $items, string $year, string $term): int
+    {
+        $deleted = 0;
+
+        foreach ($items as $item) {
+            $courseCode = trim((string) ($item['COURSECODE'] ?? ''));
+            $section = trim((string) ($item['SECTION'] ?? ''));
+            if ($courseCode === '' || $section === '') {
+                continue;
+            }
+
+            $deleted += $this->deleteSection($courseCode, $section, $year, $term);
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * ลบรายวิชาทั้งหมดตามเงื่อนไขกรองเดียวกับหน้ารายการ
+     */
+    public function deleteFilteredCourses(
+        int $term,
+        int $year,
+        ?int $departmentId = null,
+        string $q = '',
+    ): int {
+        $query = GradeReportReg::query()
+            ->where('ACADYEAR', (string) $year)
+            ->where('SEMESTER', (string) $term);
+
+        if (trim($q) === '') {
+            $this->applyDepartmentFilter($query, $departmentId);
+        }
+        $this->applySearchFilter($query, $q);
 
         return $query->delete();
     }
@@ -495,7 +542,9 @@ class RegGradeDepartmentService
             ->where('SEMESTER', (string) $term)
             ->whereIn('COURSECODE', $courseCodes);
 
-        $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
+        if (trim($q) === '') {
+            $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
+        }
         $this->applySearchFilter($query, $q);
 
         return $query

@@ -34,7 +34,6 @@ class HomeController extends Controller
         $deptDepartmentId = null;
         $deptSubmission = null;
         $openDeptSubmissions = collect();
-        $receivedDeptSubmissionsGrouped = collect();
 
         if ($role === SciGradeRole::INSTRUCTOR) {
             $username = $this->resolveStaffUsername();
@@ -64,7 +63,6 @@ class HomeController extends Controller
 
         if (SciGradeRole::isFacultyCapable($role)) {
             $openDeptSubmissions = $this->deptSubmissionService->openSubmissionsForFaculty($term, $year);
-            $receivedDeptSubmissionsGrouped = $this->deptSubmissionService->receivedSubmissionsGroupedForFaculty($term, $year);
         }
 
         $selectableRoles = SciGradeRole::selectableRolesForCurrentUser();
@@ -87,7 +85,6 @@ class HomeController extends Controller
             'deptDepartmentId' => $deptDepartmentId,
             'deptSubmission' => $deptSubmission,
             'openDeptSubmissions' => $openDeptSubmissions,
-            'receivedDeptSubmissionsGrouped' => $receivedDeptSubmissionsGrouped,
         ]);
     }
 
