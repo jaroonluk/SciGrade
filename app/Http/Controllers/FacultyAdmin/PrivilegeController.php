@@ -4,8 +4,11 @@ namespace App\Http\Controllers\FacultyAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FacultyAdmin\PrivilegeRequest;
+use App\Models\StaffDepartmentAccess;
+use App\Models\TblDepartment;
 use App\Models\TblPrivilege;
 use App\Models\TblUser;
+use App\Services\FacultyAdmin\StaffDepartmentAccessService;
 use App\Support\SciGradeRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +17,10 @@ use Illuminate\View\View;
 
 class PrivilegeController extends Controller
 {
+    public function __construct(
+        private readonly StaffDepartmentAccessService $departmentAccess,
+    ) {}
+
     public function index(): View
     {
         $privileges = TblPrivilege::query()
@@ -23,8 +30,31 @@ class PrivilegeController extends Controller
             ->orderBy('username')
             ->paginate(30);
 
+        $usernames = $privileges->getCollection()->pluck('username')->filter()->all();
+        $accessByUser = StaffDepartmentAccess::query()
+            ->with('department')
+            ->whereIn('username', $usernames)
+            ->get()
+            ->groupBy('username');
+
+        $privileges->getCollection()->transform(function (TblPrivilege $privilege) use ($accessByUser) {
+            $rows = $accessByUser->get($privilege->username, collect());
+            $departments = $rows
+                ->map(fn (StaffDepartmentAccess $row) => $row->department)
+                ->filter()
+                ->sortBy('department_name')
+                ->values();
+
+            $privilege->setRelation('assignedDepartments', $departments);
+
+            return $privilege;
+        });
+
         return view('faculty-admin.settings.privileges.index', [
             'privileges' => $privileges,
+            'departments' => TblDepartment::query()
+                ->orderBy('department_name')
+                ->get(['department_id', 'department_name']),
             'canAssignSuper' => SciGradeRole::canAssignSuperPrivilege(),
         ]);
     }
@@ -59,6 +89,7 @@ class PrivilegeController extends Controller
                 'username' => $user->username,
                 'userid' => $user->userid,
                 'display_name' => $user->displayName(),
+                'department_id' => (int) ($user->department_id ?? 0),
             ]);
 
         return response()->json($users);
@@ -67,12 +98,19 @@ class PrivilegeController extends Controller
     public function store(PrivilegeRequest $request): RedirectResponse
     {
         $level = (int) $request->input('level');
+        $username = (string) $request->input('username');
 
         TblPrivilege::query()->create([
-            'username' => $request->input('username'),
+            'username' => $username,
             'level' => $level,
             'system_id' => TblPrivilege::SYSTEM_GRADE_REPORT,
         ]);
+
+        $this->departmentAccess->syncForUsername(
+            $username,
+            $level,
+            (array) $request->input('department_ids', []),
+        );
 
         return redirect()
             ->route('faculty-admin.settings.privileges.index')
@@ -94,6 +132,12 @@ class PrivilegeController extends Controller
             'level' => $level,
         ]);
 
+        $this->departmentAccess->syncForUsername(
+            (string) $privilege->username,
+            $level,
+            (array) $request->input('department_ids', []),
+        );
+
         return redirect()
             ->route('faculty-admin.settings.privileges.index')
             ->with('status', 'บันทึกสิทธิ์เรียบร้อย');
@@ -108,7 +152,9 @@ class PrivilegeController extends Controller
             'เฉพาะ Super Admin เท่านั้นที่ลบสิทธิ์ Super Admin ได้',
         );
 
+        $username = (string) $privilege->username;
         $privilege->delete();
+        $this->departmentAccess->clearForUsername($username);
 
         return redirect()
             ->route('faculty-admin.settings.privileges.index')

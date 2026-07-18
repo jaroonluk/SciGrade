@@ -1,0 +1,80 @@
+ตารางที่มีแล้ว : 
+grade_report, grade_report_reg, grade_sent, grade_std, grade_term, grade_type, grad_report2, grad_report2_f, migrations, pdcourse, tbldepartment, tblprivileges, tblprogram_qa, tblsystem, tbltitle, tbluser
+
+USE eoffice;
+
+CREATE TABLE `department_subject_pattern` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `department_id` int(10) unsigned NOT NULL,
+  `pattern` varchar(100) NOT NULL,
+  `sort_order` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `dept_pattern_unique` (`department_id`,`pattern`),
+  KEY `department_subject_pattern_department_id_sort_order_index` (`department_id`,`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `dept_submission` (
+  `submission_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `department_id` int(10) unsigned NOT NULL,
+  `term` tinyint(3) unsigned NOT NULL,
+  `year` smallint(5) unsigned NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'open',
+  `received_at` datetime DEFAULT NULL,
+  `received_by` varchar(10) DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`submission_id`),
+  KEY `dept_submission_department_id_term_year_index` (`department_id`,`term`,`year`),
+  KEY `dept_submission_status_department_id_index` (`status`,`department_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `dept_submission_file` (
+  `file_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `submission_id` int(10) unsigned NOT NULL,
+  `original_name` varchar(255) NOT NULL,
+  `stored_path` varchar(500) NOT NULL,
+  `uploaded_at` datetime NOT NULL,
+  `username` varchar(10) NOT NULL,
+  PRIMARY KEY (`file_id`),
+  KEY `dept_submission_file_submission_id_index` (`submission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `grade_report_approval_log` (
+  `log_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `grade_id` int(10) unsigned NOT NULL,
+  `action` varchar(40) NOT NULL,
+  `from_status` int(11) DEFAULT NULL,
+  `to_status` int(11) NOT NULL,
+  `approver_username` varchar(10) NOT NULL,
+  `approver_role` varchar(30) NOT NULL,
+  `remark` text DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`log_id`),
+  KEY `grade_report_approval_log_grade_id_index` (`grade_id`),
+  KEY `grade_report_approval_log_grade_id_created_at_index` (`grade_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `grade_report_file` (
+  `file_id` int(11) NOT NULL AUTO_INCREMENT,
+  `grade_id` int(11) NOT NULL,
+  `original_name` varchar(255) NOT NULL,
+  `stored_path` varchar(500) NOT NULL,
+  `uploaded_at` datetime NOT NULL,
+  `username` varchar(10) NOT NULL,
+  PRIMARY KEY (`file_id`),
+  KEY `idx_grade_id` (`grade_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `staff_department_access` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `username` varchar(10) NOT NULL,
+  `department_id` int(10) unsigned NOT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `staff_dept_access_unique` (`username`,`department_id`),
+  KEY `staff_department_access_username_index` (`username`),
+  KEY `staff_department_access_department_id_index` (`department_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

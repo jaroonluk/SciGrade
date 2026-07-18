@@ -128,10 +128,6 @@
 @endif
 
     <h1>แบบรายงานผลการสอบไล่</h1>
-    <p class="meta">
-        ช่วงวันที่ {{ \App\Support\ThaiDateTime::formatShortDate($startDate) }}
-        ถึงวันที่ {{ \App\Support\ThaiDateTime::formatShortDate($endDate) }}
-    </p>
     <p class="meta"><strong>สาขาวิชา {{ $department->department_name }}</strong></p>
 
     @if ($reports->isNotEmpty())

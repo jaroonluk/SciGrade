@@ -22,8 +22,6 @@ class DepartmentReportExportService
     public function exportPdf(
         Collection $reports,
         TblDepartment $department,
-        string $startDate,
-        string $endDate,
         int $reportStatus,
         ?int $term = null,
         ?int $year = null,
@@ -31,8 +29,6 @@ class DepartmentReportExportService
         $pdf = Pdf::loadView('dept-admin.reports.export', $this->viewData(
             $reports,
             $department,
-            $startDate,
-            $endDate,
             $reportStatus,
             'pdf',
             $term,
@@ -55,8 +51,6 @@ class DepartmentReportExportService
     public function exportWord(
         Collection $reports,
         TblDepartment $department,
-        string $startDate,
-        string $endDate,
         int $reportStatus,
         ?int $term = null,
         ?int $year = null,
@@ -64,8 +58,6 @@ class DepartmentReportExportService
         $html = view('dept-admin.reports.export', $this->viewData(
             $reports,
             $department,
-            $startDate,
-            $endDate,
             $reportStatus,
             'word',
             $term,
@@ -88,8 +80,6 @@ class DepartmentReportExportService
     private function viewData(
         Collection $reports,
         TblDepartment $department,
-        string $startDate,
-        string $endDate,
         int $reportStatus,
         string $format,
         ?int $term = null,
@@ -102,8 +92,6 @@ class DepartmentReportExportService
             'reports' => $reports,
             'courseGroups' => $courseGroups,
             'department' => $department,
-            'startDate' => $startDate,
-            'endDate' => $endDate,
             'reportStatus' => $reportStatus,
             'presenter' => $this->presenter,
             'format' => $format,

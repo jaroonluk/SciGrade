@@ -25,17 +25,51 @@
     }
     #user-suggestions button:last-child { border-bottom: 0; }
     #user-suggestions button:hover { background: #fdf6f0; }
+    .dept-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.15rem 0.5rem;
+        border-radius: 9999px;
+        background: #ecfdf8;
+        border: 1px solid #99f6e4;
+        color: #134e4a;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin: 0.1rem;
+    }
+    .dept-check-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+        gap: 0.35rem 0.75rem;
+        max-height: 14rem;
+        overflow-y: auto;
+        border: 1px solid #fcd34d;
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        background: #fffdfb;
+    }
+    .dept-check-grid label {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.4rem;
+        font-size: 0.8rem;
+        color: #5C2E1F;
+        line-height: 1.3;
+    }
 </style>
 @endpush
 
 @section('content')
+@php
+    $oldDeptIds = collect(old('department_ids', []))->map(fn ($id) => (int) $id)->all();
+@endphp
 <div class="max-w-6xl mx-auto space-y-6">
     <div>
         <h2 class="text-xl font-bold text-[#5C2E1F]">ผู้มีสิทธิใช้งานระบบรายงานผลการสอบ</h2>
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
             ระบบรายงานผลการสอบ (system_id = 11) —
             <span class="font-medium">0</span> = เจ้าหน้าที่งานบริการ,
-            <span class="font-medium">1</span> = เจ้าหน้าที่สาขาวิชา
+            <span class="font-medium">1</span> = เจ้าหน้าที่สาขาวิชา (เลือกสาขาที่ดูแลได้หลายสาขา)
             @if ($canAssignSuper ?? false)
                 , <span class="font-medium">2</span> = Super Admin
             @else
@@ -44,33 +78,55 @@
         </p>
     </div>
 
+    @if (session('status'))
+        <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm">{{ session('status') }}</div>
+    @endif
+
     <div class="form-section rounded-xl p-5">
         <h3 class="font-semibold text-[#5C2E1F] mb-3">เพิ่มผู้ใช้งาน</h3>
-        <form method="POST" action="{{ route('faculty-admin.settings.privileges.store') }}" id="privilege-create-form" class="grid md:grid-cols-2 gap-4 items-end">
+        <form method="POST" action="{{ route('faculty-admin.settings.privileges.store') }}" id="privilege-create-form" class="space-y-4">
             @csrf
-            <div class="relative">
-                <label class="block text-sm font-medium mb-1">ผู้ใช้งาน</label>
-                <input type="text" id="user-search" autocomplete="off"
-                    placeholder="พิมพ์ชื่อ สกุล หรือรหัสประจำตัว"
-                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                <input type="hidden" name="username" id="user-username" value="{{ old('username') }}" required>
-                <div id="user-suggestions"
-                    class="hidden absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-amber-200 rounded-lg"></div>
-                <p id="user-selected" class="text-xs text-gray-600 mt-1 {{ old('username') ? '' : 'hidden' }}"></p>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div class="relative">
+                    <label class="block text-sm font-medium mb-1">ผู้ใช้งาน</label>
+                    <input type="text" id="user-search" autocomplete="off"
+                        placeholder="พิมพ์ชื่อ สกุล หรือรหัสประจำตัว"
+                        class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <input type="hidden" name="username" id="user-username" value="{{ old('username') }}" required>
+                    <div id="user-suggestions"
+                        class="hidden absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-amber-200 rounded-lg"></div>
+                    <p id="user-selected" class="text-xs text-gray-600 mt-1 {{ old('username') ? '' : 'hidden' }}"></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">ระดับสิทธิ์</label>
+                    <select name="level" id="create-level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
+                        <option value="0" @selected(old('level') === '0')>เจ้าหน้าที่งานบริการ</option>
+                        <option value="1" @selected(old('level', '1') === '1')>เจ้าหน้าที่สาขาวิชา</option>
+                        @if ($canAssignSuper ?? false)
+                            <option value="2" @selected(old('level') === '2')>Super Admin</option>
+                        @endif
+                    </select>
+                </div>
             </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">ระดับสิทธิ์</label>
-                <select name="level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
-                    <option value="0" @selected(old('level') === '0')>เจ้าหน้าที่งานบริการ</option>
-                    <option value="1" @selected(old('level', '1') === '1')>เจ้าหน้าที่สาขาวิชา</option>
-                    @if ($canAssignSuper ?? false)
-                        <option value="2" @selected(old('level') === '2')>Super Admin</option>
-                    @endif
-                </select>
+
+            <div id="create-dept-box" class="{{ (string) old('level', '1') === '1' ? '' : 'hidden' }}">
+                <label class="block text-sm font-medium mb-1">สาขาวิชาที่ดูแลได้ *</label>
+                <p class="text-xs text-[#7A4A3A]/75 mb-2">
+                    เลือกได้มากกว่า 1 สาขา — เมื่อเข้าใช้งาน Admin สาขา จะเลือกดู/พิมพ์/ตรวจสอบได้เฉพาะสาขาที่กำหนด
+                </p>
+                <div class="dept-check-grid">
+                    @foreach ($departments as $dept)
+                        <label>
+                            <input type="checkbox" name="department_ids[]" value="{{ $dept->department_id }}"
+                                class="create-dept-check mt-0.5 rounded border-amber-300 text-[#8B4513] focus:ring-[#8B4513]"
+                                @checked(in_array((int) $dept->department_id, $oldDeptIds, true))>
+                            <span>{{ $dept->department_name }}</span>
+                        </label>
+                    @endforeach
+                </div>
             </div>
-            <div class="md:col-span-2">
-                <button type="submit" class="px-5 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-semibold">เพิ่ม</button>
-            </div>
+
+            <button type="submit" class="px-5 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-semibold">เพิ่ม</button>
         </form>
         @if ($errors->any())
             <div class="mt-3 text-sm text-red-600">{{ $errors->first() }}</div>
@@ -78,16 +134,21 @@
     </div>
 
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
-        <table class="w-full text-sm min-w-[520px]">
+        <table class="w-full text-sm min-w-[720px]">
             <thead class="bg-amber-50">
                 <tr>
                     <th class="px-3 py-2 text-left">ชื่อ-สกุล</th>
                     <th class="px-3 py-2 text-center">ระดับ</th>
+                    <th class="px-3 py-2 text-left">สาขาที่ดูแล</th>
                     <th class="px-3 py-2 text-center">จัดการ</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse ($privileges as $privilege)
+                    @php
+                        $assigned = $privilege->assignedDepartments ?? collect();
+                        $assignedIds = $assigned->pluck('department_id')->map(fn ($id) => (int) $id)->values()->all();
+                    @endphp
                     <tr class="border-t border-amber-100 align-top">
                         <td class="px-3 py-2">
                             <div class="font-medium text-[#5C2E1F]">{{ $privilege->user?->displayName() ?? '-' }}</div>
@@ -96,6 +157,17 @@
                             @endif
                         </td>
                         <td class="px-3 py-2 text-center text-xs">{{ $privilege->levelLabel() }}</td>
+                        <td class="px-3 py-2">
+                            @if ((int) $privilege->level === \App\Models\TblPrivilege::LEVEL_DEPT)
+                                @forelse ($assigned as $dept)
+                                    <span class="dept-chip">{{ $dept->department_name }}</span>
+                                @empty
+                                    <span class="text-xs text-amber-800">ยังไม่กำหนด — ใช้สาขาตามบัญชีผู้ใช้</span>
+                                @endforelse
+                            @else
+                                <span class="text-xs text-gray-400">—</span>
+                            @endif
+                        </td>
                         <td class="px-3 py-2 text-center">
                             @php
                                 $isSuperRow = (int) $privilege->level === \App\Models\TblPrivilege::LEVEL_SUPER;
@@ -107,7 +179,8 @@
                                         class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50 btn-edit-privilege"
                                         data-action="{{ route('faculty-admin.settings.privileges.update', $privilege) }}"
                                         data-name="{{ $privilege->user?->displayName() ?? $privilege->username }}"
-                                        data-level="{{ $privilege->level }}">
+                                        data-level="{{ $privilege->level }}"
+                                        data-departments="{{ implode(',', $assignedIds) }}">
                                         แก้ไขสิทธิ
                                     </button>
                                     <form method="POST" action="{{ route('faculty-admin.settings.privileges.destroy', $privilege) }}"
@@ -125,7 +198,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-3 py-8 text-center text-gray-500">ยังไม่มีผู้ใช้งาน</td></tr>
+                    <tr><td colspan="4" class="px-3 py-8 text-center text-gray-500">ยังไม่มีผู้ใช้งาน</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -134,13 +207,13 @@
 </div>
 
 <div id="edit-privilege-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden no-print">
-    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl mx-4">
+    <div class="bg-white rounded-xl p-6 w-full max-w-2xl shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
         <h3 class="font-bold text-lg mb-2 text-[#5C2E1F]">แก้ไขสิทธิ</h3>
         <p id="edit-privilege-name" class="text-sm text-gray-600 mb-4"></p>
-        <form id="edit-privilege-form" method="POST">
+        <form id="edit-privilege-form" method="POST" class="space-y-4">
             @csrf
             @method('PUT')
-            <div class="mb-4">
+            <div>
                 <label class="block text-sm font-medium mb-1">ระดับสิทธิ์</label>
                 <select name="level" id="edit-privilege-level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
                     <option value="0">เจ้าหน้าที่งานบริการ</option>
@@ -149,6 +222,19 @@
                         <option value="2">Super Admin</option>
                     @endif
                 </select>
+            </div>
+            <div id="edit-dept-box" class="hidden">
+                <label class="block text-sm font-medium mb-1">สาขาวิชาที่ดูแลได้ *</label>
+                <p class="text-xs text-[#7A4A3A]/75 mb-2">เลือกได้มากกว่า 1 สาขา</p>
+                <div class="dept-check-grid">
+                    @foreach ($departments as $dept)
+                        <label>
+                            <input type="checkbox" name="department_ids[]" value="{{ $dept->department_id }}"
+                                class="edit-dept-check mt-0.5 rounded border-amber-300 text-[#8B4513] focus:ring-[#8B4513]">
+                            <span>{{ $dept->department_name }}</span>
+                        </label>
+                    @endforeach
+                </div>
             </div>
             <div class="flex gap-3 justify-end">
                 <button type="button" id="btn-cancel-edit-privilege" class="px-4 py-2 border rounded-lg text-sm">ยกเลิก</button>
@@ -167,7 +253,19 @@
     const suggestions = document.getElementById('user-suggestions');
     const selectedLabel = document.getElementById('user-selected');
     const createForm = document.getElementById('privilege-create-form');
+    const createLevel = document.getElementById('create-level');
+    const createDeptBox = document.getElementById('create-dept-box');
     let timer = null;
+
+    const toggleCreateDepts = () => {
+        const show = String(createLevel?.value) === '1';
+        createDeptBox?.classList.toggle('hidden', !show);
+        if (!show) {
+            createDeptBox?.querySelectorAll('.create-dept-check').forEach((el) => { el.checked = false; });
+        }
+    };
+    createLevel?.addEventListener('change', toggleCreateDepts);
+    toggleCreateDepts();
 
     const hideSuggestions = () => {
         suggestions.classList.add('hidden');
@@ -180,6 +278,15 @@
         selectedLabel.textContent = `รหัสประจำตัว: ${user.userid || user.username} (username: ${user.username})`;
         selectedLabel.classList.remove('hidden');
         hideSuggestions();
+
+        // ติ๊กสาขาตามบัญชีผู้ใช้เป็นค่าเริ่มต้น (ถ้ายังไม่เลือก)
+        if (String(createLevel?.value) === '1' && user.department_id) {
+            const anyChecked = [...(createDeptBox?.querySelectorAll('.create-dept-check') || [])].some((el) => el.checked);
+            if (!anyChecked) {
+                const box = createDeptBox?.querySelector(`.create-dept-check[value="${user.department_id}"]`);
+                if (box) box.checked = true;
+            }
+        }
     };
 
     const renderSuggestions = (users) => {
@@ -190,7 +297,8 @@
         suggestions.innerHTML = users.map((user) => `
             <button type="button" data-username="${user.username.replace(/"/g, '&quot;')}"
                 data-userid="${String(user.userid || '').replace(/"/g, '&quot;')}"
-                data-name="${user.display_name.replace(/"/g, '&quot;')}">
+                data-name="${user.display_name.replace(/"/g, '&quot;')}"
+                data-department-id="${String(user.department_id || 0)}">
                 <span class="font-medium text-[#5C2E1F]">${user.display_name}</span>
                 <span class="text-xs text-gray-500 block">${user.userid ? 'รหัส ' + user.userid + ' · ' : ''}username: ${user.username}</span>
             </button>
@@ -203,6 +311,7 @@
                     username: btn.dataset.username,
                     userid: btn.dataset.userid,
                     display_name: btn.dataset.name,
+                    department_id: Number(btn.dataset.departmentId || 0),
                 });
             });
         });
@@ -246,6 +355,14 @@
         if (!usernameInput.value) {
             e.preventDefault();
             alert('กรุณาเลือกผู้ใช้งานจากรายการค้นหา');
+            return;
+        }
+        if (String(createLevel?.value) === '1') {
+            const checked = createDeptBox?.querySelectorAll('.create-dept-check:checked') || [];
+            if (!checked.length) {
+                e.preventDefault();
+                alert('กรุณาเลือกสาขาวิชาอย่างน้อย 1 สาขา');
+            }
         }
     });
 
@@ -253,14 +370,41 @@
     const editForm = document.getElementById('edit-privilege-form');
     const editName = document.getElementById('edit-privilege-name');
     const editLevel = document.getElementById('edit-privilege-level');
+    const editDeptBox = document.getElementById('edit-dept-box');
+
+    const toggleEditDepts = () => {
+        const show = String(editLevel?.value) === '1';
+        editDeptBox?.classList.toggle('hidden', !show);
+    };
+    editLevel?.addEventListener('change', toggleEditDepts);
 
     document.querySelectorAll('.btn-edit-privilege').forEach((btn) => {
         btn.addEventListener('click', () => {
             editForm.action = btn.dataset.action;
             editName.textContent = btn.dataset.name;
             editLevel.value = btn.dataset.level;
+            const ids = String(btn.dataset.departments || '')
+                .split(',')
+                .map((v) => v.trim())
+                .filter(Boolean);
+            editDeptBox?.querySelectorAll('.edit-dept-check').forEach((el) => {
+                el.checked = ids.includes(String(el.value));
+            });
+            toggleEditDepts();
             editModal.classList.remove('hidden');
         });
+    });
+
+    editForm?.addEventListener('submit', (e) => {
+        if (String(editLevel?.value) === '1') {
+            const checked = editDeptBox?.querySelectorAll('.edit-dept-check:checked') || [];
+            if (!checked.length) {
+                e.preventDefault();
+                alert('กรุณาเลือกสาขาวิชาอย่างน้อย 1 สาขา');
+            }
+        } else {
+            editDeptBox?.querySelectorAll('.edit-dept-check').forEach((el) => { el.checked = false; });
+        }
     });
 
     document.getElementById('btn-cancel-edit-privilege')?.addEventListener('click', () => {

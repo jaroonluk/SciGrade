@@ -6,6 +6,7 @@ use App\Models\TblPrivilege;
 use App\Support\SciGradeRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class PrivilegeRequest extends FormRequest
 {
@@ -26,25 +27,53 @@ class PrivilegeRequest extends FormRequest
 
         $isUpdate = $this->route('privilege') !== null;
 
-        if ($isUpdate) {
-            return [
-                'level' => ['required', 'integer', Rule::in($allowedLevels)],
-            ];
-        }
+        $rules = [
+            'level' => ['required', 'integer', Rule::in($allowedLevels)],
+            'department_ids' => ['nullable', 'array'],
+            'department_ids.*' => [
+                'integer',
+                Rule::exists('scigrad.tbldepartment', 'department_id'),
+            ],
+        ];
 
-        $privilegeId = $this->route('privilege')?->privilegs_id;
-
-        return [
-            'username' => [
+        if (! $isUpdate) {
+            $rules['username'] = [
                 'required',
                 'string',
                 'max:10',
                 Rule::exists('scigrad.tbluser', 'username'),
                 Rule::unique('scigrad.tblprivileges', 'username')
-                    ->where(fn ($q) => $q->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT))
-                    ->ignore($privilegeId, 'privilegs_id'),
-            ],
-            'level' => ['required', 'integer', Rule::in($allowedLevels)],
+                    ->where(fn ($q) => $q->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)),
+            ];
+        }
+
+        return $rules;
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            if ((int) $this->input('level') !== TblPrivilege::LEVEL_DEPT) {
+                return;
+            }
+
+            $ids = array_filter((array) $this->input('department_ids', []));
+            if ($ids === []) {
+                $validator->errors()->add(
+                    'department_ids',
+                    'กรุณาเลือกสาขาวิชาอย่างน้อย 1 สาขา สำหรับเจ้าหน้าที่สาขาวิชา',
+                );
+            }
+        });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'department_ids.*.exists' => 'พบรหัสสาขาที่ไม่ถูกต้อง',
         ];
     }
 }

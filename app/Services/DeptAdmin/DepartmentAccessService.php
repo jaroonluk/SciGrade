@@ -2,6 +2,7 @@
 
 namespace App\Services\DeptAdmin;
 
+use App\Models\StaffDepartmentAccess;
 use App\Models\TblDepartment;
 use App\Models\TblUser;
 use Illuminate\Support\Collection;
@@ -12,6 +13,32 @@ class DepartmentAccessService
      * @return list<int>
      */
     public function allowedDepartmentIds(TblUser $staff): array
+    {
+        $username = trim((string) $staff->username);
+        if ($username !== '') {
+            $assigned = StaffDepartmentAccess::query()
+                ->where('username', $username)
+                ->pluck('department_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($assigned !== []) {
+                return $assigned;
+            }
+        }
+
+        return $this->legacyAllowedDepartmentIds($staff);
+    }
+
+    /**
+     * กฎเดิมจากระบบเก่า — ใช้เมื่อยังไม่มีการกำหนดสาขาในสิทธิ์
+     *
+     * @return list<int>
+     */
+    private function legacyAllowedDepartmentIds(TblUser $staff): array
     {
         $departmentId = (int) $staff->department_id;
         $userId = (string) ($staff->userid ?? $staff->username);
@@ -34,6 +61,10 @@ class DepartmentAccessService
     public function allowedDepartments(TblUser $staff): Collection
     {
         $ids = $this->allowedDepartmentIds($staff);
+
+        if ($ids === []) {
+            return collect();
+        }
 
         return TblDepartment::query()
             ->whereIn('department_id', $ids)
