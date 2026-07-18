@@ -22,6 +22,7 @@ use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\SuperAdmin\DepartmentSubjectPatternController;
+use App\Http\Controllers\SuperAdmin\GradReport2GroupController;
 use App\Http\Controllers\SubjectController;
 use Illuminate\Support\Facades\Route;
 
@@ -54,6 +55,14 @@ Route::middleware('auth')->group(function () {
         Route::put('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'update'])->name('department-patterns.update');
         Route::delete('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'destroy'])->name('department-patterns.destroy');
         Route::post('/department-patterns/restore', [DepartmentSubjectPatternController::class, 'restoreDefaults'])->name('department-patterns.restore');
+
+        Route::get('/grad-report2-groups', [GradReport2GroupController::class, 'index'])->name('grad-report2-groups.index');
+        Route::post('/grad-report2-groups', [GradReport2GroupController::class, 'store'])->name('grad-report2-groups.store');
+        Route::put('/grad-report2-groups', [GradReport2GroupController::class, 'updateGroup'])->name('grad-report2-groups.update');
+        Route::delete('/grad-report2-groups', [GradReport2GroupController::class, 'destroyGroup'])->name('grad-report2-groups.destroy');
+        Route::post('/grad-report2-groups/members', [GradReport2GroupController::class, 'storeMember'])->name('grad-report2-groups.members.store');
+        Route::put('/grad-report2-groups/members', [GradReport2GroupController::class, 'updateMember'])->name('grad-report2-groups.members.update');
+        Route::delete('/grad-report2-groups/members', [GradReport2GroupController::class, 'destroyMember'])->name('grad-report2-groups.members.destroy');
     });
 
     Route::prefix('grade-reports')->name('grade-reports.')->group(function () {

@@ -734,6 +734,17 @@
                                 </div>
                             </div>
                         </a>
+                        <a href="{{ route('super-admin.grad-report2-groups.index') }}" class="menu-card rounded-xl p-5 block border-2 border-[#8B4513]/25">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-[#FAF0E6] flex items-center justify-center text-[#8B4513]">
+                                    <i data-lucide="layers" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-[#5C2E1F]">จัดกลุ่มรายวิชา</p>
+                                    <p class="text-sm text-[#7A4A3A]/70 mt-1">กำหนดรหัสที่ตัดเกรดร่วมกัน (grad_report2)</p>
+                                </div>
+                            </div>
+                        </a>
                     @endif
                 </div>
             </div>
