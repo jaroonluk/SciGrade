@@ -921,28 +921,18 @@
                             <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-700 text-white text-xs font-bold">2</span>
                             <h4 class="text-base font-bold text-orange-950">จัดการข้อมูลรายวิชาที่ส่งผลสอบ</h4>
                         </div>
-                        <p class="text-xs text-orange-900/70 ml-9">ลำดับย่อย: Download → จัดการรายวิชา → ตรวจสอบสถานะการส่ง</p>
+                        <p class="text-xs text-orange-900/70 ml-9">ดึงรายวิชาจาก REG → แก้ไขตามสาขา → ตรวจสอบสถานะการส่ง</p>
                     </div>
                 </div>
                 <div class="admin-section-body">
                     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('faculty-admin.settings.reg-grade-dump.index', ['term' => $term, 'year' => $year]) }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="download-cloud" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">2.1</p>
-                                    <p class="font-semibold text-orange-950">Download ข้อมูลรายวิชา</p>
-                                    <p class="text-sm text-orange-900/65 mt-1">ดึงรายวิชาที่เปิดสอนจาก REG ตามภาค/ปี เข้า grade_report_reg</p>
-                                </div>
-                            </div>
-                        </a>
                         <a href="{{ route('faculty-admin.settings.reg-grade-manage.index', ['term' => $term, 'year' => $year]) }}" class="menu-card rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
                                 <div>
-                                    <p class="menu-step">2.2</p>
-                                    <p class="font-semibold text-orange-950">จัดการข้อมูลรายวิชา REG</p>
-                                    <p class="text-sm text-orange-900/65 mt-1">แก้ไข/ลบรายวิชาจาก REG แยกตามสาขาวิชา</p>
+                                    <p class="menu-step">2.1</p>
+                                    <p class="font-semibold text-orange-950">จัดการรายวิชา REG</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">ดึงจาก REG แล้วเพิ่ม/แก้ไข/ลบรายวิชาตามสาขา</p>
                                 </div>
                             </div>
                         </a>
@@ -950,7 +940,7 @@
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
                                 <div>
-                                    <p class="menu-step">2.3</p>
+                                    <p class="menu-step">2.2</p>
                                     <p class="font-semibold text-orange-950">ตรวจสอบสถานะการส่งผลการสอบ</p>
                                     <p class="text-sm text-orange-900/65 mt-1">ดูว่าแต่ละรายวิชาส่ง/ผ่านสาขา/ผ่านคณะแล้วหรือยัง</p>
                                 </div>

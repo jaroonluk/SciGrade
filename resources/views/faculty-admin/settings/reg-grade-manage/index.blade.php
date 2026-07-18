@@ -1,12 +1,12 @@
 @extends('layouts.scigrad')
 
-@section('title', 'จัดการข้อมูลรายวิชา REG — Admin กลาง')
+@section('title', 'จัดการรายวิชา REG — Admin กลาง')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
 <a href="{{ route('faculty-admin.reviews.index') }}" class="text-[#8B4513] hover:underline">Admin กลาง</a>
 <span class="text-gray-400">/</span>
-<span class="text-[#5C2E1F] font-medium">จัดการข้อมูลรายวิชา REG</span>
+<span class="text-[#5C2E1F] font-medium">จัดการรายวิชา REG</span>
 @endsection
 
 @push('styles')
@@ -116,15 +116,58 @@
 @section('content')
 <div class="max-w-6xl mx-auto space-y-6">
     <div>
-        <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการข้อมูลรายวิชา REG</h2>
+        <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการรายวิชา REG</h2>
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
-            เพิ่ม / แก้ไข / ลบรายวิชา และกำหนด Sec. พร้อมอาจารย์ผู้สอน ตามสาขาวิชา ภาค และปีการศึกษา
+            ดึงรายวิชาจาก REG แล้วเพิ่ม / แก้ไข / ลบ ตามสาขาวิชา ภาค และปีการศึกษา
         </p>
     </div>
+
+    @unless ($canConnectReg)
+        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            เชื่อมต่อฐานข้อมูล REG ไม่ได้ กรุณาตรวจสอบการตั้งค่าฐานข้อมูล
+            <span class="font-semibold">reg</span>
+        </div>
+    @endunless
+
+    @error('dump')
+        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
+    @enderror
 
     @error('manage')
         <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
     @enderror
+
+    <div class="form-section rounded-xl p-6">
+        <h3 class="font-semibold text-[#5C2E1F] mb-3">ดึงข้อมูลจาก REG</h3>
+        <form method="POST" action="{{ route('faculty-admin.settings.reg-grade-dump.dump') }}" class="flex flex-wrap items-end gap-4">
+            @csrf
+            <div>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
+                <select name="term" required class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">
+                    <option value="1" @selected((int) old('term', $term) === 1)>ภาคต้น</option>
+                    <option value="2" @selected((int) old('term', $term) === 2)>ภาคปลาย</option>
+                    <option value="3" @selected((int) old('term', $term) === 3)>ภาคการศึกษาพิเศษ</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ปีการศึกษา</label>
+                <select name="year" required class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">
+                    @foreach ($years as $y)
+                        <option value="{{ $y }}" @selected((int) old('year', $year) === $y)>{{ $y }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <button type="submit"
+                class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410] disabled:opacity-50"
+                @disabled(! $canConnectReg)
+                onclick="return confirm('ดึงรายวิชาจาก REG (รวม SEMINAR) และทับข้อมูลเดิมใน grade_report_reg ตามภาค/ปีที่เลือก?')">
+                ดึงข้อมูลจาก REG
+            </button>
+        </form>
+        <p class="text-xs text-[#7A4A3A]/75 mt-3">
+            รวมวิชา SEMINAR · ทับข้อมูลเดิมทั้งกลุ่มวิชา/Sec. · ยังไม่ดึง THESIS / Independent Study / Dissertation
+        </p>
+    </div>
 
     <div class="form-section rounded-xl p-6">
         <h3 class="font-semibold text-[#5C2E1F] mb-3">เพิ่มรายวิชา</h3>

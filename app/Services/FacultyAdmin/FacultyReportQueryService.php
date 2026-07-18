@@ -16,6 +16,8 @@ class FacultyReportQueryService
     /** @var array<string, string|null> */
     private array $departmentNameCache = [];
 
+    public const UNMATCHED_DEPARTMENT_LABEL = 'ไม่ตรงกับรหัสที่กำหนด';
+
     public function __construct(
         private readonly DepartmentSubjectFilter $subjectFilter,
     ) {}
@@ -114,26 +116,25 @@ class FacultyReportQueryService
 
     public function resolveDepartmentName(string $subjectCode): ?string
     {
-        if (array_key_exists($subjectCode, $this->departmentNameCache)) {
-            return $this->departmentNameCache[$subjectCode];
+        $code = strtoupper(trim($subjectCode));
+        if ($code === '') {
+            return null;
+        }
+
+        if (array_key_exists($code, $this->departmentNameCache)) {
+            return $this->departmentNameCache[$code];
         }
 
         foreach ($this->filterDepartments() as $department) {
-            $matches = GradeReport::query()
-                ->where('subject_code', $subjectCode)
-                ->where(function ($query) use ($department): void {
-                    $this->subjectFilter->applyToQuery($query, (int) $department->department_id);
-                })
-                ->exists();
+            if ($this->subjectFilter->courseMatchesDepartment($code, (int) $department->department_id)) {
+                $name = (string) $department->department_name;
+                $this->departmentNameCache[$code] = $name;
 
-            if ($matches) {
-                $this->departmentNameCache[$subjectCode] = $department->department_name;
-
-                return $department->department_name;
+                return $name;
             }
         }
 
-        $this->departmentNameCache[$subjectCode] = null;
+        $this->departmentNameCache[$code] = null;
 
         return null;
     }

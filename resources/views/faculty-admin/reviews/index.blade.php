@@ -260,7 +260,7 @@
                             -1 => 'status-rejected',
                             default => 'status-pending',
                         };
-                        $deptName = $queryService->resolveDepartmentName($report->subject_code);
+                        $deptName = $queryService->resolveDepartmentName((string) $report->subject_code);
                     @endphp
                     <tr class="border-t border-amber-100 hover:bg-amber-50/40 {{ $canAct ? 'row-approvable' : '' }}">
                         <td class="px-3 py-2 text-center">
@@ -269,7 +269,13 @@
                                     form="bulk-approve-form" class="row-select rounded border-amber-400">
                             @endif
                         </td>
-                        <td class="px-3 py-2 text-xs text-gray-600">{{ $deptName ?? '-' }}</td>
+                        <td class="px-3 py-2 text-xs {{ $deptName ? 'text-gray-600' : 'text-amber-700' }}">
+                            @if ($deptName)
+                                {{ $deptName }}
+                            @else
+                                <span title="รหัสวิชานี้ไม่ตรงกับเงื่อนไขรหัสของสาขาใดในระบบ">{{ \App\Services\FacultyAdmin\FacultyReportQueryService::UNMATCHED_DEPARTMENT_LABEL }}</span>
+                            @endif
+                        </td>
                         <td class="px-3 py-2 font-medium text-[#5C2E1F]">{{ $report->subject_code }}</td>
                         <td class="px-3 py-2">
                             <div>{{ $report->subject }}</div>
