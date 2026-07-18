@@ -71,8 +71,6 @@ class FacultyReportController extends Controller
             ? $this->exportService->exportWord(
                 $reports,
                 $department,
-                $request->input('start_date'),
-                $request->input('end_date'),
                 $request->integer('report_status'),
                 $term,
                 $year,
@@ -80,8 +78,6 @@ class FacultyReportController extends Controller
             : $this->exportService->exportPdf(
                 $reports,
                 $department,
-                $request->input('start_date'),
-                $request->input('end_date'),
                 $request->integer('report_status'),
                 $term,
                 $year,

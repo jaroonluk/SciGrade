@@ -909,16 +909,6 @@
                                 </div>
                             </div>
                         </a>
-                        <a href="{{ route('grade-reports.print.summary') }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="file-text" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">1.3</p>
-                                    <p class="font-semibold text-green-950">พิมพ์รายงานรวม</p>
-                                    <p class="text-sm text-green-900/65 mt-1">พิมพ์รายงานรวมทุกสาขา หรือเลือกทีละสาขา</p>
-                                </div>
-                            </div>
-                        </a>
                     </div>
                 </div>
             </section>

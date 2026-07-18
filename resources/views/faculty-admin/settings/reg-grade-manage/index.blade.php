@@ -29,10 +29,22 @@
     #subject-suggestions button:hover,
     #instructor-suggestions button:hover { background: #fdf6f0; }
 
-    tr.course-group-start td { border-top: 2px solid #d6b896 !important; }
+    tr.course-group-start td { border-top: 2px solid #7dd3fc !important; }
+    tr.course-group-start td:first-child { box-shadow: inset 4px 0 0 #0284c7; }
+    tr.course-group-cont td:first-child { box-shadow: inset 4px 0 0 #38bdf8; }
     tr.course-group-cont td.col-course {
         padding-left: 1.75rem;
         color: #7A4A3A;
+    }
+    tr.row-no-enroll {
+        background: #fff7ed !important;
+    }
+    tr.row-no-enroll td:first-child {
+        box-shadow: inset 4px 0 0 #dc2626;
+    }
+    tr.row-no-enroll.course-group-start td:first-child,
+    tr.row-no-enroll.course-group-cont td:first-child {
+        box-shadow: inset 4px 0 0 #dc2626, inset 8px 0 0 #38bdf8;
     }
     .sec-badge {
         display: inline-flex;
@@ -46,16 +58,24 @@
         font-weight: 700;
         font-size: 0.75rem;
     }
+    .sec-badge.is-multi {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #7dd3fc;
+    }
     .multi-sec-tag {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
         margin-left: 0.35rem;
-        padding: 0.1rem 0.45rem;
+        padding: 0.15rem 0.55rem;
         border-radius: 9999px;
-        background: #e8f4ff;
-        color: #075985;
-        font-size: 0.65rem;
-        font-weight: 600;
+        background: #0369a1;
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 700;
         vertical-align: middle;
+        letter-spacing: 0.01em;
     }
     .pattern-chip {
         display: inline-flex;
@@ -293,12 +313,36 @@
                 @if ($q !== '')
                     <span class="text-xs text-gray-500">สำหรับคำค้น “{{ $q }}”</span>
                 @endif
+                @if (($zeroEnrollmentCount ?? 0) > 0)
+                    <span class="text-red-700 font-medium">· ไม่มีผู้ลงทะเบียนในหน้านี้ {{ $zeroEnrollmentCount }} กลุ่ม</span>
+                @endif
+                @if (($multiSectionCourseCount ?? 0) > 0)
+                    <span class="text-sky-800 font-medium">· มีหลาย Sec. {{ $multiSectionCourseCount }} วิชา</span>
+                @endif
             </span>
             <span class="text-xs text-gray-500">
                 หน้า {{ $courses->currentPage() }} / {{ max($courses->lastPage(), 1) }}
                 (หน้าละ {{ $courses->perPage() }})
             </span>
         </div>
+
+        @if ($canConnectReg ?? false)
+            <div class="px-4 py-2 border-b border-amber-100 bg-white text-xs text-[#7A4A3A]/85 flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span>
+                    สถานะลงทะเบียนดึงจาก REG — แถวสีส้มและป้าย
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-semibold">ไม่มีผู้ลงทะเบียน</span>
+                    คือ ENROLLSEAT = 0 หรือไม่พบใน REG
+                </span>
+                <span>
+                    วิชามากกว่า 1 Sec. แสดงแถบฟ้าด้านซ้ายและป้าย
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-700 text-white font-semibold">N Sec.</span>
+                </span>
+            </div>
+        @elseif ($courses->total() > 0)
+            <div class="px-4 py-2 border-b border-amber-100 bg-amber-50/80 text-xs text-amber-900">
+                เชื่อมต่อฐานข้อมูล REG ไม่ได้ — ยังไม่สามารถแสดงจำนวนผู้ลงทะเบียนได้
+            </div>
+        @endif
 
         @if ($courses->total() > 0)
             <div class="px-4 py-3 border-b border-amber-100 bg-white flex flex-wrap items-center gap-3">
@@ -327,7 +371,7 @@
             <div id="bulk-items-container"></div>
         </form>
 
-        <table class="w-full text-sm min-w-[900px]">
+        <table class="w-full text-sm min-w-[1020px]">
             <thead class="bg-amber-50/60">
                 <tr>
                     <th class="px-3 py-2 text-center w-12">
@@ -338,6 +382,7 @@
                     <th class="px-3 py-2 text-left w-14">ลำดับ</th>
                     <th class="px-3 py-2 text-left">รายวิชา</th>
                     <th class="px-3 py-2 text-center">Sec.</th>
+                    <th class="px-3 py-2 text-center">สถานะลงทะเบียน</th>
                     <th class="px-3 py-2 text-left">ผู้สอน</th>
                     <th class="px-3 py-2 text-center">จัดการ</th>
                 </tr>
@@ -348,11 +393,16 @@
                     @php
                         $isContinuation = $prevCode !== null && $prevCode === $row->COURSECODE;
                         $isGroupStart = ! $isContinuation && $row->has_multi_section;
+                        $isZero = (bool) ($row->has_no_enrollment ?? false);
+                        $enrollSeat = $row->enrollseat ?? null;
                         $rowClass = $isContinuation
-                            ? 'bg-[#F8FBFF]'
-                            : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
+                            ? 'bg-[#F0F9FF] course-group-cont'
+                            : ($isGroupStart ? 'bg-[#E0F2FE]/70 course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
+                        if ($isZero) {
+                            $rowClass .= ' row-no-enroll';
+                        }
                     @endphp
-                    <tr class="border-t border-amber-100 {{ $rowClass }} {{ $isContinuation ? 'course-group-cont' : '' }}">
+                    <tr class="border-t border-amber-100 {{ $rowClass }}">
                         <td class="px-3 py-2 text-center">
                             <input type="checkbox"
                                 class="course-row-check rounded border-amber-300 text-[#8B4513] focus:ring-[#8B4513]"
@@ -363,7 +413,7 @@
                         <td class="px-3 py-2 text-gray-500">{{ $courses->firstItem() + $index }}</td>
                         <td class="px-3 py-2 col-course">
                             @if ($isContinuation)
-                                <span class="text-xs text-sky-700 font-medium">↳ Sec. ต่อเนื่อง · วิชาเดียวกัน</span>
+                                <span class="text-xs text-sky-800 font-semibold">↳ Sec. ต่อเนื่อง · วิชาเดียวกัน</span>
                                 <div class="text-xs text-gray-500">
                                     {{ $row->COURSECODE }}
                                     @if ($departmentId && in_array($row->COURSECODE, $outsidePatternCodes ?? [], true))
@@ -371,20 +421,43 @@
                                     @endif
                                 </div>
                             @else
-                                <span class="font-medium text-[#5C2E1F]">{{ $row->COURSECODE }}</span>
-                                {{ $row->COURSENAMEENG }}
-                                @if ($row->has_multi_section)
-                                    <span class="multi-sec-tag">{{ $row->section_count }} Sec.</span>
-                                @endif
-                                @if ($departmentId && in_array($row->COURSECODE, $outsidePatternCodes ?? [], true))
-                                    <span class="inline-flex items-center ml-1.5 px-2 py-0.5 rounded-full text-[0.65rem] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                                        นอกเงื่อนไขสาขา
-                                    </span>
-                                @endif
+                                <div class="flex items-start gap-1.5 flex-wrap">
+                                    @if ($isZero)
+                                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-[0.65rem] font-bold shrink-0 mt-0.5" title="ไม่มีผู้ลงทะเบียน">!</span>
+                                    @endif
+                                    <div>
+                                        <span class="font-medium text-[#5C2E1F]">{{ $row->COURSECODE }}</span>
+                                        {{ $row->COURSENAMEENG }}
+                                        @if ($row->has_multi_section)
+                                            <span class="multi-sec-tag" title="วิชานี้มีหลายกลุ่มเรียน">{{ $row->section_count }} Sec.</span>
+                                        @endif
+                                        @if ($departmentId && in_array($row->COURSECODE, $outsidePatternCodes ?? [], true))
+                                            <span class="inline-flex items-center ml-1.5 px-2 py-0.5 rounded-full text-[0.65rem] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                                นอกเงื่อนไขสาขา
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
                             @endif
                         </td>
                         <td class="px-3 py-2 text-center">
-                            <span class="sec-badge">{{ $row->SECTION }}</span>
+                            <span class="sec-badge {{ $row->has_multi_section ? 'is-multi' : '' }}">{{ $row->SECTION }}</span>
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            @if ($isZero)
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[0.7rem] font-semibold bg-red-100 text-red-800 border border-red-200">
+                                    <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+                                    ไม่มีผู้ลงทะเบียน
+                                </span>
+                                <div class="text-[0.65rem] text-red-700/80 mt-0.5 font-medium">ENROLLSEAT = {{ $enrollSeat }}</div>
+                            @elseif ($enrollSeat !== null)
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[0.7rem] font-semibold bg-green-100 text-green-800 border border-green-200">
+                                    <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                                    {{ number_format($enrollSeat) }} คน
+                                </span>
+                            @else
+                                <span class="text-xs text-gray-400">-</span>
+                            @endif
                         </td>
                         <td class="px-3 py-2 text-xs text-gray-600">{{ $row->officers ?: '-' }}</td>
                         <td class="px-3 py-2 text-center">
@@ -417,7 +490,7 @@
                     @php $prevCode = $row->COURSECODE; @endphp
                 @empty
                     <tr>
-                        <td colspan="6" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
+                        <td colspan="7" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
                     </tr>
                 @endforelse
             </tbody>

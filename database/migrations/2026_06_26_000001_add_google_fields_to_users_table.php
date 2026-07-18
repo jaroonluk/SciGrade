@@ -8,16 +8,30 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('google_id')->nullable()->unique()->after('id');
-            $table->string('avatar')->nullable()->after('email');
-        });
+        if (! Schema::hasColumn('users', 'google_id')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->string('google_id')->nullable()->unique()->after('id');
+            });
+        }
+
+        if (! Schema::hasColumn('users', 'avatar')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->string('avatar')->nullable()->after('email');
+            });
+        }
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['google_id', 'avatar']);
+            $columns = array_values(array_filter([
+                Schema::hasColumn('users', 'google_id') ? 'google_id' : null,
+                Schema::hasColumn('users', 'avatar') ? 'avatar' : null,
+            ]));
+
+            if ($columns !== []) {
+                $table->dropColumn($columns);
+            }
         });
     }
 };

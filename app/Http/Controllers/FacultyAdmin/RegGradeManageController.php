@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FacultyAdmin;
 use App\Http\Controllers\Controller;
 use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Services\FacultyAdmin\RegGradeDepartmentService;
+use App\Services\FacultyAdmin\RegGradeDumpService;
 use App\Support\AcademicTerm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +18,7 @@ class RegGradeManageController extends Controller
     public function __construct(
         private readonly RegGradeDepartmentService $service,
         private readonly DepartmentSubjectFilter $subjectFilter,
+        private readonly RegGradeDumpService $dumpService,
     ) {}
 
     public function index(Request $request): View
@@ -50,6 +52,37 @@ class RegGradeManageController extends Controller
             }
         }
 
+        $canConnectReg = $this->dumpService->canConnect();
+        $enrollmentMap = [];
+        if ($canConnectReg && $courses->isNotEmpty()) {
+            try {
+                $enrollmentMap = $this->dumpService->enrollmentSeatMap($year, $term, $courses->items());
+            } catch (Throwable) {
+                $enrollmentMap = [];
+            }
+        }
+
+        $courses->setCollection(
+            $courses->getCollection()->map(function (object $row) use ($enrollmentMap) {
+                $key = strtoupper(trim((string) $row->COURSECODE)).'|'.trim((string) $row->SECTION);
+                $enroll = array_key_exists($key, $enrollmentMap) ? (int) $enrollmentMap[$key] : null;
+                $row->enrollseat = $enroll;
+                $row->has_no_enrollment = $enroll !== null && $enroll <= 0;
+
+                return $row;
+            })
+        );
+
+        $zeroEnrollmentCount = $courses->getCollection()
+            ->filter(fn (object $row) => (bool) ($row->has_no_enrollment ?? false))
+            ->count();
+
+        $multiSectionCourseCount = $courses->getCollection()
+            ->filter(fn (object $row) => (bool) ($row->has_multi_section ?? false))
+            ->pluck('COURSECODE')
+            ->unique()
+            ->count();
+
         return view('faculty-admin.settings.reg-grade-manage.index', [
             'departments' => $this->service->departments(),
             'courses' => $courses,
@@ -62,6 +95,9 @@ class RegGradeManageController extends Controller
             'departmentPatterns' => $departmentPatterns,
             'outsidePatternCount' => $outsidePatternCount,
             'outsidePatternCodes' => $outsidePatternCodes ?? [],
+            'canConnectReg' => $canConnectReg,
+            'zeroEnrollmentCount' => $zeroEnrollmentCount,
+            'multiSectionCourseCount' => $multiSectionCourseCount,
         ]);
     }
 

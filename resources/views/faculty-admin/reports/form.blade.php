@@ -12,7 +12,7 @@
 @section('content')
 <div class="max-w-4xl mx-auto">
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">แบบรายงานผลการสอบไล่สำหรับเจ้าหน้าที่</h2>
-    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชาเพื่อดูเงื่อนไขรหัสที่ใช้กรองรายงาน แล้วกำหนดรูปแบบการส่งออก</p>
+    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชา ภาค/ปีการศึกษา และสถานะ — ระบบจะพิมพ์รายงานตามรูปแบบเดิมโดยไม่ต้องกรองช่วงวันที่</p>
 
     @error('export')
         <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
@@ -55,7 +55,7 @@
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
                 <select name="term" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">ทุกภาค (ในช่วงวันที่)</option>
+                    <option value="">ทุกภาค</option>
                     <option value="1" @selected(old('term', $term) == 1)>ภาคต้น</option>
                     <option value="2" @selected(old('term', $term) == 2)>ภาคปลาย</option>
                     <option value="3" @selected(old('term', $term) == 3)>ภาคการศึกษาพิเศษ</option>
@@ -64,24 +64,11 @@
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ปีการศึกษา</label>
                 <select name="year" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">ทุกปี (ในช่วงวันที่)</option>
+                    <option value="">ทุกปี</option>
                     @foreach ($years as $y)
                         <option value="{{ $y }}" @selected(old('year', $year) == $y)>{{ $y }}</option>
                     @endforeach
                 </select>
-            </div>
-        </div>
-
-        <div class="grid sm:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">จากวันที่ *</label>
-                <input type="date" name="start_date" value="{{ old('start_date', now()->startOfMonth()->toDateString()) }}" required
-                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ถึงวันที่ *</label>
-                <input type="date" name="end_date" value="{{ old('end_date', now()->toDateString()) }}" required
-                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
             </div>
         </div>
 

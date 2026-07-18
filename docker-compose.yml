@@ -14,7 +14,7 @@ services:
       APP_URL: http://127.0.0.1:8080
       SCIGRAD_DB_HOST: host.docker.internal
       SCIGRAD_DB_PORT: 3306
-      SCIGRAD_DB_DATABASE: scigraddb
+      SCIGRAD_DB_DATABASE: eoffice
       SCIGRAD_DB_USERNAME: root
       SCIGRAD_DB_PASSWORD: ""
       REG_DB_HOST: host.docker.internal
