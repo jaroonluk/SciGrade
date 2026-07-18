@@ -20,7 +20,7 @@ class GradReport2GroupController extends Controller
         $q = trim((string) $request->input('q', ''));
         $focus = strtoupper(trim((string) $request->input('group', '')));
 
-        return view('super-admin.grad-report2-groups.index', [
+        return view('faculty-admin.grad-report2-groups.index', [
             'groups' => $this->service->paginateGroups($q !== '' ? $q : null),
             'stats' => $this->service->stats($q !== '' ? $q : null),
             'q' => $q,
@@ -54,7 +54,7 @@ class GradReport2GroupController extends Controller
             .' เรียบร้อย — เพิ่ม '.implode(', ', $result['inserted']);
 
         return redirect()
-            ->route('super-admin.grad-report2-groups.index', [
+            ->route('faculty-admin.grad-report2-groups.index', [
                 'q' => $request->input('q'),
                 'group' => $result['group_code'],
             ])
@@ -75,7 +75,7 @@ class GradReport2GroupController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.grad-report2-groups.index', [
+            ->route('faculty-admin.grad-report2-groups.index', [
                 'q' => $request->input('q'),
                 'group' => $validated['group_code'],
             ])
@@ -95,7 +95,7 @@ class GradReport2GroupController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.grad-report2-groups.index', ['q' => $request->input('q')])
+            ->route('faculty-admin.grad-report2-groups.index', ['q' => $request->input('q')])
             ->with('status', 'ลบกลุ่ม '.$validated['group_code'].' ('.$count.' รายการ) เรียบร้อย');
     }
 
@@ -119,7 +119,7 @@ class GradReport2GroupController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.grad-report2-groups.index', [
+            ->route('faculty-admin.grad-report2-groups.index', [
                 'q' => $request->input('q'),
                 'group' => $validated['group_code'],
             ])
@@ -153,7 +153,7 @@ class GradReport2GroupController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.grad-report2-groups.index', [
+            ->route('faculty-admin.grad-report2-groups.index', [
                 'q' => $request->input('q'),
                 'group' => $focus,
             ])
@@ -174,7 +174,7 @@ class GradReport2GroupController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.grad-report2-groups.index', [
+            ->route('faculty-admin.grad-report2-groups.index', [
                 'q' => $request->input('q'),
                 'group' => $validated['group_code'],
             ])

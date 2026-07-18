@@ -55,14 +55,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'update'])->name('department-patterns.update');
         Route::delete('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'destroy'])->name('department-patterns.destroy');
         Route::post('/department-patterns/restore', [DepartmentSubjectPatternController::class, 'restoreDefaults'])->name('department-patterns.restore');
-
-        Route::get('/grad-report2-groups', [GradReport2GroupController::class, 'index'])->name('grad-report2-groups.index');
-        Route::post('/grad-report2-groups', [GradReport2GroupController::class, 'store'])->name('grad-report2-groups.store');
-        Route::put('/grad-report2-groups', [GradReport2GroupController::class, 'updateGroup'])->name('grad-report2-groups.update');
-        Route::delete('/grad-report2-groups', [GradReport2GroupController::class, 'destroyGroup'])->name('grad-report2-groups.destroy');
-        Route::post('/grad-report2-groups/members', [GradReport2GroupController::class, 'storeMember'])->name('grad-report2-groups.members.store');
-        Route::put('/grad-report2-groups/members', [GradReport2GroupController::class, 'updateMember'])->name('grad-report2-groups.members.update');
-        Route::delete('/grad-report2-groups/members', [GradReport2GroupController::class, 'destroyMember'])->name('grad-report2-groups.members.destroy');
     });
 
     Route::prefix('grade-reports')->name('grade-reports.')->group(function () {
@@ -137,7 +129,17 @@ Route::middleware('auth')->group(function () {
         Route::post('/settings/reg-grade-status/{gradeReport}/revert-faculty', [RegGradeStatusController::class, 'revertFaculty'])->name('settings.reg-grade-status.revert-faculty');
 
         Route::get('/dept-submission-history', [DeptSubmissionHistoryController::class, 'index'])->name('dept-submission-history.index');
+
+        Route::get('/grad-report2-groups', [GradReport2GroupController::class, 'index'])->name('grad-report2-groups.index');
+        Route::post('/grad-report2-groups', [GradReport2GroupController::class, 'store'])->name('grad-report2-groups.store');
+        Route::put('/grad-report2-groups', [GradReport2GroupController::class, 'updateGroup'])->name('grad-report2-groups.update');
+        Route::delete('/grad-report2-groups', [GradReport2GroupController::class, 'destroyGroup'])->name('grad-report2-groups.destroy');
+        Route::post('/grad-report2-groups/members', [GradReport2GroupController::class, 'storeMember'])->name('grad-report2-groups.members.store');
+        Route::put('/grad-report2-groups/members', [GradReport2GroupController::class, 'updateMember'])->name('grad-report2-groups.members.update');
+        Route::delete('/grad-report2-groups/members', [GradReport2GroupController::class, 'destroyMember'])->name('grad-report2-groups.members.destroy');
     });
+
+    Route::redirect('/super-admin/grad-report2-groups', '/faculty-admin/grad-report2-groups');
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
 

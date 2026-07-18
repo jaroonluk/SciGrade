@@ -1,10 +1,10 @@
 @extends('layouts.scigrad')
 
-@section('title', 'จัดกลุ่มรายวิชา (grad_report2) — Super Admin')
+@section('title', 'จัดกลุ่มรายวิชา (grad_report2) — Admin กลาง')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
-<a href="{{ route('dashboard') }}" class="text-[#8B4513] hover:underline">Super Admin</a>
+<a href="{{ route('dashboard') }}" class="text-[#8B4513] hover:underline">Admin กลาง</a>
 <span class="text-gray-400">/</span>
 <span class="text-[#5C2E1F] font-medium">จัดกลุ่มรายวิชา</span>
 @endsection
@@ -228,7 +228,7 @@
                 พิมพ์ค้นหาจาก <code>pdcourse</code> แล้วเลือก — ถ้ามีรหัสกลุ่มนี้อยู่แล้ว ระบบจะเพิ่มเฉพาะรหัสที่ยังไม่มี
             </p>
         </div>
-        <form method="POST" action="{{ route('super-admin.grad-report2-groups.store') }}" id="form-create-group" class="space-y-4">
+        <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.store') }}" id="form-create-group" class="space-y-4">
             @csrf
             <input type="hidden" name="q" value="{{ $q }}">
             <input type="hidden" name="member_codes" id="member-codes-hidden" value="{{ old('member_codes') }}">
@@ -270,7 +270,7 @@
 
     {{-- ค้นหา --}}
     <div class="form-section rounded-xl p-4">
-        <form method="GET" action="{{ route('super-admin.grad-report2-groups.index') }}" class="flex flex-wrap items-end gap-3">
+        <form method="GET" action="{{ route('faculty-admin.grad-report2-groups.index') }}" class="flex flex-wrap items-end gap-3">
             <div class="flex-1 min-w-[16rem]">
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ค้นหากลุ่ม / รหัสวิชา / ชื่อวิชา</label>
                 <input type="text" name="q" value="{{ $q }}" placeholder="เช่น 300109 หรือ PHYSICAL"
@@ -278,7 +278,7 @@
             </div>
             <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">ค้นหา</button>
             @if ($q !== '')
-                <a href="{{ route('super-admin.grad-report2-groups.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
+                <a href="{{ route('faculty-admin.grad-report2-groups.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
             @endif
         </form>
     </div>
@@ -303,7 +303,7 @@
                             onclick="togglePanel('edit-name-{{ $group->group_code }}')">แก้ไขชื่อ</button>
                         <button type="button" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs hover:bg-amber-50"
                             onclick="togglePanel('add-member-{{ $group->group_code }}')">เพิ่มรหัส</button>
-                        <form method="POST" action="{{ route('super-admin.grad-report2-groups.destroy') }}"
+                        <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.destroy') }}"
                             onsubmit="return confirm('ลบกลุ่ม {{ $group->group_code }} ทั้งกลุ่ม ({{ $group->member_count }} รหัส)?')">
                             @csrf
                             @method('DELETE')
@@ -315,7 +315,7 @@
                 </div>
 
                 <div id="edit-name-{{ $group->group_code }}" class="hidden px-4 py-3 border-b border-amber-100 bg-white">
-                    <form method="POST" action="{{ route('super-admin.grad-report2-groups.update') }}" class="flex flex-wrap items-end gap-2">
+                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.update') }}" class="flex flex-wrap items-end gap-2">
                         @csrf
                         @method('PUT')
                         <input type="hidden" name="group_code" value="{{ $group->group_code }}">
@@ -330,7 +330,7 @@
                 </div>
 
                 <div id="add-member-{{ $group->group_code }}" class="hidden px-4 py-3 border-b border-amber-100 bg-white">
-                    <form method="POST" action="{{ route('super-admin.grad-report2-groups.members.store') }}" class="flex flex-wrap items-end gap-2">
+                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.store') }}" class="flex flex-wrap items-end gap-2">
                         @csrf
                         <input type="hidden" name="group_code" value="{{ $group->group_code }}">
                         <input type="hidden" name="q" value="{{ $q }}">
@@ -363,7 +363,7 @@
                                 <div class="ml-auto flex gap-1">
                                     <button type="button" class="px-2 py-1 text-xs border border-amber-200 rounded hover:bg-amber-50"
                                         onclick="this.closest('.member-row').classList.add('is-editing')">แก้ไข</button>
-                                    <form method="POST" action="{{ route('super-admin.grad-report2-groups.members.destroy') }}"
+                                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.destroy') }}"
                                         onsubmit="return confirm('ลบรหัส {{ $member->subject_code }} ออกจากกลุ่ม?')">
                                         @csrf
                                         @method('DELETE')
@@ -374,7 +374,7 @@
                                     </form>
                                 </div>
                             </div>
-                            <form method="POST" action="{{ route('super-admin.grad-report2-groups.members.update') }}"
+                            <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.update') }}"
                                 class="member-edit hidden flex-wrap items-end gap-2 w-full bg-[#FFFBF7] rounded-lg p-2 border border-amber-100">
                                 @csrf
                                 @method('PUT')
