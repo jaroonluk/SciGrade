@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 class FacultyReportQueryService
 {
     /** @var list<int> */
-    public const FACULTY_DEPARTMENT_IDS = [5, 6, 7, 8, 9, 10, 11, 12, 21, 25, 30, 31, 32, 35, 37];
+    public const FACULTY_DEPARTMENT_IDS = [5, 6, 7, 8, 9, 10, 11, 12, 17, 21, 25, 30, 31, 32, 35, 36, 37];
 
     /** @var array<string, string|null> */
     private array $departmentNameCache = [];

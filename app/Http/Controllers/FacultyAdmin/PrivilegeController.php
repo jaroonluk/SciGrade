@@ -52,11 +52,38 @@ class PrivilegeController extends Controller
 
         return view('faculty-admin.settings.privileges.index', [
             'privileges' => $privileges,
-            'departments' => TblDepartment::query()
-                ->orderBy('department_name')
-                ->get(['department_id', 'department_name']),
+            'departments' => $this->selectableDepartments(),
             'canAssignSuper' => SciGradeRole::canAssignSuperPrivilege(),
         ]);
+    }
+
+    /**
+     * สาขาที่ให้เลือกตอนกำหนดสิทธิ์ (ไม่รวมหน่วยงานสนับสนุน / กลุ่มภาระงาน)
+     *
+     * @return \Illuminate\Support\Collection<int, TblDepartment>
+     */
+    private function selectableDepartments()
+    {
+        $excludedIds = [
+            4,  // สาขาวิชาวิทยาการคอมพิวเตอร์
+            23, // ศูนย์วิจัยนาโนฯ
+            24, // หน่วยส่งเสริมและพัฒนาทางวิชาการ
+            30, // กลุ่มผู้พัฒนาระบบ
+        ];
+
+        return TblDepartment::query()
+            ->orderBy('department_name')
+            ->get(['department_id', 'department_name'])
+            ->reject(function (TblDepartment $dept) use ($excludedIds) {
+                $name = (string) $dept->department_name;
+
+                if (str_starts_with($name, 'กลุ่มภาระงาน') || str_starts_with($name, 'งาน')) {
+                    return true;
+                }
+
+                return in_array((int) $dept->department_id, $excludedIds, true);
+            })
+            ->values();
     }
 
     public function searchUsers(Request $request): JsonResponse

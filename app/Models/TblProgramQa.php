@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TblProgramQa extends Model
 {
     /** @var list<int> */
-    public const ALLOWED_DEPARTMENT_IDS = [5, 6, 7, 8, 9, 10, 11, 12, 21, 25, 31, 32, 35, 37];
+    public const ALLOWED_DEPARTMENT_IDS = [5, 6, 7, 8, 9, 10, 11, 12, 17, 21, 25, 31, 32, 35, 36, 37];
 
     protected $connection = 'scigrad';
 

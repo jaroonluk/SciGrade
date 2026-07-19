@@ -993,7 +993,7 @@
                                 <div class="menu-icon"><i data-lucide="book-marked" class="w-5 h-5"></i></div>
                                 <div>
                                     <p class="menu-step">3.3</p>
-                                    <p class="font-semibold text-sky-950">ดึงข้อมูลรายวิชาจาก REG</p>
+                                    <p class="font-semibold text-sky-950">Download ข้อมูลรายวิชาจาก REG</p>
                                     <p class="text-sm text-sky-900/65 mt-1">ดึงชื่อวิชาเข้า pdcourse เพื่อให้อาจารย์เลือกตอนรายงานผลการสอบ</p>
                                 </div>
                             </div>

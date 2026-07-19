@@ -72,16 +72,6 @@
                     class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
             </div>
             <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">วันที่กรอก (จาก)</label>
-                <input type="date" name="created_from" value="{{ $filters['created_from'] ?? '' }}"
-                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">วันที่กรอก (ถึง)</label>
-                <input type="date" name="created_to" value="{{ $filters['created_to'] ?? '' }}"
-                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-            </div>
-            <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">แสดงต่อหน้า</label>
                 <select name="per_page" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                     @foreach ([10, 20, 50, 100] as $size)
