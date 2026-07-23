@@ -49,9 +49,16 @@
                     <span>เข้าสู่ระบบด้วย Google</span>
                 </a>
 
-                @if ($errors->any())
+                @php
+                    $loginError = $errors->any()
+                        ? $errors->first()
+                        : (request()->boolean('oauth_error')
+                            ? 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้ กรุณาลองใหม่อีกครั้ง'
+                            : null);
+                @endphp
+                @if ($loginError)
                     <div class="mt-4 rounded-lg bg-[#FFF0ED] border border-[#E8A99A] px-4 py-3 text-sm text-[#8B3A2F]">
-                        {{ $errors->first() }}
+                        {{ $loginError }}
                     </div>
                 @endif
             </div>
