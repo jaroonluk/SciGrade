@@ -8,6 +8,7 @@ use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 
@@ -19,14 +20,30 @@ class GoogleAuthController extends Controller
 
     public function redirect(): SymfonyRedirectResponse|RedirectResponse
     {
-        return Socialite::driver('google')->redirect();
+        try {
+            return Socialite::driver('google')->redirect();
+        } catch (\Throwable $e) {
+            Log::error('Google OAuth redirect failed', [
+                'message' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+
+            return redirect()->route('login')->withErrors([
+                'email' => 'ไม่สามารถเริ่มเข้าสู่ระบบด้วย Google ได้ กรุณาลองใหม่อีกครั้ง',
+            ]);
+        }
     }
 
     public function callback(): RedirectResponse
     {
         try {
             $googleUser = Socialite::driver('google')->user();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            Log::error('Google OAuth callback failed', [
+                'message' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+
             return redirect()->route('login')->withErrors([
                 'email' => 'ไม่สามารถเข้าสู่ระบบด้วย Google ได้ กรุณาลองใหม่อีกครั้ง',
             ]);

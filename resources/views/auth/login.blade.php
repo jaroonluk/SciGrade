@@ -37,7 +37,7 @@
                 </p>
 
                 <a
-                    href="{{ route('auth.google') }}"
+                    href="{{ route('auth.google', absolute: false) }}"
                     class="group flex w-full items-center justify-center gap-3 rounded-xl border border-[#E8C4B8] bg-white px-5 py-3.5 text-sm font-medium text-[#5C2E1F] shadow-sm transition-all duration-200 hover:border-[#C4725C] hover:bg-[#FFFBF7] hover:shadow-md hover:shadow-[#8B4513]/10 focus:outline-none focus:ring-2 focus:ring-[#B85C4A]/40 focus:ring-offset-2"
                 >
                     <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
