@@ -11,17 +11,18 @@ services:
       - .:/var/www/html
       - ./docker/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
     environment:
-      APP_URL: https://gms.sc.kku.ac.th
-      SCIGRAD_DB_HOST: host.docker.internal
-      SCIGRAD_DB_PORT: 3306
-      SCIGRAD_DB_DATABASE: eoffice
-      SCIGRAD_DB_USERNAME: root
-      SCIGRAD_DB_PASSWORD: ""
-      REG_DB_HOST: host.docker.internal
-      REG_DB_PORT: 3306
-      REG_DB_DATABASE: reg
-      REG_DB_USERNAME: root
-      REG_DB_PASSWORD: ""
+      APP_URL: ${APP_URL:-https://gms.sc.kku.ac.th}
+      # Prefer .env; do not default to host.docker.internal (no MySQL on host:3306)
+      SCIGRAD_DB_HOST: ${SCIGRAD_DB_HOST:-10.104.177.79}
+      SCIGRAD_DB_PORT: ${SCIGRAD_DB_PORT:-3306}
+      SCIGRAD_DB_DATABASE: ${SCIGRAD_DB_DATABASE:-eoffice}
+      SCIGRAD_DB_USERNAME: ${SCIGRAD_DB_USERNAME:-devsc}
+      SCIGRAD_DB_PASSWORD: ${SCIGRAD_DB_PASSWORD:-}
+      REG_DB_HOST: ${REG_DB_HOST:-10.104.177.79}
+      REG_DB_PORT: ${REG_DB_PORT:-3306}
+      REG_DB_DATABASE: ${REG_DB_DATABASE:-reg}
+      REG_DB_USERNAME: ${REG_DB_USERNAME:-devsc}
+      REG_DB_PASSWORD: ${REG_DB_PASSWORD:-}
     networks:
       - scigrade
 
