@@ -6,6 +6,7 @@ use App\Models\GradeReport;
 use App\Policies\GradeReportPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
