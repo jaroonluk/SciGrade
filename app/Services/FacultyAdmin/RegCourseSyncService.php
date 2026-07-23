@@ -87,7 +87,7 @@ class RegCourseSyncService
             ->selectRaw('COURSECODE, MAX(COURSENAMEENG) as COURSENAMEENG, MAX(COURSEUNIT) as COURSEUNIT')
             ->where('CREATEDATETIME', 'like', '%'.$gregorianYear.'%')
             ->where('COURSECODE', 'like', '%SC%')
-            ->where('COURSENAMEENG', 'not like', '%SEMINAR%')
+            // รวม SEMINAR — ยังไม่ดึงวิทยานิพนธ์/ค้นคว้าอิสระ
             ->where('COURSENAMEENG', 'not like', '%THESIS%')
             ->where('COURSENAMEENG', 'not like', '%INDEPENDENT STUDY%')
             ->where('COURSENAMEENG', 'not like', '%DISSERTATION%')

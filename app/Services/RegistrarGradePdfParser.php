@@ -268,7 +268,7 @@ class RegistrarGradePdfParser
             }
 
             $field = self::GRADE_KEYS[$row['grade']] ?? null;
-            if ($field && $row['count'] > 0) {
+            if ($field !== null) {
                 $counts[$field] = $row['count'];
             }
 
@@ -383,6 +383,24 @@ class RegistrarGradePdfParser
 
         $percent = (float) $parts[1];
         $rest = $parts[2];
+
+        // เมื่อรู้จำนวนรวมจากแถวสรุป — จำนวนต่อเกรด = round(% × รวม / 100)
+        // ตามคอลัมน์ "รวม" ในตารางท้ายไฟล์ (ไม่เดาจากหลักที่ต่อกันซึ่งกำกวม)
+        if ($totalStudents !== null) {
+            $expected = $percent < 0.005
+                ? 0
+                : (int) round($totalStudents * $percent / 100);
+
+            $min = $this->minScoreAfterCount($rest, $expected, $max);
+            if ($min !== null) {
+                return [
+                    'percent' => $percent,
+                    'count' => $expected,
+                    'min' => $min,
+                ];
+            }
+        }
+
         $candidates = [];
 
         for ($minLen = 1; $minLen <= 4; $minLen++) {
@@ -404,21 +422,6 @@ class RegistrarGradePdfParser
             return null;
         }
 
-        if ($totalStudents !== null) {
-            $expected = $percent < 0.01 ? 0 : (int) round($totalStudents * $percent / 100);
-
-            usort($candidates, function (array $a, array $b) use ($expected): int {
-                $diff = abs($a['count'] - $expected) <=> abs($b['count'] - $expected);
-                if ($diff !== 0) {
-                    return $diff;
-                }
-
-                return $b['count'] <=> $a['count'];
-            });
-
-            return $candidates[0];
-        }
-
         if ($grade === 'F' || $max <= 29) {
             usort($candidates, fn (array $a, array $b): int => $b['count'] <=> $a['count']);
 
@@ -435,6 +438,55 @@ class RegistrarGradePdfParser
         });
 
         return $candidates[0];
+    }
+
+    /**
+     * แยกคะแนนต่ำสุดออกจากหลักที่เหลือ หลังลบจำนวนคน (จากตารางสรุป) แล้ว
+     */
+    private function minScoreAfterCount(string $rest, int $count, float $max): ?float
+    {
+        if ($count === 0) {
+            // เช่น 0.00038 → rest "038" = min 38, หรือ 0.0000 → rest "00" = min 0
+            if ($rest === '' || preg_match('/^0+$/', $rest)) {
+                return 0.0;
+            }
+            $min = (float) $rest;
+            if ($min <= $max) {
+                return $min;
+            }
+
+            return null;
+        }
+
+        $prefix = (string) $count;
+        if (str_starts_with($rest, $prefix) && strlen($rest) > strlen($prefix)) {
+            $min = (float) substr($rest, strlen($prefix));
+            if ($min <= $max) {
+                return $min;
+            }
+        }
+
+        // fallback: หา min ที่เหลือเมื่อบังคับ count ตามตารางสรุป
+        for ($minLen = 1; $minLen <= strlen($rest); $minLen++) {
+            $countDigits = substr($rest, 0, -$minLen);
+            if ($countDigits === '' || (int) $countDigits !== $count) {
+                continue;
+            }
+            $min = (float) substr($rest, -$minLen);
+            if ($min <= $max) {
+                return $min;
+            }
+        }
+
+        // ยังแยก min ไม่ได้ — ใช้ count จากสรุป และเดา min จากท้ายสุดที่ยัง <= max
+        for ($minLen = 1; $minLen <= min(4, strlen($rest)); $minLen++) {
+            $min = (float) substr($rest, -$minLen);
+            if ($min <= $max) {
+                return $min;
+            }
+        }
+
+        return 0.0;
     }
 
     /**

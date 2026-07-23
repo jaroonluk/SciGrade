@@ -43,6 +43,30 @@ class RegistrarGradePdfParserTest extends TestCase
     }
 
     #[Test]
+    public function it_parses_sc401203_summary_table_counts(): void
+    {
+        $path = base_path('tests/Fixtures/registrar-pdfs/SC401203-01.pdf');
+        if (! is_file($path)) {
+            $this->markTestSkipped('SC401203-01 fixture not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parse($path, 'SC401203-01.pdf', 1, 2569);
+        $std = $parsed['grade_stds'][0];
+
+        $this->assertSame('SC401203', $parsed['subject_code']);
+        $this->assertSame(0, $std['num_a']);
+        $this->assertSame(1, $std['num_bb']);
+        $this->assertSame(6, $std['num_b']);
+        $this->assertSame(5, $std['num_cc']);
+        $this->assertSame(1, $std['num_c']);
+        $this->assertSame(0, $std['num_dd']);
+        $this->assertSame(1, $std['num_d']);
+        $this->assertSame(0, $std['num_f']);
+        $this->assertSame(14, $std['num_a'] + $std['num_bb'] + $std['num_b'] + $std['num_cc']
+            + $std['num_c'] + $std['num_dd'] + $std['num_d'] + $std['num_f'] + $std['num_w']);
+    }
+
+    #[Test]
     public function it_parses_decimal_registrar_pdf(): void
     {
         $path = base_path('project_old/SC700001-08.pdf');
