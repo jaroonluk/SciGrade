@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Models\GradeReport;
 use App\Models\GradeReportFile;
+use App\Support\UploadStorage;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class GradeReportAttachmentNameService
@@ -30,12 +30,13 @@ class GradeReportAttachmentNameService
     {
         $directory = 'grade-report-files/'.$report->grade_id;
         $filename = $this->generateDisplayName($report);
+        $disk = UploadStorage::disk();
 
-        while (Storage::disk('local')->exists($directory.'/'.$filename)) {
+        while ($disk->exists($directory.'/'.$filename)) {
             $filename = $this->bumpFilename($filename);
         }
 
-        return $uploaded->storeAs($directory, $filename, 'local');
+        return $uploaded->storeAs($directory, $filename, UploadStorage::diskName());
     }
 
     private function baseName(GradeReport $report): string

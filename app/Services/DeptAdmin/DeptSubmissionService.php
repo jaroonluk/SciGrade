@@ -5,8 +5,8 @@ namespace App\Services\DeptAdmin;
 use App\Models\DeptSubmission;
 use App\Models\DeptSubmissionFile;
 use App\Models\TblUser;
+use App\Support\UploadStorage;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class DeptSubmissionService
@@ -58,7 +58,7 @@ class DeptSubmissionService
         $directory = 'dept-submission-files/'.$submission->submission_id;
         $filename = $this->uniqueFilename($directory, $uploaded->getClientOriginalName());
 
-        return $uploaded->storeAs($directory, $filename, 'local');
+        return $uploaded->storeAs($directory, $filename, UploadStorage::diskName());
     }
 
     public function replaceFile(DeptSubmissionFile $file, UploadedFile $uploaded): string
@@ -70,12 +70,15 @@ class DeptSubmissionService
             ]);
         }
 
-        Storage::disk('local')->delete($file->stored_path);
+        UploadStorage::disk()->delete($file->stored_path);
+        if (UploadStorage::diskName() !== 'local') {
+            \Illuminate\Support\Facades\Storage::disk('local')->delete($file->stored_path);
+        }
 
         $directory = 'dept-submission-files/'.$submission->submission_id;
         $filename = $this->uniqueFilename($directory, $uploaded->getClientOriginalName(), $file->file_id);
 
-        return $uploaded->storeAs($directory, $filename, 'local');
+        return $uploaded->storeAs($directory, $filename, UploadStorage::diskName());
     }
 
     public function receiveSubmission(DeptSubmission $submission, string $username): DeptSubmission
@@ -160,7 +163,7 @@ class DeptSubmissionService
 
     private function filenameExistsInDirectory(string $directory, string $filename, ?int $ignoreFileId = null): bool
     {
-        if (Storage::disk('local')->exists($directory.'/'.$filename)) {
+        if (UploadStorage::disk()->exists($directory.'/'.$filename)) {
             return true;
         }
 

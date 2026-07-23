@@ -6,23 +6,25 @@ return [
     |--------------------------------------------------------------------------
     | Default Filesystem Disk
     |--------------------------------------------------------------------------
-    |
-    | Here you may specify the default filesystem disk that should be used
-    | by the framework. The "local" disk, as well as a variety of cloud
-    | based disks are available to your application for file storage.
-    |
     */
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
     /*
     |--------------------------------------------------------------------------
-    | Filesystem Disks
+    | Application upload disk (grade reports, dept submissions, registrar PDF)
     |--------------------------------------------------------------------------
     |
-    | Below you may configure as many filesystem disks as necessary, and you
-    | may even configure multiple disks for the same driver. Examples for
-    | most supported storage drivers are configured here for reference.
+    | Use "minio" in production. Set UPLOAD_DISK=local for offline/dev without S3.
+    |
+    */
+
+    'upload_disk' => env('UPLOAD_DISK', 'minio'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filesystem Disks
+    |--------------------------------------------------------------------------
     |
     | Supported drivers: "local", "ftp", "sftp", "s3"
     |
@@ -60,17 +62,36 @@ return [
             'report' => false,
         ],
 
+        /*
+        | MinIO / S3-compatible object storage for SciGrade uploads
+        */
+        'minio' => [
+            'driver' => 's3',
+            'key' => env('MINIO_ACCESS_KEY'),
+            'secret' => env('MINIO_SECRET_KEY'),
+            'region' => env('MINIO_REGION', 'us-east-1'),
+            'bucket' => env('MINIO_BUCKET', 'gms'),
+            'endpoint' => sprintf(
+                '%s://%s%s',
+                filter_var(env('MINIO_USE_SSL', true), FILTER_VALIDATE_BOOLEAN) ? 'https' : 'http',
+                env('MINIO_ENDPOINT', '127.0.0.1'),
+                ($port = env('MINIO_PORT')) ? ':'.$port : '',
+            ),
+            'use_path_style_endpoint' => env('MINIO_USE_PATH_STYLE_ENDPOINT', true),
+            'throw' => true,
+            'report' => false,
+            'visibility' => 'private',
+            'http' => [
+                'verify' => ! filter_var(env('MINIO_INSECURE_SKIP_VERIFY', false), FILTER_VALIDATE_BOOLEAN),
+            ],
+        ],
+
     ],
 
     /*
     |--------------------------------------------------------------------------
     | Symbolic Links
     |--------------------------------------------------------------------------
-    |
-    | Here you may configure the symbolic links that will be created when the
-    | `storage:link` Artisan command is executed. The array keys should be
-    | the locations of the links and the values should be their targets.
-    |
     */
 
     'links' => [

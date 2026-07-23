@@ -7,10 +7,10 @@ use App\Models\GradeReportFile;
 use App\Services\GradeReportAttachmentNameService;
 use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
+use App\Support\UploadStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GradeReportFileController extends Controller
 {
@@ -51,18 +51,12 @@ class GradeReportFileController extends Controller
         return response()->json($this->formatFile($file), 201);
     }
 
-    public function show(Request $request, GradeReport $gradeReport, GradeReportFile $file): BinaryFileResponse
+    public function show(Request $request, GradeReport $gradeReport, GradeReportFile $file): StreamedResponse
     {
         abort_unless($this->canViewFiles($gradeReport), 403);
         abort_unless((int) $file->grade_id === (int) $gradeReport->grade_id, 404);
 
-        $absolutePath = Storage::disk('local')->path($file->stored_path);
-        abort_unless(is_file($absolutePath), 404);
-
-        return response()->file($absolutePath, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.addslashes($file->original_name).'"',
-        ]);
+        return UploadStorage::inlineResponse($file->stored_path, $file->original_name, 'application/pdf');
     }
 
     public function destroy(Request $request, GradeReport $gradeReport, GradeReportFile $file): JsonResponse

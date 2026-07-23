@@ -8,11 +8,11 @@ use App\Models\DeptSubmissionFile;
 use App\Services\DeptAdmin\DeptSubmissionService;
 use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
+use App\Support\UploadStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DeptSubmissionFileController extends Controller
 {
@@ -108,7 +108,7 @@ class DeptSubmissionFileController extends Controller
         return response()->json($this->formatFile($file->fresh()));
     }
 
-    public function show(DeptSubmissionFile $file): BinaryFileResponse
+    public function show(DeptSubmissionFile $file): StreamedResponse
     {
         $staff = $this->requireStaff();
         $submission = $file->submission;
@@ -121,15 +121,7 @@ class DeptSubmissionFileController extends Controller
             abort(403);
         }
 
-        $absolutePath = Storage::disk('local')->path($file->stored_path);
-        abort_unless(is_file($absolutePath), 404);
-
-        return response()->file($absolutePath, [
-            'Content-Disposition' => 'inline; filename="'.addslashes($file->original_name).'"',
-            'Cache-Control' => 'private, no-cache, no-store, must-revalidate',
-            'Pragma' => 'no-cache',
-            'Expires' => '0',
-        ]);
+        return UploadStorage::inlineResponse($file->stored_path, $file->original_name);
     }
 
     public function destroy(DeptSubmissionFile $file): JsonResponse

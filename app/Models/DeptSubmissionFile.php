@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class DeptSubmissionFile extends Model
 {
@@ -36,7 +35,10 @@ class DeptSubmissionFile extends Model
     protected static function booted(): void
     {
         static::deleting(function (DeptSubmissionFile $file): void {
-            Storage::disk('local')->delete($file->stored_path);
+            \App\Support\UploadStorage::disk()->delete($file->stored_path);
+            if (\App\Support\UploadStorage::diskName() !== 'local') {
+                \Illuminate\Support\Facades\Storage::disk('local')->delete($file->stored_path);
+            }
         });
     }
 

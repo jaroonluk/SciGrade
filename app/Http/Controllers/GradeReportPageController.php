@@ -13,6 +13,7 @@ use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
 use App\Support\SciGradeRole;
 use App\Support\ThaiDateTime;
+use App\Support\UploadStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -178,28 +179,28 @@ class GradeReportPageController extends Controller
             'grade_file.required' => 'กรุณาเลือกไฟล์ PDF',
         ]);
 
-        $path = $request->file('grade_file')->store('grade-uploads/'.auth()->id(), 'local');
-        $fullPath = Storage::disk('local')->path($path);
+        $uploaded = $request->file('grade_file');
+        $tmpPath = $uploaded->getRealPath();
 
         try {
             $parsed = $this->pdfParser->parse(
-                $fullPath,
-                $request->file('grade_file')->getClientOriginalName(),
+                $tmpPath,
+                $uploaded->getClientOriginalName(),
                 $request->integer('term'),
                 $request->integer('year'),
             );
         } catch (RegistrarPdfParseException $e) {
-            Storage::disk('local')->delete($path);
-
             return redirect()
                 ->route('grade-reports.upload')
                 ->withInput()
                 ->withErrors(['grade_file' => $e->getMessage()]);
         }
 
+        $path = $uploaded->store('grade-uploads/'.auth()->id(), UploadStorage::diskName());
+
         session([
             'grade_upload_path' => $path,
-            'grade_upload_name' => $request->file('grade_file')->getClientOriginalName(),
+            'grade_upload_name' => $uploaded->getClientOriginalName(),
             'grade_upload_term' => $request->integer('term'),
             'grade_upload_year' => $request->integer('year'),
             'grade_upload_parsed' => $parsed,
