@@ -56,11 +56,8 @@ class DepartmentSubjectFilter
             function (Builder $query) use ($patterns): void {
                 $query->where(function (Builder $inner) use ($patterns): void {
                     foreach ($patterns as $pattern) {
-                        if (str_contains($pattern, '%')) {
-                            $inner->orWhere('subject_code', 'like', $pattern);
-                        } else {
-                            $inner->orWhere('subject_code', 'like', $pattern.'%');
-                        }
+                        $like = str_contains($pattern, '%') ? $pattern : $pattern.'%';
+                        $inner->orWhereRaw('subject_code LIKE ?', [$like]);
                     }
                 });
             },
@@ -87,12 +84,10 @@ class DepartmentSubjectFilter
         }
 
         return $query->where(function (Builder $inner) use ($patterns, $column): void {
+            $wrapped = '`'.str_replace('`', '``', $column).'`';
             foreach ($patterns as $pattern) {
-                if (str_contains($pattern, '%')) {
-                    $inner->orWhere($column, 'like', $pattern);
-                } else {
-                    $inner->orWhere($column, 'like', $pattern.'%');
-                }
+                $like = str_contains($pattern, '%') ? $pattern : $pattern.'%';
+                $inner->orWhereRaw($wrapped.' LIKE ?', [$like]);
             }
         });
     }

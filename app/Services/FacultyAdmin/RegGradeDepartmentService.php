@@ -45,15 +45,15 @@ class RegGradeDepartmentService
         ?array $allowedDepartmentIds = null,
     ): LengthAwarePaginator {
         $query = GradeReportReg::query()
-            ->selectRaw('
+            ->selectRaw("
                 COURSECODE,
                 SECTION,
                 MAX(COURSENAMEENG) as COURSENAMEENG,
                 MAX(ACADYEAR) as ACADYEAR,
                 MAX(SEMESTER) as SEMESTER,
                 COUNT(*) as officer_count,
-                GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(OFFICERNAME, ""), " ", IFNULL(OFFICERSURNAME, ""))) ORDER BY OFFICERNAME SEPARATOR ", ") as officers
-            ')
+                GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(OFFICERNAME, ''), ' ', IFNULL(OFFICERSURNAME, ''))) ORDER BY OFFICERNAME SEPARATOR ', ') as officers
+            ")
             ->where('ACADYEAR', (string) $year)
             ->where('SEMESTER', (string) $term);
 
