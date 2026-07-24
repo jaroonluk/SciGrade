@@ -128,7 +128,7 @@
 @endif
 
     <h1>แบบรายงานผลการสอบไล่</h1>
-    <p class="meta"><strong>สาขาวิชา {{ $department->department_name }}</strong></p>
+    <p class="meta"><strong>{{ $department->department_name }}</strong></p>
 
     @if ($reports->isNotEmpty())
         @php $term = (int) $exportTerm; @endphp
