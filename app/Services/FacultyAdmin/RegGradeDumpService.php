@@ -27,6 +27,8 @@ class RegGradeDumpService
      */
     public function dump(int $buddhistYear, int $term): array
     {
+        set_time_limit(300);
+
         $courses = $this->fetchFromReg($buddhistYear, $term);
 
         $grouped = $courses->groupBy(function (object $course): string {
@@ -39,7 +41,8 @@ class RegGradeDumpService
         $skipped = 0;
         $sectionsReplaced = 0;
         $zeroEnrollment = [];
-        $zeroSeen = [];
+        $insertPayloads = [];
+        $sectionKeys = [];
 
         foreach ($grouped as $group) {
             $first = $group->first();
@@ -54,26 +57,9 @@ class RegGradeDumpService
                 continue;
             }
 
-            $hadExisting = GradeReportReg::query()
-                ->where('COURSECODE', $courseCode)
-                ->where('SECTION', $section)
-                ->where('ACADYEAR', (string) $buddhistYear)
-                ->where('SEMESTER', (string) $term)
-                ->exists();
+            $sectionKeys[] = ['COURSECODE' => $courseCode, 'SECTION' => $section];
+            $groupRows = [];
 
-            // ทับข้อมูลเดิมทั้งกลุ่มวิชา+Sec.
-            GradeReportReg::query()
-                ->where('COURSECODE', $courseCode)
-                ->where('SECTION', $section)
-                ->where('ACADYEAR', (string) $buddhistYear)
-                ->where('SEMESTER', (string) $term)
-                ->delete();
-
-            if ($hadExisting) {
-                $sectionsReplaced++;
-            }
-
-            $groupInserted = 0;
             foreach ($group as $course) {
                 $officerId = trim((string) ($course->OFFICERID ?? ''));
                 if ($officerId === '') {
@@ -96,42 +82,83 @@ class RegGradeDumpService
                     'OFFICERID' => $officerId,
                 ];
 
-                GradeReportReg::query()->create($payload);
-                $groupInserted++;
-
-                $status = $hadExisting ? 'updated' : 'inserted';
-                if ($hadExisting) {
-                    $updated++;
-                } else {
-                    $inserted++;
-                }
-
-                $rows[] = [
+                $insertPayloads[] = $payload;
+                $groupRows[] = [
                     'coursecode' => $payload['COURSECODE'],
                     'coursenameeng' => $payload['COURSENAMEENG'],
                     'section' => $payload['SECTION'],
                     'officer' => trim($payload['OFFICERNAME'].' '.$payload['OFFICERSURNAME']),
-                    'status' => $status,
                     'enrollseat' => $enrollSeat,
                 ];
             }
 
-            if ($groupInserted === 0) {
+            if ($groupRows === []) {
                 continue;
             }
 
             if ($enrollSeat <= 0) {
-                $key = $courseCode.'|'.$section;
-                if (! isset($zeroSeen[$key])) {
-                    $zeroSeen[$key] = true;
-                    $zeroEnrollment[] = [
-                        'coursecode' => $courseCode,
-                        'coursenameeng' => $courseName,
-                        'section' => $section,
-                        'enrollseat' => $enrollSeat,
-                    ];
-                }
+                $zeroEnrollment[] = [
+                    'coursecode' => $courseCode,
+                    'coursenameeng' => $courseName,
+                    'section' => $section,
+                    'enrollseat' => $enrollSeat,
+                ];
             }
+
+            foreach ($groupRows as $row) {
+                $rows[] = $row;
+            }
+        }
+
+        $year = (string) $buddhistYear;
+        $semester = (string) $term;
+
+        $existingKeys = GradeReportReg::query()
+            ->where('ACADYEAR', $year)
+            ->where('SEMESTER', $semester)
+            ->get(['COURSECODE', 'SECTION'])
+            ->mapWithKeys(fn ($row) => [
+                strtoupper(trim((string) $row->COURSECODE)).'|'.trim((string) $row->SECTION) => true,
+            ])
+            ->all();
+
+        DB::connection('scigrad')->transaction(function () use ($year, $semester, $sectionKeys, $insertPayloads): void {
+            foreach (array_chunk($sectionKeys, 100) as $chunk) {
+                GradeReportReg::query()
+                    ->where('ACADYEAR', $year)
+                    ->where('SEMESTER', $semester)
+                    ->where(function ($q) use ($chunk): void {
+                        foreach ($chunk as $pair) {
+                            $q->orWhere(function ($inner) use ($pair): void {
+                                $inner->where('COURSECODE', $pair['COURSECODE'])
+                                    ->where('SECTION', $pair['SECTION']);
+                            });
+                        }
+                    })
+                    ->delete();
+            }
+
+            foreach (array_chunk($insertPayloads, 250) as $chunk) {
+                GradeReportReg::query()->insert($chunk);
+            }
+        });
+
+        $statusRows = [];
+        $seenSections = [];
+        foreach ($rows as $row) {
+            $key = $row['coursecode'].'|'.$row['section'];
+            $hadExisting = isset($existingKeys[$key]);
+            if ($hadExisting) {
+                $updated++;
+                if (! isset($seenSections[$key])) {
+                    $seenSections[$key] = true;
+                    $sectionsReplaced++;
+                }
+            } else {
+                $inserted++;
+            }
+
+            $statusRows[] = $row + ['status' => $hadExisting ? 'updated' : 'inserted'];
         }
 
         return [
@@ -141,7 +168,7 @@ class RegGradeDumpService
             'skipped' => $skipped,
             'sections_replaced' => $sectionsReplaced,
             'zero_enrollment' => $zeroEnrollment,
-            'rows' => $rows,
+            'rows' => $statusRows,
         ];
     }
 
@@ -290,7 +317,7 @@ class RegGradeDumpService
     public function canConnect(): bool
     {
         try {
-            DB::connection('reg')->getPdo();
+            DB::connection('reg')->select('select 1');
 
             return true;
         } catch (Throwable) {
