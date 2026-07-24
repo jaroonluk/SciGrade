@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SciGrade Screenshot Shell</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Noto Sans Thai', sans-serif; background:#FAF0E6; }
+  .canva-header { background: linear-gradient(135deg, #8B4513 0%, #A0522D 50%, #C4725C 100%); }
+  .menu-card { background:#FFFBF7; border:1px solid #E8C4B8; }
+  .status-pending { background:#fef3c7; color:#92400e; }
+  .status-dept { background:#e0d4c8; color:#6b3a1f; }
+  .status-approved { background:#d1fae5; color:#065f46; }
+  .status-rejected { background:#fee2e2; color:#991b1b; }
+  .callout { border:2px dashed #C4725C; background:rgba(196,114,92,.08); }
+</style>
+</head>
+<body class="min-h-screen">
+<header class="canva-header shadow-md">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div>
+      <h1 class="text-white text-lg font-bold">ระบบรายงานผลการสอบ SciGrad</h1>
+      <p class="text-white/90 text-sm">คณะวิทยาศาสตร์ มหาวิทยาลัยขอนแก่น</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="roleBadge" class="text-xs text-white px-2 py-1 rounded bg-white/15">อาจารย์</span>
+      <span class="text-sm text-white/90">อาจารย์ตัวอย่าง</span>
+      <span class="rounded px-3 py-1.5 text-sm bg-white/90 text-amber-900 font-medium">ออกจากระบบ</span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-5" id="content"></main>
+
+<script>
+const pages = {
+  roles: () => `
+    <div class="rounded-xl bg-white border border-[#E8C4B8] p-5">
+      <p class="text-sm text-[#7A4A3A] mb-3">เลือกบทบาทการทำงาน</p>
+      <div class="flex flex-wrap gap-2">
+        <span class="callout px-4 py-2 rounded-lg text-sm font-bold text-[#8B4513]">① อาจารย์</span>
+        <span class="px-4 py-2 rounded-lg text-sm font-medium bg-[#FAF0E6] text-[#5C2E1F] border border-[#E8C4B8]">Admin สาขา</span>
+        <span class="px-4 py-2 rounded-lg text-sm font-medium bg-[#FAF0E6] text-[#5C2E1F] border border-[#E8C4B8]">Admin กลาง</span>
+      </div>
+      <p class="mt-3 text-xs text-[#A0522D]">กดปุ่มบทบาทด้านบนเพื่อสลับเมนูให้ตรงงานที่ทำ</p>
+    </div>`,
+
+  instructor_home: () => {
+    document.getElementById('roleBadge').textContent = 'อาจารย์';
+    return `
+    <div>
+      <h2 class="text-xl font-bold text-[#5C2E1F]">งานของอาจารย์</h2>
+      <p class="text-sm text-[#7A4A3A]/80 mt-1">เริ่มจากกรอกหรืออัปโหลดผลสอบ แล้วติดตามสถานะรายวิชาด้านล่าง</p>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="menu-card callout rounded-xl p-5">
+        <p class="text-xs font-bold text-[#c2410c] mb-1">ขั้นตอนที่ 1</p>
+        <p class="text-base font-bold text-[#7c2d12]">กรอกข้อมูลเอง</p>
+        <p class="text-sm text-[#7A4A3A] mt-1">สร้างรายงานผลการสอบไล่ด้วยฟอร์ม</p>
+        <p class="mt-3 text-sm font-semibold text-[#8B4513]">ไปกรอก →</p>
+      </div>
+      <div class="menu-card rounded-xl p-5">
+        <p class="text-xs font-bold text-[#0f766e] mb-1">ขั้นตอนที่ 1 (ทางเลือก)</p>
+        <p class="text-base font-bold text-[#134e4a]">อัปโหลดไฟล์จากสำนักทะเบียน</p>
+        <p class="text-sm text-[#7A4A3A] mt-1">นำเข้าข้อมูลจากไฟล์ REG</p>
+        <p class="mt-3 text-sm font-semibold text-[#0f766e]">ไปอัปโหลด →</p>
+      </div>
+    </div>
+    <div class="rounded-xl bg-white border border-[#E8C4B8] overflow-hidden">
+      <div class="px-4 py-3 border-b border-[#E8C4B8] bg-[#FFFBF7] flex justify-between items-center">
+        <p class="font-bold text-[#5C2E1F]">รายวิชาที่กรอกแล้ว</p>
+        <p class="text-xs text-[#A0522D]">ภาคปลาย / 2568</p>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-[#fdf6f0] text-[#5C2E1F]">
+          <tr>
+            <th class="text-left px-3 py-2">รหัสวิชา</th>
+            <th class="text-left px-3 py-2">สถานะ</th>
+            <th class="text-left px-3 py-2">การทำงาน</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-t border-[#f0e0d0]">
+            <td class="px-3 py-3">SC321001<br><span class="text-xs text-gray-500">Physics I</span></td>
+            <td class="px-3 py-3"><span class="status-pending text-xs px-2 py-1 rounded-full font-semibold">รออนุมัติ</span></td>
+            <td class="px-3 py-3 text-xs text-[#8B4513]">แก้ไข · พิมพ์ · แนบ PDF</td>
+          </tr>
+          <tr class="border-t border-[#f0e0d0] callout">
+            <td class="px-3 py-3">SC321002<br><span class="text-xs text-gray-500">Physics II</span></td>
+            <td class="px-3 py-3"><span class="status-rejected text-xs px-2 py-1 rounded-full font-semibold">ส่งกลับแก้ไข</span></td>
+            <td class="px-3 py-3 text-xs font-bold text-[#991b1b]">② กด «ส่งการแก้ไข» หลังแก้แล้ว</td>
+          </tr>
+          <tr class="border-t border-[#f0e0d0]">
+            <td class="px-3 py-3">SC321003</td>
+            <td class="px-3 py-3"><span class="status-dept text-xs px-2 py-1 rounded-full font-semibold">สาขาอนุมัติ</span></td>
+            <td class="px-3 py-3 text-xs text-gray-500">รอคณะ</td>
+          </tr>
+          <tr class="border-t border-[#f0e0d0]">
+            <td class="px-3 py-3">SC321004</td>
+            <td class="px-3 py-3"><span class="status-approved text-xs px-2 py-1 rounded-full font-semibold">คณะอนุมัติ</span></td>
+            <td class="px-3 py-3 text-xs text-gray-500">เสร็จสมบูรณ์</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+  },
+
+  dept_home: () => {
+    document.getElementById('roleBadge').textContent = 'Admin สาขา';
+    return `
+    <div>
+      <h2 class="text-xl font-bold text-[#5C2E1F]">เมนู Admin สาขา</h2>
+      <p class="text-sm text-[#7A4A3A]/80 mt-1">อัปโหลดเอกสารสาขา ตรวจรายงานของอาจารย์ และพิมพ์รายงานสาขา</p>
+    </div>
+    <div class="rounded-xl bg-white border border-[#E8C4B8] p-5 callout">
+      <h3 class="font-bold text-[#134e4a]">① อัปโหลดเอกสารสาขา</h3>
+      <p class="text-sm text-[#7A4A3A] mt-1">เลือกสาขา ภาค ปี แล้วอัปโหลด PDF/Word — แก้ได้จนกว่าคณะจะกดรับ</p>
+      <div class="mt-3 border border-dashed border-[#E8C4B8] rounded-lg p-4 bg-[#fffaf5] text-sm text-[#8B4513]">โซนอัปโหลดไฟล์ (PDF / Word)</div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="menu-card rounded-xl p-5 callout">
+        <p class="text-xs font-bold text-green-700">② งานหลัก</p>
+        <p class="font-bold text-[#5C2E1F] mt-1">ตรวจสอบรายวิชา</p>
+        <p class="text-sm text-[#7A4A3A] mt-1">อนุมัติ / ส่งกลับแก้ไข รายงานของอาจารย์</p>
+      </div>
+      <div class="menu-card rounded-xl p-5">
+        <p class="text-xs font-bold text-orange-700">สถานะ REG</p>
+        <p class="font-bold text-[#5C2E1F] mt-1">ตรวจสอบสถานะการส่งผลการสอบ</p>
+        <p class="text-sm text-[#7A4A3A] mt-1">ดูและติ๊กสถานะรายวิชา</p>
+      </div>
+      <div class="menu-card rounded-xl p-5">
+        <p class="text-xs font-bold text-blue-700">พิมพ์</p>
+        <p class="font-bold text-[#5C2E1F] mt-1">พิมพ์ใบรายงานสาขา</p>
+        <p class="text-sm text-[#7A4A3A] mt-1">ส่งออก PDF / Word</p>
+      </div>
+    </div>`;
+  },
+
+  faculty_home: () => {
+    document.getElementById('roleBadge').textContent = 'Admin กลาง';
+    return `
+    <div>
+      <h2 class="text-xl font-bold text-[#5C2E1F]">เมนู Admin กลาง</h2>
+      <p class="text-sm text-[#7A4A3A]/80 mt-1">รับเอกสารจากสาขา → อนุมัติคณะ → จัดการ REG → ตั้งค่า</p>
+    </div>
+    <div class="grid grid-cols-5 gap-2 mb-2">
+      ${['0 รับเอกสาร','1 อนุมัติ','2 รายวิชา REG','3 ตั้งค่า','4 สิทธิ'].map((t,i)=>`
+        <div class="rounded-xl p-3 border ${i===0?'callout border-[#C4725C]':'border-[#E8C4B8] bg-white'}">
+          <p class="text-[10px] font-bold text-[#A0522D]">STEP</p>
+          <p class="text-xs font-bold text-[#3d2a22]">${t}</p>
+        </div>`).join('')}
+    </div>
+    <div class="space-y-4">
+      <section class="rounded-xl border border-[#e8d5c8] bg-white overflow-hidden">
+        <div class="px-4 py-3 bg-[#fff7ed] border-b border-[#e8d5c8] font-bold text-[#9a3412]">① รับเอกสารจากสาขา</div>
+        <div class="p-4 grid md:grid-cols-2 gap-3">
+          <div class="menu-card callout rounded-xl p-4"><p class="font-bold">รับเอกสาร</p><p class="text-sm text-[#7A4A3A]">รับชุดเอกสารที่สาขาส่งมา</p></div>
+          <div class="menu-card rounded-xl p-4"><p class="font-bold">ประวัติการรับเอกสาร</p><p class="text-sm text-[#7A4A3A]">ดูรายการที่รับแล้ว</p></div>
+        </div>
+      </section>
+      <section class="rounded-xl border border-[#e8d5c8] bg-white overflow-hidden">
+        <div class="px-4 py-3 bg-[#f0fdf4] border-b border-[#e8d5c8] font-bold text-[#166534]">② อนุมัติและรายงาน</div>
+        <div class="p-4 grid md:grid-cols-2 gap-3">
+          <div class="menu-card callout rounded-xl p-4"><p class="font-bold">อนุมัติระดับคณะ</p><p class="text-sm text-[#7A4A3A]">อนุมัติรายการที่สาขาอนุมัติแล้ว</p></div>
+          <div class="menu-card rounded-xl p-4"><p class="font-bold">ดูรายงานทุกสาขา</p><p class="text-sm text-[#7A4A3A]">พิมพ์รายงานภาพรวม</p></div>
+        </div>
+      </section>
+      <section class="rounded-xl border border-[#e8d5c8] bg-white overflow-hidden">
+        <div class="px-4 py-3 bg-[#eff6ff] border-b border-[#e8d5c8] font-bold text-[#1d4ed8]">③ รายวิชา REG / ตั้งค่า</div>
+        <div class="p-4 grid md:grid-cols-3 gap-3 text-sm">
+          <div class="menu-card rounded-xl p-3"><b>จัดการรายวิชา REG</b><br>ดึง/เพิ่ม/แก้ไขรายวิชา</div>
+          <div class="menu-card rounded-xl p-3"><b>ภาคการศึกษา</b><br>ตั้งค่างวดงาน</div>
+          <div class="menu-card rounded-xl p-3"><b>ผู้มีสิทธิใช้งาน</b><br>สิทธิ Admin สาขา/กลาง</div>
+        </div>
+      </section>
+    </div>`;
+  }
+};
+
+const page = new URLSearchParams(location.search).get('page') || 'instructor_home';
+document.getElementById('content').innerHTML = (pages[page] || pages.instructor_home)();
+</script>
+</body>
+</html>
