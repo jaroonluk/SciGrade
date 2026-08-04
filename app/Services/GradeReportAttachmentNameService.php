@@ -12,12 +12,13 @@ class GradeReportAttachmentNameService
 {
     /**
      * รูปแบบ: {ปีการศึกษา}_{ภาคการศึกษา}_{รหัสวิชา}_{section}.pdf
+     * ใบส่งผล REG: REG_{ปี}_{ภาค}_{รหัสวิชา}_{section}.pdf
      * ไฟล์ถัดไป: ..._02.pdf, ..._03.pdf
      */
-    public function generateDisplayName(GradeReport $report): string
+    public function generateDisplayName(GradeReport $report, string $fileType = GradeReportFile::TYPE_EXAM_REPORT): string
     {
-        $base = $this->baseName($report);
-        $sequence = $this->nextSequence($report->grade_id, $base);
+        $base = $this->baseName($report, $fileType);
+        $sequence = $this->nextSequence($report->grade_id, $base, $fileType);
 
         if ($sequence === 1) {
             return $base.'.pdf';
@@ -26,10 +27,17 @@ class GradeReportAttachmentNameService
         return $base.'_'.str_pad((string) $sequence, 2, '0', STR_PAD_LEFT).'.pdf';
     }
 
-    public function storeUploadedFile(GradeReport $report, UploadedFile $uploaded): string
-    {
+    public function storeUploadedFile(
+        GradeReport $report,
+        UploadedFile $uploaded,
+        string $fileType = GradeReportFile::TYPE_EXAM_REPORT,
+    ): string {
         $directory = 'grade-report-files/'.$report->grade_id;
-        $filename = $this->generateDisplayName($report);
+        if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
+            $directory .= '/registrar';
+        }
+
+        $filename = $this->generateDisplayName($report, $fileType);
         $disk = UploadStorage::disk();
 
         while ($disk->exists($directory.'/'.$filename)) {
@@ -39,7 +47,7 @@ class GradeReportAttachmentNameService
         return $uploaded->storeAs($directory, $filename, UploadStorage::diskName());
     }
 
-    private function baseName(GradeReport $report): string
+    private function baseName(GradeReport $report, string $fileType): string
     {
         $report->loadMissing('gradeStds');
 
@@ -50,13 +58,20 @@ class GradeReportAttachmentNameService
         $sectionValue = $report->gradeStds->sortBy(fn ($row) => (int) $row->sec)->first()?->sec ?? 0;
         $section = str_pad((string) (int) $sectionValue, 2, '0', STR_PAD_LEFT);
 
-        return "{$year}_{$term}_{$subjectCode}_{$section}";
+        $base = "{$year}_{$term}_{$subjectCode}_{$section}";
+
+        if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
+            return 'REG_'.$base;
+        }
+
+        return $base;
     }
 
-    private function nextSequence(int $gradeId, string $base): int
+    private function nextSequence(int $gradeId, string $base, string $fileType): int
     {
         $existing = GradeReportFile::query()
             ->where('grade_id', $gradeId)
+            ->ofType($fileType)
             ->pluck('original_name');
 
         if ($existing->isEmpty()) {

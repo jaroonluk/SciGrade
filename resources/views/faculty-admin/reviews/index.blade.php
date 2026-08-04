@@ -186,6 +186,9 @@
     @error('approval')
         <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm whitespace-pre-line">{{ $message }}</div>
     @enderror
+    @error('download')
+        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
+    @enderror
 
     @php
         $approvableCount = $reports->filter(fn ($report) => (int) $report->approv === 1)->count();
@@ -205,7 +208,7 @@
                 <button type="button" id="btn-select-all-page"
                     class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50 {{ $approvableCount === 0 ? 'opacity-50 cursor-not-allowed' : '' }}"
                     {{ $approvableCount === 0 ? 'disabled' : '' }}>
-                    เลือกทั้งหมดในหน้านี้
+                    เลือกทั้งหมดที่อนุมัติได้
                 </button>
                 <button type="submit" id="btn-bulk-approve"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -216,13 +219,51 @@
         </div>
     </form>
 
+    <form id="download-files-form" method="POST" action="{{ route('faculty-admin.reviews.files.download') }}" class="form-section rounded-xl p-4 space-y-3 mb-3">
+        @csrf
+        <input type="hidden" name="scope" id="download-scope" value="selected">
+        @foreach ($filters as $key => $value)
+            @if ($value !== null && $value !== '')
+                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+            @endif
+        @endforeach
+        <div class="flex flex-wrap items-end gap-3 justify-between">
+            <div>
+                <p class="text-sm font-semibold text-[#5C2E1F]">ดาวน์โหลดไฟล์แนบ</p>
+                <p class="text-xs text-[#7A4A3A]/80 mt-0.5">แบบรายงานผลการสอบไล่ และใบส่งผลการศึกษา (REG)</p>
+            </div>
+            <div class="flex flex-wrap items-end gap-2">
+                <div>
+                    <label class="block text-xs text-[#7A4A3A] mb-1">ประเภทไฟล์</label>
+                    <select name="type" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="all">ทั้งหมด</option>
+                        <option value="exam_report">แบบรายงานผลการสอบไล่</option>
+                        <option value="registrar">ใบส่งผลการศึกษา (REG)</option>
+                    </select>
+                </div>
+                <button type="button" id="btn-select-all-download"
+                    class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                    เลือกทั้งหมดในหน้านี้
+                </button>
+                <button type="submit" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50"
+                    onclick="document.getElementById('download-scope').value='selected'">
+                    ดาวน์โหลดที่เลือก
+                </button>
+                <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]"
+                    onclick="document.getElementById('download-scope').value='all'">
+                    ดาวน์โหลดทั้งหมด (ตามตัวกรอง)
+                </button>
+            </div>
+        </div>
+    </form>
+
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
         <table class="w-full text-sm min-w-[1150px]">
             <thead class="bg-amber-50">
                 <tr>
                     <th class="px-3 py-2 text-center w-10">
-                        <input type="checkbox" id="select-all-checkbox" form="bulk-approve-form" class="rounded border-amber-400"
-                            title="เลือกทั้งหมดในหน้านี้" {{ $approvableCount === 0 ? 'disabled' : '' }}>
+                        <input type="checkbox" id="select-all-checkbox" class="rounded border-amber-400"
+                            title="เลือกทั้งหมดในหน้านี้">
                     </th>
                     <th class="px-3 py-2 text-left">สาขาวิชา</th>
                     <th class="px-3 py-2 text-left sortable-th {{ $sortBy === 'subject_code' ? 'is-active' : '' }}">
@@ -264,9 +305,13 @@
                     @endphp
                     <tr class="border-t border-amber-100 hover:bg-amber-50/40 {{ $canAct ? 'row-approvable' : '' }}">
                         <td class="px-3 py-2 text-center">
+                            <input type="checkbox" name="grade_ids[]" value="{{ $report->grade_id }}"
+                                form="download-files-form"
+                                class="row-select rounded border-amber-400 {{ $canAct ? 'row-approvable-select' : '' }}"
+                                @if ($canAct) data-approvable="1" @endif>
                             @if ($canAct)
-                                <input type="checkbox" name="grade_ids[]" value="{{ $report->grade_id }}"
-                                    form="bulk-approve-form" class="row-select rounded border-amber-400">
+                                <input type="hidden" name="grade_ids[]" value="{{ $report->grade_id }}"
+                                    form="bulk-approve-form" class="bulk-approve-mirror" disabled>
                             @endif
                         </td>
                         <td class="px-3 py-2 text-xs {{ $deptName ? 'text-gray-600' : 'text-amber-700' }}">
@@ -283,18 +328,7 @@
                         </td>
                         <td class="px-3 py-2 text-center whitespace-nowrap">{{ \App\Support\ThaiDateTime::formatDate($report->created) }}</td>
                         <td class="px-3 py-2">
-                            @if ($report->files->isEmpty())
-                                <span class="text-xs text-gray-400">ไม่มีไฟล์</span>
-                            @else
-                                <div class="flex flex-col gap-1">
-                                    @foreach ($report->files as $file)
-                                        <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
-                                           target="_blank" class="text-xs text-[#8B4513] hover:underline">
-                                            {{ $file->original_name }}
-                                        </a>
-                                    @endforeach
-                                </div>
-                            @endif
+                            @include('partials.grade-report-files-admin', ['report' => $report])
                         </td>
                         <td class="px-3 py-2 text-center">
                             <span class="inline-block px-2 py-1 rounded text-xs font-semibold {{ $badge }}">
@@ -466,6 +500,7 @@
     const bulkForm = document.getElementById('bulk-approve-form');
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
     const selectAllButton = document.getElementById('btn-select-all-page');
+    const selectAllDownload = document.getElementById('btn-select-all-download');
     const bulkApproveButton = document.getElementById('btn-bulk-approve');
     const selectedCountEl = document.getElementById('selected-count');
 
@@ -473,22 +508,38 @@
         return Array.from(document.querySelectorAll('.row-select'));
     }
 
+    function approvableBoxes() {
+        return rowCheckboxes().filter((box) => box.dataset.approvable === '1');
+    }
+
+    function syncBulkMirrors() {
+        approvableBoxes().forEach((box) => {
+            const mirror = box.parentElement?.querySelector('.bulk-approve-mirror');
+            if (mirror) {
+                mirror.disabled = !box.checked;
+            }
+        });
+    }
+
     function updateBulkSelection() {
-        const boxes = rowCheckboxes();
-        const checked = boxes.filter((box) => box.checked);
+        const approvable = approvableBoxes();
+        const checked = approvable.filter((box) => box.checked);
         const count = checked.length;
+        const all = rowCheckboxes();
+        const allChecked = all.filter((box) => box.checked);
 
         if (selectedCountEl) selectedCountEl.textContent = String(count);
         if (bulkApproveButton) bulkApproveButton.disabled = count === 0;
+        syncBulkMirrors();
 
         if (selectAllCheckbox) {
-            selectAllCheckbox.indeterminate = count > 0 && count < boxes.length;
-            selectAllCheckbox.checked = boxes.length > 0 && count === boxes.length;
+            selectAllCheckbox.indeterminate = allChecked.length > 0 && allChecked.length < all.length;
+            selectAllCheckbox.checked = all.length > 0 && allChecked.length === all.length;
         }
     }
 
-    function setAllRows(checked) {
-        rowCheckboxes().forEach((box) => { box.checked = checked; });
+    function setRows(boxes, checked) {
+        boxes.forEach((box) => { box.checked = checked; });
         updateBulkSelection();
     }
 
@@ -497,15 +548,20 @@
     });
 
     selectAllCheckbox?.addEventListener('change', () => {
-        setAllRows(selectAllCheckbox.checked);
+        setRows(rowCheckboxes(), selectAllCheckbox.checked);
+    });
+
+    selectAllDownload?.addEventListener('click', () => {
+        setRows(rowCheckboxes(), true);
     });
 
     selectAllButton?.addEventListener('click', () => {
-        setAllRows(true);
+        setRows(approvableBoxes(), true);
     });
 
     bulkForm?.addEventListener('submit', (e) => {
-        const count = rowCheckboxes().filter((box) => box.checked).length;
+        syncBulkMirrors();
+        const count = approvableBoxes().filter((box) => box.checked).length;
         if (count === 0) {
             e.preventDefault();
             return;

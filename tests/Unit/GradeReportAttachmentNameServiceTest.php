@@ -29,12 +29,30 @@ class GradeReportAttachmentNameServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_prefixes_registrar_filenames(): void
+    {
+        try {
+            $report = $this->makeReportWithSection();
+        } catch (\Throwable $e) {
+            $this->markTestSkipped('scigrad database not available: '.$e->getMessage());
+        }
+
+        $name = (new GradeReportAttachmentNameService)->generateDisplayName(
+            $report,
+            GradeReportFile::TYPE_REGISTRAR,
+        );
+
+        $this->assertSame('REG_2568_2_SC101011_01.pdf', $name);
+    }
+
+    #[Test]
     public function it_appends_sequence_for_additional_uploads(): void
     {
         try {
             $report = $this->makeReportWithSection();
             GradeReportFile::query()->create([
                 'grade_id' => $report->grade_id,
+                'file_type' => GradeReportFile::TYPE_EXAM_REPORT,
                 'original_name' => '2568_2_SC101011_01.pdf',
                 'stored_path' => 'grade-report-files/'.$report->grade_id.'/2568_2_SC101011_01.pdf',
                 'uploaded_at' => now(),

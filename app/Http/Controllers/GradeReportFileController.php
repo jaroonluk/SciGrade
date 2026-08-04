@@ -10,6 +10,7 @@ use App\Support\SciGradeRole;
 use App\Support\UploadStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GradeReportFileController extends Controller
@@ -31,17 +32,22 @@ class GradeReportFileController extends Controller
 
         $request->validate([
             'attachment' => ['required', 'file', 'mimes:pdf', 'max:20480'],
+            'file_type' => ['nullable', 'string', Rule::in(GradeReportFile::allowedTypes())],
         ], [
             'attachment.mimes' => 'รองรับเฉพาะไฟล์ PDF',
             'attachment.required' => 'กรุณาเลือกไฟล์ PDF',
+            'file_type.in' => 'ประเภทไฟล์ไม่ถูกต้อง',
         ]);
 
+        $fileType = (string) ($request->input('file_type') ?: GradeReportFile::TYPE_EXAM_REPORT);
+
         $uploaded = $request->file('attachment');
-        $displayName = $this->attachmentNames->generateDisplayName($gradeReport);
-        $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded);
+        $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType);
+        $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType);
 
         $file = GradeReportFile::query()->create([
             'grade_id' => $gradeReport->grade_id,
+            'file_type' => $fileType,
             'original_name' => basename($storedPath) ?: $displayName,
             'stored_path' => $storedPath,
             'uploaded_at' => now(),
@@ -83,6 +89,8 @@ class GradeReportFileController extends Controller
         return [
             'file_id' => $file->file_id,
             'grade_id' => $file->grade_id,
+            'file_type' => $file->resolvedType(),
+            'type_label' => $file->typeLabel(),
             'original_name' => $file->original_name,
             'uploaded_at' => $file->uploaded_at?->format('Y-m-d H:i'),
             'view_url' => route('grade-reports.files.show', [

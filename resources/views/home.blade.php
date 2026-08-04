@@ -427,7 +427,8 @@
                             <tr>
                                 <th class="text-left">รายวิชา</th>
                                 <th class="text-left" style="min-width:14rem">ความคืบหน้า / สถานะ</th>
-                                <th class="text-left" style="min-width:12rem">ไฟล์แนบ (PDF)</th>
+                                <th class="text-left" style="min-width:11rem">แบบรายงานผลการสอบไล่</th>
+                                <th class="text-left" style="min-width:11rem">ใบส่งผลการศึกษา (REG)</th>
                                 <th class="text-center">ทำรายการ</th>
                             </tr>
                         </thead>
@@ -500,17 +501,21 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <div class="space-y-2" data-report-files="{{ $report->grade_id }}">
-                                            @if ($report->files->isEmpty())
-                                                <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์แนบ</p>
+                                        @php
+                                            $examFiles = $report->files->filter(fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_EXAM_REPORT);
+                                            $regFiles = $report->files->filter(fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_REGISTRAR);
+                                        @endphp
+                                        <div class="space-y-2" data-report-files="{{ $report->grade_id }}" data-file-type="exam_report">
+                                            @if ($examFiles->isEmpty())
+                                                <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์</p>
                                             @else
                                                 <div class="flex flex-col gap-1.5 file-list">
-                                                    @foreach ($report->files as $file)
+                                                    @foreach ($examFiles as $file)
                                                         <div class="file-chip" data-file-id="{{ $file->file_id }}">
                                                             <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
                                                             <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
                                                                target="_blank" rel="noopener noreferrer"
-                                                               class="hover:underline truncate max-w-[10rem]" title="{{ $file->original_name }}">
+                                                               class="hover:underline truncate max-w-[9rem]" title="{{ $file->original_name }}">
                                                                 {{ $file->original_name }}
                                                             </a>
                                                             @if ($canEdit)
@@ -530,10 +535,58 @@
                                             @if ($canEdit)
                                                 <label class="file-upload-zone block cursor-pointer">
                                                     <input type="file" accept=".pdf,application/pdf" class="hidden file-upload-input"
-                                                        data-report-id="{{ $report->grade_id }}">
+                                                        data-report-id="{{ $report->grade_id }}"
+                                                        data-file-type="exam_report">
                                                     <span class="text-xs text-[#8B4513] font-medium flex items-center gap-1">
                                                         <i data-lucide="upload" class="w-3.5 h-3.5"></i>
                                                         อัปโหลด PDF
+                                                    </span>
+                                                </label>
+                                            @elseif ($awaitingDept)
+                                                <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
+                                                    ส่งการแก้ไขแล้ว — รอสาขา
+                                                </p>
+                                            @else
+                                                <p class="text-xs text-gray-500">ล็อกแล้ว</p>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="space-y-2" data-report-files="{{ $report->grade_id }}" data-file-type="registrar">
+                                            @if ($regFiles->isEmpty())
+                                                <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์</p>
+                                            @else
+                                                <div class="flex flex-col gap-1.5 file-list">
+                                                    @foreach ($regFiles as $file)
+                                                        <div class="file-chip" data-file-id="{{ $file->file_id }}">
+                                                            <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+                                                            <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
+                                                               target="_blank" rel="noopener noreferrer"
+                                                               class="hover:underline truncate max-w-[9rem]" title="{{ $file->original_name }}">
+                                                                {{ $file->original_name }}
+                                                            </a>
+                                                            @if ($canEdit)
+                                                                <button type="button"
+                                                                    class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
+                                                                    data-report-id="{{ $report->grade_id }}"
+                                                                    data-file-id="{{ $file->file_id }}"
+                                                                    title="ลบไฟล์">
+                                                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                                                </button>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+
+                                            @if ($canEdit)
+                                                <label class="file-upload-zone block cursor-pointer">
+                                                    <input type="file" accept=".pdf,application/pdf" class="hidden file-upload-input"
+                                                        data-report-id="{{ $report->grade_id }}"
+                                                        data-file-type="registrar">
+                                                    <span class="text-xs text-[#8B4513] font-medium flex items-center gap-1">
+                                                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                                                        อัปโหลดจาก REG
                                                     </span>
                                                 </label>
                                                 @if ($canSubmitCorrections)
@@ -609,7 +662,7 @@
                 </div>
                 <p class="text-xs text-red-700 mt-3 leading-relaxed">
                     ** เมื่อสร้างแบบรายงานแล้ว ต้องกรอกจำนวนนักศึกษาก่อนจึงจะพิมพ์แบบฟอร์มได้<br>
-                    ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด (อัปโหลดไฟล์ PDF ในคอลัมน์ «ไฟล์แนบ»)
+                    ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด (อัปโหลด PDF ในคอลัมน์ «แบบรายงานผลการสอบไล่» และ «ใบส่งผลการศึกษา (REG)»)
                 </p>
             @endif
             </div>
@@ -1113,8 +1166,10 @@
             }
 
             const reportId = input.dataset.reportId;
+            const fileType = input.dataset.fileType || 'exam_report';
             const formData = new FormData();
             formData.append('attachment', file);
+            formData.append('file_type', fileType);
 
             const res = await fetch(`/api/grade-reports/${reportId}/files`, {
                 method: 'POST',
@@ -1135,7 +1190,7 @@
             }
 
             const uploaded = await res.json();
-            const container = document.querySelector(`[data-report-files="${reportId}"]`);
+            const container = document.querySelector(`[data-report-files="${reportId}"][data-file-type="${fileType}"]`);
             if (!container) return;
 
             container.querySelector('.file-empty-msg')?.remove();
@@ -1154,7 +1209,7 @@
             chip.innerHTML = `
                 <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
                 <a href="${uploaded.view_url}" target="_blank" rel="noopener noreferrer"
-                   class="hover:underline truncate max-w-[10rem]" title="${uploaded.original_name}">
+                   class="hover:underline truncate max-w-[9rem]" title="${uploaded.original_name}">
                     ${uploaded.original_name}
                 </a>
                 <button type="button" class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
@@ -1191,14 +1246,15 @@
                 return;
             }
 
-            btn.closest('.file-chip')?.remove();
-            const container = document.querySelector(`[data-report-files="${reportId}"]`);
+            const chip = btn.closest('.file-chip');
+            const container = chip?.closest('[data-report-files]');
+            chip?.remove();
             const list = container?.querySelector('.file-list');
             if (list && !list.children.length) {
                 list.remove();
                 const empty = document.createElement('p');
                 empty.className = 'text-xs text-gray-500 file-empty-msg';
-                empty.textContent = 'ยังไม่มีไฟล์แนบ';
+                empty.textContent = 'ยังไม่มีไฟล์';
                 const uploadZone = container.querySelector('.file-upload-zone');
                 container.insertBefore(empty, uploadZone);
             }

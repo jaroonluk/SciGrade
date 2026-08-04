@@ -18,6 +18,7 @@ use App\Http\Controllers\FacultyAdmin\RegGradeStatusController;
 use App\Http\Controllers\FacultyDeptSubmissionController;
 use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportFileController;
+use App\Http\Controllers\GradeReportFileDownloadController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImpersonationController;
@@ -69,11 +70,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/print-summary', [GradeReportPageController::class, 'printSummary'])->name('print.summary');
         Route::get('/{gradeReport}/edit', [GradeReportPageController::class, 'edit'])->name('edit');
         Route::get('/{gradeReport}/print', [GradeReportPageController::class, 'print'])->name('print');
+        Route::get('/{gradeReport}/files-zip', [GradeReportFileDownloadController::class, 'downloadReport'])->name('files.zip');
         Route::get('/{gradeReport}/files/{file}', [GradeReportFileController::class, 'show'])->name('files.show');
     });
 
     Route::middleware('dept.admin')->prefix('dept-admin')->name('dept-admin.')->group(function () {
         Route::get('/reviews', [GradeReportReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/reviews/files/download', [GradeReportFileDownloadController::class, 'downloadDept'])->name('reviews.files.download');
         Route::post('/reviews/{gradeReport}/approve', [GradeReportReviewController::class, 'approve'])->name('reviews.approve');
         Route::post('/reviews/{gradeReport}/reject', [GradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::post('/reviews/{gradeReport}/send-back', [GradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
@@ -87,6 +90,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('faculty.admin')->prefix('faculty-admin')->name('faculty-admin.')->group(function () {
         Route::get('/reviews', [FacultyGradeReportReviewController::class, 'index'])->name('reviews.index');
         Route::post('/reviews/bulk-approve', [FacultyGradeReportReviewController::class, 'bulkApprove'])->name('reviews.bulk-approve');
+        Route::post('/reviews/files/download', [GradeReportFileDownloadController::class, 'downloadFaculty'])->name('reviews.files.download');
         Route::post('/reviews/{gradeReport}/approve', [FacultyGradeReportReviewController::class, 'approve'])->name('reviews.approve');
         Route::post('/reviews/{gradeReport}/reject', [FacultyGradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::post('/reviews/{gradeReport}/send-back', [FacultyGradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');

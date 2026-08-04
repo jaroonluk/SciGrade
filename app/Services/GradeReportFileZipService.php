@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\GradeReport;
+use App\Models\GradeReportFile;
+use App\Support\UploadStorage;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use ZipArchive;
+
+class GradeReportFileZipService
+{
+    /**
+     * @param  Collection<int, GradeReportFile>  $files
+     */
+    public function download(Collection $files, string $downloadName): BinaryFileResponse
+    {
+        if ($files->isEmpty()) {
+            throw new RuntimeException('ไม่พบไฟล์แนบตามเงื่อนไข');
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'grzip_');
+        if ($tmp === false) {
+            throw new RuntimeException('ไม่สามารถสร้างไฟล์ชั่วคราวได้');
+        }
+
+        $zipPath = $tmp.'.zip';
+        @unlink($tmp);
+
+        $zip = new ZipArchive;
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('ไม่สามารถสร้างไฟล์ ZIP ได้');
+        }
+
+        $usedNames = [];
+
+        foreach ($files as $file) {
+            $disk = UploadStorage::diskFor($file->stored_path);
+            if (! $disk->exists($file->stored_path)) {
+                continue;
+            }
+
+            $contents = $disk->get($file->stored_path);
+            if ($contents === null) {
+                continue;
+            }
+
+            $entry = $this->entryName($file, $usedNames);
+            $zip->addFromString($entry, $contents);
+        }
+
+        $zip->close();
+
+        if (! is_file($zipPath) || filesize($zipPath) === 0) {
+            @unlink($zipPath);
+            throw new RuntimeException('ไม่พบไฟล์ในคลังเก็บข้อมูล');
+        }
+
+        $safeName = Str::finish(preg_replace('/[^\w.\-ก-๙]+/u', '_', $downloadName) ?: 'grade_files', '.zip');
+
+        return response()->download($zipPath, $safeName, [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * @param  array<string, true>  $usedNames
+     */
+    private function entryName(GradeReportFile $file, array &$usedNames): string
+    {
+        $report = $file->relationLoaded('gradeReport') ? $file->gradeReport : null;
+        $subject = $report?->subject_code ?: 'grade';
+        $folder = preg_replace('/[^\w.\-]+/', '_', (string) $subject).'_'.$file->grade_id;
+        $typeFolder = $file->isRegistrar() ? 'registrar' : 'exam_report';
+        $base = $folder.'/'.$typeFolder.'/'.basename((string) $file->original_name);
+
+        if (! isset($usedNames[$base])) {
+            $usedNames[$base] = true;
+
+            return $base;
+        }
+
+        $n = 2;
+        $pathInfo = pathinfo($base);
+        $dir = $pathInfo['dirname'] ?? $folder.'/'.$typeFolder;
+        $filename = $pathInfo['filename'] ?? 'file';
+        $ext = isset($pathInfo['extension']) ? '.'.$pathInfo['extension'] : '';
+
+        do {
+            $candidate = $dir.'/'.$filename.'_'.$n.$ext;
+            $n++;
+        } while (isset($usedNames[$candidate]));
+
+        $usedNames[$candidate] = true;
+
+        return $candidate;
+    }
+
+    /**
+     * @param  Collection<int, GradeReport>  $reports
+     * @return Collection<int, GradeReportFile>
+     */
+    public function collectFiles(Collection $reports, ?string $fileType = null): Collection
+    {
+        $files = $reports
+            ->flatMap(function (GradeReport $report) {
+                if ($report->relationLoaded('files')) {
+                    return $report->files;
+                }
+
+                return $report->files()->get();
+            })
+            ->filter(fn ($file) => $file instanceof GradeReportFile)
+            ->values();
+
+        if ($fileType === null || $fileType === '' || $fileType === 'all') {
+            return $files;
+        }
+
+        return $files
+            ->filter(fn (GradeReportFile $file) => $file->resolvedType() === $fileType)
+            ->values();
+    }
+}
