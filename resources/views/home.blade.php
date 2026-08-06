@@ -1085,7 +1085,7 @@
                             <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#8B4513] text-white text-xs font-bold">4</span>
                             <h4 class="text-base font-bold text-[#5C2E1F]">สิทธิผู้ใช้งาน</h4>
                         </div>
-                        <p class="text-xs text-[#7A4A3A]/75 ml-9">กำหนดสิทธิเจ้าหน้าที่ และเข้าใช้งานแทนบุคลากร</p>
+                        <p class="text-xs text-[#7A4A3A]/75 ml-9">กำหนดสิทธิเจ้าหน้าที่ เข้าใช้งานแทนบุคลากร และดูบันทึกการใช้งาน</p>
                     </div>
                 </div>
                 <div class="admin-section-body">
@@ -1108,6 +1108,16 @@
                                         <p class="menu-step">4.2 · Super Admin</p>
                                         <p class="font-semibold text-[#5C2E1F]">เข้าใช้งานแทนบุคลากร</p>
                                         <p class="text-sm text-[#7A4A3A]/70 mt-1">เข้าแทนอาจารย์ / Admin สาขา / Admin กลาง</p>
+                                    </div>
+                                </div>
+                            </a>
+                            <a href="{{ route('super-admin.audit-logs.index') }}" class="menu-card rounded-xl p-5 block ring-1 ring-[#E8C4B8]">
+                                <div class="flex items-start gap-3">
+                                    <div class="menu-icon"><i data-lucide="scroll-text" class="w-5 h-5"></i></div>
+                                    <div>
+                                        <p class="menu-step">4.3 · Super Admin</p>
+                                        <p class="font-semibold text-[#5C2E1F]">บันทึกการใช้งานระบบ</p>
+                                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ดูประวัติการเข้าใช้และการเปลี่ยนแปลงสำคัญ</p>
                                     </div>
                                 </div>
                             </a>

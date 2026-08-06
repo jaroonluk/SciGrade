@@ -5,11 +5,16 @@ namespace App\Services\Instructor;
 use App\Enums\GradeApprovalStatus;
 use App\Models\GradeReport;
 use App\Models\GradeReportApprovalLog;
+use App\Services\AuditLogService;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class GradeReportSubmissionService
 {
+    public function __construct(
+        private readonly AuditLogService $auditLog,
+    ) {}
+
     public function submitCorrections(GradeReport $report, string $instructorUsername): GradeReport
     {
         return DB::connection('scigrad')->transaction(function () use ($report, $instructorUsername) {
@@ -43,6 +48,19 @@ class GradeReportSubmissionService
                 'remark' => null,
                 'created_at' => now(),
             ]);
+
+            $this->auditLog->record(
+                'grade_report.submit_corrections',
+                subjectType: 'grade_report',
+                subjectId: $report->grade_id,
+                metadata: [
+                    'from_status' => $from,
+                    'to_status' => GradeApprovalStatus::Saved->value,
+                    'subject_code' => $report->subject_code,
+                ],
+                actorUsername: $instructorUsername,
+                actorRole: 'instructor',
+            );
 
             return $report->fresh(['gradeStds', 'files', 'approvalLogs.approver']);
         });

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
 use App\Models\GradeStd;
+use App\Services\AuditLogService;
 use App\Services\GradReport2Service;
 use App\Services\StaffAuthService;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,7 @@ class GradeReportController extends Controller
     public function __construct(
         private readonly StaffAuthService $staffAuth,
         private readonly GradReport2Service $gradReport2,
+        private readonly AuditLogService $auditLog,
     ) {}
     public function index(Request $request): JsonResponse
     {
@@ -69,6 +71,17 @@ class GradeReportController extends Controller
             return $report->load('gradeStds');
         });
 
+        $this->auditLog->record(
+            'grade_report.create',
+            subjectType: 'grade_report',
+            subjectId: $report->grade_id,
+            metadata: [
+                'subject_code' => $report->subject_code,
+                'term' => $report->term,
+                'year' => $report->year,
+            ],
+        );
+
         return response()->json($this->formatReport($report), 201);
     }
 
@@ -102,6 +115,17 @@ class GradeReportController extends Controller
             }
         });
 
+        $this->auditLog->record(
+            'grade_report.update',
+            subjectType: 'grade_report',
+            subjectId: $gradeReport->grade_id,
+            metadata: [
+                'subject_code' => $gradeReport->subject_code,
+                'term' => $gradeReport->term,
+                'year' => $gradeReport->year,
+            ],
+        );
+
         return response()->json($this->formatReport($gradeReport->fresh('gradeStds')));
     }
 
@@ -113,11 +137,25 @@ class GradeReportController extends Controller
             return response()->json(['message' => 'ไม่สามารถลบรายการที่อนุมัติแล้ว'], 422);
         }
 
+        $meta = [
+            'subject_code' => $gradeReport->subject_code,
+            'term' => $gradeReport->term,
+            'year' => $gradeReport->year,
+        ];
+        $gradeId = $gradeReport->grade_id;
+
         DB::connection('scigrad')->transaction(function () use ($gradeReport) {
             $gradeReport->files()->each(fn ($file) => $file->delete());
             $gradeReport->gradeStds()->delete();
             $gradeReport->delete();
         });
+
+        $this->auditLog->record(
+            'grade_report.delete',
+            subjectType: 'grade_report',
+            subjectId: $gradeId,
+            metadata: $meta,
+        );
 
         return response()->json(['ok' => true]);
     }

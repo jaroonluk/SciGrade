@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Models\TblUser;
+use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Services\FacultyAdmin\FacultyReportQueryService;
@@ -25,6 +26,7 @@ class GradeReportFileDownloadController extends Controller
         private readonly DepartmentAccessService $departmentAccess,
         private readonly DepartmentReportQueryService $deptQuery,
         private readonly FacultyReportQueryService $facultyQuery,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function downloadReport(Request $request, GradeReport $gradeReport): BinaryFileResponse|RedirectResponse
@@ -36,7 +38,7 @@ class GradeReportFileDownloadController extends Controller
         try {
             $files = $this->zipService->collectFiles(collect([$gradeReport->loadMissing('files.gradeReport')]), $type);
 
-            return $this->zipService->download(
+            $response = $this->zipService->download(
                 $files,
                 sprintf(
                     '%s_%s_%s_files.zip',
@@ -45,6 +47,19 @@ class GradeReportFileDownloadController extends Controller
                     $gradeReport->subject_code,
                 ),
             );
+
+            $this->auditLog->record(
+                'grade_report_file.download_zip',
+                subjectType: 'grade_report',
+                subjectId: $gradeReport->grade_id,
+                metadata: [
+                    'scope' => 'report',
+                    'type' => $type,
+                    'file_count' => $files->count(),
+                ],
+            );
+
+            return $response;
         } catch (RuntimeException $e) {
             return back()->withErrors(['download' => $e->getMessage()]);
         }
@@ -144,10 +159,25 @@ class GradeReportFileDownloadController extends Controller
         try {
             $files = $this->zipService->collectFiles($reports, $type);
 
-            return $this->zipService->download(
+            $response = $this->zipService->download(
                 $files,
                 sprintf('%s_%s.zip', $prefix, now()->format('Ymd_His')),
             );
+
+            $this->auditLog->record(
+                'grade_report_file.download_zip',
+                subjectType: 'grade_report_batch',
+                subjectId: $prefix,
+                metadata: [
+                    'scope' => $prefix,
+                    'type' => $type,
+                    'report_count' => $reports->count(),
+                    'file_count' => $files->count(),
+                    'grade_ids' => $reports->pluck('grade_id')->take(100)->values()->all(),
+                ],
+            );
+
+            return $response;
         } catch (RuntimeException $e) {
             return back()->withErrors(['download' => $e->getMessage()]);
         }

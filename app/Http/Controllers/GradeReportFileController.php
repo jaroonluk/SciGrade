@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
 use App\Models\GradeReportFile;
+use App\Services\AuditLogService;
 use App\Services\GradeReportAttachmentNameService;
 use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
@@ -18,6 +19,7 @@ class GradeReportFileController extends Controller
     public function __construct(
         private readonly StaffAuthService $staffAuth,
         private readonly GradeReportAttachmentNameService $attachmentNames,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function store(Request $request, GradeReport $gradeReport): JsonResponse
@@ -54,6 +56,17 @@ class GradeReportFileController extends Controller
             'username' => $this->staffUsername(),
         ]);
 
+        $this->auditLog->record(
+            'grade_report_file.upload',
+            subjectType: 'grade_report_file',
+            subjectId: $file->file_id,
+            metadata: [
+                'grade_id' => $gradeReport->grade_id,
+                'file_type' => $fileType,
+                'original_name' => $file->original_name,
+            ],
+        );
+
         return response()->json($this->formatFile($file), 201);
     }
 
@@ -61,6 +74,17 @@ class GradeReportFileController extends Controller
     {
         abort_unless($this->canViewFiles($gradeReport), 403);
         abort_unless((int) $file->grade_id === (int) $gradeReport->grade_id, 404);
+
+        $this->auditLog->record(
+            'grade_report_file.view',
+            subjectType: 'grade_report_file',
+            subjectId: $file->file_id,
+            metadata: [
+                'grade_id' => $gradeReport->grade_id,
+                'file_type' => $file->resolvedType(),
+                'original_name' => $file->original_name,
+            ],
+        );
 
         return UploadStorage::inlineResponse($file->stored_path, $file->original_name, 'application/pdf');
     }
@@ -76,7 +100,21 @@ class GradeReportFileController extends Controller
             ], 422);
         }
 
+        $meta = [
+            'grade_id' => $gradeReport->grade_id,
+            'file_type' => $file->resolvedType(),
+            'original_name' => $file->original_name,
+        ];
+        $fileId = $file->file_id;
+
         $file->delete();
+
+        $this->auditLog->record(
+            'grade_report_file.delete',
+            subjectType: 'grade_report_file',
+            subjectId: $fileId,
+            metadata: $meta,
+        );
 
         return response()->json(['ok' => true]);
     }

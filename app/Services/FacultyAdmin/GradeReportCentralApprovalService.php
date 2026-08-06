@@ -5,11 +5,15 @@ namespace App\Services\FacultyAdmin;
 use App\Enums\GradeApprovalStatus;
 use App\Models\GradeReport;
 use App\Models\GradeReportApprovalLog;
+use App\Services\AuditLogService;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class GradeReportCentralApprovalService
 {
+    public function __construct(
+        private readonly AuditLogService $auditLog,
+    ) {}
     public function approve(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
     {
         return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
@@ -136,5 +140,20 @@ class GradeReportCentralApprovalService
             'remark' => $remark,
             'created_at' => now(),
         ]);
+
+        $this->auditLog->record(
+            'grade_report.review',
+            subjectType: 'grade_report',
+            subjectId: $report->grade_id,
+            metadata: [
+                'action' => $action,
+                'from_status' => $from,
+                'to_status' => $to,
+                'remark' => $remark,
+                'subject_code' => $report->subject_code,
+            ],
+            actorUsername: $approverUsername,
+            actorRole: 'faculty_admin',
+        );
     }
 }

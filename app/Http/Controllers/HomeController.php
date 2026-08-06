@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
+use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DeptSubmissionService;
 use App\Services\StaffAuthService;
@@ -19,6 +20,7 @@ class HomeController extends Controller
         private readonly StaffAuthService $staffAuth,
         private readonly DepartmentAccessService $departmentAccess,
         private readonly DeptSubmissionService $deptSubmissionService,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function index(Request $request): View
@@ -100,7 +102,13 @@ class HomeController extends Controller
             abort(403);
         }
 
+        $fromRole = SciGradeRole::current();
         session(['scigrade_role' => $request->role]);
+
+        $this->auditLog->record('role.switch', metadata: [
+            'from_role' => $fromRole,
+            'to_role' => $request->role,
+        ]);
 
         return redirect()->route('dashboard');
     }

@@ -8,6 +8,7 @@ use App\Models\StaffDepartmentAccess;
 use App\Models\TblDepartment;
 use App\Models\TblPrivilege;
 use App\Models\TblUser;
+use App\Services\AuditLogService;
 use App\Services\FacultyAdmin\StaffDepartmentAccessService;
 use App\Support\SciGradeRole;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,7 @@ class PrivilegeController extends Controller
 {
     public function __construct(
         private readonly StaffDepartmentAccessService $departmentAccess,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function index(): View
@@ -133,10 +135,21 @@ class PrivilegeController extends Controller
             'system_id' => TblPrivilege::SYSTEM_GRADE_REPORT,
         ]);
 
+        $departmentIds = (array) $request->input('department_ids', []);
         $this->departmentAccess->syncForUsername(
             $username,
             $level,
-            (array) $request->input('department_ids', []),
+            $departmentIds,
+        );
+
+        $this->auditLog->record(
+            'privilege.create',
+            subjectType: 'privilege',
+            subjectId: $username,
+            metadata: [
+                'level' => $level,
+                'department_ids' => $departmentIds,
+            ],
         );
 
         return redirect()
@@ -154,15 +167,28 @@ class PrivilegeController extends Controller
         );
 
         $level = (int) $request->input('level');
+        $fromLevel = (int) $privilege->level;
 
         $privilege->update([
             'level' => $level,
         ]);
 
+        $departmentIds = (array) $request->input('department_ids', []);
         $this->departmentAccess->syncForUsername(
             (string) $privilege->username,
             $level,
-            (array) $request->input('department_ids', []),
+            $departmentIds,
+        );
+
+        $this->auditLog->record(
+            'privilege.update',
+            subjectType: 'privilege',
+            subjectId: $privilege->username,
+            metadata: [
+                'from_level' => $fromLevel,
+                'to_level' => $level,
+                'department_ids' => $departmentIds,
+            ],
         );
 
         return redirect()
@@ -180,8 +206,18 @@ class PrivilegeController extends Controller
         );
 
         $username = (string) $privilege->username;
+        $level = (int) $privilege->level;
         $privilege->delete();
         $this->departmentAccess->clearForUsername($username);
+
+        $this->auditLog->record(
+            'privilege.delete',
+            subjectType: 'privilege',
+            subjectId: $username,
+            metadata: [
+                'level' => $level,
+            ],
+        );
 
         return redirect()
             ->route('faculty-admin.settings.privileges.index')

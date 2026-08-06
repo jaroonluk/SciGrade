@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DeptSubmission;
+use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DeptSubmissionService;
 use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
@@ -13,6 +14,7 @@ class FacultyDeptSubmissionController extends Controller
     public function __construct(
         private readonly StaffAuthService $staffAuth,
         private readonly DeptSubmissionService $submissionService,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function receive(DeptSubmission $submission): JsonResponse
@@ -24,6 +26,18 @@ class FacultyDeptSubmissionController extends Controller
         $this->staffAuth->storeInSession($staff);
 
         $updated = $this->submissionService->receiveSubmission($submission, $staff->username);
+
+        $this->auditLog->record(
+            'dept_submission.receive',
+            subjectType: 'dept_submission',
+            subjectId: $updated->submission_id,
+            metadata: [
+                'department_id' => $updated->department_id,
+                'term' => $updated->term,
+                'year' => $updated->year,
+                'status' => $updated->status,
+            ],
+        );
 
         return response()->json([
             'submission_id' => $updated->submission_id,

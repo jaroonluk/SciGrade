@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,7 @@ class GoogleAuthController extends Controller
 {
     public function __construct(
         private readonly StaffAuthService $staffAuth,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function redirect(): SymfonyRedirectResponse|RedirectResponse
@@ -53,6 +55,10 @@ class GoogleAuthController extends Controller
         $staff = $this->staffAuth->findByEmail($email);
 
         if (! $staff) {
+            $this->auditLog->record('auth.denied', metadata: [
+                'email' => $email,
+            ]);
+
             return $this->oauthFailureRedirect(StaffAuthService::ACCESS_DENIED_MESSAGE);
         }
 
@@ -71,17 +77,37 @@ class GoogleAuthController extends Controller
 
         $this->staffAuth->storeInSession($staff);
 
-        session([
-            'scigrade_role' => SciGradeRole::staffHasSuperPrivilege($staff->username)
-                ? SciGradeRole::SUPER_ADMIN
-                : SciGradeRole::INSTRUCTOR,
-        ]);
+        $role = SciGradeRole::staffHasSuperPrivilege($staff->username)
+            ? SciGradeRole::SUPER_ADMIN
+            : SciGradeRole::INSTRUCTOR;
+
+        session(['scigrade_role' => $role]);
+
+        $this->auditLog->record(
+            'auth.login',
+            subjectType: 'staff',
+            subjectId: $staff->username,
+            metadata: ['email' => $email],
+            actorUsername: $staff->username,
+            actorRole: $role,
+        );
 
         return redirect()->intended(route('dashboard'));
     }
 
     public function logout(): RedirectResponse
     {
+        $username = session('staff_username');
+        $role = session('scigrade_role');
+
+        $this->auditLog->record(
+            'auth.logout',
+            subjectType: 'staff',
+            subjectId: $username,
+            actorUsername: $username ? (string) $username : null,
+            actorRole: $role ? (string) $role : null,
+        );
+
         Auth::logout();
 
         $this->staffAuth->clearSession();

@@ -12,6 +12,7 @@ class ImpersonationService
 {
     public function __construct(
         private readonly StaffAuthService $staffAuth,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     /**
@@ -57,6 +58,18 @@ class ImpersonationService
         Auth::login($targetUser, true);
         $this->staffAuth->storeInSession($targetStaff);
         session(['scigrade_role' => $targetRole]);
+
+        $this->auditLog->record(
+            'impersonation.start',
+            subjectType: 'staff',
+            subjectId: $targetStaff->username,
+            metadata: [
+                'target_username' => $targetStaff->username,
+                'target_role' => $targetRole,
+            ],
+            actorUsername: (string) $targetStaff->username,
+            actorRole: $targetRole,
+        );
     }
 
     public function stop(): void
@@ -68,9 +81,23 @@ class ImpersonationService
         $actorUserId = session('impersonator_user_id');
         $actorStaffUsername = session('impersonator_staff_username');
         $actorRole = session('impersonator_role', SciGradeRole::SUPER_ADMIN);
+        $targetUsername = session('staff_username');
+        $targetRole = SciGradeRole::current();
 
         $actor = User::query()->find($actorUserId);
         abort_unless($actor, 403, 'ไม่พบบัญชี Super Admin เดิม');
+
+        $this->auditLog->record(
+            'impersonation.stop',
+            subjectType: 'staff',
+            subjectId: $targetUsername,
+            metadata: [
+                'target_username' => $targetUsername,
+                'target_role' => $targetRole,
+            ],
+            actorUsername: $targetUsername ? (string) $targetUsername : null,
+            actorRole: $targetRole,
+        );
 
         Auth::login($actor, true);
 

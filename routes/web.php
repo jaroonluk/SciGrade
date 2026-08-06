@@ -22,6 +22,7 @@ use App\Http\Controllers\GradeReportFileDownloadController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\SuperAdmin\AuditLogController;
 use App\Http\Controllers\SuperAdmin\DepartmentSubjectPatternController;
 use App\Http\Controllers\SuperAdmin\GradReport2GroupController;
 use App\Http\Controllers\SubjectController;
@@ -50,6 +51,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/impersonate', [ImpersonationController::class, 'index'])->name('impersonate');
         Route::post('/impersonate', [ImpersonationController::class, 'start'])->name('impersonate.start');
         Route::get('/impersonate/users/search', [ImpersonationController::class, 'searchUsers'])->name('impersonate.users.search');
+
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
 
         Route::get('/department-patterns', [DepartmentSubjectPatternController::class, 'index'])->name('department-patterns.index');
         Route::post('/department-patterns', [DepartmentSubjectPatternController::class, 'store'])->name('department-patterns.store');
