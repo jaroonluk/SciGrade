@@ -82,6 +82,62 @@
         <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm">{{ session('status') }}</div>
     @endif
 
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['q' => $search ?: null])) }}"
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === 'all' ? 'border-[#8B4513] bg-[#fdf6f0] ring-1 ring-[#8B4513]/30' : 'border-amber-200 bg-white hover:border-[#C4725C]' }}">
+            <p class="text-xs text-[#7A4A3A]/80">ทั้งหมด</p>
+            <p class="text-2xl font-bold text-[#5C2E1F] mt-1">{{ $summary['total'] ?? 0 }}</p>
+        </a>
+        <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['level' => '0', 'q' => $search ?: null])) }}"
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '0' ? 'border-slate-400 bg-slate-50 ring-1 ring-slate-300' : 'border-slate-200 bg-slate-50/70 hover:border-slate-400' }}">
+            <p class="text-xs text-slate-600">เจ้าหน้าที่งานบริการ</p>
+            <p class="text-2xl font-bold text-slate-700 mt-1">{{ $summary[0] ?? 0 }}</p>
+        </a>
+        <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['level' => '1', 'q' => $search ?: null])) }}"
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '1' ? 'border-sky-400 bg-sky-50 ring-1 ring-sky-300' : 'border-sky-200 bg-sky-50/70 hover:border-sky-400' }}">
+            <p class="text-xs text-sky-800">เจ้าหน้าที่สาขาวิชา</p>
+            <p class="text-2xl font-bold text-sky-800 mt-1">{{ $summary[1] ?? 0 }}</p>
+        </a>
+        <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['level' => '2', 'q' => $search ?: null])) }}"
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '2' ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-300' : 'border-violet-200 bg-violet-50/70 hover:border-violet-400' }}">
+            <p class="text-xs text-violet-800">Super Admin</p>
+            <p class="text-2xl font-bold text-violet-800 mt-1">{{ $summary[2] ?? 0 }}</p>
+        </a>
+    </div>
+
+    <div class="form-section rounded-xl p-5">
+        <form method="GET" action="{{ route('faculty-admin.settings.privileges.index') }}" class="flex flex-wrap items-end gap-3" id="privilege-filter-form">
+            <div class="flex-1 min-w-[16rem]">
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ค้นหารายชื่อที่มีสิทธิ์แล้ว</label>
+                <input type="text" name="q" id="privilege-list-search" value="{{ $search ?? '' }}"
+                    placeholder="ชื่อ สกุล รหัสประจำตัว หรือ username"
+                    autocomplete="off"
+                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับสิทธิ์</label>
+                <select name="level" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[12rem]"
+                    onchange="this.form.submit()">
+                    <option value="all" @selected(($levelFilter ?? 'all') === 'all')>ทั้งหมด</option>
+                    <option value="0" @selected(($levelFilter ?? 'all') === '0')>เจ้าหน้าที่งานบริการ</option>
+                    <option value="1" @selected(($levelFilter ?? 'all') === '1')>เจ้าหน้าที่สาขาวิชา</option>
+                    <option value="2" @selected(($levelFilter ?? 'all') === '2')>Super Admin</option>
+                </select>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">ค้นหา</button>
+            @if (($search ?? '') !== '' || ($levelFilter ?? 'all') !== 'all')
+                <a href="{{ route('faculty-admin.settings.privileges.index') }}"
+                    class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
+            @endif
+        </form>
+        <p class="text-xs text-gray-500 mt-2">
+            คลิกการ์ดสรุปด้านบน หรือเลือกระดับสิทธิ์ เพื่อดูรายชื่อแล้วกด “ลบสิทธิ” ได้ทันที
+            @if (($search ?? '') !== '' || ($levelFilter ?? 'all') !== 'all')
+                — แสดง {{ number_format($privileges->total()) }} รายการตามเงื่อนไข
+            @endif
+        </p>
+    </div>
+
     <div class="form-section rounded-xl p-5">
         <h3 class="font-semibold text-[#5C2E1F] mb-3">เพิ่มผู้ใช้งาน</h3>
         <form method="POST" action="{{ route('faculty-admin.settings.privileges.store') }}" id="privilege-create-form" class="space-y-4">
@@ -134,6 +190,16 @@
     </div>
 
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
+        <div class="px-4 py-3 bg-amber-50 border-b border-amber-200 text-sm text-[#5C2E1F] flex flex-wrap items-center justify-between gap-2">
+            <span>
+                รายชื่อผู้มีสิทธิ์
+                @if (($levelFilter ?? 'all') === '0') — เจ้าหน้าที่งานบริการ
+                @elseif (($levelFilter ?? 'all') === '1') — เจ้าหน้าที่สาขาวิชา
+                @elseif (($levelFilter ?? 'all') === '2') — Super Admin
+                @endif
+            </span>
+            <span class="text-xs text-gray-600">{{ number_format($privileges->total()) }} คน</span>
+        </div>
         <table class="w-full text-sm min-w-[720px]">
             <thead class="bg-amber-50">
                 <tr>
@@ -198,7 +264,13 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-3 py-8 text-center text-gray-500">ยังไม่มีผู้ใช้งาน</td></tr>
+                    <tr><td colspan="4" class="px-3 py-8 text-center text-gray-500">
+                        @if (($search ?? '') !== '' || ($levelFilter ?? 'all') !== 'all')
+                            ไม่พบผู้มีสิทธิ์ตามเงื่อนไขที่ค้นหา
+                        @else
+                            ยังไม่มีผู้ใช้งาน
+                        @endif
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -248,6 +320,21 @@
 @push('scripts')
 <script>
 (function() {
+    const filterForm = document.getElementById('privilege-filter-form');
+    const listSearch = document.getElementById('privilege-list-search');
+    if (filterForm && listSearch) {
+        let filterTimer = null;
+        let lastSubmitted = listSearch.value;
+        listSearch.addEventListener('input', () => {
+            clearTimeout(filterTimer);
+            filterTimer = setTimeout(() => {
+                if (listSearch.value === lastSubmitted) return;
+                lastSubmitted = listSearch.value;
+                filterForm.requestSubmit();
+            }, 350);
+        });
+    }
+
     const searchInput = document.getElementById('user-search');
     const usernameInput = document.getElementById('user-username');
     const suggestions = document.getElementById('user-suggestions');

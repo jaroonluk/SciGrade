@@ -23,14 +23,49 @@ class PrivilegeController extends Controller
         private readonly AuditLogService $auditLog,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        $privileges = TblPrivilege::query()
+        $search = trim((string) $request->input('q', ''));
+        $levelFilter = $request->input('level', 'all');
+        if ($levelFilter !== 'all' && ! in_array((string) $levelFilter, ['0', '1', '2'], true)) {
+            $levelFilter = 'all';
+        }
+
+        $baseQuery = TblPrivilege::query()
+            ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT);
+
+        $levelCounts = $baseQuery->clone()
+            ->selectRaw('level, COUNT(*) as total')
+            ->groupBy('level')
+            ->pluck('total', 'level');
+
+        $summary = [
+            TblPrivilege::LEVEL_SERVICE => (int) ($levelCounts[TblPrivilege::LEVEL_SERVICE] ?? 0),
+            TblPrivilege::LEVEL_DEPT => (int) ($levelCounts[TblPrivilege::LEVEL_DEPT] ?? 0),
+            TblPrivilege::LEVEL_SUPER => (int) ($levelCounts[TblPrivilege::LEVEL_SUPER] ?? 0),
+        ];
+        $summary['total'] = array_sum($summary);
+
+        $privileges = $baseQuery->clone()
             ->with(['user.titleRelation'])
-            ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
+            ->when($levelFilter !== 'all', fn ($q) => $q->where('level', (int) $levelFilter))
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.$search.'%';
+                $query->where(function ($inner) use ($like) {
+                    $inner->where('username', 'like', $like)
+                        ->orWhereHas('user', function ($userQuery) use ($like) {
+                            $userQuery->where('fname', 'like', $like)
+                                ->orWhere('lname', 'like', $like)
+                                ->orWhere('userid', 'like', $like)
+                                ->orWhere('username', 'like', $like)
+                                ->orWhere('email', 'like', $like);
+                        });
+                });
+            })
             ->orderBy('level')
             ->orderBy('username')
-            ->paginate(30);
+            ->paginate(30)
+            ->withQueryString();
 
         $usernames = $privileges->getCollection()->pluck('username')->filter()->all();
         $accessByUser = StaffDepartmentAccess::query()
@@ -56,6 +91,9 @@ class PrivilegeController extends Controller
             'privileges' => $privileges,
             'departments' => $this->selectableDepartments(),
             'canAssignSuper' => SciGradeRole::canAssignSuperPrivilege(),
+            'summary' => $summary,
+            'search' => $search,
+            'levelFilter' => (string) $levelFilter,
         ]);
     }
 
