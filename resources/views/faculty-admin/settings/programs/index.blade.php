@@ -54,13 +54,17 @@
                         <td class="px-3 py-2">{{ $program->department?->department_name ?? '-' }}</td>
                         <td class="px-3 py-2 text-center">{{ $program->typestudyLabel() }}</td>
                         <td class="px-3 py-2 text-center">
-                            <a href="{{ route('faculty-admin.settings.programs.edit', $program) }}" class="text-[#8B4513] hover:underline text-xs mr-2">แก้ไข</a>
-                            <form method="POST" action="{{ route('faculty-admin.settings.programs.destroy', $program) }}" class="inline"
-                                onsubmit="return confirm('ลบหลักสูตรนี้?')">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:underline text-xs">ลบ</button>
-                            </form>
+                            @if (filled($program->programid))
+                                <a href="{{ route('faculty-admin.settings.programs.edit', ['program' => $program->programid]) }}" class="text-[#8B4513] hover:underline text-xs mr-2">แก้ไข</a>
+                                <form method="POST" action="{{ route('faculty-admin.settings.programs.destroy', ['program' => $program->programid]) }}" class="inline"
+                                    onsubmit="return confirm('ลบหลักสูตรนี้?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:underline text-xs">ลบ</button>
+                                </form>
+                            @else
+                                <span class="text-xs text-red-600">ไม่มีรหัสหลักสูตร</span>
+                            @endif
                         </td>
                     </tr>
                 @empty

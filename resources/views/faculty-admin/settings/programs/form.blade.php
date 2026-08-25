@@ -8,10 +8,10 @@
 
     <div class="form-section rounded-xl p-5">
         <form method="POST"
-            action="{{ $program->exists ? route('faculty-admin.settings.programs.update', $program) : route('faculty-admin.settings.programs.store') }}"
+            action="{{ ($program->exists && filled($program->programid)) ? route('faculty-admin.settings.programs.update', ['program' => $program->programid]) : route('faculty-admin.settings.programs.store') }}"
             class="space-y-4">
             @csrf
-            @if ($program->exists) @method('PUT') @endif
+            @if ($program->exists && filled($program->programid)) @method('PUT') @endif
 
             @if ($program->exists)
                 <input type="hidden" name="programid" value="{{ old('programid', $program->programid) }}">
