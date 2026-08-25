@@ -242,28 +242,28 @@
                                 <div class="text-xs text-gray-500 mb-0.5">{{ $row->COURSECODE }}</div>
                             @endif
 
-                            @if ($row->grade_id && $row->file_id && (int) $row->status >= 1)
-                                <a href="{{ route('grade-reports.files.show', ['gradeReport' => $row->grade_id, 'file' => $row->file_id]) }}"
-                                    target="_blank" rel="noopener noreferrer"
-                                    class="text-[#8B4513] hover:underline font-medium inline-flex items-center gap-1"
-                                    title="{{ $row->file_name ?: 'เปิดไฟล์ PDF' }}">
-                                    <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
-                                    @unless($isContinuation)
-                                        {{ $row->COURSECODE }}
-                                    @endunless
-                                    {{ $row->COURSENAMEENG }}
-                                </a>
-                            @elseif ($row->grade_id && (int) $row->status >= 1)
-                                <span class="font-medium text-[#5C2E1F]">
-                                    @unless($isContinuation){{ $row->COURSECODE }} @endunless
-                                    {{ $row->COURSENAMEENG }}
-                                </span>
-                                <span class="text-xs text-amber-700 block">ส่งแล้ว แต่ยังไม่มีไฟล์ PDF</span>
-                            @else
-                                <span class="font-medium text-[#5C2E1F]">
-                                    @unless($isContinuation){{ $row->COURSECODE }} @endunless
-                                    {{ $row->COURSENAMEENG }}
-                                </span>
+                            <span class="font-medium text-[#5C2E1F]">
+                                @unless($isContinuation){{ $row->COURSECODE }} @endunless
+                                {{ $row->COURSENAMEENG }}
+                            </span>
+
+                            @if ($row->grade_id && (int) $row->status >= 1)
+                                @php $attachedFiles = collect($row->attached_files ?? []); @endphp
+                                @if ($attachedFiles->isNotEmpty())
+                                    <div class="mt-1 flex flex-col gap-0.5">
+                                        @foreach ($attachedFiles as $file)
+                                            <a href="{{ route('grade-reports.files.show', ['gradeReport' => $row->grade_id, 'file' => $file->file_id]) }}"
+                                                target="_blank" rel="noopener noreferrer"
+                                                class="text-xs text-[#8B4513] hover:underline inline-flex items-center gap-1 w-fit"
+                                                title="{{ $file->file_name ?: $file->type_label }}">
+                                                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
+                                                {{ $file->type_label }}
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span class="text-xs text-amber-700 block mt-0.5">ส่งแล้ว แต่ยังไม่มีไฟล์ PDF</span>
+                                @endif
                             @endif
 
                             @if (! $isContinuation && $row->has_multi_section)

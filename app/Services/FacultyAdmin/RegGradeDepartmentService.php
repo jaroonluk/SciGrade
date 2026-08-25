@@ -3,6 +3,7 @@
 namespace App\Services\FacultyAdmin;
 
 use App\Models\GradeReport;
+use App\Models\GradeReportFile;
 use App\Models\GradeReportReg;
 use App\Models\TblDepartment;
 use App\Models\TblUser;
@@ -398,9 +399,10 @@ class RegGradeDepartmentService
         $fileId = null;
         $fileName = null;
         $approv = null;
+        $attachedFiles = collect();
 
         if ($report) {
-            [$status, $gradeId, $fileId, $fileName, $approv] = $this->statusFieldsFromReport($report);
+            [$status, $gradeId, $fileId, $fileName, $approv, $attachedFiles] = $this->statusFieldsFromReport($report);
         }
 
         return (object) [
@@ -414,6 +416,7 @@ class RegGradeDepartmentService
             'grade_id' => $gradeId,
             'file_id' => $fileId,
             'file_name' => $fileName,
+            'attached_files' => $attachedFiles,
             'approv' => $approv,
             'section_count' => 1,
             'has_multi_section' => false,
@@ -422,7 +425,7 @@ class RegGradeDepartmentService
 
     private function statusRowFromReport(GradeReport $report, string $section, int $term, int $year): object
     {
-        [$status, $gradeId, $fileId, $fileName, $approv] = $this->statusFieldsFromReport($report);
+        [$status, $gradeId, $fileId, $fileName, $approv, $attachedFiles] = $this->statusFieldsFromReport($report);
 
         return (object) [
             'COURSECODE' => strtoupper(trim((string) $report->subject_code)),
@@ -435,6 +438,7 @@ class RegGradeDepartmentService
             'grade_id' => $gradeId,
             'file_id' => $fileId,
             'file_name' => $fileName,
+            'attached_files' => $attachedFiles,
             'approv' => $approv,
             'section_count' => 1,
             'has_multi_section' => false,
@@ -442,7 +446,7 @@ class RegGradeDepartmentService
     }
 
     /**
-     * @return array{0: int, 1: int|null, 2: int|null, 3: string|null, 4: int|null}
+     * @return array{0: int, 1: int|null, 2: int|null, 3: string|null, 4: int|null, 5: Collection<int, object>}
      */
     private function statusFieldsFromReport(GradeReport $report): array
     {
@@ -454,14 +458,36 @@ class RegGradeDepartmentService
             default => 1,
         };
 
-        $file = $report->files->first();
+        // แสดงไฟล์ล่าสุดของแต่ละประเภท (แบบรายงานผล / ใบส่งผล REG)
+        $attachedFiles = collect(GradeReportFile::allowedTypes())
+            ->map(function (string $type) use ($report) {
+                $file = $report->files->first(
+                    fn (GradeReportFile $candidate) => $candidate->resolvedType() === $type
+                );
+
+                if (! $file) {
+                    return null;
+                }
+
+                return (object) [
+                    'file_id' => $file->file_id,
+                    'file_name' => $file->original_name,
+                    'file_type' => $type,
+                    'type_label' => $file->typeLabel(),
+                ];
+            })
+            ->filter()
+            ->values();
+
+        $first = $attachedFiles->first();
 
         return [
             $status,
             $report->grade_id,
-            $file?->file_id,
-            $file?->original_name,
+            $first?->file_id,
+            $first?->file_name,
             $approv,
+            $attachedFiles,
         ];
     }
 
