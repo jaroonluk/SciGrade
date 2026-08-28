@@ -45,7 +45,7 @@ class DepartmentSubjectPatternController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.department-patterns.index', [
+            ->route('faculty-admin.department-patterns.index', [
                 'department_id' => $validated['department_id'],
                 'q' => $request->input('q'),
             ])
@@ -68,7 +68,7 @@ class DepartmentSubjectPatternController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.department-patterns.index', [
+            ->route('faculty-admin.department-patterns.index', [
                 'department_id' => $pattern->department_id,
                 'q' => $request->input('q'),
             ])
@@ -82,7 +82,7 @@ class DepartmentSubjectPatternController extends Controller
         $this->service->destroy($pattern);
 
         return redirect()
-            ->route('super-admin.department-patterns.index', [
+            ->route('faculty-admin.department-patterns.index', [
                 'department_id' => $departmentId,
                 'q' => $request->input('q'),
             ])
@@ -102,7 +102,7 @@ class DepartmentSubjectPatternController extends Controller
         }
 
         return redirect()
-            ->route('super-admin.department-patterns.index', [
+            ->route('faculty-admin.department-patterns.index', [
                 'department_id' => $validated['department_id'],
                 'q' => $request->input('q'),
             ])

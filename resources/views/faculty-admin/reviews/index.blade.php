@@ -94,7 +94,9 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('faculty-admin.settings.term') }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm hover:bg-amber-50">กำหนดภาคการศึกษา</a>
-            <a href="{{ route('faculty-admin.settings.programs.index') }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm hover:bg-amber-50">จัดการหลักสูตร</a>
+            @if (\App\Support\SciGradeRole::isSuperAdmin())
+                <a href="{{ route('faculty-admin.settings.programs.index') }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm hover:bg-amber-50">จัดการหลักสูตร</a>
+            @endif
             <a href="{{ route('faculty-admin.settings.privileges.index') }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm hover:bg-amber-50">ผู้มีสิทธิใช้งาน</a>
         </div>
     </div>

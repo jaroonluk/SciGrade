@@ -1012,9 +1012,9 @@
                             <h4 class="text-base font-bold text-sky-950">ตั้งค่าระบบและข้อมูลพื้นฐาน</h4>
                         </div>
                         <p class="text-xs text-sky-900/70 ml-9">
-                            กำหนดภาคการศึกษา หลักสูตร ชื่อวิชา
+                            กำหนดภาคการศึกษา ชื่อวิชา และรหัสสาขาที่ใช้กรอง
                             @if ($isSuper)
-                                และข้อมูลพื้นฐานสำหรับ Super Admin
+                                รวมถึงหลักสูตร
                             @endif
                         </p>
                     </div>
@@ -1031,16 +1031,18 @@
                                 </div>
                             </div>
                         </a>
-                        <a href="{{ route('faculty-admin.settings.programs.index') }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="book-open" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">3.2</p>
-                                    <p class="font-semibold text-sky-950">จัดการหลักสูตร</p>
-                                    <p class="text-sm text-sky-900/65 mt-1">เพิ่ม/แก้ไขหลักสูตรใน tblprogram_qa</p>
+                        @if ($isSuper)
+                            <a href="{{ route('faculty-admin.settings.programs.index') }}" class="menu-card rounded-xl p-5 block ring-1 ring-sky-200">
+                                <div class="flex items-start gap-3">
+                                    <div class="menu-icon"><i data-lucide="book-open" class="w-5 h-5"></i></div>
+                                    <div>
+                                        <p class="menu-step">3.2 · Super Admin</p>
+                                        <p class="font-semibold text-sky-950">จัดการหลักสูตร</p>
+                                        <p class="text-sm text-sky-900/65 mt-1">เพิ่ม/แก้ไขหลักสูตรใน tblprogram_qa</p>
+                                    </div>
                                 </div>
-                            </div>
-                        </a>
+                            </a>
+                        @endif
                         <a href="{{ route('faculty-admin.settings.reg-courses.index') }}" class="menu-card rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="book-marked" class="w-5 h-5"></i></div>
@@ -1061,18 +1063,16 @@
                                 </div>
                             </div>
                         </a>
-                        @if ($isSuper)
-                            <a href="{{ route('super-admin.department-patterns.index') }}" class="menu-card rounded-xl p-5 block ring-1 ring-sky-200">
-                                <div class="flex items-start gap-3">
-                                    <div class="menu-icon"><i data-lucide="filter" class="w-5 h-5"></i></div>
-                                    <div>
-                                        <p class="menu-step">3.5 · Super Admin</p>
-                                        <p class="font-semibold text-sky-950">จัดการรหัสสาขาที่ใช้กรอง</p>
-                                        <p class="text-sm text-sky-900/65 mt-1">เพิ่ม / แก้ไข / ลบเงื่อนไขรหัสวิชาของแต่ละสาขา</p>
-                                    </div>
+                        <a href="{{ route('faculty-admin.department-patterns.index') }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="filter" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">3.5</p>
+                                    <p class="font-semibold text-sky-950">จัดการรหัสสาขาที่ใช้กรอง</p>
+                                    <p class="text-sm text-sky-900/65 mt-1">เพิ่ม / แก้ไข / ลบเงื่อนไขรหัสวิชาของแต่ละสาขา</p>
                                 </div>
-                            </a>
-                        @endif
+                            </div>
+                        </a>
                     </div>
                 </div>
             </section>

@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', ($program->exists ? 'แก้ไข' : 'เพิ่ม').'หลักสูตร — Admin กลาง')
+@section('title', ($program->exists ? 'แก้ไข' : 'เพิ่ม').'หลักสูตร — Super Admin')
 
 @section('content')
 <div class="max-w-xl mx-auto">

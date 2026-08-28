@@ -1,10 +1,10 @@
 @extends('layouts.scigrad')
 
-@section('title', 'จัดการรหัสสาขาที่ใช้กรอง — Super Admin')
+@section('title', 'จัดการรหัสสาขาที่ใช้กรอง — Admin กลาง')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
-<a href="{{ route('dashboard') }}" class="text-[#8B4513] hover:underline">Super Admin</a>
+<a href="{{ route('dashboard') }}" class="text-[#8B4513] hover:underline">Admin กลาง</a>
 <span class="text-gray-400">/</span>
 <span class="text-[#5C2E1F] font-medium">จัดการรหัสสาขาที่ใช้กรอง</span>
 @endsection
@@ -92,7 +92,7 @@
     @enderror
 
     <div class="form-section rounded-xl p-4">
-        <form method="GET" action="{{ route('super-admin.department-patterns.index') }}" class="flex flex-wrap items-end gap-3">
+        <form method="GET" action="{{ route('faculty-admin.department-patterns.index') }}" class="flex flex-wrap items-end gap-3">
             <div class="flex-1 min-w-[16rem]">
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ค้นหา</label>
                 <input type="text" name="q" value="{{ $q }}" placeholder="ชื่อสาขา / รหัสเงื่อนไข เช่น SC9"
@@ -100,7 +100,7 @@
             </div>
             <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">ค้นหา</button>
             @if ($q !== '')
-                <a href="{{ route('super-admin.department-patterns.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
+                <a href="{{ route('faculty-admin.department-patterns.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
             @endif
         </form>
         <div class="mt-3 flex flex-wrap gap-4 text-[0.7rem] text-[#7A4A3A]/75">
@@ -127,7 +127,7 @@
                             ID {{ $dept->department_id }} · {{ $dept->patterns->count() }} เงื่อนไข
                         </p>
                     </div>
-                    <form method="POST" action="{{ route('super-admin.department-patterns.restore') }}"
+                    <form method="POST" action="{{ route('faculty-admin.department-patterns.restore') }}"
                           onsubmit="return confirm('กู้คืนค่าเริ่มต้นของสาขา {{ $dept->department_name }}?\nเงื่อนไขปัจจุบันจะถูกแทนที่ทั้งหมด')">
                         @csrf
                         <input type="hidden" name="department_id" value="{{ $dept->department_id }}">
@@ -161,7 +161,7 @@
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     <button type="button" class="btn-edit-pattern px-2.5 py-1 border border-amber-300 rounded text-xs hover:bg-amber-50">แก้ไข</button>
-                                    <form method="POST" action="{{ route('super-admin.department-patterns.destroy', $row) }}"
+                                    <form method="POST" action="{{ route('faculty-admin.department-patterns.destroy', $row) }}"
                                           onsubmit="return confirm('ลบเงื่อนไข {{ $row->pattern }} หรือไม่?')">
                                         @csrf
                                         @method('DELETE')
@@ -170,7 +170,7 @@
                                     </form>
                                 </div>
                             </div>
-                            <form method="POST" action="{{ route('super-admin.department-patterns.update', $row) }}" class="pattern-edit-form flex-wrap items-center gap-2">
+                            <form method="POST" action="{{ route('faculty-admin.department-patterns.update', $row) }}" class="pattern-edit-form flex-wrap items-center gap-2">
                                 @csrf
                                 @method('PUT')
                                 <input type="hidden" name="q" value="{{ $q }}">
@@ -184,7 +184,7 @@
                 </div>
 
                 <div class="px-4 py-3 bg-[#FAF0E6]/35">
-                    <form method="POST" action="{{ route('super-admin.department-patterns.store') }}" class="flex flex-wrap items-end gap-2">
+                    <form method="POST" action="{{ route('faculty-admin.department-patterns.store') }}" class="flex flex-wrap items-end gap-2">
                         @csrf
                         <input type="hidden" name="department_id" value="{{ $dept->department_id }}">
                         <input type="hidden" name="q" value="{{ $q }}">

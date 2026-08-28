@@ -53,12 +53,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/impersonate/users/search', [ImpersonationController::class, 'searchUsers'])->name('impersonate.users.search');
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
-
-        Route::get('/department-patterns', [DepartmentSubjectPatternController::class, 'index'])->name('department-patterns.index');
-        Route::post('/department-patterns', [DepartmentSubjectPatternController::class, 'store'])->name('department-patterns.store');
-        Route::put('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'update'])->name('department-patterns.update');
-        Route::delete('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'destroy'])->name('department-patterns.destroy');
-        Route::post('/department-patterns/restore', [DepartmentSubjectPatternController::class, 'restoreDefaults'])->name('department-patterns.restore');
     });
 
     Route::prefix('grade-reports')->name('grade-reports.')->group(function () {
@@ -101,12 +95,20 @@ Route::middleware('auth')->group(function () {
         Route::get('/settings/term', [GradeTermController::class, 'edit'])->name('settings.term');
         Route::put('/settings/term', [GradeTermController::class, 'update'])->name('settings.term.update');
 
-        Route::get('/settings/programs', [ProgramController::class, 'index'])->name('settings.programs.index');
-        Route::get('/settings/programs/create', [ProgramController::class, 'create'])->name('settings.programs.create');
-        Route::post('/settings/programs', [ProgramController::class, 'store'])->name('settings.programs.store');
-        Route::get('/settings/programs/{program}/edit', [ProgramController::class, 'edit'])->name('settings.programs.edit');
-        Route::put('/settings/programs/{program}', [ProgramController::class, 'update'])->name('settings.programs.update');
-        Route::delete('/settings/programs/{program}', [ProgramController::class, 'destroy'])->name('settings.programs.destroy');
+        Route::middleware('super.admin')->group(function () {
+            Route::get('/settings/programs', [ProgramController::class, 'index'])->name('settings.programs.index');
+            Route::get('/settings/programs/create', [ProgramController::class, 'create'])->name('settings.programs.create');
+            Route::post('/settings/programs', [ProgramController::class, 'store'])->name('settings.programs.store');
+            Route::get('/settings/programs/{program}/edit', [ProgramController::class, 'edit'])->name('settings.programs.edit');
+            Route::put('/settings/programs/{program}', [ProgramController::class, 'update'])->name('settings.programs.update');
+            Route::delete('/settings/programs/{program}', [ProgramController::class, 'destroy'])->name('settings.programs.destroy');
+        });
+
+        Route::get('/department-patterns', [DepartmentSubjectPatternController::class, 'index'])->name('department-patterns.index');
+        Route::post('/department-patterns', [DepartmentSubjectPatternController::class, 'store'])->name('department-patterns.store');
+        Route::put('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'update'])->name('department-patterns.update');
+        Route::delete('/department-patterns/{pattern}', [DepartmentSubjectPatternController::class, 'destroy'])->name('department-patterns.destroy');
+        Route::post('/department-patterns/restore', [DepartmentSubjectPatternController::class, 'restoreDefaults'])->name('department-patterns.restore');
 
         Route::get('/settings/privileges', [PrivilegeController::class, 'index'])->name('settings.privileges.index');
         Route::get('/settings/privileges/users/search', [PrivilegeController::class, 'searchUsers'])->name('settings.privileges.users.search');
@@ -147,6 +149,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::redirect('/super-admin/grad-report2-groups', '/faculty-admin/grad-report2-groups');
+    Route::redirect('/super-admin/department-patterns', '/faculty-admin/department-patterns');
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
 

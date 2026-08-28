@@ -1,10 +1,10 @@
 @extends('layouts.scigrad')
 
-@section('title', 'จัดการหลักสูตร — Admin กลาง')
+@section('title', 'จัดการหลักสูตร — Super Admin')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
-<a href="{{ route('faculty-admin.reviews.index') }}" class="text-[#8B4513] hover:underline">Admin กลาง</a>
+<a href="{{ route('dashboard') }}" class="text-[#8B4513] hover:underline">Super Admin</a>
 <span class="text-gray-400">/</span>
 <span class="text-[#5C2E1F] font-medium">จัดการหลักสูตร</span>
 @endsection
