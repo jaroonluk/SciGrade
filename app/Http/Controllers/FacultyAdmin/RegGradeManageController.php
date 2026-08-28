@@ -54,20 +54,31 @@ class RegGradeManageController extends Controller
 
         $canConnectReg = $this->dumpService->canConnect();
         $enrollmentMap = [];
+        $programTypeMap = [];
         if ($canConnectReg && $courses->isNotEmpty()) {
             try {
                 $enrollmentMap = $this->dumpService->enrollmentSeatMap($year, $term, $courses->items());
             } catch (Throwable) {
                 $enrollmentMap = [];
             }
+
+            try {
+                $programTypeMap = $this->dumpService->courseProgramTypeMap(
+                    $courses->getCollection()->pluck('COURSECODE')->all()
+                );
+            } catch (Throwable) {
+                $programTypeMap = [];
+            }
         }
 
         $courses->setCollection(
-            $courses->getCollection()->map(function (object $row) use ($enrollmentMap) {
-                $key = strtoupper(trim((string) $row->COURSECODE)).'|'.trim((string) $row->SECTION);
+            $courses->getCollection()->map(function (object $row) use ($enrollmentMap, $programTypeMap) {
+                $code = strtoupper(trim((string) $row->COURSECODE));
+                $key = $code.'|'.trim((string) $row->SECTION);
                 $enroll = array_key_exists($key, $enrollmentMap) ? (int) $enrollmentMap[$key] : null;
                 $row->enrollseat = $enroll;
                 $row->has_no_enrollment = $enroll !== null && $enroll <= 0;
+                $row->program_types = $programTypeMap[$code] ?? [];
 
                 return $row;
             })

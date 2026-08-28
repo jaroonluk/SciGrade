@@ -12,6 +12,19 @@ class RegGradeDumpService
 {
     public const FACULTY_SCIENCE = 2;
 
+    public const PROGRAM_TYPE_REGULAR = 'regular';
+
+    public const PROGRAM_TYPE_SPECIAL = 'special';
+
+    public const PROGRAM_TYPE_INTERNATIONAL = 'international';
+
+    /** @var list<string> */
+    public const PROGRAM_TYPE_ORDER = [
+        self::PROGRAM_TYPE_REGULAR,
+        self::PROGRAM_TYPE_SPECIAL,
+        self::PROGRAM_TYPE_INTERNATIONAL,
+    ];
+
     /**
      * ดึงรายวิชาจาก REG (รวม SEMINAR) แล้วทับข้อมูลเดิมใน grade_report_reg
      *
@@ -227,6 +240,95 @@ class RegGradeDumpService
             if (! array_key_exists($key, $map)) {
                 $map[$key] = 0;
             }
+        }
+
+        return $map;
+    }
+
+    /**
+     * จำแนกประเภทหลักสูตรจากชื่อใน REG (ปกติ / โครงการพิเศษ / นานาชาติ)
+     *
+     * @return list<string>
+     */
+    public static function classifyProgramName(?string $nameTh, ?string $nameEn = null): array
+    {
+        $haystack = trim((string) $nameTh).' '.trim((string) $nameEn);
+        $types = [];
+
+        if (
+            mb_stripos($haystack, 'นานาชาติ') !== false
+            || stripos($haystack, 'International') !== false
+        ) {
+            $types[] = self::PROGRAM_TYPE_INTERNATIONAL;
+        }
+
+        if (mb_stripos($haystack, 'พิเศษ') !== false) {
+            $types[] = self::PROGRAM_TYPE_SPECIAL;
+        }
+
+        if ($types === []) {
+            $types[] = self::PROGRAM_TYPE_REGULAR;
+        }
+
+        return $types;
+    }
+
+    /**
+     * ประเภทกลุ่มต่อรหัสวิชา จาก courseinprogram + program (ไม่ใช้สถานะนักศึกษา)
+     *
+     * @param  list<string>  $courseCodes
+     * @return array<string, list<string>> key = COURSECODE, value เช่น ['regular', 'international']
+     */
+    public function courseProgramTypeMap(array $courseCodes): array
+    {
+        $codes = [];
+        foreach ($courseCodes as $code) {
+            $normalized = strtoupper(trim((string) $code));
+            if ($normalized !== '') {
+                $codes[$normalized] = true;
+            }
+        }
+
+        if ($codes === []) {
+            return [];
+        }
+
+        try {
+            $rows = DB::connection('reg')
+                ->table('courseinprogram')
+                ->join('course', 'courseinprogram.COURSEID', '=', 'course.COURSEID')
+                ->join('program', 'courseinprogram.PROGRAMID', '=', 'program.PROGRAMID')
+                ->select([
+                    'course.COURSECODE',
+                    'program.PROGRAMNAME',
+                    'program.PROGRAMNAMEENG',
+                ])
+                ->whereIn('course.COURSECODE', array_keys($codes))
+                ->get();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $collected = [];
+        foreach ($rows as $row) {
+            $code = strtoupper(trim((string) $row->COURSECODE));
+            if ($code === '' || ! isset($codes[$code])) {
+                continue;
+            }
+            foreach (self::classifyProgramName(
+                (string) ($row->PROGRAMNAME ?? ''),
+                (string) ($row->PROGRAMNAMEENG ?? ''),
+            ) as $type) {
+                $collected[$code][$type] = true;
+            }
+        }
+
+        $rank = array_flip(self::PROGRAM_TYPE_ORDER);
+        $map = [];
+        foreach ($collected as $code => $types) {
+            $list = array_keys($types);
+            usort($list, fn (string $a, string $b) => ($rank[$a] ?? 99) <=> ($rank[$b] ?? 99));
+            $map[$code] = $list;
         }
 
         return $map;

@@ -63,6 +63,31 @@
         color: #0369a1;
         border: 1px solid #7dd3fc;
     }
+    .program-type-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.12rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+    }
+    .program-type-badge.is-regular {
+        background: #f5f5f4;
+        color: #44403c;
+        border: 1px solid #d6d3d1;
+    }
+    .program-type-badge.is-special {
+        background: #ffedd5;
+        color: #c2410c;
+        border: 1px solid #fdba74;
+    }
+    .program-type-badge.is-international {
+        background: #ede9fe;
+        color: #6d28d9;
+        border: 1px solid #c4b5fd;
+    }
     .multi-sec-tag {
         display: inline-flex;
         align-items: center;
@@ -380,6 +405,12 @@
                     วิชามากกว่า 1 Sec. แสดงแถบฟ้าด้านซ้ายและป้าย
                     <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-700 text-white font-semibold">N Sec.</span>
                 </span>
+                <span>
+                    ประเภทกลุ่มดึงจากหลักสูตรของรหัสวิชาใน REG (<code class="text-[0.7rem]">courseinprogram</code>) ไม่ใช่สถานะนักศึกษา —
+                    <span class="program-type-badge is-regular">ปกติ</span>
+                    <span class="program-type-badge is-special">โครงการพิเศษ</span>
+                    <span class="program-type-badge is-international">นานาชาติ</span>
+                </span>
             </div>
         @elseif ($courses->total() > 0)
             <div class="px-4 py-2 border-b border-amber-100 bg-amber-50/80 text-xs text-amber-900">
@@ -414,7 +445,7 @@
             <div id="bulk-items-container"></div>
         </form>
 
-        <table class="w-full text-sm min-w-[1020px]">
+        <table class="w-full text-sm min-w-[1140px]">
             <thead class="bg-amber-50/60">
                 <tr>
                     <th class="px-3 py-2 text-center w-12">
@@ -425,6 +456,7 @@
                     <th class="px-3 py-2 text-left w-14">ลำดับ</th>
                     <th class="px-3 py-2 text-left">รายวิชา</th>
                     <th class="px-3 py-2 text-center">Sec.</th>
+                    <th class="px-3 py-2 text-center">ประเภท</th>
                     <th class="px-3 py-2 text-center">สถานะลงทะเบียน</th>
                     <th class="px-3 py-2 text-left">ผู้สอน</th>
                     <th class="px-3 py-2 text-center">จัดการ</th>
@@ -438,6 +470,12 @@
                         $isGroupStart = ! $isContinuation && $row->has_multi_section;
                         $isZero = (bool) ($row->has_no_enrollment ?? false);
                         $enrollSeat = $row->enrollseat ?? null;
+                        $programTypes = is_array($row->program_types ?? null) ? $row->program_types : [];
+                        $programTypeLabels = [
+                            'regular' => 'ปกติ',
+                            'special' => 'โครงการพิเศษ',
+                            'international' => 'นานาชาติ',
+                        ];
                         $rowClass = $isContinuation
                             ? 'bg-[#F0F9FF] course-group-cont'
                             : ($isGroupStart ? 'bg-[#E0F2FE]/70 course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
@@ -485,6 +523,19 @@
                         </td>
                         <td class="px-3 py-2 text-center">
                             <span class="sec-badge {{ $row->has_multi_section ? 'is-multi' : '' }}">{{ $row->SECTION }}</span>
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            @if ($programTypes !== [])
+                                <div class="flex flex-wrap justify-center gap-1">
+                                    @foreach ($programTypes as $type)
+                                        <span class="program-type-badge is-{{ $type }}" title="จากหลักสูตรของรหัสวิชาใน REG ไม่ใช่สถานะนักศึกษา">
+                                            {{ $programTypeLabels[$type] ?? $type }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span class="text-xs text-gray-400">-</span>
+                            @endif
                         </td>
                         <td class="px-3 py-2 text-center">
                             @if ($isZero)
