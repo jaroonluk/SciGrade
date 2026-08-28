@@ -101,13 +101,6 @@
             use App\Support\AcademicTerm;
             $defaultYear = $prefillYear ?? AcademicTerm::defaultYear();
             $defaultTerm = $prefillTerm ?? AcademicTerm::defaultTerm();
-            $faculties = [
-                ['SC', 'คณะวิทยาศาสตร์'], ['EN', 'คณะวิศวกรรมศาสตร์'], ['AG', 'คณะเกษตรศาสตร์'],
-                ['ED', 'คณะศึกษาศาสตร์'], ['NU', 'คณะพยาบาลศาสตร์'], ['MD', 'คณะแพทยศาสตร์'],
-                ['PH', 'คณะเภสัชศาสตร์'], ['DN', 'คณะทันตแพทยศาสตร์'], ['HS', 'คณะสาธารณสุขศาสตร์'],
-                ['LA', 'คณะนิติศาสตร์'], ['EC', 'คณะเศรษฐศาสตร์'], ['BA', 'คณะบริหารธุรกิจ'],
-                ['GS', 'บัณฑิตวิทยาลัย'], ['HU', 'คณะมนุษยศาสตร์และสังคมศาสตร์'],
-            ];
         @endphp
 
         <section>
@@ -351,12 +344,14 @@
                                     <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-[#8B4513]"></i>
                                 </button>
                                 <div id="fac-dropdown-panel" class="fac-dropdown-panel hidden absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-amber-300 rounded-lg shadow-lg p-2">
-                                    @foreach ($faculties as [$code, $name])
+                                    @forelse ($faculties as $faculty)
                                         <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-amber-50 cursor-pointer text-sm">
-                                            <input type="checkbox" class="fac-checkbox accent-amber-700" value="{{ $code }}">
-                                            <span><span class="font-semibold text-[#5C2E1F]">{{ $code }}</span> : {{ $name }}</span>
+                                            <input type="checkbox" class="fac-checkbox accent-amber-700" value="{{ $faculty->nameng }}">
+                                            <span><span class="font-semibold text-[#5C2E1F]">{{ $faculty->nameng }}</span> : {{ $faculty->namethai }}</span>
                                         </label>
-                                    @endforeach
+                                    @empty
+                                        <p class="px-2 py-1.5 text-sm text-gray-500">ไม่พบข้อมูลคณะจากตาราง grade_type</p>
+                                    @endforelse
                                 </div>
                                 <div id="fac-selected-tags" class="flex flex-wrap gap-1.5 mt-2"></div>
                             </div>

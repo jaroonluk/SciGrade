@@ -15,20 +15,20 @@ class GradReport2Service
         $jointSubjectCode = $jointSubjectCode ? $this->normalizeSubjectCode($jointSubjectCode) : '';
 
         $existing = GradReport2::query()
-            ->where('subject_code', $subjectCode)
+            ->whereNormalizedCode('subject_code', $subjectCode)
             ->first();
 
         if ($existing) {
-            return trim((string) $existing->subject_code2);
+            return GradReport2::normalizeCode((string) $existing->subject_code2);
         }
 
         if ($jointSubjectCode !== '') {
             $jointExisting = GradReport2::query()
-                ->where('subject_code', $jointSubjectCode)
+                ->whereNormalizedCode('subject_code', $jointSubjectCode)
                 ->first();
 
             if ($jointExisting) {
-                return trim((string) $jointExisting->subject_code2);
+                return GradReport2::normalizeCode((string) $jointExisting->subject_code2);
             }
         }
 
@@ -43,20 +43,20 @@ class GradReport2Service
         $subjectCode = $this->normalizeSubjectCode($subjectCode);
 
         $existing = GradReport2::query()
-            ->where('subject_code', $subjectCode)
+            ->whereNormalizedCode('subject_code', $subjectCode)
             ->first();
 
         if ($existing) {
-            return trim((string) $existing->subject_code2);
+            return GradReport2::normalizeCode((string) $existing->subject_code2);
         }
 
         foreach ($this->normalizeJointCodes($jointSubjectCodes, $subjectCode) as $jointCode) {
             $jointExisting = GradReport2::query()
-                ->where('subject_code', $jointCode)
+                ->whereNormalizedCode('subject_code', $jointCode)
                 ->first();
 
             if ($jointExisting) {
-                return trim((string) $jointExisting->subject_code2);
+                return GradReport2::normalizeCode((string) $jointExisting->subject_code2);
             }
         }
 
@@ -89,10 +89,10 @@ class GradReport2Service
         $subject = mb_strtoupper(trim($subjectName));
         $username = trim($username);
 
-        $mainRow = GradReport2::query()->where('subject_code', $mainCode)->first();
+        $mainRow = GradReport2::query()->whereNormalizedCode('subject_code', $mainCode)->first();
 
         if ($mainRow) {
-            $groupCode = trim((string) $mainRow->subject_code2);
+            $groupCode = GradReport2::normalizeCode((string) $mainRow->subject_code2);
 
             foreach ($jointCodes as $jointCode) {
                 $this->addSubjectToGroupIfMissing($groupCode, $jointCode, $subject, $username);
@@ -121,9 +121,9 @@ class GradReport2Service
     private function resolveGroupCodeForNewMain(array $jointCodes): string
     {
         foreach ($jointCodes as $jointCode) {
-            $jointRow = GradReport2::query()->where('subject_code', $jointCode)->first();
+            $jointRow = GradReport2::query()->whereNormalizedCode('subject_code', $jointCode)->first();
             if ($jointRow) {
-                return trim((string) $jointRow->subject_code2);
+                return GradReport2::normalizeCode((string) $jointRow->subject_code2);
             }
         }
 
@@ -135,7 +135,7 @@ class GradReport2Service
      */
     private function subjectNameForCode(string $code, array $jointCodes, string $fallback): string
     {
-        $row = GradReport2::query()->where('subject_code', $code)->first();
+        $row = GradReport2::query()->whereNormalizedCode('subject_code', $code)->first();
         if ($row && trim((string) $row->subject) !== '') {
             return mb_strtoupper(trim((string) $row->subject));
         }
@@ -166,8 +166,8 @@ class GradReport2Service
     private function groupLinkExists(string $groupCode, string $subjectCode): bool
     {
         return GradReport2::query()
-            ->where('subject_code2', $groupCode)
-            ->where('subject_code', $subjectCode)
+            ->whereNormalizedCode('subject_code2', $groupCode)
+            ->whereNormalizedCode('subject_code', $subjectCode)
             ->exists();
     }
 
@@ -204,7 +204,7 @@ class GradReport2Service
 
     public function normalizeSubjectCode(string $code): string
     {
-        return strtoupper(preg_replace('/\s+/', '', trim($code)) ?? '');
+        return GradReport2::normalizeCode($code);
     }
 
     /**

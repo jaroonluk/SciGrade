@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\GradeReportController;
 use App\Models\GradeReport;
+use App\Models\GradeType;
 use App\Models\TblProgramQa;
 use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\RegistrarGradePdfParser;
@@ -63,6 +64,7 @@ class GradeReportPageController extends Controller
             ),
             'teacherHelpImageUrl' => $teacherHelpImageUrl,
             'programs' => TblProgramQa::forDepartment($deptId),
+            'faculties' => GradeType::forForm(),
             'prefillTerm' => $prefillTerm,
             'prefillYear' => $prefillYear,
             'returnUrl' => $nav['returnUrl'] ?? route('grade-reports.my'),
