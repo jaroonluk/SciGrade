@@ -34,4 +34,32 @@ class FacultyCheckedStatusTest extends TestCase
         $this->assertFalse($central->canMarkFacultyChecked());
         $this->assertFalse($central->canFacultyApprove());
     }
+
+    #[Test]
+    public function it_allows_dept_revert_only_while_department_approved(): void
+    {
+        $saved = new GradeReport(['approv' => GradeApprovalStatus::Saved->value]);
+        $deptApproved = new GradeReport(['approv' => GradeApprovalStatus::DepartmentApproved->value]);
+        $checked = new GradeReport(['approv' => GradeApprovalStatus::FacultyChecked->value]);
+        $central = new GradeReport(['approv' => GradeApprovalStatus::CentralApproved->value]);
+
+        $this->assertFalse($saved->canDeptRevertToSaved());
+        $this->assertTrue($deptApproved->canDeptRevertToSaved());
+        $this->assertFalse($checked->canDeptRevertToSaved());
+        $this->assertFalse($central->canDeptRevertToSaved());
+    }
+
+    #[Test]
+    public function it_allows_dept_registrar_attach_before_faculty_takes_over(): void
+    {
+        $saved = new GradeReport(['approv' => GradeApprovalStatus::Saved->value]);
+        $deptApproved = new GradeReport(['approv' => GradeApprovalStatus::DepartmentApproved->value]);
+        $checked = new GradeReport(['approv' => GradeApprovalStatus::FacultyChecked->value]);
+        $rejected = new GradeReport(['approv' => GradeApprovalStatus::DepartmentRejected->value]);
+
+        $this->assertTrue($saved->canDeptAttachRegistrar());
+        $this->assertTrue($deptApproved->canDeptAttachRegistrar());
+        $this->assertFalse($checked->canDeptAttachRegistrar());
+        $this->assertFalse($rejected->canDeptAttachRegistrar());
+    }
 }

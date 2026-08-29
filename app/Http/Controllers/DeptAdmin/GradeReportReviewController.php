@@ -3,16 +3,20 @@
 namespace App\Http\Controllers\DeptAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DeptAdmin\DeptRegistrarBulkUploadRequest;
 use App\Http\Requests\DeptAdmin\GradeReportApprovalRequest;
 use App\Http\Requests\DeptAdmin\GradeReportReviewFilterRequest;
 use App\Models\GradeReport;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
+use App\Services\DeptAdmin\DeptRegistrarBulkUploadService;
 use App\Services\DeptAdmin\GradeReportApprovalService;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
@@ -23,6 +27,7 @@ class GradeReportReviewController extends Controller
         private readonly DepartmentAccessService $departmentAccess,
         private readonly DepartmentReportQueryService $queryService,
         private readonly GradeReportApprovalService $approvalService,
+        private readonly DeptRegistrarBulkUploadService $registrarUpload,
     ) {}
 
     public function index(GradeReportReviewFilterRequest $request): View
@@ -108,6 +113,96 @@ class GradeReportReviewController extends Controller
         }
 
         return $this->successResponse($request, 'ส่งกลับให้อาจารย์แก้ไขเรียบร้อย');
+    }
+
+    public function revert(GradeReportApprovalRequest $request, GradeReport $gradeReport): JsonResponse|RedirectResponse
+    {
+        $this->authorize('reviewDept', $gradeReport);
+
+        try {
+            $this->approvalService->resetToSaved(
+                $gradeReport,
+                $this->staffUsername(),
+                $request->input('remark'),
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->failureResponse($request, $e->getMessage(), 422);
+        }
+
+        return $this->successResponse($request, 'ย้อนสถานะเป็นบันทึกแล้วเรียบร้อย');
+    }
+
+    public function previewRegistrarUploads(Request $request): JsonResponse
+    {
+        $departmentIds = $this->uploadDepartmentIds($request);
+
+        $validated = $request->validate([
+            'term' => ['required', 'integer', 'in:1,2,3'],
+            'year' => ['required', 'integer', 'min:2500', 'max:2600'],
+            'filenames' => ['required', 'array', 'min:1', 'max:40'],
+            'filenames.*' => ['required', 'string', 'max:255'],
+        ]);
+
+        return response()->json([
+            'results' => $this->registrarUpload->preview(
+                $validated['filenames'],
+                (int) $validated['term'],
+                (int) $validated['year'],
+                $departmentIds,
+            ),
+        ]);
+    }
+
+    public function uploadRegistrarFiles(DeptRegistrarBulkUploadRequest $request): JsonResponse
+    {
+        $departmentIds = $this->uploadDepartmentIds($request);
+
+        $uploaded = $request->file('attachments', []);
+        if ($uploaded instanceof UploadedFile) {
+            $files = [$uploaded];
+        } else {
+            $files = array_values(array_filter(
+                is_array($uploaded) ? $uploaded : [],
+                fn ($file) => $file instanceof UploadedFile,
+            ));
+        }
+
+        $results = $this->registrarUpload->upload(
+            $files,
+            $this->staffUsername(),
+            (int) $request->integer('term'),
+            (int) $request->integer('year'),
+            $departmentIds,
+        );
+
+        $okCount = count(array_filter($results, fn (array $row) => $row['ok'] === true));
+
+        return response()->json([
+            'results' => $results,
+            'ok_count' => $okCount,
+            'fail_count' => count($results) - $okCount,
+        ]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function uploadDepartmentIds(Request $request): array
+    {
+        $staff = $this->requireStaff();
+        $allowed = $this->departmentAccess->allowedDepartments($staff)
+            ->pluck('department_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($request->filled('department_id')) {
+            $departmentId = (int) $request->input('department_id');
+            abort_unless($this->departmentAccess->canAccessDepartment($staff, $departmentId), 403, 'ไม่มีสิทธิ์เข้าถึงสาขานี้');
+
+            return [$departmentId];
+        }
+
+        return $allowed;
     }
 
     private function requireStaff()

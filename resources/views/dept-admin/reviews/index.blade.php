@@ -87,6 +87,73 @@
         </form>
     </div>
 
+    @php
+        $uploadTermLabel = match ((int) ($filters['term'] ?? 1)) {
+            1 => 'ภาคต้น',
+            2 => 'ภาคปลาย',
+            default => 'ภาคการศึกษาพิเศษ',
+        };
+    @endphp
+    <div id="registrar-bulk-upload" class="form-section rounded-xl p-5 space-y-4"
+        data-preview-url="{{ route('dept-admin.reviews.registrar-files.preview') }}"
+        data-upload-url="{{ route('dept-admin.reviews.registrar-files.store') }}">
+        <div>
+            <p class="text-sm font-semibold text-[#5C2E1F]">อัปโหลดใบส่งผลการศึกษา (REG) หลายไฟล์</p>
+            <p class="text-xs text-[#7A4A3A]/80 mt-1">
+                จับคู่ตามภาค/ปีที่กำลังกรอง:
+                <span class="font-medium">{{ $uploadTermLabel }} ปีการศึกษา {{ $filters['year'] ?? '' }}</span>
+                — รูปแบบชื่อไฟล์ <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม.pdf</code>
+                เช่น <code class="text-[11px] bg-amber-50 px-1 rounded">SC101011-01.pdf</code>
+            </p>
+            <p class="text-xs text-[#7A4A3A]/70 mt-0.5">อัปโหลดได้เมื่อรายวิชายังเป็นบันทึกแล้วหรือสาขาอนุมัติ (คณะยังไม่ตรวจ) แนะนำไม่เกิน 20 ไฟล์ต่อครั้ง</p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+            <div>
+                <label class="block text-xs text-[#7A4A3A] mb-1">เลือกไฟล์ PDF</label>
+                <input type="file" id="registrar-files-input" accept="application/pdf,.pdf" multiple
+                    class="block text-sm text-[#5C2E1F] file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-amber-100 file:text-[#5C2E1F] file:text-sm">
+            </div>
+            <button type="button" id="registrar-upload-btn" disabled
+                class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410] disabled:opacity-50 disabled:cursor-not-allowed">
+                อัปโหลด
+            </button>
+            <button type="button" id="registrar-clear-btn"
+                class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                ล้างรายการ
+            </button>
+        </div>
+        <div id="registrar-preview-wrap" class="hidden overflow-x-auto">
+            <p class="text-xs font-semibold text-[#5C2E1F] mb-2">พรีวิวก่อนอัปโหลด</p>
+            <table class="w-full text-xs min-w-[640px]">
+                <thead class="bg-amber-50">
+                    <tr>
+                        <th class="px-2 py-1.5 text-left">ชื่อไฟล์ต้นฉบับ</th>
+                        <th class="px-2 py-1.5 text-left">รหัส / กลุ่ม</th>
+                        <th class="px-2 py-1.5 text-left">วิชาที่จับคู่</th>
+                        <th class="px-2 py-1.5 text-right">ขนาด</th>
+                        <th class="px-2 py-1.5 text-left">สถานะจับคู่</th>
+                    </tr>
+                </thead>
+                <tbody id="registrar-preview-body"></tbody>
+            </table>
+        </div>
+        <div id="registrar-result-wrap" class="hidden overflow-x-auto">
+            <p class="text-xs font-semibold text-[#5C2E1F] mb-2">ผลการอัปโหลด</p>
+            <p id="registrar-result-summary" class="text-xs text-[#7A4A3A] mb-2"></p>
+            <table class="w-full text-xs min-w-[720px]">
+                <thead class="bg-amber-50">
+                    <tr>
+                        <th class="px-2 py-1.5 text-left">ชื่อไฟล์</th>
+                        <th class="px-2 py-1.5 text-left">ผล</th>
+                        <th class="px-2 py-1.5 text-left">เหตุผล / ไฟล์ในระบบ</th>
+                    </tr>
+                </thead>
+                <tbody id="registrar-result-body"></tbody>
+            </table>
+        </div>
+        <p id="registrar-upload-error" class="hidden text-sm text-red-700"></p>
+    </div>
+
     @error('approval')
         <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
     @enderror
@@ -201,6 +268,14 @@
                                 @else
                                     <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
                                        class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
+                                    @if ($report->canDeptRevertToSaved())
+                                        <form method="POST" action="{{ route('dept-admin.reviews.revert', $report) }}" class="inline">
+                                            @csrf
+                                            <button type="submit" class="px-3 py-1.5 border border-amber-400 text-amber-900 rounded text-xs font-medium hover:bg-amber-50">
+                                                กลับเป็นบันทึกแล้ว
+                                            </button>
+                                        </form>
+                                    @endif
                                     @if ((int) $report->approv === -1)
                                         <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
                                     @elseif (in_array((int) $report->approv, [1, 2, 3], true))
@@ -281,6 +356,209 @@
     const rowChecks = () => document.querySelectorAll('.row-download-select');
     selectAll?.addEventListener('change', () => {
         rowChecks().forEach((cb) => { cb.checked = selectAll.checked; });
+    });
+
+    const uploadBox = document.getElementById('registrar-bulk-upload');
+    const fileInput = document.getElementById('registrar-files-input');
+    const uploadBtn = document.getElementById('registrar-upload-btn');
+    const clearBtn = document.getElementById('registrar-clear-btn');
+    const previewWrap = document.getElementById('registrar-preview-wrap');
+    const previewBody = document.getElementById('registrar-preview-body');
+    const resultWrap = document.getElementById('registrar-result-wrap');
+    const resultBody = document.getElementById('registrar-result-body');
+    const resultSummary = document.getElementById('registrar-result-summary');
+    const uploadError = document.getElementById('registrar-upload-error');
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    const filterTerm = () => document.querySelector('select[name="term"]')?.value || '';
+    const filterYear = () => document.querySelector('select[name="year"]')?.value || '';
+    const filterDepartment = () => document.querySelector('select[name="department_id"]')?.value || '';
+
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[ch]));
+
+    const firstError = (data) => {
+        const errors = data?.errors;
+        if (errors && typeof errors === 'object') {
+            const first = Object.values(errors)[0];
+            if (Array.isArray(first) && first[0]) return first[0];
+        }
+        return data?.message || null;
+    };
+
+    const formatSize = (bytes) => {
+        const n = Number(bytes) || 0;
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+        return (n / 1048576).toFixed(1) + ' MB';
+    };
+
+    const setError = (message) => {
+        if (!uploadError) return;
+        if (!message) {
+            uploadError.classList.add('hidden');
+            uploadError.textContent = '';
+            return;
+        }
+        uploadError.textContent = message;
+        uploadError.classList.remove('hidden');
+    };
+
+    const appendRegistrarLink = (gradeId, name, url) => {
+        const box = document.querySelector(`.js-registrar-list[data-grade-id="${gradeId}"]`);
+        if (!box || !url) return;
+        box.querySelector('.js-registrar-empty')?.remove();
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.className = 'text-xs text-[#8B4513] hover:underline truncate';
+        a.title = name;
+        a.textContent = name;
+        box.appendChild(a);
+    };
+
+    let selectedFiles = [];
+
+    const renderPreview = (rows) => {
+        previewBody.innerHTML = '';
+        (rows || []).forEach((row, index) => {
+            const file = selectedFiles[index];
+            const tr = document.createElement('tr');
+            tr.className = 'border-t border-amber-100 ' + (row.ok ? 'bg-green-50/60' : 'bg-red-50/70');
+            const matched = row.matched
+                ? `${row.subject_code || ''} ${row.subject || ''}`.trim()
+                : 'ไม่พบ';
+            const codeSec = (row.course_code || '—') + (row.section ? '-' + row.section : '');
+            tr.innerHTML = `
+                <td class="px-2 py-1.5">${esc(row.original_name || '')}</td>
+                <td class="px-2 py-1.5 font-medium">${esc(codeSec)}</td>
+                <td class="px-2 py-1.5">${esc(matched)}</td>
+                <td class="px-2 py-1.5 text-right">${esc(formatSize(file?.size))}</td>
+                <td class="px-2 py-1.5">${esc(row.ok ? 'จับคู่ได้' : (row.reason || 'จับคู่ไม่ได้'))}</td>
+            `;
+            previewBody.appendChild(tr);
+        });
+        previewWrap.classList.toggle('hidden', previewBody.children.length === 0);
+        uploadBtn.disabled = selectedFiles.length === 0;
+    };
+
+    const previewFiles = async () => {
+        setError('');
+        resultWrap.classList.add('hidden');
+        if (selectedFiles.length === 0) {
+            previewWrap.classList.add('hidden');
+            previewBody.innerHTML = '';
+            uploadBtn.disabled = true;
+            return;
+        }
+        try {
+            const body = {
+                term: Number(filterTerm()),
+                year: Number(filterYear()),
+                filenames: selectedFiles.map((f) => f.name),
+            };
+            if (filterDepartment()) body.department_id = Number(filterDepartment());
+            const res = await fetch(uploadBox.dataset.previewUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(firstError(data) || 'ไม่สามารถตรวจสอบชื่อไฟล์ได้');
+                return;
+            }
+            renderPreview(data.results || []);
+        } catch (e) {
+            setError('ไม่สามารถตรวจสอบชื่อไฟล์ได้');
+        }
+    };
+
+    fileInput?.addEventListener('change', () => {
+        selectedFiles = Array.from(fileInput.files || []);
+        previewFiles();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+        selectedFiles = [];
+        if (fileInput) fileInput.value = '';
+        previewBody.innerHTML = '';
+        previewWrap.classList.add('hidden');
+        resultBody.innerHTML = '';
+        resultWrap.classList.add('hidden');
+        uploadBtn.disabled = true;
+        setError('');
+    });
+
+    uploadBtn?.addEventListener('click', async () => {
+        if (selectedFiles.length === 0) return;
+        uploadBtn.disabled = true;
+        setError('');
+        const form = new FormData();
+        form.append('term', filterTerm());
+        form.append('year', filterYear());
+        if (filterDepartment()) form.append('department_id', filterDepartment());
+        selectedFiles.forEach((file) => form.append('attachments[]', file));
+        try {
+            const res = await fetch(uploadBox.dataset.uploadUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: form,
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(firstError(data) || 'อัปโหลดไม่สำเร็จ');
+                uploadBtn.disabled = false;
+                return;
+            }
+            resultBody.innerHTML = '';
+            (data.results || []).forEach((row) => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-t border-amber-100 ' + (row.ok ? 'bg-green-50/70' : 'bg-red-50/80');
+                const statusClass = row.ok ? 'text-green-800' : 'text-red-800';
+                const nameTd = document.createElement('td');
+                nameTd.className = 'px-2 py-1.5';
+                nameTd.textContent = row.original_name || '';
+                const statusTd = document.createElement('td');
+                statusTd.className = 'px-2 py-1.5 font-semibold ' + statusClass;
+                statusTd.textContent = row.ok ? 'สำเร็จ' : 'ไม่สำเร็จ';
+                const detailTd = document.createElement('td');
+                detailTd.className = 'px-2 py-1.5';
+                if (row.ok) {
+                    detailTd.append(row.stored_name ? `เก็บเป็น ${row.stored_name}` : 'อัปโหลดสำเร็จ');
+                    if (row.view_url) {
+                        const link = document.createElement('a');
+                        link.href = row.view_url;
+                        link.target = '_blank';
+                        link.rel = 'noopener';
+                        link.className = 'font-medium underline ml-1';
+                        link.textContent = 'เปิดดู PDF';
+                        detailTd.append(' ', link);
+                    }
+                    appendRegistrarLink(row.grade_id, row.stored_name || row.original_name, row.view_url);
+                } else {
+                    detailTd.textContent = row.reason || '';
+                }
+                tr.append(nameTd, statusTd, detailTd);
+                resultBody.appendChild(tr);
+            });
+            resultSummary.textContent = `สำเร็จ ${data.ok_count ?? 0} ไฟล์ · ไม่สำเร็จ ${data.fail_count ?? 0} ไฟล์`;
+            resultWrap.classList.remove('hidden');
+        } catch (e) {
+            setError('อัปโหลดไม่สำเร็จ');
+        }
+        uploadBtn.disabled = selectedFiles.length === 0;
     });
 })();
 </script>

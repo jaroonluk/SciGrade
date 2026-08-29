@@ -183,6 +183,19 @@ class GradeReport extends Model
         return $this->canEdit();
     }
 
+    public function canDeptRevertToSaved(): bool
+    {
+        return (int) $this->approv === GradeApprovalStatus::DepartmentApproved->value;
+    }
+
+    public function canDeptAttachRegistrar(): bool
+    {
+        return in_array((int) $this->approv, [
+            GradeApprovalStatus::Saved->value,
+            GradeApprovalStatus::DepartmentApproved->value,
+        ], true);
+    }
+
     public function canFacultyApprove(): bool
     {
         return in_array((int) $this->approv, GradeApprovalStatus::facultyReviewableValues(), true);

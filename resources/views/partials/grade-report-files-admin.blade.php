@@ -21,18 +21,18 @@
     </div>
     <div>
         <p class="text-[10px] font-semibold text-[#7A4A3A] mb-0.5">ใบส่งผลการศึกษา (REG)</p>
-        @if ($regFiles->isEmpty())
-            <span class="text-xs text-gray-400">ไม่มีไฟล์</span>
-        @else
-            <div class="flex flex-col gap-1">
+        <div class="js-registrar-list flex flex-col gap-1" data-grade-id="{{ $report->grade_id }}">
+            @if ($regFiles->isEmpty())
+                <span class="js-registrar-empty text-xs text-gray-400">ไม่มีไฟล์</span>
+            @else
                 @foreach ($regFiles as $file)
                     <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
                        target="_blank" class="text-xs text-[#8B4513] hover:underline truncate" title="{{ $file->original_name }}">
                         {{ $file->original_name }}
                     </a>
                 @endforeach
-            </div>
-        @endif
+            @endif
+        </div>
     </div>
     @if ($report->files->isNotEmpty())
         <a href="{{ route('grade-reports.files.zip', ['gradeReport' => $report->grade_id, 'type' => 'all']) }}"

@@ -74,9 +74,12 @@ Route::middleware('auth')->group(function () {
     Route::middleware('dept.admin')->prefix('dept-admin')->name('dept-admin.')->group(function () {
         Route::get('/reviews', [GradeReportReviewController::class, 'index'])->name('reviews.index');
         Route::post('/reviews/files/download', [GradeReportFileDownloadController::class, 'downloadDept'])->name('reviews.files.download');
+        Route::post('/reviews/registrar-files/preview', [GradeReportReviewController::class, 'previewRegistrarUploads'])->name('reviews.registrar-files.preview');
+        Route::post('/reviews/registrar-files', [GradeReportReviewController::class, 'uploadRegistrarFiles'])->name('reviews.registrar-files.store');
         Route::post('/reviews/{gradeReport}/approve', [GradeReportReviewController::class, 'approve'])->name('reviews.approve');
         Route::post('/reviews/{gradeReport}/reject', [GradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::post('/reviews/{gradeReport}/send-back', [GradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
+        Route::post('/reviews/{gradeReport}/revert', [GradeReportReviewController::class, 'revert'])->name('reviews.revert');
         Route::get('/reports', [DepartmentReportController::class, 'form'])->name('reports.form');
         Route::post('/reports/export', [DepartmentReportController::class, 'export'])->name('reports.export');
         Route::get('/reg-grade-status', [DeptRegGradeStatusController::class, 'index'])->name('reg-grade-status.index');
