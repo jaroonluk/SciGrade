@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/bulk-approve', [FacultyGradeReportReviewController::class, 'bulkApprove'])->name('reviews.bulk-approve');
         Route::post('/reviews/files/download', [GradeReportFileDownloadController::class, 'downloadFaculty'])->name('reviews.files.download');
         Route::post('/reviews/{gradeReport}/approve', [FacultyGradeReportReviewController::class, 'approve'])->name('reviews.approve');
+        Route::post('/reviews/{gradeReport}/mark-checked', [FacultyGradeReportReviewController::class, 'markChecked'])->name('reviews.mark-checked');
         Route::post('/reviews/{gradeReport}/reject', [FacultyGradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::post('/reviews/{gradeReport}/send-back', [FacultyGradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
 

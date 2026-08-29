@@ -89,7 +89,8 @@
         <div>
             <h2 class="text-xl font-bold text-[#5C2E1F]">อนุมัติรายวิชาที่ผ่านกรรมการคณะฯ</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                แสดงทุกสถานะ — อนุมัติหรือไม่อนุมัติระดับคณะได้เฉพาะรายการที่สาขาวิชาอนุมัติแล้ว
+                แสดงทุกสถานะ — กด «ตรวจแล้ว» หลังตรวจสอบเอกสารก่อนส่งกรรมการคณะฯ
+                อนุมัติระดับคณะได้เมื่อสาขาวิชาอนุมัติแล้ว
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -142,6 +143,7 @@
                     <option value="">ทุกสถานะ</option>
                     <option value="0" @selected(($filters['status'] ?? '') === '0' || ($filters['status'] ?? null) === 0)>อาจารย์บันทึกแล้ว</option>
                     <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>สาขาอนุมัติ</option>
+                    <option value="3" @selected(($filters['status'] ?? '') === '3' || ($filters['status'] ?? null) === 3)>ตรวจแล้ว</option>
                     <option value="2" @selected(($filters['status'] ?? '') === '2' || ($filters['status'] ?? null) === 2)>คณะอนุมัติ</option>
                     <option value="-1" @selected(($filters['status'] ?? '') === '-1' || ($filters['status'] ?? null) === -1)>ส่งกลับแก้ไข</option>
                 </select>
@@ -193,7 +195,7 @@
     @enderror
 
     @php
-        $approvableCount = $reports->filter(fn ($report) => (int) $report->approv === 1)->count();
+        $approvableCount = $reports->filter(fn ($report) => $report->canFacultyApprove())->count();
     @endphp
 
     <form method="POST" action="{{ route('faculty-admin.reviews.bulk-approve') }}" id="bulk-approve-form">
@@ -260,7 +262,7 @@
     </form>
 
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
-        <table class="w-full text-sm min-w-[1150px]">
+        <table class="w-full text-sm min-w-[1240px]">
             <thead class="bg-amber-50">
                 <tr>
                     <th class="px-3 py-2 text-center w-10">
@@ -278,6 +280,7 @@
                             ชื่อวิชา / อาจารย์ <span class="sort-icon">{{ $sortIcon('subject') }}</span>
                         </a>
                     </th>
+                    <th class="px-3 py-2 text-center">Sec. / กลุ่ม</th>
                     <th class="px-3 py-2 text-center sortable-th {{ $sortBy === 'created' ? 'is-active' : '' }}">
                         <a href="{{ $sortLink('created') }}" class="inline-flex items-center justify-center text-inherit hover:text-[#8B4513]">
                             วันที่กรอก <span class="sort-icon">{{ $sortIcon('created') }}</span>
@@ -295,15 +298,19 @@
             <tbody>
                 @forelse ($reports as $report)
                     @php
-                        $canAct = (int) $report->approv === 1;
+                        $canAct = $report->canFacultyApprove();
+                        $canMarkChecked = $report->canMarkFacultyChecked();
                         $canSendBack = (int) $report->approv === 2;
                         $badge = match ((int) $report->approv) {
                             1 => 'status-dept',
+                            3 => 'status-checked',
                             2 => 'status-approved',
                             -1 => 'status-rejected',
                             default => 'status-pending',
                         };
                         $deptName = $queryService->resolveDepartmentName((string) $report->subject_code);
+                        $sections = $report->enrollmentSections();
+                        $sectionCount = $sections->count();
                     @endphp
                     <tr class="border-t border-amber-100 hover:bg-amber-50/40 {{ $canAct ? 'row-approvable' : '' }}">
                         <td class="px-3 py-2 text-center">
@@ -328,6 +335,23 @@
                             <div>{{ $report->subject }}</div>
                             <div class="text-xs text-gray-500">{{ $report->teacher }}</div>
                         </td>
+                        <td class="px-3 py-2 text-center">
+                            @if ($sectionCount === 0)
+                                <span class="text-xs text-gray-400">-</span>
+                            @else
+                                <div class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.7rem] font-bold {{ $sectionCount > 1 ? 'bg-sky-100 text-sky-800 border border-sky-200' : 'bg-amber-50 text-[#5C2E1F] border border-amber-200' }}">
+                                    {{ $sectionCount }} Sec.
+                                </div>
+                                <div class="mt-1.5 flex flex-col gap-0.5 items-center">
+                                    @foreach ($sections as $section)
+                                        <span class="text-[0.7rem] text-[#5C2E1F] whitespace-nowrap" title="กลุ่ม {{ $section['sec'] }} — ลงทะเบียน {{ number_format($section['total']) }} คน">
+                                            กลุ่ม {{ $section['sec'] }}
+                                            <span class="text-gray-500">({{ number_format($section['total']) }} คน)</span>
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </td>
                         <td class="px-3 py-2 text-center whitespace-nowrap">{{ \App\Support\ThaiDateTime::formatDate($report->created) }}</td>
                         <td class="px-3 py-2">
                             @include('partials.grade-report-files-admin', ['report' => $report])
@@ -340,18 +364,27 @@
                                 <div class="text-[10px] text-gray-500 mt-1">สาขา: {{ $report->latestDeptApprovalLog->approver?->displayName() }}</div>
                             @endif
                             @if ($report->latestCentralApprovalLog)
-                                <div class="text-[10px] text-gray-500 mt-0.5">คณะ: {{ $report->latestCentralApprovalLog->approver?->displayName() }}</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">
+                                    {{ $report->latestCentralApprovalLog->action === 'central_checked' ? 'ตรวจโดย' : 'คณะ' }}:
+                                    {{ $report->latestCentralApprovalLog->approver?->displayName() }}
+                                </div>
                             @endif
                         </td>
                         <td class="px-3 py-2">
                             <div class="flex flex-wrap justify-center gap-2">
-                                <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
-                                   class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
+                                @if ($canMarkChecked)
+                                    <form method="POST" action="{{ route('faculty-admin.reviews.mark-checked', $report) }}" class="inline">
+                                        @csrf
+                                        <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600"
+                                            onclick="return confirm('ยืนยันว่าตรวจเอกสารแล้ว พร้อมส่งกรรมการคณะฯ?')">
+                                            ตรวจแล้ว
+                                        </button>
+                                    </form>
+                                @endif
                                 @if ($canAct)
                                     <form method="POST" action="{{ route('faculty-admin.reviews.approve', $report) }}" class="inline">
                                         @csrf
-                                        <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
-                                            onclick="return confirm('ยืนยันผ่านการรับรองผลสอบระดับคณะ?')">
+                                        <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
                                             คณะอนุมัติ
                                         </button>
                                     </form>
@@ -376,7 +409,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-3 py-10 text-center text-gray-500">ไม่พบรายการตามเงื่อนไข</td>
+                        <td colspan="9" class="px-3 py-10 text-center text-gray-500">ไม่พบรายการตามเงื่อนไข</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -565,10 +598,6 @@
         syncBulkMirrors();
         const count = approvableBoxes().filter((box) => box.checked).length;
         if (count === 0) {
-            e.preventDefault();
-            return;
-        }
-        if (!confirm(`ยืนยันอนุมัติระดับคณะ ${count} รายการที่เลือก?`)) {
             e.preventDefault();
         }
     });

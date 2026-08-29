@@ -57,6 +57,7 @@
                     <option value="">ทุกสถานะ</option>
                     <option value="0" @selected(($filters['status'] ?? '') === '0' || ($filters['status'] ?? null) === 0)>บันทึกแล้ว</option>
                     <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>สาขาอนุมัติ</option>
+                    <option value="3" @selected(($filters['status'] ?? '') === '3' || ($filters['status'] ?? null) === 3)>ตรวจแล้ว</option>
                     <option value="2" @selected(($filters['status'] ?? '') === '2' || ($filters['status'] ?? null) === 2)>คณะอนุมัติ</option>
                     <option value="-1" @selected(($filters['status'] ?? '') === '-1' || ($filters['status'] ?? null) === -1)>ส่งกลับแก้ไข</option>
                 </select>
@@ -150,6 +151,7 @@
                         $canSendBack = $canAct && ! $isDeptResubmit;
                         $badge = match ((int) $report->approv) {
                             1 => 'status-dept',
+                            3 => 'status-checked',
                             2 => 'status-approved',
                             -1 => 'status-rejected',
                             default => 'status-pending',
@@ -185,8 +187,7 @@
                                 @if ($canAct)
                                     <form method="POST" action="{{ route('dept-admin.reviews.approve', $report) }}" class="inline">
                                         @csrf
-                                        <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
-                                            onclick="return confirm('{{ $isDeptResubmit ? 'ยืนยันส่งรายงานผลการสอบไล่อีกครั้ง?' : 'ยืนยันผ่านการรับรองผลสอบ?' }}')">
+                                        <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
                                             {{ $isDeptResubmit ? 'ส่งรายงานผลการสอบไล่อีกครั้ง' : 'ผ่านการรับรอง' }}
                                         </button>
                                     </form>
@@ -202,7 +203,7 @@
                                        class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
                                     @if ((int) $report->approv === -1)
                                         <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
-                                    @elseif (in_array((int) $report->approv, [1, 2], true))
+                                    @elseif (in_array((int) $report->approv, [1, 2, 3], true))
                                         <span class="text-xs text-gray-500 w-full text-center">{{ $report->approvalResultLabel() }}</span>
                                     @endif
                                 @endif

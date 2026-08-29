@@ -411,6 +411,7 @@
                 <strong>สถานะการอนุมัติ:</strong>
                 <span class="inline-block mx-1 px-2 py-0.5 rounded status-pending text-xs">รออนุมัติ (0)</span>
                 <span class="inline-block mx-1 px-2 py-0.5 rounded status-dept text-xs">สาขาอนุมัติ (1)</span>
+                <span class="inline-block mx-1 px-2 py-0.5 rounded status-checked text-xs">ตรวจแล้ว (3)</span>
                 <span class="inline-block mx-1 px-2 py-0.5 rounded status-approved text-xs">คณะอนุมัติ (2)</span>
             </div>
 
@@ -465,6 +466,7 @@
                                         @php
                                             $badge = match ((int) $report->approv) {
                                                 1 => 'status-dept',
+                                                3 => 'status-checked',
                                                 2 => 'status-approved',
                                                 -1 => 'status-rejected',
                                                 default => 'status-pending',

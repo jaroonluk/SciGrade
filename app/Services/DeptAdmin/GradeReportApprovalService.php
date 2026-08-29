@@ -24,7 +24,7 @@ class GradeReportApprovalService
                 throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
             }
 
-            if ($from === GradeApprovalStatus::DepartmentApproved->value) {
+            if (in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
                 throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว');
             }
 
@@ -53,7 +53,7 @@ class GradeReportApprovalService
                 throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
             }
 
-            if ($from === GradeApprovalStatus::DepartmentApproved->value) {
+            if (in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
                 throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว ไม่สามารถเปลี่ยนเป็นไม่ผ่านได้');
             }
 
@@ -79,7 +79,7 @@ class GradeReportApprovalService
             $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
             $from = (int) $report->approv;
 
-            if ($from === GradeApprovalStatus::DepartmentApproved->value) {
+            if (in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
                 throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว ไม่สามารถส่งกลับให้แก้ไขได้');
             }
 
@@ -117,6 +117,10 @@ class GradeReportApprovalService
 
             if ($from === GradeApprovalStatus::CentralApproved->value) {
                 throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
+            }
+
+            if ($from === GradeApprovalStatus::FacultyChecked->value) {
+                throw new InvalidArgumentException('รายการถูกตรวจเอกสารแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
             }
 
             if ($from !== GradeApprovalStatus::DepartmentApproved->value) {

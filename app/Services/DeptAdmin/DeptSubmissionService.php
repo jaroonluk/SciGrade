@@ -16,15 +16,18 @@ class DeptSubmissionService
     {
         $educationLevel = DeptSubmission::normalizeEducationLevel($educationLevel);
 
-        return DeptSubmission::query()
+        $query = DeptSubmission::query()
             ->with('files')
             ->where('department_id', $departmentId)
             ->where('term', $term)
             ->where('year', $year)
-            ->where('education_level', $educationLevel)
-            ->where('status', DeptSubmission::STATUS_OPEN)
-            ->orderByDesc('submission_id')
-            ->first();
+            ->where('status', DeptSubmission::STATUS_OPEN);
+
+        if (DeptSubmission::hasEducationLevelColumn()) {
+            $query->where('education_level', $educationLevel);
+        }
+
+        return $query->orderByDesc('submission_id')->first();
     }
 
     public function getOrCreateOpenSubmission(int $departmentId, int $term, int $year, string $educationLevel = DeptSubmission::EDUCATION_BACHELOR): DeptSubmission
@@ -36,16 +39,19 @@ class DeptSubmissionService
         }
 
         $now = now();
-
-        return DeptSubmission::query()->create([
+        $payload = [
             'department_id' => $departmentId,
             'term' => $term,
             'year' => $year,
-            'education_level' => $educationLevel,
             'status' => DeptSubmission::STATUS_OPEN,
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+        if (DeptSubmission::hasEducationLevelColumn()) {
+            $payload['education_level'] = $educationLevel;
+        }
+
+        return DeptSubmission::query()->create($payload);
     }
 
     public function canModify(DeptSubmission $submission): bool
@@ -118,16 +124,19 @@ class DeptSubmissionService
     {
         $query = DeptSubmission::query()
             ->with(['department', 'files'])
+            ->withMax('files', 'uploaded_at')
             ->where('status', DeptSubmission::STATUS_OPEN)
             ->where('term', $term)
             ->where('year', $year)
-            ->whereHas('files')
-            ->orderBy('department_id')
-            ->orderBy('education_level');
+            ->whereHas('files');
 
         $this->applyInboxScope($query, $inboxScope ?? SciGradeRole::deptSubmissionInboxScope());
 
-        return $query->get();
+        return $query
+            ->orderByDesc('files_max_uploaded_at')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('submission_id')
+            ->get();
     }
 
     /**
@@ -140,13 +149,15 @@ class DeptSubmissionService
             ->where('status', DeptSubmission::STATUS_RECEIVED)
             ->where('term', $term)
             ->where('year', $year)
-            ->whereHas('files')
-            ->orderBy('department_id')
-            ->orderByDesc('received_at');
+            ->whereHas('files');
 
         $this->applyInboxScope($query, $inboxScope ?? SciGradeRole::deptSubmissionInboxScope());
 
-        return $query->get()->groupBy('department_id');
+        return $query
+            ->orderByDesc('received_at')
+            ->orderByDesc('submission_id')
+            ->get()
+            ->groupBy('department_id');
     }
 
     public function assertFacultyInboxAccess(DeptSubmission $submission): void
@@ -173,6 +184,10 @@ class DeptSubmissionService
      */
     private function applyInboxScope($query, string $scope): void
     {
+        if (! DeptSubmission::hasEducationLevelColumn()) {
+            return;
+        }
+
         if ($scope === SciGradeRole::INBOX_BACHELOR) {
             $query->where('education_level', DeptSubmission::EDUCATION_BACHELOR);
 

@@ -19,7 +19,7 @@ class GradeReportReviewFilterRequest extends FormRequest
         return [
             'subject_code' => ['nullable', 'string', 'max:50'],
             'subject' => ['nullable', 'string', 'max:150'],
-            'status' => ['nullable', 'integer', 'in:-1,0,1,2'],
+            'status' => ['nullable', 'integer', 'in:-1,0,1,2,3'],
             'term' => ['nullable', 'integer', 'in:1,2,3'],
             'year' => ['nullable', 'integer', 'min:2500', 'max:2600'],
             'department_id' => ['nullable', 'integer'],

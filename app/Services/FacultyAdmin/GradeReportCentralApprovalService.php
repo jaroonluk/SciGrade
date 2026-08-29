@@ -24,7 +24,7 @@ class GradeReportCentralApprovalService
                 throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว');
             }
 
-            if ($from !== GradeApprovalStatus::DepartmentApproved->value) {
+            if (! in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
                 throw new InvalidArgumentException('สามารถอนุมัติระดับคณะได้เฉพาะรายการที่สาขาอนุมัติแล้วเท่านั้น');
             }
 
@@ -49,7 +49,7 @@ class GradeReportCentralApprovalService
                 throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถส่งกลับได้');
             }
 
-            if ($from !== GradeApprovalStatus::DepartmentApproved->value) {
+            if (! in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
                 throw new InvalidArgumentException('สามารถไม่อนุมัติระดับคณะได้เฉพาะรายการที่สาขาอนุมัติแล้วเท่านั้น');
             }
 
@@ -60,6 +60,41 @@ class GradeReportCentralApprovalService
             ]);
 
             $this->writeLog($report, 'central_rejected', $from, GradeApprovalStatus::DepartmentRejected->value, $approverUsername, $remark);
+
+            return $report->fresh(['gradeStds', 'files', 'latestCentralApprovalLog.approver']);
+        });
+    }
+
+    public function markChecked(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from === GradeApprovalStatus::FacultyChecked->value) {
+                throw new InvalidArgumentException('รายการนี้ตรวจเอกสารแล้ว');
+            }
+
+            if ($from === GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว');
+            }
+
+            if ($from !== GradeApprovalStatus::DepartmentApproved->value) {
+                throw new InvalidArgumentException('สามารถกดตรวจแล้วได้เฉพาะรายการที่สาขาอนุมัติแล้วเท่านั้น');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::FacultyChecked->value,
+            ]);
+
+            $this->writeLog(
+                $report,
+                'central_checked',
+                $from,
+                GradeApprovalStatus::FacultyChecked->value,
+                $approverUsername,
+                $remark,
+            );
 
             return $report->fresh(['gradeStds', 'files', 'latestCentralApprovalLog.approver']);
         });

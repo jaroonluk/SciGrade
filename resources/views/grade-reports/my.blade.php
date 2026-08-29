@@ -57,6 +57,7 @@
                 @php
                     $statusClass = match ((int) $report->approv) {
                         1 => 'status-dept',
+                        3 => 'status-checked',
                         2 => 'status-approved',
                         -1 => 'status-rejected',
                         default => 'status-pending',

@@ -25,7 +25,7 @@ class GradeReportReviewFilterRequest extends FormRequest
             'subject' => ['nullable', 'string', 'max:150'],
             'created_from' => ['nullable', 'date'],
             'created_to' => ['nullable', 'date', 'after_or_equal:created_from'],
-            'status' => ['nullable', 'integer', 'in:-1,0,1,2'],
+            'status' => ['nullable', 'integer', 'in:-1,0,1,2,3'],
             'term' => ['nullable', 'integer', 'in:1,2,3'],
             'year' => ['nullable', 'integer', 'min:2500', 'max:2600'],
             'department_id' => ['nullable', 'integer', Rule::in(FacultyReportQueryService::FACULTY_DEPARTMENT_IDS)],

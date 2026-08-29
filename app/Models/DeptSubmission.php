@@ -6,6 +6,8 @@ use App\Support\SciGradeRole;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class DeptSubmission extends Model
 {
@@ -106,6 +108,23 @@ class DeptSubmission extends Model
         return $value === self::EDUCATION_GRADUATE
             ? self::EDUCATION_GRADUATE
             : self::EDUCATION_BACHELOR;
+    }
+
+    public static function hasEducationLevelColumn(): bool
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        try {
+            $cached = Schema::connection((new self)->getConnectionName())
+                ->hasColumn((new self)->getTable(), 'education_level');
+        } catch (Throwable) {
+            $cached = false;
+        }
+
+        return $cached;
     }
 
     public function educationLevelLabel(): string

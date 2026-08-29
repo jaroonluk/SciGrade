@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GradeApprovalStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -97,7 +98,7 @@ class GradeReport extends Model
     public function latestCentralApprovalLog(): HasOne
     {
         return $this->hasOne(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
-            ->whereIn('action', ['central_approved', 'central_rejected', 'central_send_back'])
+            ->whereIn('action', ['central_approved', 'central_rejected', 'central_send_back', 'central_checked'])
             ->latestOfMany('log_id');
     }
 
@@ -105,6 +106,7 @@ class GradeReport extends Model
     {
         return match ((int) $this->approv) {
             1 => 'ผ่านที่ประชุมกรรมการสาขาวิชา',
+            3 => 'ตรวจแล้ว — รอกรรมการคณะฯ',
             2 => 'ผ่านที่ประชุมกรรมการคณะ',
             -1 => 'ส่งกลับแก้ไข',
             default => 'รอดำเนินการ / ยังไม่อนุมัติ',
@@ -124,6 +126,7 @@ class GradeReport extends Model
 
         return match ((int) $this->approv) {
             1 => 'สาขาอนุมัติ',
+            3 => 'ตรวจแล้ว',
             2 => 'คณะอนุมัติ',
             -1 => 'ส่งกลับแก้ไข',
             default => 'บันทึกแล้ว',
@@ -134,6 +137,7 @@ class GradeReport extends Model
     {
         return match ((int) $this->approv) {
             1 => 'ผ่านการรับรองผลสอบ',
+            3 => 'ตรวจแล้ว — รอกรรมการคณะฯ',
             2 => 'ผ่านการรับรองผลสอบ (คณะ)',
             -1 => 'ยังไม่ผ่านการรับรองผลสอบ',
             default => 'ยังไม่ผ่านการรับรองผลสอบ',
@@ -143,7 +147,7 @@ class GradeReport extends Model
     public function approvalStep(): int
     {
         return match ((int) $this->approv) {
-            1 => 1,
+            1, 3 => 1,
             2 => 2,
             default => 0,
         };
@@ -179,6 +183,16 @@ class GradeReport extends Model
         return $this->canEdit();
     }
 
+    public function canFacultyApprove(): bool
+    {
+        return in_array((int) $this->approv, GradeApprovalStatus::facultyReviewableValues(), true);
+    }
+
+    public function canMarkFacultyChecked(): bool
+    {
+        return (int) $this->approv === GradeApprovalStatus::DepartmentApproved->value;
+    }
+
     public function canPrint(): bool
     {
         return $this->gradeStds->isNotEmpty();
@@ -187,6 +201,26 @@ class GradeReport extends Model
     public function totalStudents(): int
     {
         return (int) $this->gradeStds->sum(fn ($row) => (int) $row->total_std);
+    }
+
+    /**
+     * กลุ่มเรียน (Section) พร้อมจำนวนผู้ลงทะเบียนในรายงาน
+     *
+     * @return Collection<int, array{sec: string, total: int}>
+     */
+    public function enrollmentSections(): Collection
+    {
+        return $this->gradeStds
+            ->map(function ($row) {
+                $sec = trim((string) ($row->sec ?? ''));
+
+                return [
+                    'sec' => $sec === '' ? '-' : $sec,
+                    'total' => (int) ($row->total_std ?? 0),
+                ];
+            })
+            ->sortBy(fn (array $item) => sprintf('%08s', $item['sec']), SORT_NATURAL)
+            ->values();
     }
 
     public function termLabel(): string
@@ -268,6 +302,7 @@ class GradeReport extends Model
     {
         return match ($action) {
             'department_approved', 'central_approved' => 'อนุมัติ',
+            'central_checked' => 'ตรวจแล้ว',
             'department_rejected', 'central_rejected' => 'ไม่อนุมัติ',
             'department_send_back', 'central_send_back' => 'ส่งกลับแก้ไข',
             'instructor_resubmitted' => 'ส่งการแก้ไข',

@@ -108,6 +108,24 @@ class GradeReportReviewController extends Controller
         return $this->successResponse($request, 'ส่งกลับให้อาจารย์แก้ไขเรียบร้อย');
     }
 
+    public function markChecked(GradeReportApprovalRequest $request, GradeReport $gradeReport): JsonResponse|RedirectResponse
+    {
+        $this->requireStaff();
+        $this->authorize('reviewFaculty', $gradeReport);
+
+        try {
+            $this->approvalService->markChecked(
+                $gradeReport,
+                $this->staffUsername(),
+                $request->input('remark'),
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->failureResponse($request, $e->getMessage(), 422);
+        }
+
+        return $this->successResponse($request, 'บันทึกตรวจเอกสารแล้ว แจ้งสถานะให้ผู้เกี่ยวข้องแล้ว');
+    }
+
     public function bulkApprove(GradeReportBulkApprovalRequest $request): JsonResponse|RedirectResponse
     {
         $this->requireStaff();

@@ -275,7 +275,7 @@ class GradeReportPageController extends Controller
         $query = GradeReport::query()->with('gradeStds')->orderBy('subject_code');
 
         if ($role === 'dept_admin') {
-            $query->whereIn('approv', [0, 1, 2, -1]);
+            $query->whereIn('approv', [0, 1, 2, 3, -1]);
         } else {
             if ($request->filled('fac')) {
                 $query->whereHas('gradeStds', fn ($q) => $q->where('fac', 'like', '%'.$request->fac.'%'));

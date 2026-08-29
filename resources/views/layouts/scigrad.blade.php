@@ -19,6 +19,7 @@
         .status-dept { background: #e0d4c8; color: #6b3a1f; }
         .status-approved { background: #d1fae5; color: #065f46; }
         .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-checked { background: #ffedd5; color: #c2410c; }
         @media print { .no-print { display: none !important; } }
     </style>
     @stack('styles')

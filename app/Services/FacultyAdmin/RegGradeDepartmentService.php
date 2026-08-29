@@ -453,7 +453,7 @@ class RegGradeDepartmentService
         $approv = (int) $report->approv;
         $status = match (true) {
             $approv === 2 => 3,
-            $approv === 1 => 2,
+            $approv === 1, $approv === 3 => 2,
             $approv === -1 => 1,
             default => 1,
         };
