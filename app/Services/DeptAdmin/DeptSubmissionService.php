@@ -5,27 +5,32 @@ namespace App\Services\DeptAdmin;
 use App\Models\DeptSubmission;
 use App\Models\DeptSubmissionFile;
 use App\Models\TblUser;
+use App\Support\SciGradeRole;
 use App\Support\UploadStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 
 class DeptSubmissionService
 {
-    public function openSubmission(int $departmentId, int $term, int $year): ?DeptSubmission
+    public function openSubmission(int $departmentId, int $term, int $year, string $educationLevel = DeptSubmission::EDUCATION_BACHELOR): ?DeptSubmission
     {
+        $educationLevel = DeptSubmission::normalizeEducationLevel($educationLevel);
+
         return DeptSubmission::query()
             ->with('files')
             ->where('department_id', $departmentId)
             ->where('term', $term)
             ->where('year', $year)
+            ->where('education_level', $educationLevel)
             ->where('status', DeptSubmission::STATUS_OPEN)
             ->orderByDesc('submission_id')
             ->first();
     }
 
-    public function getOrCreateOpenSubmission(int $departmentId, int $term, int $year): DeptSubmission
+    public function getOrCreateOpenSubmission(int $departmentId, int $term, int $year, string $educationLevel = DeptSubmission::EDUCATION_BACHELOR): DeptSubmission
     {
-        $existing = $this->openSubmission($departmentId, $term, $year);
+        $educationLevel = DeptSubmission::normalizeEducationLevel($educationLevel);
+        $existing = $this->openSubmission($departmentId, $term, $year, $educationLevel);
         if ($existing) {
             return $existing;
         }
@@ -36,6 +41,7 @@ class DeptSubmissionService
             'department_id' => $departmentId,
             'term' => $term,
             'year' => $year,
+            'education_level' => $educationLevel,
             'status' => DeptSubmission::STATUS_OPEN,
             'created_at' => $now,
             'updated_at' => $now,
@@ -108,39 +114,74 @@ class DeptSubmissionService
     /**
      * @return \Illuminate\Database\Eloquent\Collection<int, DeptSubmission>
      */
-    public function openSubmissionsForFaculty(int $term, int $year)
+    public function openSubmissionsForFaculty(int $term, int $year, ?string $inboxScope = null)
     {
-        return DeptSubmission::query()
+        $query = DeptSubmission::query()
             ->with(['department', 'files'])
             ->where('status', DeptSubmission::STATUS_OPEN)
             ->where('term', $term)
             ->where('year', $year)
             ->whereHas('files')
             ->orderBy('department_id')
-            ->get();
+            ->orderBy('education_level');
+
+        $this->applyInboxScope($query, $inboxScope ?? SciGradeRole::deptSubmissionInboxScope());
+
+        return $query->get();
     }
 
     /**
      * @return \Illuminate\Support\Collection<int, \Illuminate\Database\Eloquent\Collection<int, DeptSubmission>>
      */
-    public function receivedSubmissionsGroupedForFaculty(int $term, int $year)
+    public function receivedSubmissionsGroupedForFaculty(int $term, int $year, ?string $inboxScope = null)
     {
-        return DeptSubmission::query()
+        $query = DeptSubmission::query()
             ->with(['department', 'files', 'receivedByUser.titleRelation'])
             ->where('status', DeptSubmission::STATUS_RECEIVED)
             ->where('term', $term)
             ->where('year', $year)
             ->whereHas('files')
             ->orderBy('department_id')
-            ->orderByDesc('received_at')
-            ->get()
-            ->groupBy('department_id');
+            ->orderByDesc('received_at');
+
+        $this->applyInboxScope($query, $inboxScope ?? SciGradeRole::deptSubmissionInboxScope());
+
+        return $query->get()->groupBy('department_id');
+    }
+
+    public function assertFacultyInboxAccess(DeptSubmission $submission): void
+    {
+        abort_unless(SciGradeRole::isFacultyCapable(), 403);
+        abort_unless(
+            DeptSubmission::matchesInboxScope(
+                $submission->education_level,
+                SciGradeRole::deptSubmissionInboxScope(),
+            ),
+            403,
+            'ไม่มีสิทธิ์ดูหรือรับเอกสารระดับการศึกษานี้',
+        );
     }
 
     public function assertDepartmentAccess(TblUser $staff, int $departmentId): void
     {
         $access = app(DepartmentAccessService::class);
         abort_unless($access->canAccessDepartment($staff, $departmentId), 403, 'ไม่มีสิทธิ์จัดการสาขานี้');
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\DeptSubmission>  $query
+     */
+    private function applyInboxScope($query, string $scope): void
+    {
+        if ($scope === SciGradeRole::INBOX_BACHELOR) {
+            $query->where('education_level', DeptSubmission::EDUCATION_BACHELOR);
+
+            return;
+        }
+
+        if ($scope === SciGradeRole::INBOX_NON_BACHELOR) {
+            $query->where('education_level', '!=', DeptSubmission::EDUCATION_BACHELOR);
+        }
     }
 
     private function uniqueFilename(string $directory, string $originalName, ?int $ignoreFileId = null): string

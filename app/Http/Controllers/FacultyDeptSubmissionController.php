@@ -24,6 +24,7 @@ class FacultyDeptSubmissionController extends Controller
         $staff = $this->staffAuth->findByEmail(auth()->user()->email);
         abort_unless($staff, 403, 'ไม่พบข้อมูลเจ้าหน้าที่');
         $this->staffAuth->storeInSession($staff);
+        $this->submissionService->assertFacultyInboxAccess($submission);
 
         $updated = $this->submissionService->receiveSubmission($submission, $staff->username);
 
@@ -35,6 +36,7 @@ class FacultyDeptSubmissionController extends Controller
                 'department_id' => $updated->department_id,
                 'term' => $updated->term,
                 'year' => $updated->year,
+                'education_level' => $updated->education_level,
                 'status' => $updated->status,
             ],
         );

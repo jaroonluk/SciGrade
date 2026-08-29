@@ -14,6 +14,12 @@ class SciGradeRole
 
     public const SUPER_ADMIN = 'super_admin';
 
+    public const INBOX_ALL = 'all';
+
+    public const INBOX_BACHELOR = 'bachelor';
+
+    public const INBOX_NON_BACHELOR = 'non_bachelor';
+
     /**
      * @return list<string>
      */
@@ -131,5 +137,41 @@ class SciGradeRole
         }
 
         return $roles;
+    }
+
+    public static function inboxScopeForPrivilegeLevel(?int $level): string
+    {
+        return match ($level) {
+            TblPrivilege::LEVEL_SERVICE_BACHELOR => self::INBOX_BACHELOR,
+            TblPrivilege::LEVEL_SERVICE_GRADUATE => self::INBOX_NON_BACHELOR,
+            default => self::INBOX_ALL,
+        };
+    }
+
+    public static function staffPrivilegeLevel(?string $username = null): ?int
+    {
+        $username = $username ?? (string) session('staff_username', '');
+        if ($username === '') {
+            return null;
+        }
+
+        $level = TblPrivilege::query()
+            ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
+            ->where('username', $username)
+            ->value('level');
+
+        return $level === null ? null : (int) $level;
+    }
+
+    /**
+     * ขอบเขตรายการรับเอกสารจากหน่วยงาน ตามสิทธิ์งานบริการ
+     */
+    public static function deptSubmissionInboxScope(?string $username = null): string
+    {
+        if (self::isSuperAdmin()) {
+            return self::INBOX_ALL;
+        }
+
+        return self::inboxScopeForPrivilegeLevel(self::staffPrivilegeLevel($username));
     }
 }

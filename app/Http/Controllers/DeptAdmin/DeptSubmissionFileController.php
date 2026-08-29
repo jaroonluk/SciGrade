@@ -30,6 +30,7 @@ class DeptSubmissionFileController extends Controller
             'department_id' => ['required', 'integer'],
             'term' => ['required', 'integer', 'in:1,2,3'],
             'year' => ['required', 'integer', 'min:2500', 'max:2600'],
+            'education_level' => ['required', 'string', 'in:bachelor,graduate'],
             'attachment' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:20480'],
         ], [
             'attachment.mimes' => 'รองรับเฉพาะไฟล์ PDF หรือ Word',
@@ -43,6 +44,7 @@ class DeptSubmissionFileController extends Controller
             $departmentId,
             (int) $validated['term'],
             (int) $validated['year'],
+            DeptSubmission::normalizeEducationLevel($validated['education_level']),
         );
 
         $uploaded = $request->file('attachment');
@@ -117,7 +119,9 @@ class DeptSubmissionFileController extends Controller
         $role = session('scigrade_role', 'instructor');
         if ($role === 'dept_admin') {
             $this->submissionService->assertDepartmentAccess($staff, (int) $submission->department_id);
-        } elseif (! SciGradeRole::isFacultyCapable($role)) {
+        } elseif (SciGradeRole::isFacultyCapable($role)) {
+            $this->submissionService->assertFacultyInboxAccess($submission);
+        } else {
             abort(403);
         }
 

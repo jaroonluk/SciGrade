@@ -35,7 +35,10 @@
                         <div class="px-4 py-3">
                             <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
                                 <div class="text-sm text-[#7A4A3A]/90">
-                                    <p>
+                                    <p class="flex flex-wrap items-center gap-2">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-semibold {{ $submission->isGraduate() ? 'bg-violet-100 text-violet-800 border border-violet-200' : 'bg-sky-100 text-sky-800 border border-sky-200' }}">
+                                            {{ $submission->educationLevelLabel() }}
+                                        </span>
                                         <span class="font-medium text-[#5C2E1F]">ส่งเมื่อ</span>
                                         {{ \App\Support\ThaiDateTime::formatDateTime($submittedAt) }}
                                     </p>

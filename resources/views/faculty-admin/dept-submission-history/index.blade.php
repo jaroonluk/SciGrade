@@ -75,7 +75,8 @@
     document.querySelectorAll('.btn-receive-dept-submission').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const deptName = btn.dataset.departmentName || 'สาขานี้';
-            if (!confirm(`ยืนยันรับเอกสารจากสาขา "${deptName}" หรือไม่?\n\nหลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนี้ได้`)) return;
+            const eduLabel = btn.dataset.educationLabel ? ` (${btn.dataset.educationLabel})` : '';
+            if (!confirm(`ยืนยันรับเอกสารจากสาขา "${deptName}"${eduLabel} หรือไม่?\n\nหลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนี้ได้`)) return;
 
             btn.disabled = true;
 

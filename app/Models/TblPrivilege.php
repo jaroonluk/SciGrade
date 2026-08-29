@@ -15,6 +15,10 @@ class TblPrivilege extends Model
 
     public const LEVEL_SUPER = 2;
 
+    public const LEVEL_SERVICE_BACHELOR = 3;
+
+    public const LEVEL_SERVICE_GRADUATE = 4;
+
     protected $connection = 'scigrad';
 
     protected $table = 'tblprivileges';
@@ -44,10 +48,25 @@ class TblPrivilege extends Model
 
     public function levelLabel(): string
     {
-        return match ((int) $this->level) {
+        return self::labelForLevel((int) $this->level);
+    }
+
+    public static function labelForLevel(int $level): string
+    {
+        return match ($level) {
             self::LEVEL_SUPER => 'Super Admin',
             self::LEVEL_DEPT => 'เจ้าหน้าที่สาขาวิชา',
+            self::LEVEL_SERVICE_BACHELOR => 'เจ้าหน้าที่งานบริการ(ป.ตรี)',
+            self::LEVEL_SERVICE_GRADUATE => 'เจ้าหน้าที่งานบริการ(ป.บัณฑิต)',
             default => 'เจ้าหน้าที่งานบริการ',
         };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function filterableLevelValues(): array
+    {
+        return ['0', '1', '2', '3', '4'];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SciGradeRole;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,10 +21,15 @@ class DeptSubmission extends Model
 
     public const STATUS_RECEIVED = 'received';
 
+    public const EDUCATION_BACHELOR = 'bachelor';
+
+    public const EDUCATION_GRADUATE = 'graduate';
+
     protected $fillable = [
         'department_id',
         'term',
         'year',
+        'education_level',
         'status',
         'received_at',
         'received_by',
@@ -93,5 +99,52 @@ class DeptSubmission extends Model
     public function receiverDisplayName(): string
     {
         return $this->receivedByUser?->displayName() ?? ($this->received_by ?: '-');
+    }
+
+    public static function normalizeEducationLevel(?string $value): string
+    {
+        return $value === self::EDUCATION_GRADUATE
+            ? self::EDUCATION_GRADUATE
+            : self::EDUCATION_BACHELOR;
+    }
+
+    public function educationLevelLabel(): string
+    {
+        return $this->isGraduate() ? 'บัณฑิตศึกษา' : 'ปริญญาตรี';
+    }
+
+    public function isGraduate(): bool
+    {
+        return self::normalizeEducationLevel($this->education_level) === self::EDUCATION_GRADUATE;
+    }
+
+    public static function matchesInboxScope(?string $educationLevel, string $scope): bool
+    {
+        $level = self::normalizeEducationLevel($educationLevel);
+
+        return match ($scope) {
+            SciGradeRole::INBOX_BACHELOR => $level === self::EDUCATION_BACHELOR,
+            SciGradeRole::INBOX_NON_BACHELOR => $level !== self::EDUCATION_BACHELOR,
+            default => true,
+        };
+    }
+
+    /**
+     * @param  iterable<int, object|array{education_level?: mixed}>  $rows
+     * @return list<object|array>
+     */
+    public static function filterRowsForInbox(iterable $rows, string $scope): array
+    {
+        $kept = [];
+        foreach ($rows as $row) {
+            $level = is_array($row)
+                ? ($row['education_level'] ?? null)
+                : ($row->education_level ?? null);
+            if (self::matchesInboxScope(is_string($level) ? $level : null, $scope)) {
+                $kept[] = $row;
+            }
+        }
+
+        return $kept;
     }
 }

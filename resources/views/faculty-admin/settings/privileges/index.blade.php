@@ -68,7 +68,9 @@
         <h2 class="text-xl font-bold text-[#5C2E1F]">ผู้มีสิทธิใช้งานระบบรายงานผลการสอบ</h2>
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
             ระบบรายงานผลการสอบ (system_id = 11) —
-            <span class="font-medium">0</span> = เจ้าหน้าที่งานบริการ,
+            <span class="font-medium">0</span> = เจ้าหน้าที่งานบริการ (รับเอกสารทั้งหมด),
+            <span class="font-medium">3</span> = เจ้าหน้าที่งานบริการ(ป.ตรี),
+            <span class="font-medium">4</span> = เจ้าหน้าที่งานบริการ(ป.บัณฑิต),
             <span class="font-medium">1</span> = เจ้าหน้าที่สาขาวิชา (เลือกสาขาที่ดูแลได้หลายสาขา)
             @if ($canAssignSuper ?? false)
                 , <span class="font-medium">2</span> = Super Admin
@@ -76,13 +78,17 @@
                 <span class="block mt-1 text-xs text-amber-800">ระดับ Super Admin กำหนดได้เฉพาะ Super Admin เท่านั้น</span>
             @endif
         </p>
+        <p class="text-xs text-[#7A4A3A]/75 mt-2">
+            ทั้งสามสถานะงานบริการเห็นเมนู Admin กลางครบ — ต่างกันที่กล่อง “รับเอกสารจากหน่วยงาน”
+            (งานบริการและ Super เห็นทั้งหมด, ป.ตรีเห็นเฉพาะปริญญาตรี, ป.บัณฑิตเห็นเอกสารที่ไม่ใช่ปริญญาตรี)
+        </p>
     </div>
 
     @if (session('status'))
         <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm">{{ session('status') }}</div>
     @endif
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['q' => $search ?: null])) }}"
             class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === 'all' ? 'border-[#8B4513] bg-[#fdf6f0] ring-1 ring-[#8B4513]/30' : 'border-amber-200 bg-white hover:border-[#C4725C]' }}">
             <p class="text-xs text-[#7A4A3A]/80">ทั้งหมด</p>
@@ -93,15 +99,25 @@
             <p class="text-xs text-slate-600">เจ้าหน้าที่งานบริการ</p>
             <p class="text-2xl font-bold text-slate-700 mt-1">{{ $summary[0] ?? 0 }}</p>
         </a>
+        <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['level' => '3', 'q' => $search ?: null])) }}"
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '3' ? 'border-sky-400 bg-sky-50 ring-1 ring-sky-300' : 'border-sky-200 bg-sky-50/70 hover:border-sky-400' }}">
+            <p class="text-xs text-sky-800">งานบริการ (ป.ตรี)</p>
+            <p class="text-2xl font-bold text-sky-800 mt-1">{{ $summary[3] ?? 0 }}</p>
+        </a>
+        <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['level' => '4', 'q' => $search ?: null])) }}"
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '4' ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-300' : 'border-violet-200 bg-violet-50/70 hover:border-violet-400' }}">
+            <p class="text-xs text-violet-800">งานบริการ (ป.บัณฑิต)</p>
+            <p class="text-2xl font-bold text-violet-800 mt-1">{{ $summary[4] ?? 0 }}</p>
+        </a>
         <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['level' => '1', 'q' => $search ?: null])) }}"
-            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '1' ? 'border-sky-400 bg-sky-50 ring-1 ring-sky-300' : 'border-sky-200 bg-sky-50/70 hover:border-sky-400' }}">
-            <p class="text-xs text-sky-800">เจ้าหน้าที่สาขาวิชา</p>
-            <p class="text-2xl font-bold text-sky-800 mt-1">{{ $summary[1] ?? 0 }}</p>
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '1' ? 'border-teal-400 bg-teal-50 ring-1 ring-teal-300' : 'border-teal-200 bg-teal-50/70 hover:border-teal-400' }}">
+            <p class="text-xs text-teal-800">เจ้าหน้าที่สาขาวิชา</p>
+            <p class="text-2xl font-bold text-teal-800 mt-1">{{ $summary[1] ?? 0 }}</p>
         </a>
         <a href="{{ route('faculty-admin.settings.privileges.index', array_filter(['level' => '2', 'q' => $search ?: null])) }}"
-            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '2' ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-300' : 'border-violet-200 bg-violet-50/70 hover:border-violet-400' }}">
-            <p class="text-xs text-violet-800">Super Admin</p>
-            <p class="text-2xl font-bold text-violet-800 mt-1">{{ $summary[2] ?? 0 }}</p>
+            class="rounded-xl border p-4 text-center transition {{ ($levelFilter ?? 'all') === '2' ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-300' : 'border-amber-200 bg-amber-50/70 hover:border-amber-400' }}">
+            <p class="text-xs text-amber-800">Super Admin</p>
+            <p class="text-2xl font-bold text-amber-800 mt-1">{{ $summary[2] ?? 0 }}</p>
         </a>
     </div>
 
@@ -120,6 +136,8 @@
                     onchange="this.form.submit()">
                     <option value="all" @selected(($levelFilter ?? 'all') === 'all')>ทั้งหมด</option>
                     <option value="0" @selected(($levelFilter ?? 'all') === '0')>เจ้าหน้าที่งานบริการ</option>
+                    <option value="3" @selected(($levelFilter ?? 'all') === '3')>เจ้าหน้าที่งานบริการ(ป.ตรี)</option>
+                    <option value="4" @selected(($levelFilter ?? 'all') === '4')>เจ้าหน้าที่งานบริการ(ป.บัณฑิต)</option>
                     <option value="1" @selected(($levelFilter ?? 'all') === '1')>เจ้าหน้าที่สาขาวิชา</option>
                     <option value="2" @selected(($levelFilter ?? 'all') === '2')>Super Admin</option>
                 </select>
@@ -157,6 +175,8 @@
                     <label class="block text-sm font-medium mb-1">ระดับสิทธิ์</label>
                     <select name="level" id="create-level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
                         <option value="0" @selected(old('level') === '0')>เจ้าหน้าที่งานบริการ</option>
+                        <option value="3" @selected(old('level') === '3')>เจ้าหน้าที่งานบริการ(ป.ตรี)</option>
+                        <option value="4" @selected(old('level') === '4')>เจ้าหน้าที่งานบริการ(ป.บัณฑิต)</option>
                         <option value="1" @selected(old('level', '1') === '1')>เจ้าหน้าที่สาขาวิชา</option>
                         @if ($canAssignSuper ?? false)
                             <option value="2" @selected(old('level') === '2')>Super Admin</option>
@@ -194,6 +214,8 @@
             <span>
                 รายชื่อผู้มีสิทธิ์
                 @if (($levelFilter ?? 'all') === '0') — เจ้าหน้าที่งานบริการ
+                @elseif (($levelFilter ?? 'all') === '3') — เจ้าหน้าที่งานบริการ(ป.ตรี)
+                @elseif (($levelFilter ?? 'all') === '4') — เจ้าหน้าที่งานบริการ(ป.บัณฑิต)
                 @elseif (($levelFilter ?? 'all') === '1') — เจ้าหน้าที่สาขาวิชา
                 @elseif (($levelFilter ?? 'all') === '2') — Super Admin
                 @endif
@@ -289,6 +311,8 @@
                 <label class="block text-sm font-medium mb-1">ระดับสิทธิ์</label>
                 <select name="level" id="edit-privilege-level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" required>
                     <option value="0">เจ้าหน้าที่งานบริการ</option>
+                    <option value="3">เจ้าหน้าที่งานบริการ(ป.ตรี)</option>
+                    <option value="4">เจ้าหน้าที่งานบริการ(ป.บัณฑิต)</option>
                     <option value="1">เจ้าหน้าที่สาขาวิชา</option>
                     @if ($canAssignSuper ?? false)
                         <option value="2">Super Admin</option>

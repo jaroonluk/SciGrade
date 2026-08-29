@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DeptSubmission;
 use App\Models\GradeReport;
 use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DepartmentAccessService;
@@ -35,6 +36,7 @@ class HomeController extends Controller
         $departments = collect();
         $deptDepartmentId = null;
         $deptSubmission = null;
+        $deptEducationLevel = DeptSubmission::EDUCATION_BACHELOR;
         $openDeptSubmissions = collect();
 
         if ($role === SciGradeRole::INSTRUCTOR) {
@@ -57,13 +59,25 @@ class HomeController extends Controller
                 $this->staffAuth->storeInSession($staff);
                 $departments = $this->departmentAccess->allowedDepartments($staff);
                 $deptDepartmentId = (int) $request->input('dept_department_id', $departments->first()?->department_id);
+                $deptEducationLevel = DeptSubmission::normalizeEducationLevel(
+                    $request->input('education_level')
+                );
                 if ($departments->contains('department_id', $deptDepartmentId)) {
-                    $deptSubmission = $this->deptSubmissionService->openSubmission($deptDepartmentId, $term, $year);
+                    $deptSubmission = $this->deptSubmissionService->openSubmission(
+                        $deptDepartmentId,
+                        $term,
+                        $year,
+                        $deptEducationLevel,
+                    );
                 }
             }
         }
 
         if (SciGradeRole::isFacultyCapable($role)) {
+            $staff = $this->staffAuth->findByEmail(auth()->user()->email);
+            if ($staff) {
+                $this->staffAuth->storeInSession($staff);
+            }
             $openDeptSubmissions = $this->deptSubmissionService->openSubmissionsForFaculty($term, $year);
         }
 
@@ -85,6 +99,7 @@ class HomeController extends Controller
             'years' => AcademicTerm::yearOptions(),
             'departments' => $departments,
             'deptDepartmentId' => $deptDepartmentId,
+            'deptEducationLevel' => $deptEducationLevel,
             'deptSubmission' => $deptSubmission,
             'openDeptSubmissions' => $openDeptSubmissions,
         ]);

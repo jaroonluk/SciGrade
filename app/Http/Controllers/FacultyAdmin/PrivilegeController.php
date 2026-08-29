@@ -27,7 +27,7 @@ class PrivilegeController extends Controller
     {
         $search = trim((string) $request->input('q', ''));
         $levelFilter = $request->input('level', 'all');
-        if ($levelFilter !== 'all' && ! in_array((string) $levelFilter, ['0', '1', '2'], true)) {
+        if ($levelFilter !== 'all' && ! in_array((string) $levelFilter, TblPrivilege::filterableLevelValues(), true)) {
             $levelFilter = 'all';
         }
 
@@ -41,6 +41,8 @@ class PrivilegeController extends Controller
 
         $summary = [
             TblPrivilege::LEVEL_SERVICE => (int) ($levelCounts[TblPrivilege::LEVEL_SERVICE] ?? 0),
+            TblPrivilege::LEVEL_SERVICE_BACHELOR => (int) ($levelCounts[TblPrivilege::LEVEL_SERVICE_BACHELOR] ?? 0),
+            TblPrivilege::LEVEL_SERVICE_GRADUATE => (int) ($levelCounts[TblPrivilege::LEVEL_SERVICE_GRADUATE] ?? 0),
             TblPrivilege::LEVEL_DEPT => (int) ($levelCounts[TblPrivilege::LEVEL_DEPT] ?? 0),
             TblPrivilege::LEVEL_SUPER => (int) ($levelCounts[TblPrivilege::LEVEL_SUPER] ?? 0),
         ];

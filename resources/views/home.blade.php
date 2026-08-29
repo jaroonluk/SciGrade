@@ -682,7 +682,8 @@
                 <p class="role-kicker">เอกสารสาขา</p>
                 <h4 class="role-title">อัปโหลดเอกสารสาขา</h4>
                 <p class="role-desc">
-                    ส่งเอกสารรายงานตามภาคการศึกษา — แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสาร
+                    ส่งเอกสารรายงานตามภาคการศึกษา — เลือกช่องทางปริญญาตรีหรือบัณฑิตศึกษาแล้วอัปโหลดแยกกัน
+                    แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสาร
                 </p>
             </div>
             <div class="role-panel-body">
@@ -715,6 +716,13 @@
                         @endforeach
                     </select>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-[#134e4a] mb-1">ช่องทางการส่ง</label>
+                    <select name="education_level" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[12rem]">
+                        <option value="bachelor" @selected(($deptEducationLevel ?? 'bachelor') === 'bachelor')>ระดับปริญญาตรี</option>
+                        <option value="graduate" @selected(($deptEducationLevel ?? 'bachelor') === 'graduate')>ระดับบัณฑิตศึกษา</option>
+                    </select>
+                </div>
                 <button type="submit" class="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800">แสดงรายการ</button>
             </form>
 
@@ -728,10 +736,14 @@
                  data-department-id="{{ $deptDepartmentId }}"
                  data-term="{{ $term }}"
                  data-year="{{ $year }}"
+                 data-education-level="{{ $deptEducationLevel ?? 'bachelor' }}"
                  data-can-modify="{{ $deptCanModify ? '1' : '0' }}">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <p class="text-sm font-semibold text-[#134e4a]">
-                        รอบการส่งปัจจุบัน:
+                        รอบการส่งปัจจุบัน
+                        <span class="inline-block px-2 py-0.5 rounded text-xs {{ ($deptEducationLevel ?? 'bachelor') === 'graduate' ? 'bg-violet-100 text-violet-800' : 'bg-sky-100 text-sky-800' }}">
+                            {{ ($deptEducationLevel ?? 'bachelor') === 'graduate' ? 'บัณฑิตศึกษา' : 'ปริญญาตรี' }}
+                        </span>:
                         @if ($deptSubmission)
                             <span class="inline-block px-2 py-0.5 rounded text-xs {{ $deptSubmission->isOpen() ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800' }}">
                                 {{ $deptSubmission->statusLabel() }}
@@ -882,7 +894,8 @@
                             @endif
                         </div>
                         <p class="text-xs text-teal-900/70 ml-9">
-                            เลือกภาคการศึกษา กดรับเอกสารทีละสาขา — หลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนั้นได้
+                            เลือกภาคการศึกษา กดรับเอกสารทีละสาขา — เอกสารแยกช่องทางปริญญาตรีและบัณฑิตศึกษา
+                            หลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนั้นได้
                         </p>
                     </div>
                     <a href="{{ route('faculty-admin.dept-submission-history.index', ['term' => $term, 'year' => $year]) }}"
@@ -1367,6 +1380,7 @@
             formData.append('department_id', deptBox.dataset.departmentId);
             formData.append('term', deptBox.dataset.term);
             formData.append('year', deptBox.dataset.year);
+            formData.append('education_level', deptBox.dataset.educationLevel || 'bachelor');
 
             const res = await fetch('/api/dept-submissions/files', {
                 method: 'POST',
@@ -1523,7 +1537,8 @@
     document.querySelectorAll('.btn-receive-dept-submission').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const deptName = btn.dataset.departmentName || 'สาขานี้';
-            if (!confirm(`ยืนยันรับเอกสารจากสาขา "${deptName}" หรือไม่?\n\nหลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนี้ได้`)) return;
+            const eduLabel = btn.dataset.educationLabel ? ` (${btn.dataset.educationLabel})` : '';
+            if (!confirm(`ยืนยันรับเอกสารจากสาขา "${deptName}"${eduLabel} หรือไม่?\n\nหลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนี้ได้`)) return;
 
             btn.disabled = true;
 

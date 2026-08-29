@@ -20,7 +20,7 @@ class PrivilegeRequest extends FormRequest
      */
     public function rules(): array
     {
-        $allowedLevels = ['0', '1'];
+        $allowedLevels = ['0', '1', '3', '4'];
         if (SciGradeRole::canAssignSuperPrivilege()) {
             $allowedLevels[] = '2';
         }
