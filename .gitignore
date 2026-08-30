@@ -25,5 +25,4 @@ Thumbs.db
 
 /app/Providers/AppServiceProvider.php
 /app/Http/Controllers/Auth/GoogleAuthController.php
-/bootstrap/app.php
 /app/Http/Middleware/UseRequestRootUrl.php
