@@ -53,8 +53,7 @@ class RegGradeDepartmentService
                 MAX(ACADYEAR) as ACADYEAR,
                 MAX(SEMESTER) as SEMESTER,
                 COUNT(*) as officer_count,
-                GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(OFFICERNAME, ''), ' ', IFNULL(OFFICERSURNAME, ''))) ORDER BY OFFICERNAME SEPARATOR ', ') as officers,
-                GROUP_CONCAT(DISTINCT NULLIF(TRIM(LEVELID), '') ORDER BY LEVELID SEPARATOR ',') as LEVELIDS
+                GROUP_CONCAT(DISTINCT TRIM(CONCAT(IFNULL(OFFICERNAME, ''), ' ', IFNULL(OFFICERSURNAME, ''))) ORDER BY OFFICERNAME SEPARATOR ', ') as officers
             ")
             ->where('ACADYEAR', (string) $year)
             ->where('SEMESTER', (string) $term);
@@ -97,7 +96,6 @@ class RegGradeDepartmentService
                     'SEMESTER' => (string) $row->SEMESTER,
                     'officer_count' => (int) $row->officer_count,
                     'officers' => $officers,
-                    'LEVELIDS' => (string) ($row->LEVELIDS ?? ''),
                     'section_count' => $sectionCount,
                     'has_multi_section' => $sectionCount > 1,
                 ];
