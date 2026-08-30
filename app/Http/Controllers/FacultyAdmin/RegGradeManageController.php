@@ -54,37 +54,24 @@ class RegGradeManageController extends Controller
 
         $canConnectReg = $this->dumpService->canConnect();
         $enrollmentMap = [];
-        $programTypeMap = [];
         if ($canConnectReg && $courses->isNotEmpty()) {
             try {
                 $enrollmentMap = $this->dumpService->enrollmentSeatMap($year, $term, $courses->items());
             } catch (Throwable) {
                 $enrollmentMap = [];
             }
-
-            try {
-                $programTypeMap = $this->dumpService->courseProgramTypeMap(
-                    $year,
-                    $term,
-                    $courses->items(),
-                );
-            } catch (Throwable) {
-                $programTypeMap = [];
-            }
         }
 
         $courses->setCollection(
-            $courses->getCollection()->map(function (object $row) use ($enrollmentMap, $programTypeMap) {
+            $courses->getCollection()->map(function (object $row) use ($enrollmentMap) {
                 $code = strtoupper(trim((string) $row->COURSECODE));
                 $key = $code.'|'.trim((string) $row->SECTION);
-                $typeKey = RegGradeDumpService::courseSectionKey($code, $row->SECTION);
+                $altKey = RegGradeDumpService::courseSectionKey($code, $row->SECTION);
                 $enroll = array_key_exists($key, $enrollmentMap)
                     ? (int) $enrollmentMap[$key]
-                    : (array_key_exists($typeKey, $enrollmentMap) ? (int) $enrollmentMap[$typeKey] : null);
+                    : (array_key_exists($altKey, $enrollmentMap) ? (int) $enrollmentMap[$altKey] : null);
                 $row->enrollseat = $enroll;
                 $row->has_no_enrollment = $enroll !== null && $enroll <= 0;
-                $row->program_types = $programTypeMap[$typeKey]
-                    ?? RegGradeDumpService::typesFromLevelIdList($row->LEVELIDS ?? '');
 
                 return $row;
             })

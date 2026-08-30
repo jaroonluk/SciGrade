@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\GoogleProvider;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 
 class GoogleAuthController extends Controller
@@ -23,7 +24,7 @@ class GoogleAuthController extends Controller
     public function redirect(): SymfonyRedirectResponse|RedirectResponse
     {
         try {
-            return Socialite::driver('google')->stateless()->redirect();
+            return $this->google()->redirect();
         } catch (\Throwable $e) {
             Log::error('Google OAuth redirect failed', [
                 'message' => $e->getMessage(),
@@ -39,7 +40,7 @@ class GoogleAuthController extends Controller
     public function callback(): RedirectResponse
     {
         try {
-            $googleUser = Socialite::driver('google')->stateless()->user();
+            $googleUser = $this->google()->user();
         } catch (\Throwable $e) {
             Log::error('Google OAuth callback failed', [
                 'message' => $e->getMessage(),
@@ -52,7 +53,18 @@ class GoogleAuthController extends Controller
         }
 
         $email = $googleUser->getEmail();
-        $staff = $this->staffAuth->findByEmail($email);
+
+        try {
+            $staff = $this->staffAuth->findByEmail($email);
+        } catch (\Illuminate\Database\QueryException $e) {
+            Log::error('Staff lookup failed after Google login', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->oauthFailureRedirect(
+                'ไม่สามารถเชื่อมต่อฐานข้อมูลบุคลากรได้ กรุณาตรวจสอบการตั้งค่าฐานข้อมูลบนเครื่องนี้',
+            );
+        }
 
         if (! $staff) {
             $this->auditLog->record('auth.denied', metadata: [
@@ -116,6 +128,13 @@ class GoogleAuthController extends Controller
         request()->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    private function google(): GoogleProvider
+    {
+        return Socialite::driver('google')
+            ->stateless()
+            ->redirectUrl(route('auth.google.callback'));
     }
 
     private function oauthFailureRedirect(string $message): RedirectResponse
