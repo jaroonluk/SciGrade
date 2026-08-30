@@ -64,7 +64,9 @@ class RegGradeManageController extends Controller
 
             try {
                 $programTypeMap = $this->dumpService->courseProgramTypeMap(
-                    $courses->getCollection()->pluck('COURSECODE')->all()
+                    $year,
+                    $term,
+                    $courses->items(),
                 );
             } catch (Throwable) {
                 $programTypeMap = [];
@@ -78,7 +80,7 @@ class RegGradeManageController extends Controller
                 $enroll = array_key_exists($key, $enrollmentMap) ? (int) $enrollmentMap[$key] : null;
                 $row->enrollseat = $enroll;
                 $row->has_no_enrollment = $enroll !== null && $enroll <= 0;
-                $row->program_types = $programTypeMap[$code] ?? [];
+                $row->program_types = $programTypeMap[$key] ?? [];
 
                 return $row;
             })

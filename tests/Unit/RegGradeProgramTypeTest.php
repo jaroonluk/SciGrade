@@ -36,31 +36,21 @@ class RegGradeProgramTypeTest extends TestCase
     }
 
     #[Test]
-    public function it_classifies_program_types_from_science_faculty_level_ids(): void
+    public function it_classifies_reg_class_level_ids(): void
     {
-        foreach ([31, 51, 71, '31', '51'] as $levelId) {
-            $this->assertSame(
-                RegGradeDumpService::PROGRAM_TYPE_REGULAR,
-                RegGradeDumpService::classifyProgramLevelId($levelId),
-                'LEVELID '.$levelId.' should be regular',
-            );
-        }
+        $this->assertSame(RegGradeDumpService::PROGRAM_TYPE_REGULAR, RegGradeDumpService::classifyLevelId(31));
+        $this->assertSame(RegGradeDumpService::PROGRAM_TYPE_REGULAR, RegGradeDumpService::classifyLevelId('51'));
+        $this->assertSame(RegGradeDumpService::PROGRAM_TYPE_REGULAR, RegGradeDumpService::classifyLevelId(71));
+        $this->assertSame(RegGradeDumpService::PROGRAM_TYPE_SPECIAL, RegGradeDumpService::classifyLevelId(34));
 
-        $this->assertSame(
-            RegGradeDumpService::PROGRAM_TYPE_SPECIAL,
-            RegGradeDumpService::classifyProgramLevelId(34),
-        );
-
-        foreach ([33, 35, 53, 73, '33'] as $levelId) {
+        foreach ([33, 35, 53, 73] as $levelId) {
             $this->assertSame(
                 RegGradeDumpService::PROGRAM_TYPE_INTERNATIONAL,
-                RegGradeDumpService::classifyProgramLevelId($levelId),
-                'LEVELID '.$levelId.' should be international',
+                RegGradeDumpService::classifyLevelId($levelId),
             );
         }
 
-        $this->assertNull(RegGradeDumpService::classifyProgramLevelId(99));
-        $this->assertNull(RegGradeDumpService::classifyProgramLevelId(null));
-        $this->assertNull(RegGradeDumpService::classifyProgramLevelId(''));
+        $this->assertNull(RegGradeDumpService::classifyLevelId(99));
+        $this->assertNull(RegGradeDumpService::classifyLevelId(null));
     }
 }

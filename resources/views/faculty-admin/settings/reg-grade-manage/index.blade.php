@@ -406,8 +406,9 @@
                     <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-700 text-white font-semibold">N Sec.</span>
                 </span>
                 <span>
-                    ประเภทกลุ่มดึงจาก <code class="text-[0.7rem]">program.LEVELID</code> ของคณะวิทยาศาสตร์ (FACULTYID = 2) ไม่ใช่สถานะนักศึกษา —
-                    <span class="program-type-badge is-regular">ปกติ</span>
+                    ประเภทกลุ่มดึงจากตาราง <code class="text-[0.7rem]">class</code> ใน REG ตามรหัสวิชา+กลุ่ม
+                    (<code class="text-[0.7rem]">FACULTYID = 2</code>, <code class="text-[0.7rem]">LEVELID</code>) —
+                    <span class="program-type-badge is-regular">ภาคปกติ</span>
                     <span class="program-type-badge is-special">โครงการพิเศษ</span>
                     <span class="program-type-badge is-international">นานาชาติ</span>
                 </span>
@@ -472,7 +473,7 @@
                         $enrollSeat = $row->enrollseat ?? null;
                         $programTypes = is_array($row->program_types ?? null) ? $row->program_types : [];
                         $programTypeLabels = [
-                            'regular' => 'ปกติ',
+                            'regular' => 'ภาคปกติ',
                             'special' => 'โครงการพิเศษ',
                             'international' => 'นานาชาติ',
                         ];
@@ -528,7 +529,7 @@
                             @if ($programTypes !== [])
                                 <div class="flex flex-wrap justify-center gap-1">
                                     @foreach ($programTypes as $type)
-                                        <span class="program-type-badge is-{{ $type }}" title="จาก program.LEVELID ของคณะวิทยาศาสตร์ใน REG ไม่ใช่สถานะนักศึกษา">
+                                        <span class="program-type-badge is-{{ $type }}" title="จาก class.LEVELID ในฐาน REG (คณะวิทยาศาสตร์)">
                                             {{ $programTypeLabels[$type] ?? $type }}
                                         </span>
                                     @endforeach

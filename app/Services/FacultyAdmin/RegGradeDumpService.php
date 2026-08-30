@@ -25,15 +25,6 @@ class RegGradeDumpService
         self::PROGRAM_TYPE_INTERNATIONAL,
     ];
 
-    /** @var list<int> */
-    public const PROGRAM_LEVEL_REGULAR = [31, 51, 71];
-
-    /** @var list<int> */
-    public const PROGRAM_LEVEL_SPECIAL = [34];
-
-    /** @var list<int> */
-    public const PROGRAM_LEVEL_INTERNATIONAL = [33, 35, 53, 73];
-
     /**
      * ดึงรายวิชาจาก REG (รวม SEMINAR) แล้วทับข้อมูลเดิมใน grade_report_reg
      *
@@ -255,6 +246,32 @@ class RegGradeDumpService
     }
 
     /**
+     * จำแนกประเภทจาก LEVELID ในตาราง class ของ REG
+     * 31, 51, 71 = ภาคปกติ | 34 = โครงการพิเศษ | 33, 35, 53, 73 = นานาชาติ
+     */
+    public static function classifyLevelId(int|string|null $levelId): ?string
+    {
+        $id = (int) $levelId;
+        if ($id <= 0) {
+            return null;
+        }
+
+        if (in_array($id, [31, 51, 71], true)) {
+            return self::PROGRAM_TYPE_REGULAR;
+        }
+
+        if ($id === 34) {
+            return self::PROGRAM_TYPE_SPECIAL;
+        }
+
+        if (in_array($id, [33, 35, 53, 73], true)) {
+            return self::PROGRAM_TYPE_INTERNATIONAL;
+        }
+
+        return null;
+    }
+
+    /**
      * จำแนกประเภทหลักสูตรจากชื่อใน REG (ปกติ / โครงการพิเศษ / นานาชาติ)
      *
      * @return list<string>
@@ -283,45 +300,23 @@ class RegGradeDumpService
     }
 
     /**
-     * จำแนกประเภทหลักสูตรจาก program.LEVELID ของคณะวิทยาศาสตร์ (FACULTYID = 2)
-     */
-    public static function classifyProgramLevelId(int|string|null $levelId): ?string
-    {
-        $id = (int) preg_replace('/\D/', '', (string) $levelId);
-
-        if ($id <= 0) {
-            return null;
-        }
-
-        if (in_array($id, self::PROGRAM_LEVEL_INTERNATIONAL, true)) {
-            return self::PROGRAM_TYPE_INTERNATIONAL;
-        }
-
-        if (in_array($id, self::PROGRAM_LEVEL_SPECIAL, true)) {
-            return self::PROGRAM_TYPE_SPECIAL;
-        }
-
-        if (in_array($id, self::PROGRAM_LEVEL_REGULAR, true)) {
-            return self::PROGRAM_TYPE_REGULAR;
-        }
-
-        return null;
-    }
-
-    /**
-     * ประเภทกลุ่มต่อรหัสวิชา จาก courseinprogram + program.LEVELID (FACULTYID = 2)
+     * ประเภทกลุ่มต่อรหัสวิชา+Sec. จาก class.LEVELID ของคณะวิทยาศาสตร์ (FACULTYID = 2)
      *
-     * @param  list<string>  $courseCodes
-     * @return array<string, list<string>> key = COURSECODE, value เช่น ['regular', 'international']
+     * @param  list<array{COURSECODE?: string, coursecode?: string, SECTION?: string, section?: string}|object>  $pairs
+     * @return array<string, list<string>> key = COURSECODE|SECTION
      */
-    public function courseProgramTypeMap(array $courseCodes): array
+    public function courseProgramTypeMap(int $buddhistYear, int $term, iterable $pairs): array
     {
         $codes = [];
-        foreach ($courseCodes as $code) {
-            $normalized = strtoupper(trim((string) $code));
-            if ($normalized !== '') {
-                $codes[$normalized] = true;
+        $wanted = [];
+        foreach ($pairs as $pair) {
+            $code = strtoupper(trim((string) (data_get($pair, 'COURSECODE') ?? data_get($pair, 'coursecode') ?? '')));
+            $section = trim((string) (data_get($pair, 'SECTION') ?? data_get($pair, 'section') ?? ''));
+            if ($code === '') {
+                continue;
             }
+            $codes[$code] = true;
+            $wanted[$code.'|'.$section] = true;
         }
 
         if ($codes === []) {
@@ -330,16 +325,16 @@ class RegGradeDumpService
 
         try {
             $rows = DB::connection('reg')
-                ->table('courseinprogram')
-                ->join('course', 'courseinprogram.COURSEID', '=', 'course.COURSEID')
-                ->join('program', 'courseinprogram.PROGRAMID', '=', 'program.PROGRAMID')
+                ->table('class')
+                ->join('course', 'class.COURSEID', '=', 'course.COURSEID')
                 ->select([
                     'course.COURSECODE',
-                    'program.LEVELID',
-                    'program.PROGRAMNAME',
-                    'program.PROGRAMNAMEENG',
+                    'class.SECTION',
+                    'class.LEVELID',
                 ])
-                ->where('program.FACULTYID', (string) self::FACULTY_SCIENCE)
+                ->where('class.FACULTYID', (string) self::FACULTY_SCIENCE)
+                ->where('class.ACADYEAR', (string) $buddhistYear)
+                ->where('class.SEMESTER', (string) $term)
                 ->whereIn('course.COURSECODE', array_keys($codes))
                 ->get();
         } catch (Throwable) {
@@ -348,32 +343,23 @@ class RegGradeDumpService
 
         $collected = [];
         foreach ($rows as $row) {
-            $code = strtoupper(trim((string) $row->COURSECODE));
-            if ($code === '' || ! isset($codes[$code])) {
+            $key = strtoupper(trim((string) $row->COURSECODE)).'|'.trim((string) $row->SECTION);
+            if (! isset($wanted[$key])) {
                 continue;
             }
-
-            $fromLevel = self::classifyProgramLevelId($row->LEVELID ?? null);
-            if ($fromLevel !== null) {
-                $collected[$code][$fromLevel] = true;
-
+            $type = self::classifyLevelId($row->LEVELID ?? null);
+            if ($type === null) {
                 continue;
             }
-
-            foreach (self::classifyProgramName(
-                (string) ($row->PROGRAMNAME ?? ''),
-                (string) ($row->PROGRAMNAMEENG ?? ''),
-            ) as $type) {
-                $collected[$code][$type] = true;
-            }
+            $collected[$key][$type] = true;
         }
 
         $rank = array_flip(self::PROGRAM_TYPE_ORDER);
         $map = [];
-        foreach ($collected as $code => $types) {
+        foreach ($collected as $key => $types) {
             $list = array_keys($types);
             usort($list, fn (string $a, string $b) => ($rank[$a] ?? 99) <=> ($rank[$b] ?? 99));
-            $map[$code] = $list;
+            $map[$key] = $list;
         }
 
         return $map;
