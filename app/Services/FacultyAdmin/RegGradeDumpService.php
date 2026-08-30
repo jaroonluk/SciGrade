@@ -272,6 +272,80 @@ class RegGradeDumpService
     }
 
     /**
+     * คีย์รหัสวิชา+กลุ่ม ให้ 1 และ 01 เป็นกลุ่มเดียวกัน
+     */
+    public static function courseSectionKey(string $courseCode, mixed $section): string
+    {
+        return strtoupper(trim($courseCode)).'|'.(string) ((int) $section);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function typesFromLevelIdList(string|array|null $levelIds): array
+    {
+        $values = is_array($levelIds)
+            ? $levelIds
+            : preg_split('/\s*,\s*/', trim((string) $levelIds), -1, PREG_SPLIT_NO_EMPTY);
+
+        $collected = [];
+        foreach ($values ?: [] as $levelId) {
+            $type = self::classifyLevelId($levelId);
+            if ($type !== null) {
+                $collected[$type] = true;
+            }
+        }
+
+        return self::orderedTypes($collected);
+    }
+
+    /**
+     * @param  array<string, true>  $types
+     * @return list<string>
+     */
+    public static function orderedTypes(array $types): array
+    {
+        $list = array_keys($types);
+        $rank = array_flip(self::PROGRAM_TYPE_ORDER);
+        usort($list, fn (string $a, string $b) => ($rank[$a] ?? 99) <=> ($rank[$b] ?? 99));
+
+        return $list;
+    }
+
+    /**
+     * จัดประเภทต่อกลุ่มจากแถว class — ไม่รวม LEVELID ข้าม Sec.
+     *
+     * @param  iterable<int, object>  $rows
+     * @param  array<string, true>  $wantedKeys
+     * @return array<string, list<string>>
+     */
+    public static function buildProgramTypeMapFromClassRows(iterable $rows, array $wantedKeys): array
+    {
+        $collected = [];
+        foreach ($rows as $row) {
+            $key = self::courseSectionKey(
+                (string) ($row->COURSECODE ?? ''),
+                $row->SECTION ?? null,
+            );
+            if ($key === '|' || ! isset($wantedKeys[$key])) {
+                continue;
+            }
+            $type = self::classifyLevelId($row->LEVELID ?? null);
+            if ($type === null) {
+                continue;
+            }
+            $collected[$key][$type] = true;
+        }
+
+        $map = [];
+        foreach ($collected as $key => $types) {
+            $map[$key] = self::orderedTypes($types);
+        }
+
+        return $map;
+    }
+
+    /**
      * จำแนกประเภทหลักสูตรจากชื่อใน REG (ปกติ / โครงการพิเศษ / นานาชาติ)
      *
      * @return list<string>
@@ -308,15 +382,15 @@ class RegGradeDumpService
     public function courseProgramTypeMap(int $buddhistYear, int $term, iterable $pairs): array
     {
         $codes = [];
-        $wanted = [];
+        $wantedKeys = [];
         foreach ($pairs as $pair) {
             $code = strtoupper(trim((string) (data_get($pair, 'COURSECODE') ?? data_get($pair, 'coursecode') ?? '')));
-            $section = trim((string) (data_get($pair, 'SECTION') ?? data_get($pair, 'section') ?? ''));
+            $section = data_get($pair, 'SECTION') ?? data_get($pair, 'section');
             if ($code === '') {
                 continue;
             }
             $codes[$code] = true;
-            $wanted[$code.'|'.$section] = true;
+            $wantedKeys[self::courseSectionKey($code, $section)] = true;
         }
 
         if ($codes === []) {
@@ -332,7 +406,10 @@ class RegGradeDumpService
                     'class.SECTION',
                     'class.LEVELID',
                 ])
-                ->where('class.FACULTYID', (string) self::FACULTY_SCIENCE)
+                ->where(function ($query): void {
+                    $query->where('class.FACULTYID', self::FACULTY_SCIENCE)
+                        ->orWhere('class.FACULTYID', (string) self::FACULTY_SCIENCE);
+                })
                 ->where('class.ACADYEAR', (string) $buddhistYear)
                 ->where('class.SEMESTER', (string) $term)
                 ->whereIn('course.COURSECODE', array_keys($codes))
@@ -341,28 +418,7 @@ class RegGradeDumpService
             return [];
         }
 
-        $collected = [];
-        foreach ($rows as $row) {
-            $key = strtoupper(trim((string) $row->COURSECODE)).'|'.trim((string) $row->SECTION);
-            if (! isset($wanted[$key])) {
-                continue;
-            }
-            $type = self::classifyLevelId($row->LEVELID ?? null);
-            if ($type === null) {
-                continue;
-            }
-            $collected[$key][$type] = true;
-        }
-
-        $rank = array_flip(self::PROGRAM_TYPE_ORDER);
-        $map = [];
-        foreach ($collected as $key => $types) {
-            $list = array_keys($types);
-            usort($list, fn (string $a, string $b) => ($rank[$a] ?? 99) <=> ($rank[$b] ?? 99));
-            $map[$key] = $list;
-        }
-
-        return $map;
+        return self::buildProgramTypeMapFromClassRows($rows, $wantedKeys);
     }
 
     /**

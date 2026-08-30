@@ -77,10 +77,14 @@ class RegGradeManageController extends Controller
             $courses->getCollection()->map(function (object $row) use ($enrollmentMap, $programTypeMap) {
                 $code = strtoupper(trim((string) $row->COURSECODE));
                 $key = $code.'|'.trim((string) $row->SECTION);
-                $enroll = array_key_exists($key, $enrollmentMap) ? (int) $enrollmentMap[$key] : null;
+                $typeKey = RegGradeDumpService::courseSectionKey($code, $row->SECTION);
+                $enroll = array_key_exists($key, $enrollmentMap)
+                    ? (int) $enrollmentMap[$key]
+                    : (array_key_exists($typeKey, $enrollmentMap) ? (int) $enrollmentMap[$typeKey] : null);
                 $row->enrollseat = $enroll;
                 $row->has_no_enrollment = $enroll !== null && $enroll <= 0;
-                $row->program_types = $programTypeMap[$key] ?? [];
+                $row->program_types = $programTypeMap[$typeKey]
+                    ?? RegGradeDumpService::typesFromLevelIdList($row->LEVELIDS ?? '');
 
                 return $row;
             })
