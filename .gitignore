@@ -23,6 +23,3 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-/app/Providers/AppServiceProvider.php
-/app/Http/Controllers/Auth/GoogleAuthController.php
-/app/Http/Middleware/UseRequestRootUrl.php

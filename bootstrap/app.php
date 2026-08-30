@@ -12,7 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->prepend(\App\Http\Middleware\UseRequestRootUrl::class);
+        if (is_file(dirname(__DIR__).'/app/Http/Middleware/UseRequestRootUrl.php')) {
+            $middleware->prepend(\App\Http\Middleware\UseRequestRootUrl::class);
+        }
 
         $middleware->trustProxies(
             at: '*',
