@@ -406,7 +406,7 @@
                     <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-700 text-white font-semibold">N Sec.</span>
                 </span>
                 <span>
-                    ประเภทกลุ่มดึงจากหลักสูตรของรหัสวิชาใน REG (<code class="text-[0.7rem]">courseinprogram</code>) ไม่ใช่สถานะนักศึกษา —
+                    ประเภทกลุ่มดึงจาก <code class="text-[0.7rem]">program.LEVELID</code> ของคณะวิทยาศาสตร์ (FACULTYID = 2) ไม่ใช่สถานะนักศึกษา —
                     <span class="program-type-badge is-regular">ปกติ</span>
                     <span class="program-type-badge is-special">โครงการพิเศษ</span>
                     <span class="program-type-badge is-international">นานาชาติ</span>
@@ -528,7 +528,7 @@
                             @if ($programTypes !== [])
                                 <div class="flex flex-wrap justify-center gap-1">
                                     @foreach ($programTypes as $type)
-                                        <span class="program-type-badge is-{{ $type }}" title="จากหลักสูตรของรหัสวิชาใน REG ไม่ใช่สถานะนักศึกษา">
+                                        <span class="program-type-badge is-{{ $type }}" title="จาก program.LEVELID ของคณะวิทยาศาสตร์ใน REG ไม่ใช่สถานะนักศึกษา">
                                             {{ $programTypeLabels[$type] ?? $type }}
                                         </span>
                                     @endforeach

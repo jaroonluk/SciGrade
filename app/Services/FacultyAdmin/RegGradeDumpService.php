@@ -25,6 +25,15 @@ class RegGradeDumpService
         self::PROGRAM_TYPE_INTERNATIONAL,
     ];
 
+    /** @var list<int> */
+    public const PROGRAM_LEVEL_REGULAR = [31, 51, 71];
+
+    /** @var list<int> */
+    public const PROGRAM_LEVEL_SPECIAL = [34];
+
+    /** @var list<int> */
+    public const PROGRAM_LEVEL_INTERNATIONAL = [33, 35, 53, 73];
+
     /**
      * ดึงรายวิชาจาก REG (รวม SEMINAR) แล้วทับข้อมูลเดิมใน grade_report_reg
      *
@@ -274,7 +283,33 @@ class RegGradeDumpService
     }
 
     /**
-     * ประเภทกลุ่มต่อรหัสวิชา จาก courseinprogram + program (ไม่ใช้สถานะนักศึกษา)
+     * จำแนกประเภทหลักสูตรจาก program.LEVELID ของคณะวิทยาศาสตร์ (FACULTYID = 2)
+     */
+    public static function classifyProgramLevelId(int|string|null $levelId): ?string
+    {
+        $id = (int) preg_replace('/\D/', '', (string) $levelId);
+
+        if ($id <= 0) {
+            return null;
+        }
+
+        if (in_array($id, self::PROGRAM_LEVEL_INTERNATIONAL, true)) {
+            return self::PROGRAM_TYPE_INTERNATIONAL;
+        }
+
+        if (in_array($id, self::PROGRAM_LEVEL_SPECIAL, true)) {
+            return self::PROGRAM_TYPE_SPECIAL;
+        }
+
+        if (in_array($id, self::PROGRAM_LEVEL_REGULAR, true)) {
+            return self::PROGRAM_TYPE_REGULAR;
+        }
+
+        return null;
+    }
+
+    /**
+     * ประเภทกลุ่มต่อรหัสวิชา จาก courseinprogram + program.LEVELID (FACULTYID = 2)
      *
      * @param  list<string>  $courseCodes
      * @return array<string, list<string>> key = COURSECODE, value เช่น ['regular', 'international']
@@ -300,9 +335,11 @@ class RegGradeDumpService
                 ->join('program', 'courseinprogram.PROGRAMID', '=', 'program.PROGRAMID')
                 ->select([
                     'course.COURSECODE',
+                    'program.LEVELID',
                     'program.PROGRAMNAME',
                     'program.PROGRAMNAMEENG',
                 ])
+                ->where('program.FACULTYID', (string) self::FACULTY_SCIENCE)
                 ->whereIn('course.COURSECODE', array_keys($codes))
                 ->get();
         } catch (Throwable) {
@@ -315,6 +352,14 @@ class RegGradeDumpService
             if ($code === '' || ! isset($codes[$code])) {
                 continue;
             }
+
+            $fromLevel = self::classifyProgramLevelId($row->LEVELID ?? null);
+            if ($fromLevel !== null) {
+                $collected[$code][$fromLevel] = true;
+
+                continue;
+            }
+
             foreach (self::classifyProgramName(
                 (string) ($row->PROGRAMNAME ?? ''),
                 (string) ($row->PROGRAMNAMEENG ?? ''),
