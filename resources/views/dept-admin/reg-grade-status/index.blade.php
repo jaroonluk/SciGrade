@@ -28,6 +28,31 @@
         font-weight: 700;
         font-size: 0.75rem;
     }
+    .program-type-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.12rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+    }
+    .program-type-badge.is-regular {
+        background: #f5f5f4;
+        color: #44403c;
+        border: 1px solid #d6d3d1;
+    }
+    .program-type-badge.is-special {
+        background: #ffedd5;
+        color: #c2410c;
+        border: 1px solid #fdba74;
+    }
+    .program-type-badge.is-international {
+        background: #ede9fe;
+        color: #6d28d9;
+        border: 1px solid #c4b5fd;
+    }
     .multi-sec-tag {
         display: inline-block;
         margin-left: 0.35rem;
@@ -205,12 +230,20 @@
             @endif
             <span class="text-xs text-gray-500 ml-2">ติกสลับได้: ส่งแล้ว ↔ ผ่านสาขาฯ (ถ้าคณะยังไม่อนุมัติ)</span>
         </div>
-        <table class="w-full text-sm min-w-[900px]" id="status-table">
+        <div class="px-4 py-2 border-b border-amber-100 bg-white text-xs text-[#7A4A3A]/85">
+            ประเภทกลุ่มจากตาราง <code>class</code> ใน REG ตามรหัสวิชา+Sec.
+            (<code>LEVELID</code> 31/51/71 = ภาคปกติ, 34 = โครงการพิเศษ, 33/35/53/73 = นานาชาติ)
+            <span class="program-type-badge is-regular">ภาคปกติ</span>
+            <span class="program-type-badge is-special">โครงการพิเศษ</span>
+            <span class="program-type-badge is-international">นานาชาติ</span>
+        </div>
+        <table class="w-full text-sm min-w-[1020px]" id="status-table">
             <thead class="bg-amber-50/60">
                 <tr>
                     <th class="px-3 py-2 text-left w-14">ลำดับ</th>
                     <th class="px-3 py-2 text-left">รายวิชา</th>
                     <th class="px-3 py-2 text-center">Sec.</th>
+                    <th class="px-3 py-2 text-center">ประเภท</th>
                     <th class="px-3 py-2 text-center text-slate-600">ยังไม่ส่ง</th>
                     <th class="px-3 py-2 text-center text-amber-700">ส่งแล้ว</th>
                     <th class="px-3 py-2 text-center text-sky-700">ผ่านสาขาฯ</th>
@@ -229,6 +262,12 @@
                         $canApproveDept = (int) $row->status === 1 && $row->grade_id;
                         $canRevertDept = (int) $row->status === 2 && $row->grade_id;
                         $radioName = 'status-'.$index.'-'.($row->grade_id ?: $row->COURSECODE.'-'.$row->SECTION);
+                        $programTypes = is_array($row->program_types ?? null) ? $row->program_types : [];
+                        $programTypeLabels = [
+                            'regular' => 'ภาคปกติ',
+                            'special' => 'โครงการพิเศษ',
+                            'international' => 'นานาชาติ',
+                        ];
                     @endphp
                     <tr class="border-t border-amber-100 {{ $rowClass }}"
                         data-grade-id="{{ $row->grade_id }}"
@@ -280,6 +319,19 @@
                             <div class="approve-meta text-xs text-sky-700 mt-0.5 hidden"></div>
                         </td>
                         <td class="px-3 py-2 text-center"><span class="sec-badge">{{ $row->SECTION }}</span></td>
+                        <td class="px-3 py-2 text-center">
+                            @if ($programTypes !== [])
+                                <div class="flex flex-wrap justify-center gap-1">
+                                    @foreach ($programTypes as $type)
+                                        <span class="program-type-badge is-{{ $type }}" title="จาก class.LEVELID ของกลุ่มนี้">
+                                            {{ $programTypeLabels[$type] ?? $type }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span class="text-xs text-gray-400">-</span>
+                            @endif
+                        </td>
                         @foreach ([0, 1, 2, 3] as $statusValue)
                             @php
                                 $isActive = (int) $row->status === $statusValue;
@@ -309,7 +361,7 @@
                     @php $prevCode = $row->COURSECODE; @endphp
                 @empty
                     <tr>
-                        <td colspan="7" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
+                        <td colspan="8" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
                     </tr>
                 @endforelse
             </tbody>

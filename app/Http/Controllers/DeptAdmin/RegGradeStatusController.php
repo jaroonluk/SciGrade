@@ -7,12 +7,14 @@ use App\Models\GradeReport;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\GradeReportApprovalService;
 use App\Services\FacultyAdmin\RegGradeDepartmentService;
+use App\Services\FacultyAdmin\RegGradeDumpService;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use InvalidArgumentException;
+use Throwable;
 
 class RegGradeStatusController extends Controller
 {
@@ -21,6 +23,7 @@ class RegGradeStatusController extends Controller
         private readonly DepartmentAccessService $departmentAccess,
         private readonly RegGradeDepartmentService $regService,
         private readonly GradeReportApprovalService $approvalService,
+        private readonly RegGradeDumpService $dumpService,
     ) {}
 
     public function index(Request $request): View
@@ -64,6 +67,24 @@ class RegGradeStatusController extends Controller
             $statusValue = (int) $statusFilter;
             $courses = $courses->where('status', $statusValue)->values();
         }
+
+        $programTypeMap = [];
+        if ($courses->isNotEmpty()) {
+            try {
+                $programTypeMap = $this->dumpService->courseProgramTypeMap($year, $term, $courses);
+            } catch (Throwable) {
+                $programTypeMap = [];
+            }
+        }
+
+        $courses = $courses->map(function (object $row) use ($programTypeMap) {
+            $row->program_types = $programTypeMap[RegGradeDumpService::courseSectionKey(
+                (string) $row->COURSECODE,
+                $row->SECTION,
+            )] ?? [];
+
+            return $row;
+        });
 
         return view('dept-admin.reg-grade-status.index', [
             'departments' => $departments,
