@@ -35,8 +35,10 @@ class HomeController extends Controller
         $reports = collect();
         $departments = collect();
         $deptDepartmentId = null;
-        $deptSubmission = null;
-        $deptEducationLevel = DeptSubmission::EDUCATION_BACHELOR;
+        $deptSubmissions = [
+            DeptSubmission::EDUCATION_BACHELOR => null,
+            DeptSubmission::EDUCATION_GRADUATE => null,
+        ];
         $openDeptSubmissions = collect();
 
         if ($role === SciGradeRole::INSTRUCTOR) {
@@ -59,15 +61,18 @@ class HomeController extends Controller
                 $this->staffAuth->storeInSession($staff);
                 $departments = $this->departmentAccess->allowedDepartments($staff);
                 $deptDepartmentId = (int) $request->input('dept_department_id', $departments->first()?->department_id);
-                $deptEducationLevel = DeptSubmission::normalizeEducationLevel(
-                    $request->input('education_level')
-                );
                 if ($departments->contains('department_id', $deptDepartmentId)) {
-                    $deptSubmission = $this->deptSubmissionService->openSubmission(
+                    $deptSubmissions[DeptSubmission::EDUCATION_BACHELOR] = $this->deptSubmissionService->openSubmission(
                         $deptDepartmentId,
                         $term,
                         $year,
-                        $deptEducationLevel,
+                        DeptSubmission::EDUCATION_BACHELOR,
+                    );
+                    $deptSubmissions[DeptSubmission::EDUCATION_GRADUATE] = $this->deptSubmissionService->openSubmission(
+                        $deptDepartmentId,
+                        $term,
+                        $year,
+                        DeptSubmission::EDUCATION_GRADUATE,
                     );
                 }
             }
@@ -99,8 +104,7 @@ class HomeController extends Controller
             'years' => AcademicTerm::yearOptions(),
             'departments' => $departments,
             'deptDepartmentId' => $deptDepartmentId,
-            'deptEducationLevel' => $deptEducationLevel,
-            'deptSubmission' => $deptSubmission,
+            'deptSubmissions' => $deptSubmissions,
             'openDeptSubmissions' => $openDeptSubmissions,
         ]);
     }

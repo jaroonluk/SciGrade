@@ -268,6 +268,46 @@
     .role-tone-dept-docs .role-title { color: #134e4a; }
     .role-tone-dept-docs .menu-icon { background: #ccfbf1; color: #0f766e; }
 
+    .dept-submit-lane-bachelor {
+        border-color: #7dd3fc;
+        background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 42%);
+    }
+    .dept-submit-lane-graduate {
+        border-color: #c4b5fd;
+        background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 42%);
+    }
+    .dept-submit-kicker {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin: 0;
+    }
+    .dept-submit-lane-bachelor .dept-submit-kicker { color: #0369a1; }
+    .dept-submit-lane-graduate .dept-submit-kicker { color: #6d28d9; }
+    .dept-submit-title {
+        font-size: 1.35rem;
+        font-weight: 800;
+        line-height: 1.2;
+        margin: 0.1rem 0 0;
+    }
+    .dept-submit-lane-bachelor .dept-submit-title { color: #0c4a6e; }
+    .dept-submit-lane-graduate .dept-submit-title { color: #4c1d95; }
+    .dept-submit-sub {
+        font-size: 0.8rem;
+        margin: 0.15rem 0 0;
+        color: #64748b;
+    }
+    .dept-submit-lane-bachelor .dept-submit-drop {
+        border-color: #7dd3fc;
+        background: #e0f2fe;
+    }
+    .dept-submit-lane-graduate .dept-submit-drop {
+        border-color: #c4b5fd;
+        background: #ede9fe;
+    }
+
     .role-tone-dept-work .menu-card.tone-review .menu-icon { background: #dcfce7; color: #166534; }
     .role-tone-dept-work .menu-card.tone-review .menu-step { color: #166534; }
     .role-tone-dept-work .menu-card.tone-status .menu-icon { background: #ffedd5; color: #9a3412; }
@@ -684,16 +724,24 @@
                 <p class="role-kicker">เอกสารสาขา</p>
                 <h4 class="role-title">อัปโหลดเอกสารสาขา</h4>
                 <p class="role-desc">
-                    ส่งเอกสารรายงานตามภาคการศึกษา — เลือกช่องทางปริญญาตรีหรือบัณฑิตศึกษาแล้วอัปโหลดแยกกัน
-                    แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสาร
+                    ส่งเอกสารรายงานตามภาคการศึกษา — แยกช่องทางปริญญาตรี (ป.ตรี) และบัณฑิตศึกษา (ป.บัณฑิต)
+                    อัปโหลดได้ทันทีในช่องที่ต้องการ แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสาร
                 </p>
             </div>
             <div class="role-panel-body">
-            <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-4 mb-5">
+            @php
+                $deptTermLabel = match ((int) $term) {
+                    1 => 'ภาคต้น',
+                    2 => 'ภาคปลาย',
+                    default => 'ภาคการศึกษาพิเศษ',
+                };
+                $deptName = optional($departments->firstWhere('department_id', $deptDepartmentId))->department_name;
+            @endphp
+            <form method="GET" action="{{ route('dashboard') }}" id="dept-docs-filter" class="flex flex-wrap items-end gap-4 mb-4">
                 @if ($departments->count() > 1)
                     <div>
                         <label class="block text-sm font-medium text-[#134e4a] mb-1">สาขาวิชา</label>
-                        <select name="dept_department_id" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
+                        <select name="dept_department_id" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]" onchange="this.form.submit()">
                             @foreach ($departments as $dept)
                                 <option value="{{ $dept->department_id }}" @selected($deptDepartmentId == $dept->department_id)>
                                     {{ $dept->department_name }}
@@ -704,7 +752,7 @@
                 @endif
                 <div>
                     <label class="block text-sm font-medium text-[#134e4a] mb-1">ภาคการศึกษา</label>
-                    <select name="term" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">
+                    <select name="term" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]" onchange="this.form.submit()">
                         <option value="1" @selected($term === 1)>ภาคต้น</option>
                         <option value="2" @selected($term === 2)>ภาคปลาย</option>
                         <option value="3" @selected($term === 3)>ภาคการศึกษาพิเศษ</option>
@@ -712,93 +760,36 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-[#134e4a] mb-1">ปีการศึกษา</label>
-                    <select name="year" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]">
+                    <select name="year" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]" onchange="this.form.submit()">
                         @foreach ($years as $y)
                             <option value="{{ $y }}" @selected($year === $y)>{{ $y }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-[#134e4a] mb-1">ช่องทางการส่ง</label>
-                    <select name="education_level" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[12rem]">
-                        <option value="bachelor" @selected(($deptEducationLevel ?? 'bachelor') === 'bachelor')>ระดับปริญญาตรี</option>
-                        <option value="graduate" @selected(($deptEducationLevel ?? 'bachelor') === 'graduate')>ระดับบัณฑิตศึกษา</option>
-                    </select>
-                </div>
-                <button type="submit" class="px-4 py-2 bg-teal-700 text-white rounded-lg text-sm font-medium hover:bg-teal-800">แสดงรายการ</button>
             </form>
 
-            @php
-                $deptCanModify = (bool) ($deptSubmission?->isOpen());
-                $deptFiles = $deptSubmission?->files ?? collect();
-            @endphp
+            <div class="rounded-lg border border-teal-100 bg-teal-50/70 px-4 py-3 mb-4">
+                <p class="text-sm font-semibold text-[#134e4a]">
+                    กำลังส่งเอกสาร{{ $deptName ? ' สาขา'.$deptName : '' }} — {{ $deptTermLabel }} ปีการศึกษา {{ $year }}
+                </p>
+                <p class="text-xs text-teal-900/75 mt-0.5">เลือกช่องทางด้านล่างแล้วอัปโหลดได้เลย ไม่ต้องกดแสดงรายการก่อนส่ง</p>
+            </div>
 
-            <div class="rounded-xl border border-teal-100 bg-white p-4"
-                 data-dept-submission
-                 data-department-id="{{ $deptDepartmentId }}"
-                 data-term="{{ $term }}"
-                 data-year="{{ $year }}"
-                 data-education-level="{{ $deptEducationLevel ?? 'bachelor' }}"
-                 data-can-modify="{{ $deptCanModify ? '1' : '0' }}">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <p class="text-sm font-semibold text-[#134e4a]">
-                        รอบการส่งปัจจุบัน
-                        <span class="inline-block px-2 py-0.5 rounded text-xs {{ ($deptEducationLevel ?? 'bachelor') === 'graduate' ? 'bg-violet-100 text-violet-800' : 'bg-sky-100 text-sky-800' }}">
-                            {{ ($deptEducationLevel ?? 'bachelor') === 'graduate' ? 'บัณฑิตศึกษา' : 'ปริญญาตรี' }}
-                        </span>:
-                        @if ($deptSubmission)
-                            <span class="inline-block px-2 py-0.5 rounded text-xs {{ $deptSubmission->isOpen() ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800' }}">
-                                {{ $deptSubmission->statusLabel() }}
-                            </span>
-                        @else
-                            <span class="inline-block px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">พร้อมเริ่มรอบส่งใหม่</span>
-                        @endif
-                    </p>
-                    @if ($deptSubmission?->isOpen())
-                        <p class="text-xs text-teal-900/70">รอบที่ {{ $deptSubmission->submission_id }} — รอ Admin กลางรับเอกสาร</p>
-                    @endif
-                </div>
-
-                @if ($deptFiles->isEmpty())
-                    <p class="text-xs text-gray-500 dept-file-empty-msg mb-3">ยังไม่มีไฟล์ในรอบนี้</p>
-                @else
-                    <div class="flex flex-col gap-2 mb-3 dept-file-list">
-                        @foreach ($deptFiles as $file)
-                            <div class="file-chip dept-file-row items-start sm:items-center flex-wrap" data-file-id="{{ $file->file_id }}">
-                                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-teal-700"></i>
-                                <a href="{{ route('dept-submissions.files.show', $file->file_id) }}{{ $file->uploaded_at ? '?v='.$file->uploaded_at->timestamp : '' }}"
-                                   target="_blank" rel="noopener noreferrer"
-                                   class="dept-file-name hover:underline truncate max-w-[14rem]" title="{{ $file->original_name }}">
-                                    {{ $file->original_name }}
-                                </a>
-                                <span class="text-xs text-gray-500 dept-file-uploaded-at">{{ $file->uploaded_at?->format('d/m/Y H:i') }}</span>
-                                @if ($deptCanModify)
-                                    <button type="button" class="btn-edit-dept-file text-teal-700 hover:text-teal-900 text-xs font-medium"
-                                        data-file-id="{{ $file->file_id }}"
-                                        data-file-name="{{ $file->original_name }}">แก้ไขชื่อ</button>
-                                    <label class="btn-replace-dept-file text-teal-700 hover:text-teal-900 text-xs font-medium cursor-pointer">
-                                        เปลี่ยนไฟล์
-                                        <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden dept-file-replace-input" data-file-id="{{ $file->file_id }}">
-                                    </label>
-                                    <button type="button" class="btn-delete-dept-file text-red-600 hover:text-red-800"
-                                        data-file-id="{{ $file->file_id }}" title="ลบไฟล์">
-                                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                @endif
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-
-                @if ($deptDepartmentId)
-                    <label class="file-upload-zone block cursor-pointer border-teal-200 bg-teal-50/40">
-                        <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" id="dept-file-upload-input">
-                        <span class="text-sm text-teal-800 font-medium flex items-center gap-1">
-                            <i data-lucide="upload" class="w-4 h-4"></i>
-                            อัปโหลดไฟล์ (PDF / Word) — ไม่จำกัดจำนวน
-                        </span>
-                    </label>
-                @endif
+            <div class="grid md:grid-cols-2 gap-4" data-dept-submission-board>
+                @include('dept-admin.partials.dept-submission-lane', [
+                    'educationLevel' => \App\Models\DeptSubmission::EDUCATION_BACHELOR,
+                    'submission' => $deptSubmissions[\App\Models\DeptSubmission::EDUCATION_BACHELOR] ?? null,
+                    'departmentId' => $deptDepartmentId,
+                    'term' => $term,
+                    'year' => $year,
+                ])
+                @include('dept-admin.partials.dept-submission-lane', [
+                    'educationLevel' => \App\Models\DeptSubmission::EDUCATION_GRADUATE,
+                    'submission' => $deptSubmissions[\App\Models\DeptSubmission::EDUCATION_GRADUATE] ?? null,
+                    'departmentId' => $deptDepartmentId,
+                    'term' => $term,
+                    'year' => $year,
+                ])
             </div>
             </div>
         </section>
@@ -1288,8 +1279,7 @@
 
     document.querySelectorAll('.btn-delete-file').forEach(bindDeleteFile);
 
-    const deptBox = document.querySelector('[data-dept-submission]');
-    const deptUploadInput = document.getElementById('dept-file-upload-input');
+    const deptBoard = document.querySelector('[data-dept-submission-board]');
 
     function deptApiMessage(data, fallback) {
         if (data?.message) return data.message;
@@ -1301,17 +1291,25 @@
         return fallback;
     }
 
+    function findDeptBox(el) {
+        return el?.closest('[data-dept-submission]') ?? null;
+    }
+
     function findDeptFileRow(el) {
         return el?.closest('.dept-file-row') ?? null;
     }
 
-    function ensureDeptFileList() {
+    function deptToneClass(deptBox, graduateClass, bachelorClass) {
+        return deptBox?.dataset.educationLevel === 'graduate' ? graduateClass : bachelorClass;
+    }
+
+    function ensureDeptFileList(deptBox) {
         if (!deptBox) return null;
         deptBox.querySelector('.dept-file-empty-msg')?.remove();
         let list = deptBox.querySelector('.dept-file-list');
         if (!list) {
             list = document.createElement('div');
-            list.className = 'flex flex-col gap-2 mb-3 dept-file-list';
+            list.className = 'flex flex-col gap-2 dept-file-list';
             const uploadZone = deptBox.querySelector('.file-upload-zone');
             if (uploadZone) {
                 deptBox.insertBefore(list, uploadZone);
@@ -1322,15 +1320,17 @@
         return list;
     }
 
-    function renderDeptFileRow(file) {
+    function renderDeptFileRow(file, deptBox) {
         const canModify = deptBox?.dataset.canModify === '1';
+        const actionClass = deptToneClass(deptBox, 'text-violet-800 hover:text-violet-950', 'text-sky-800 hover:text-sky-950');
+        const iconClass = deptToneClass(deptBox, 'text-violet-700', 'text-sky-700');
         const row = document.createElement('div');
         row.className = 'file-chip dept-file-row items-start sm:items-center flex-wrap';
         row.dataset.fileId = file.file_id;
         const actions = canModify ? `
-            <button type="button" class="btn-edit-dept-file text-[#8B4513] hover:text-[#6B3410] text-xs font-medium"
+            <button type="button" class="btn-edit-dept-file text-xs font-medium ${actionClass}"
                 data-file-id="${file.file_id}" data-file-name="${file.original_name}">แก้ไขชื่อ</button>
-            <label class="btn-replace-dept-file text-[#8B4513] hover:text-[#6B3410] text-xs font-medium cursor-pointer">
+            <label class="btn-replace-dept-file text-xs font-medium cursor-pointer ${actionClass}">
                 เปลี่ยนไฟล์
                 <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     class="hidden dept-file-replace-input" data-file-id="${file.file_id}">
@@ -1341,7 +1341,7 @@
             </button>
         ` : '';
         row.innerHTML = `
-            <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+            <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 ${iconClass}"></i>
             <a href="${file.view_url}" target="_blank" rel="noopener noreferrer"
                class="dept-file-name hover:underline truncate max-w-[14rem]" title="${file.original_name}">
                 ${file.original_name}
@@ -1356,15 +1356,15 @@
         return row;
     }
 
-    function syncDeptEmptyState() {
+    function syncDeptEmptyState(deptBox) {
         if (!deptBox) return;
         const list = deptBox.querySelector('.dept-file-list');
         if (list && list.children.length) return;
         list?.remove();
         if (!deptBox.querySelector('.dept-file-empty-msg')) {
             const empty = document.createElement('p');
-            empty.className = 'text-xs text-gray-500 dept-file-empty-msg mb-3';
-            empty.textContent = 'ยังไม่มีไฟล์ในรอบนี้';
+            empty.className = 'text-xs text-gray-500 dept-file-empty-msg';
+            empty.textContent = 'ยังไม่มีไฟล์ในช่องทางนี้';
             const uploadZone = deptBox.querySelector('.file-upload-zone');
             if (uploadZone) {
                 deptBox.insertBefore(empty, uploadZone);
@@ -1372,45 +1372,44 @@
         }
     }
 
-    if (deptUploadInput && deptBox) {
-        deptUploadInput.addEventListener('change', async () => {
-            const file = deptUploadInput.files?.[0];
-            if (!file) return;
+    async function handleDeptFileUpload(input) {
+        const deptBox = findDeptBox(input);
+        const file = input.files?.[0];
+        if (!file || !deptBox) return;
 
-            const formData = new FormData();
-            formData.append('attachment', file);
-            formData.append('department_id', deptBox.dataset.departmentId);
-            formData.append('term', deptBox.dataset.term);
-            formData.append('year', deptBox.dataset.year);
-            formData.append('education_level', deptBox.dataset.educationLevel || 'bachelor');
+        const formData = new FormData();
+        formData.append('attachment', file);
+        formData.append('department_id', deptBox.dataset.departmentId);
+        formData.append('term', deptBox.dataset.term);
+        formData.append('year', deptBox.dataset.year);
+        formData.append('education_level', deptBox.dataset.educationLevel || 'bachelor');
 
-            const res = await fetch('/api/dept-submissions/files', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrf(),
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-                body: formData,
-            });
-
-            deptUploadInput.value = '';
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                alert(deptApiMessage(data, 'อัปโหลดไม่สำเร็จ'));
-                return;
-            }
-
-            const uploaded = await res.json();
-            deptBox.dataset.canModify = '1';
-            const row = renderDeptFileRow(uploaded);
-            const list = ensureDeptFileList();
-            if (list) {
-                list.appendChild(row);
-                refreshLucideIcons(row);
-            }
+        const res = await fetch('/api/dept-submissions/files', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            body: formData,
         });
+
+        input.value = '';
+
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            alert(deptApiMessage(data, 'อัปโหลดไม่สำเร็จ'));
+            return;
+        }
+
+        const uploaded = await res.json();
+        deptBox.dataset.canModify = '1';
+        const row = renderDeptFileRow(uploaded, deptBox);
+        const list = ensureDeptFileList(deptBox);
+        if (list) {
+            list.appendChild(row);
+            refreshLucideIcons(row);
+        }
     }
 
     function bindDeptDelete(btn) {
@@ -1419,6 +1418,7 @@
         btn.addEventListener('click', async () => {
             if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
             const row = findDeptFileRow(btn);
+            const deptBox = findDeptBox(btn);
             const fileId = btn.dataset.fileId;
             const res = await fetch(`/api/dept-submissions/files/${fileId}`, {
                 method: 'DELETE',
@@ -1435,7 +1435,7 @@
                 return;
             }
             row?.remove();
-            syncDeptEmptyState();
+            syncDeptEmptyState(deptBox);
         });
     }
 
@@ -1524,14 +1524,16 @@
         updateDeptFileRow(row, data);
     }
 
-    if (deptBox) {
-        deptBox.addEventListener('change', (event) => {
-            const input = event.target;
-            if (!(input instanceof HTMLInputElement)) return;
-            if (!input.classList.contains('dept-file-replace-input')) return;
-            handleDeptFileReplace(input);
-        });
-    }
+    document.querySelectorAll('.dept-file-upload-input').forEach((input) => {
+        input.addEventListener('change', () => handleDeptFileUpload(input));
+    });
+
+    deptBoard?.addEventListener('change', (event) => {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement)) return;
+        if (!input.classList.contains('dept-file-replace-input')) return;
+        handleDeptFileReplace(input);
+    });
 
     document.querySelectorAll('.btn-delete-dept-file').forEach(bindDeptDelete);
     document.querySelectorAll('.btn-edit-dept-file').forEach(bindDeptEdit);
