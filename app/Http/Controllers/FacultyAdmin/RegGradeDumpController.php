@@ -20,7 +20,7 @@ class RegGradeDumpController extends Controller
     public function index(Request $request): RedirectResponse
     {
         return $this->redirectToManage($request->only(['term', 'year', 'department_id', 'q']))
-            ->with('status', 'เมนู Download รวมเข้า「จัดการรายวิชา REGxxx」แล้ว — ใช้ปุ่มดึงข้อมูลจาก REG ด้านบนของหน้านี้');
+            ->with('status', 'เมนู Download รวมเข้า「จัดการรายวิชา REG」แล้ว — ใช้ปุ่มดึงข้อมูลจาก REG ด้านบนของหน้านี้');
     }
 
     public function dump(RegGradeDumpRequest $request): RedirectResponse
@@ -63,19 +63,19 @@ class RegGradeDumpController extends Controller
     public function store(Request $request): RedirectResponse
     {
         return $this->redirectToManage($request->only(['term', 'year', 'department_id', 'q', 'SEMESTER', 'ACADYEAR']))
-            ->with('status', 'กรุณาเพิ่มรายวิชาจากหน้า「จัดการรายวิชา REGxxx」');
+            ->with('status', 'กรุณาเพิ่มรายวิชาจากหน้า「จัดการรายวิชา REG」');
     }
 
     public function destroy(Request $request): RedirectResponse
     {
         return $this->redirectToManage($request->only(['term', 'year', 'department_id', 'q', 'SEMESTER', 'ACADYEAR']))
-            ->with('status', 'กรุณาลบรายวิชาจากหน้า「จัดการรายวิชา REGxxx」');
+            ->with('status', 'กรุณาลบรายวิชาจากหน้า「จัดการรายวิชา REG」');
     }
 
     public function bulkDestroy(Request $request): RedirectResponse
     {
         return $this->redirectToManage($request->only(['term', 'year', 'department_id', 'q', 'SEMESTER', 'ACADYEAR']))
-            ->with('status', 'กรุณาลบรายวิชาจากหน้า「จัดการรายวิชา REGxxx」');
+            ->with('status', 'กรุณาลบรายวิชาจากหน้า「จัดการรายวิชา REG」');
     }
 
     /**

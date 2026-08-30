@@ -990,7 +990,7 @@
                                 <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
                                 <div>
                                     <p class="menu-step">2.1</p>
-                                    <p class="font-semibold text-orange-950">จัดการรายวิชา REGxxx</p>
+                                    <p class="font-semibold text-orange-950">จัดการรายวิชา REG</p>
                                     <p class="text-sm text-orange-900/65 mt-1">ดึงจาก REG แล้วเพิ่ม/แก้ไข/ลบรายวิชาตามสาขา</p>
                                 </div>
                             </div>

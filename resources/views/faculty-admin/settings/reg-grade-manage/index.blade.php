@@ -1,12 +1,12 @@
 @extends('layouts.scigrad')
 
-@section('title', 'จัดการรายวิชา REGxxx — Admin กลาง')
+@section('title', 'จัดการรายวิชา REG')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
 <a href="{{ route('faculty-admin.reviews.index') }}" class="text-[#8B4513] hover:underline">Admin กลาง</a>
 <span class="text-gray-400">/</span>
-<span class="text-[#5C2E1F] font-medium">จัดการรายวิชา REGxxx</span>
+<span class="text-[#5C2E1F] font-medium">จัดการรายวิชา REG</span>
 @endsection
 
 @push('styles')
@@ -116,7 +116,7 @@
 @section('content')
 <div class="max-w-6xl mx-auto space-y-6">
     <div>
-        <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการรายวิชา REGxxx</h2>
+        <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการรายวิชา REG</h2>
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
             ดึงรายวิชาจาก REG แล้วเพิ่ม / แก้ไข / ลบ ตามสาขาวิชา ภาค และปีการศึกษา
         </p>

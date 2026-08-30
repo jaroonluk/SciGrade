@@ -1,10 +1,10 @@
 @extends('layouts.scigrad')
 
-@section('title', 'แก้ไขรายวิชา REG — Admin กลาง')
+@section('title', 'แก้ไขรายวิชา REG')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
-<a href="{{ route('faculty-admin.settings.reg-grade-manage.index', ['term' => $term, 'year' => $year, 'department_id' => $departmentId]) }}" class="text-[#8B4513] hover:underline">จัดการข้อมูลรายวิชา REG</a>
+<a href="{{ route('faculty-admin.settings.reg-grade-manage.index', ['term' => $term, 'year' => $year, 'department_id' => $departmentId]) }}" class="text-[#8B4513] hover:underline">จัดการรายวิชา REG</a>
 <span class="text-gray-400">/</span>
 <span class="text-[#5C2E1F] font-medium">แก้ไข</span>
 @endsection
