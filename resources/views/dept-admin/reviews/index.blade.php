@@ -418,11 +418,14 @@
         const a = document.createElement('a');
         a.href = url;
         a.target = '_blank';
-        a.rel = 'noopener';
-        a.className = 'text-xs text-emerald-800 hover:underline truncate';
-        a.title = name;
-        a.textContent = name;
+        a.rel = 'noopener noreferrer';
+        a.className = 'text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 w-fit font-medium';
+        a.title = name || 'ใบส่งผลการศึกษา (REG-Admin)';
+        a.innerHTML = '<i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i> ใบส่งผลการศึกษา (REG-Admin)';
         box.appendChild(a);
+        if (window.lucide?.createIcons) {
+            window.lucide.createIcons();
+        }
     };
 
     let selectedFiles = [];
