@@ -67,24 +67,26 @@ class GradeReportFileZipService
     }
 
     /**
+     * ไฟล์ประเภทเดียวกันอยู่โฟลเดอร์เดียว (ไม่แยกตามรหัสวิชา/รายการ)
+     *
      * @param  array<string, true>  $usedNames
      */
     private function entryName(GradeReportFile $file, array &$usedNames): string
     {
         $report = $file->relationLoaded('gradeReport') ? $file->gradeReport : null;
-        $subject = $report?->subject_code ?: 'grade';
-        $folder = preg_replace('/[^\w.\-]+/', '_', (string) $subject).'_'.$file->grade_id;
 
         if ($file->isDeptAdminUpload($report) && $report instanceof GradeReport) {
-            $typeFolder = 'registrar_dept';
-            $base = $folder.'/'.$typeFolder.'/'.$report->deptRegistrarDownloadName();
+            $typeFolder = 'REG-Admin';
+            $filename = $report->deptRegistrarDownloadName();
         } elseif ($file->isRegistrar()) {
-            $typeFolder = 'registrar_instructor';
-            $base = $folder.'/'.$typeFolder.'/'.basename((string) $file->original_name);
+            $typeFolder = 'REG';
+            $filename = $this->safeFileBasename((string) $file->original_name);
         } else {
             $typeFolder = 'exam_report';
-            $base = $folder.'/'.$typeFolder.'/'.basename((string) $file->original_name);
+            $filename = $this->safeFileBasename((string) $file->original_name);
         }
+
+        $base = $typeFolder.'/'.$filename;
 
         if (! isset($usedNames[$base])) {
             $usedNames[$base] = true;
@@ -93,19 +95,26 @@ class GradeReportFileZipService
         }
 
         $n = 2;
-        $pathInfo = pathinfo($base);
-        $dir = $pathInfo['dirname'] ?? $folder.'/'.$typeFolder;
-        $filename = $pathInfo['filename'] ?? 'file';
+        $pathInfo = pathinfo($filename);
+        $stem = $pathInfo['filename'] ?? 'file';
         $ext = isset($pathInfo['extension']) ? '.'.$pathInfo['extension'] : '';
 
         do {
-            $candidate = $dir.'/'.$filename.'_'.$n.$ext;
+            $candidate = $typeFolder.'/'.$stem.'_'.$n.$ext;
             $n++;
         } while (isset($usedNames[$candidate]));
 
         $usedNames[$candidate] = true;
 
         return $candidate;
+    }
+
+    private function safeFileBasename(string $name): string
+    {
+        $base = basename(str_replace('\\', '/', $name));
+        $base = preg_replace('/[^\w.\-ก-๙]+/u', '_', $base) ?: 'file.pdf';
+
+        return $base;
     }
 
     /**
