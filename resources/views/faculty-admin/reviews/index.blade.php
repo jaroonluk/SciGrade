@@ -234,15 +234,20 @@
         <div class="flex flex-wrap items-end gap-3 justify-between">
             <div>
                 <p class="text-sm font-semibold text-[#5C2E1F]">ดาวน์โหลดไฟล์แนบ</p>
-                <p class="text-xs text-[#7A4A3A]/80 mt-0.5">แบบรายงานผลการสอบไล่ และใบส่งผลการศึกษา (REG)</p>
+                <p class="text-xs text-[#7A4A3A]/80 mt-0.5">
+                    เลือกดาวน์โหลดไฟล์ของอาจารย์ หรือ REG ที่ Admin สาขาอัปโหลด —
+                    ไฟล์ REG ของ Admin สาขาจะตั้งชื่อเป็น <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม-จำนวนนักศึกษา.pdf</code>
+                </p>
             </div>
             <div class="flex flex-wrap items-end gap-2">
                 <div>
                     <label class="block text-xs text-[#7A4A3A] mb-1">ประเภทไฟล์</label>
-                    <select name="type" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <select name="type" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
                         <option value="all">ทั้งหมด</option>
-                        <option value="exam_report">แบบรายงานผลการสอบไล่</option>
-                        <option value="registrar">ใบส่งผลการศึกษา (REG)</option>
+                        <option value="exam_report">แบบรายงานผลการสอบไล่ (อาจารย์)</option>
+                        <option value="registrar_instructor">REG ของอาจารย์</option>
+                        <option value="registrar_dept">REG ของ Admin สาขา</option>
+                        <option value="registrar">REG ทั้งหมด (อาจารย์ + สาขา)</option>
                     </select>
                 </div>
                 <button type="button" id="btn-select-all-download"

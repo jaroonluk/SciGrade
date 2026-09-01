@@ -74,8 +74,17 @@ class GradeReportFileZipService
         $report = $file->relationLoaded('gradeReport') ? $file->gradeReport : null;
         $subject = $report?->subject_code ?: 'grade';
         $folder = preg_replace('/[^\w.\-]+/', '_', (string) $subject).'_'.$file->grade_id;
-        $typeFolder = $file->isRegistrar() ? 'registrar' : 'exam_report';
-        $base = $folder.'/'.$typeFolder.'/'.basename((string) $file->original_name);
+
+        if ($file->isDeptAdminUpload($report) && $report instanceof GradeReport) {
+            $typeFolder = 'registrar_dept';
+            $base = $folder.'/'.$typeFolder.'/'.$report->deptRegistrarDownloadName();
+        } elseif ($file->isRegistrar()) {
+            $typeFolder = 'registrar_instructor';
+            $base = $folder.'/'.$typeFolder.'/'.basename((string) $file->original_name);
+        } else {
+            $typeFolder = 'exam_report';
+            $base = $folder.'/'.$typeFolder.'/'.basename((string) $file->original_name);
+        }
 
         if (! isset($usedNames[$base])) {
             $usedNames[$base] = true;
@@ -108,10 +117,16 @@ class GradeReportFileZipService
         $files = $reports
             ->flatMap(function (GradeReport $report) {
                 if ($report->relationLoaded('files')) {
-                    return $report->files;
+                    return $report->files->each(function (GradeReportFile $file) use ($report): void {
+                        if (! $file->relationLoaded('gradeReport')) {
+                            $file->setRelation('gradeReport', $report);
+                        }
+                    });
                 }
 
-                return $report->files()->get();
+                return $report->files()->get()->each(function (GradeReportFile $file) use ($report): void {
+                    $file->setRelation('gradeReport', $report);
+                });
             })
             ->filter(fn ($file) => $file instanceof GradeReportFile)
             ->values();
@@ -121,7 +136,15 @@ class GradeReportFileZipService
         }
 
         return $files
-            ->filter(fn (GradeReportFile $file) => $file->resolvedType() === $fileType)
+            ->filter(function (GradeReportFile $file) use ($fileType) {
+                return match ($fileType) {
+                    GradeReportFile::TYPE_EXAM_REPORT => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT,
+                    GradeReportFile::TYPE_REGISTRAR => $file->isRegistrar(),
+                    'registrar_instructor' => $file->isRegistrar() && $file->isInstructorUpload(),
+                    'registrar_dept' => $file->isDeptAdminUpload(),
+                    default => false,
+                };
+            })
             ->values();
     }
 }

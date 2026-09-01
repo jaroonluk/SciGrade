@@ -73,6 +73,36 @@ class GradeReportFile extends Model
         return $this->resolvedType() === self::TYPE_REGISTRAR;
     }
 
+    /**
+     * ไฟล์ที่อาจารย์เจ้าของรายวิชาอัปโหลด (username ตรงกับ grade_report.username)
+     * แถวเก่าที่ไม่มี username ถือเป็นของอาจารย์
+     */
+    public function isInstructorUpload(?GradeReport $report = null): bool
+    {
+        $report ??= $this->relationLoaded('gradeReport')
+            ? $this->gradeReport
+            : $this->gradeReport()->first();
+
+        if ($report === null) {
+            return true;
+        }
+
+        $uploader = trim((string) ($this->username ?? ''));
+        if ($uploader === '') {
+            return true;
+        }
+
+        return $uploader === trim((string) $report->username);
+    }
+
+    /**
+     * ไฟล์ REG ที่ Admin สาขา (หรือผู้ใช้อื่นที่ไม่ใช่เจ้าของรายวิชา) อัปโหลด
+     */
+    public function isDeptAdminUpload(?GradeReport $report = null): bool
+    {
+        return $this->isRegistrar() && ! $this->isInstructorUpload($report);
+    }
+
     public function scopeOfType(Builder $query, string $type): Builder
     {
         if ($type === self::TYPE_EXAM_REPORT) {
@@ -92,5 +122,21 @@ class GradeReportFile extends Model
     public static function allowedTypes(): array
     {
         return [self::TYPE_EXAM_REPORT, self::TYPE_REGISTRAR];
+    }
+
+    /**
+     * ประเภทที่ใช้กรองตอนดาวน์โหลด (รวมแยก REG ตามผู้ upload)
+     *
+     * @return list<string>
+     */
+    public static function allowedDownloadTypes(): array
+    {
+        return [
+            'all',
+            self::TYPE_EXAM_REPORT,
+            self::TYPE_REGISTRAR,
+            'registrar_instructor',
+            'registrar_dept',
+        ];
     }
 }

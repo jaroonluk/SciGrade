@@ -75,6 +75,12 @@ class GradeReportFileController extends Controller
         abort_unless($this->canViewFiles($gradeReport), 403);
         abort_unless((int) $file->grade_id === (int) $gradeReport->grade_id, 404);
 
+        $downloadName = $file->original_name;
+        if ($file->isDeptAdminUpload($gradeReport)) {
+            $gradeReport->loadMissing('gradeStds');
+            $downloadName = $gradeReport->deptRegistrarDownloadName();
+        }
+
         $this->auditLog->record(
             'grade_report_file.view',
             subjectType: 'grade_report_file',
@@ -83,10 +89,11 @@ class GradeReportFileController extends Controller
                 'grade_id' => $gradeReport->grade_id,
                 'file_type' => $file->resolvedType(),
                 'original_name' => $file->original_name,
+                'download_name' => $downloadName,
             ],
         );
 
-        return UploadStorage::inlineResponse($file->stored_path, $file->original_name, 'application/pdf');
+        return UploadStorage::inlineResponse($file->stored_path, $downloadName, 'application/pdf');
     }
 
     public function destroy(Request $request, GradeReport $gradeReport, GradeReportFile $file): JsonResponse

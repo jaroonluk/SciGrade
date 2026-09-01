@@ -236,6 +236,37 @@ class GradeReport extends Model
             ->values();
     }
 
+    /**
+     * ชื่อไฟล์ตอนดาวน์โหลด REG ของ Admin สาขา:
+     * รหัสวิชา-กลุ่ม-จำนวนนักศึกษารวมที่รายงานผลสอบ.pdf
+     */
+    public function deptRegistrarDownloadName(): string
+    {
+        if (! $this->relationLoaded('gradeStds')) {
+            $this->load('gradeStds');
+        }
+
+        $code = preg_replace('/[^\w.\-]+/u', '_', trim((string) $this->subject_code)) ?: 'SUBJECT';
+
+        $sections = $this->enrollmentSections()
+            ->pluck('sec')
+            ->filter(fn ($sec) => $sec !== '' && $sec !== '-')
+            ->map(function ($sec) {
+                $digits = preg_replace('/\D/', '', (string) $sec);
+
+                return $digits !== ''
+                    ? str_pad((string) (int) $digits, 2, '0', STR_PAD_LEFT)
+                    : preg_replace('/[^\w.\-]+/u', '_', (string) $sec);
+            })
+            ->unique()
+            ->values();
+
+        $group = $sections->isNotEmpty() ? $sections->implode('_') : '00';
+        $total = $this->totalStudents();
+
+        return sprintf('%s-%s-%d.pdf', $code, $group, $total);
+    }
+
     public function termLabel(): string
     {
         return match ((int) $this->term) {

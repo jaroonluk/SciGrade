@@ -36,7 +36,8 @@ class GradeReportFileDownloadController extends Controller
         $type = $this->normalizeType($request->input('type'));
 
         try {
-            $files = $this->zipService->collectFiles(collect([$gradeReport->loadMissing('files.gradeReport')]), $type);
+            $gradeReport->loadMissing(['files', 'gradeStds']);
+            $files = $this->zipService->collectFiles(collect([$gradeReport]), $type);
 
             $response = $this->zipService->download(
                 $files,
@@ -154,7 +155,7 @@ class GradeReportFileDownloadController extends Controller
      */
     private function respondZip(Collection $reports, ?string $type, string $prefix): BinaryFileResponse|RedirectResponse
     {
-        $reports->loadMissing('files.gradeReport');
+        $reports->loadMissing(['files', 'gradeStds']);
 
         try {
             $files = $this->zipService->collectFiles($reports, $type);
@@ -191,7 +192,7 @@ class GradeReportFileDownloadController extends Controller
             return 'all';
         }
 
-        abort_unless(in_array($type, GradeReportFile::allowedTypes(), true), 422);
+        abort_unless(in_array($type, GradeReportFile::allowedDownloadTypes(), true), 422);
 
         return $type;
     }
