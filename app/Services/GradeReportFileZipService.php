@@ -76,6 +76,7 @@ class GradeReportFileZipService
         $report = $file->relationLoaded('gradeReport') ? $file->gradeReport : null;
 
         if ($file->isDeptAdminUpload($report) && $report instanceof GradeReport) {
+            $report->loadMissing('gradeStds');
             $typeFolder = 'REG-Admin';
             $filename = $report->deptRegistrarDownloadName();
         } elseif ($file->isRegistrar()) {
@@ -107,6 +108,16 @@ class GradeReportFileZipService
         $usedNames[$candidate] = true;
 
         return $candidate;
+    }
+
+    /**
+     * Path ภายใน ZIP สำหรับไฟล์หนึ่งรายการ (ใช้ทดสอบ)
+     *
+     * @param  array<string, true>  $usedNames
+     */
+    public function zipEntryPath(GradeReportFile $file, array &$usedNames = []): string
+    {
+        return $this->entryName($file, $usedNames);
     }
 
     private function safeFileBasename(string $name): string

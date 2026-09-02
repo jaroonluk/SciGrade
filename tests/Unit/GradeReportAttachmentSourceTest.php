@@ -92,4 +92,54 @@ class GradeReportAttachmentSourceTest extends TestCase
         $this->assertCount(2, $service->collectFiles($reports, 'registrar'));
         $this->assertCount(3, $service->collectFiles($reports, 'all'));
     }
+
+    public function test_zip_entry_paths_group_same_type_in_one_folder_with_reg_admin_naming(): void
+    {
+        $reportA = new GradeReport([
+            'subject_code' => 'SC203001',
+            'username' => 'teacher01',
+        ]);
+        $reportA->grade_id = 1;
+        $reportA->setRelation('gradeStds', collect([
+            new GradeStd(['sec' => '1', 'total_std' => 20]),
+        ]));
+
+        $reportB = new GradeReport([
+            'subject_code' => 'SC203002',
+            'username' => 'teacher02',
+        ]);
+        $reportB->grade_id = 2;
+        $reportB->setRelation('gradeStds', collect([
+            new GradeStd(['sec' => '2', 'total_std' => 30]),
+        ]));
+
+        $fileA = new GradeReportFile([
+            'grade_id' => 1,
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'username' => 'deptadmin',
+            'original_name' => 'stored_a.pdf',
+            'stored_path' => 'x/a.pdf',
+        ]);
+        $fileA->setRelation('gradeReport', $reportA);
+
+        $fileB = new GradeReportFile([
+            'grade_id' => 2,
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'username' => 'deptadmin',
+            'original_name' => 'stored_b.pdf',
+            'stored_path' => 'x/b.pdf',
+        ]);
+        $fileB->setRelation('gradeReport', $reportB);
+
+        $service = new GradeReportFileZipService;
+        $used = [];
+
+        $pathA = $service->zipEntryPath($fileA, $used);
+        $pathB = $service->zipEntryPath($fileB, $used);
+
+        $this->assertSame('REG-Admin/SC203001-01-20.pdf', $pathA);
+        $this->assertSame('REG-Admin/SC203002-02-30.pdf', $pathB);
+        $this->assertStringStartsWith('REG-Admin/', $pathA);
+        $this->assertStringStartsWith('REG-Admin/', $pathB);
+    }
 }
