@@ -632,14 +632,6 @@
 
         document.getElementById('save-overlay-error-close')?.addEventListener('click', hideSaveOverlay);
 
-        function showToast(msg, type='success') {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.className = `fixed bottom-6 right-6 px-5 py-3 rounded-lg shadow-lg text-sm font-medium no-print z-50 ${type==='error'?'bg-red-600 text-white':'bg-green-700 text-white'}`;
-            t.classList.remove('hidden');
-            setTimeout(() => t.classList.add('hidden'), 3000);
-        }
-
         lucide.createIcons();
     })();
     </script>
