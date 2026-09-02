@@ -9,6 +9,7 @@ use App\Http\Requests\DeptAdmin\GradeReportReviewFilterRequest;
 use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Services\AuditLogService;
+use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Services\DeptAdmin\DeptRegistrarBulkUploadService;
 use App\Services\DeptAdmin\GradeReportApprovalService;
