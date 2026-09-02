@@ -131,12 +131,19 @@ class GradeReportFileController extends Controller
      */
     private function formatFile(GradeReportFile $file): array
     {
+        $file->loadMissing('gradeReport.gradeStds');
+
+        $displayName = $file->isRegistrar()
+            ? $file->registrarDisplayName($file->gradeReport)
+            : (string) $file->original_name;
+
         return [
             'file_id' => $file->file_id,
             'grade_id' => $file->grade_id,
             'file_type' => $file->resolvedType(),
             'type_label' => $file->typeLabel(),
             'original_name' => $file->original_name,
+            'display_name' => $displayName,
             'uploaded_at' => $file->uploaded_at?->format('Y-m-d H:i'),
             'view_url' => route('grade-reports.files.show', [
                 'gradeReport' => $file->grade_id,

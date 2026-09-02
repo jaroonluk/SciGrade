@@ -600,12 +600,15 @@
                                             @else
                                                 <div class="flex flex-col gap-1.5 file-list">
                                                     @foreach ($regFiles as $file)
+                                                        @php
+                                                            $regDisplayName = $file->registrarDisplayName($report);
+                                                        @endphp
                                                         <div class="file-chip" data-file-id="{{ $file->file_id }}">
                                                             <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
                                                             <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
                                                                target="_blank" rel="noopener noreferrer"
-                                                               class="hover:underline truncate max-w-[9rem]" title="{{ $file->original_name }}">
-                                                                {{ $file->original_name }}
+                                                               class="hover:underline truncate max-w-[9rem]" title="{{ $regDisplayName }}">
+                                                                {{ $regDisplayName }}
                                                             </a>
                                                             @if ($canEdit)
                                                                 <button type="button"
@@ -1222,11 +1225,12 @@
             const chip = document.createElement('div');
             chip.className = 'file-chip';
             chip.dataset.fileId = uploaded.file_id;
+            const shownName = uploaded.display_name || uploaded.original_name;
             chip.innerHTML = `
                 <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
                 <a href="${uploaded.view_url}" target="_blank" rel="noopener noreferrer"
-                   class="hover:underline truncate max-w-[9rem]" title="${uploaded.original_name}">
-                    ${uploaded.original_name}
+                   class="hover:underline truncate max-w-[9rem]" title="${shownName}">
+                    ${shownName}
                 </a>
                 <button type="button" class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
                     data-report-id="${reportId}" data-file-id="${uploaded.file_id}" title="ลบไฟล์">

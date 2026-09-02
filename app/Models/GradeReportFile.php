@@ -143,6 +143,44 @@ class GradeReportFile extends Model
     }
 
     /**
+     * ชื่อสั้นบน dashboard: REG-รหัสวิชา-กลุ่มการเรียน (เช่น REG-SC101011-01)
+     */
+    public function registrarDisplayName(?GradeReport $report = null): string
+    {
+        $identity = $this->parseRegistrarIdentityFromStoredName((string) $this->original_name);
+        $code = $identity['code'];
+        $section = $identity['section'];
+
+        if ($code === null || $section === null) {
+            $report ??= $this->relationLoaded('gradeReport')
+                ? $this->gradeReport
+                : $this->gradeReport()->with('gradeStds')->first();
+
+            if ($report instanceof GradeReport) {
+                if ($code === null) {
+                    $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $report->subject_code) ?: '');
+                    $code = $code !== '' ? $code : null;
+                }
+
+                if ($section === null) {
+                    $resolved = $this->resolvedSection($report);
+                    $section = $resolved !== null ? (string) $resolved : null;
+                }
+            }
+        }
+
+        if ($code === null) {
+            return $this->safeDownloadBasename();
+        }
+
+        if ($section === null || $section === '') {
+            return 'REG-'.$code;
+        }
+
+        return 'REG-'.$code.'-'.str_pad((string) (int) $section, 2, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * ข้อความลิงก์ที่แสดงให้ผู้ใช้ เช่น ใบส่งผลการศึกษา (REG-Admin)-Sec1
      */
     public function attachmentLinkLabel(string $baseLabel, ?GradeReport $report = null): string
@@ -217,25 +255,52 @@ class GradeReportFile extends Model
 
     private function parseSectionFromStoredName(string $name): ?string
     {
+        return $this->parseRegistrarIdentityFromStoredName($name)['section'];
+    }
+
+    /**
+     * @return array{code: ?string, section: ?string}
+     */
+    private function parseRegistrarIdentityFromStoredName(string $name): array
+    {
         $base = basename(str_replace('\\', '/', $name));
 
-        if (preg_match('/^REG_\d+_\d+_[A-Z0-9]+_(\d{1,2})(?:_\d{2})?\.pdf$/i', $base, $match)) {
-            return (string) (int) $match[1];
+        if (preg_match('/^REG_\d+_\d+_([A-Z0-9]+)_(\d{1,2})(?:_\d{2})?\.pdf$/i', $base, $match)) {
+            return [
+                'code' => strtoupper($match[1]),
+                'section' => (string) (int) $match[2],
+            ];
         }
 
-        if (preg_match('/^\d+_\d+_[A-Z0-9]+_(\d{1,2})(?:_\d{2})?\.pdf$/i', $base, $match)) {
-            return (string) (int) $match[1];
+        if (preg_match('/^\d+_\d+_([A-Z0-9]+)_(\d{1,2})(?:_\d{2})?\.pdf$/i', $base, $match)) {
+            return [
+                'code' => strtoupper($match[1]),
+                'section' => (string) (int) $match[2],
+            ];
         }
 
-        if (preg_match('/^[A-Za-z0-9]+-(\d{1,2})\.pdf$/i', $base, $match)) {
-            return (string) (int) $match[1];
+        if (preg_match('/^REG-([A-Z0-9]+)-(\d{1,2})(?:-\d+)?\.pdf$/i', $base, $match)) {
+            return [
+                'code' => strtoupper($match[1]),
+                'section' => (string) (int) $match[2],
+            ];
         }
 
-        if (preg_match('/^[A-Za-z0-9]+-(\d{1,2})-\d+\.pdf$/i', $base, $match)) {
-            return (string) (int) $match[1];
+        if (preg_match('/^([A-Za-z0-9]+)-(\d{1,2})\.pdf$/i', $base, $match)) {
+            return [
+                'code' => strtoupper($match[1]),
+                'section' => (string) (int) $match[2],
+            ];
         }
 
-        return null;
+        if (preg_match('/^([A-Za-z0-9]+)-(\d{1,2})-\d+\.pdf$/i', $base, $match)) {
+            return [
+                'code' => strtoupper($match[1]),
+                'section' => (string) (int) $match[2],
+            ];
+        }
+
+        return ['code' => null, 'section' => null];
     }
 
     public function scopeOfType(Builder $query, string $type): Builder

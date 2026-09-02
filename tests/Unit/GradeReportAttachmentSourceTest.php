@@ -224,5 +224,7 @@ class GradeReportAttachmentSourceTest extends TestCase
             'ใบส่งผลการศึกษา (REG)-Sec1',
             $instructorFile->attachmentLinkLabel('ใบส่งผลการศึกษา (REG)', $report),
         );
+        $this->assertSame('REG-SC203001-01', $instructorFile->registrarDisplayName($report));
+        $this->assertSame('REG-SC203001-02', $deptFile->registrarDisplayName($report));
     }
 }
