@@ -9,6 +9,24 @@ use Tests\TestCase;
 class RegistrarGradePdfParserTest extends TestCase
 {
     #[Test]
+    public function it_parses_college_headers_without_faculty_prefix(): void
+    {
+        $path = base_path('project_old/file_test/SC700001-04.pdf');
+        if (! is_file($path)) {
+            $this->markTestSkipped('SC700001-04 sample PDF not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parse($path, 'SC700001-04.pdf', 2, 2568);
+        $fac = explode(',', (string) $parsed['grade_stds'][0]['fac']);
+
+        $this->assertSame('SC700001', $parsed['subject_code']);
+        $this->assertContains('CP', $fac); // วิทยาลัยการคอมพิวเตอร์
+        $this->assertContains('COLA', $fac); // วิทยาลัยการปกครองท้องถิ่น
+        $this->assertContains('SC', $fac);
+        $this->assertContains('KKBS', $fac);
+    }
+
+    #[Test]
     public function it_parses_sc069991_s_au_summary_format(): void
     {
         $path = base_path('project_old/file_test/SC069991-01.pdf');
