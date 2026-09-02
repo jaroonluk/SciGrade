@@ -27,8 +27,8 @@ class RegistrarGradePdfParser
         'V' => 'num_v',
     ];
 
-    /** เกรดที่รองรับในคอลัมน์เกรดของใบส่งผล (ลำดับสำคัญ: AU ก่อน A, B+ ก่อน B) */
-    private const GRADE_TOKEN = 'AU|B\+|A|B|C\+|C|D\+|D|F|I|S|U|W|V';
+    /** เกรดที่รองรับในคอลัมน์เกรดของใบส่งผล (ลำดับสำคัญ: S AU ก่อน AU/S, B+ ก่อน B) */
+    private const GRADE_TOKEN = 'S\s*AU|AU|B\+|A|B|C\+|C|D\+|D|F|I|S|U|W|V';
 
     private const SCORE_KEYS = [
         'A' => 'score_a',
@@ -319,14 +319,14 @@ class RegistrarGradePdfParser
     }
 
     /**
-     * S/AU → S, U → U (num_v), เกรดชุดเดิมคงไว้ — นอกนั้นไม่รองรับ
+     * S / AU / S AU → S, U → U (num_v), เกรดชุดเดิมคงไว้ — นอกนั้นไม่รองรับ
      */
     private function normalizeGradeSymbol(string $grade): ?string
     {
-        $grade = strtoupper(trim($grade));
+        $grade = strtoupper(trim(preg_replace('/\s+/u', ' ', $grade) ?? $grade));
 
         return match ($grade) {
-            'AU' => 'S',
+            'AU', 'S AU', 'SAU' => 'S',
             'U' => 'U',
             'A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F', 'I', 'S', 'W', 'V' => $grade,
             default => null,
@@ -489,19 +489,28 @@ class RegistrarGradePdfParser
             return null;
         }
 
-        if (preg_match('/^(.+?)\s*>>\s*A$/u', $line, $match)) {
-            $split = $this->splitCountAndMin($match[1], 100.0, $totalStudents, 'A');
+        // รูปแบบ >>เกรด เช่น 0.00080 >>S / 0.00083 >>A (ไม่มีช่วงคะแนนในแถว)
+        if (preg_match('/^(.+?)\s*>>\s*('.self::GRADE_TOKEN.')$/u', $line, $match)) {
+            $grade = $this->normalizeGradeSymbol($match[2]);
+            if ($grade === null) {
+                return null;
+            }
+
+            $max = $grade === 'A' ? 100.0 : 100.0;
+            $split = $this->splitCountAndMin($match[1], $max, $totalStudents, $grade);
             if ($split === null) {
                 return null;
             }
 
+            $hasScoreRange = in_array($grade, ['A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F'], true);
+
             return [
                 'percent' => $split['percent'],
                 'count' => $split['count'],
-                'min' => $split['min'],
-                'max' => 100.0,
-                'grade' => 'A',
-                'uses_decimal' => $split['min'] != floor($split['min']),
+                'min' => $hasScoreRange ? $split['min'] : null,
+                'max' => $hasScoreRange ? $max : null,
+                'grade' => $grade,
+                'uses_decimal' => $hasScoreRange && $split['min'] != floor($split['min']),
             ];
         }
 

@@ -9,6 +9,29 @@ use Tests\TestCase;
 class RegistrarGradePdfParserTest extends TestCase
 {
     #[Test]
+    public function it_parses_sc069991_s_au_summary_format(): void
+    {
+        $path = base_path('project_old/file_test/SC069991-01.pdf');
+        if (! is_file($path)) {
+            $this->markTestSkipped('SC069991-01 sample PDF not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parse($path, 'any.pdf', 1, 2568);
+        $std = $parsed['grade_stds'][0];
+
+        $this->assertSame('SC069991', $parsed['subject_code']);
+        $this->assertSame(2, $parsed['term']);
+        $this->assertSame(2568, $parsed['year']);
+        $this->assertSame(7, $parsed['degree']);
+        $this->assertSame(4, $parsed['type_course']);
+        $this->assertSame(1, $std['sec']);
+        $this->assertSame('SC', $std['fac']);
+        $this->assertSame(1, $std['num_s']); // S AU → S
+        $this->assertSame(0, $std['num_v']);
+        $this->assertStringContainsString('รัชดาภรณ์', $parsed['teacher']);
+    }
+
+    #[Test]
     public function it_maps_s_au_to_s_and_u_to_u_and_skips_unknown_grades(): void
     {
         $text = <<<'TXT'
