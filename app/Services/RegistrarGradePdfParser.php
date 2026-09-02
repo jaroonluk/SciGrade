@@ -35,21 +35,41 @@ class RegistrarGradePdfParser
         'F' => 'score_f',
     ];
 
+    /**
+     * ชื่อคณะไทย → รหัส nameng ใน grade_type (เรียงชื่อยาวก่อนเพื่อจับคู่ถูกต้อง)
+     *
+     * @var array<string, string>
+     */
     private const FACULTY_MAP = [
-        'วิทยาศาสตร์' => 'SC',
+        'วิทยาลัยบัณฑิตศึกษาการจัดการ' => 'MBA',
+        'มนุษยศาสตร์และสังคมศาสตร์' => 'HS',
+        'บริหารธุรกิจและการบัญชี' => 'KKBS',
+        'วิทยาลัยการปกครองท้องถิ่น' => 'COLA',
+        'วิทยาลัยการคอมพิวเตอร์' => 'CP',
+        'สำนักวิชาศึกษาทั่วไป' => 'GE',
+        'สถาปัตยกรรมศาสตร์' => 'AR',
+        'ทันตแพทย์ศาสตร์' => 'DT',
+        'ทันตแพทยศาสตร์' => 'DT',
+        'สัตวแพทย์ศาสตร์' => 'VM',
+        'สัตวแพทยศาสตร์' => 'VM',
+        'สาธารณสุขศาสตร์' => 'PH',
+        'เทคนิคการแพทย์' => 'AM',
+        'วิทยาลัยนานาชาติ' => 'IC',
+        'บัณฑิตวิทยาลัย' => 'GS',
         'วิศวกรรมศาสตร์' => 'EN',
+        'ศิลปกรรมศาสตร์' => 'FA',
+        'วิทยาศาสตร์' => 'SC',
         'เกษตรศาสตร์' => 'AG',
         'ศึกษาศาสตร์' => 'ED',
         'พยาบาลศาสตร์' => 'NU',
         'แพทยศาสตร์' => 'MD',
-        'เภสัชศาสตร์' => 'PH',
-        'ทันตแพทยศาสตร์' => 'DN',
-        'สาธารณสุขศาสตร์' => 'HS',
-        'นิติศาสตร์' => 'LA',
-        'เศรษฐศาสตร์' => 'EC',
-        'บริหารธุรกิจ' => 'BA',
-        'บัณฑิตวิทยาลัย' => 'GS',
-        'มนุษยศาสตร์และสังคมศาสตร์' => 'HU',
+        'เภสัชศาสตร์' => 'PS',
+        'เศรษฐศาสตร์' => 'ECON',
+        'นิติศาสตร์' => 'LAW',
+        'สหวิทยาการ' => 'IN',
+        'เทคโนโลยี' => 'TE',
+        'สถาบันภาษา' => 'LI',
+        'บริหารธุรกิจ' => 'KKBS',
     ];
 
     public function __construct(
@@ -65,13 +85,28 @@ class RegistrarGradePdfParser
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
         }
 
+        $previousMemoryLimit = ini_get('memory_limit');
+        ini_set('memory_limit', '512M');
+
         try {
             $text = $this->parser->parseFile($absolutePath)->getText();
         } catch (\Throwable) {
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
+        } finally {
+            if ($previousMemoryLimit !== false) {
+                ini_set('memory_limit', (string) $previousMemoryLimit);
+            }
         }
 
-        $text = $this->normalizeText($text);
+        return $this->parseText($text, $originalFilename, $termFallback, $yearFallback);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function parseText(string $rawText, string $originalFilename, int $termFallback, int $yearFallback): array
+    {
+        $text = $this->normalizeText($rawText);
 
         if (! str_contains($text, 'ใบส่งผลการศึกษา')) {
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
@@ -82,7 +117,7 @@ class RegistrarGradePdfParser
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
         }
 
-        if (! preg_match('/^([A-Z0-9]+)\s*:\s*(.+)$/mu', $text, $subjectMatch)) {
+        if (! preg_match('/^([A-Z]{2}\d{6})\s*:\s*(.+)$/mu', $text, $subjectMatch)) {
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
         }
 
@@ -96,11 +131,11 @@ class RegistrarGradePdfParser
             $year = (int) $termMatch[2];
         }
 
-        $section = $this->sectionFromFilename($originalFilename);
-        [$teacher, $sectionFromPdf] = $this->parseTeacherAndSection($text, $section);
-        if ($teacher !== '') {
-            $section = $sectionFromPdf;
-        } elseif ($section === null) {
+        // อ่านกลุ่มเรียนจากเนื้อหา PDF เป็นหลัก — ชื่อไฟล์ใช้เป็น fallback เท่านั้น
+        $sectionFromFilename = $this->sectionFromFilename($originalFilename);
+        [$teacher, $sectionFromPdf] = $this->parseTeacherAndSection($text, $sectionFromFilename);
+        $section = $sectionFromPdf ?? $sectionFromFilename;
+        if ($section === null) {
             throw new RegistrarPdfParseException($this->invalidFormatMessage());
         }
 
@@ -225,7 +260,7 @@ class RegistrarGradePdfParser
     private function parseStudents(string $text): array
     {
         $students = [];
-        $pattern = '/(?:<>\s+|\n\s+)((?:นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.).+?)(A|B\+|B|C\+|C|D\+|D|F|I|S|W|V)(\d{9})-\d+/u';
+        $pattern = '/(?:<>\s+|\n\s+)(?:(?:พ้นสภาพ[^\n]{0,40}|ลาพักการเรียน)\s+)?((?:นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.).+?)(A|B\+|B|C\+|C|D\+|D|F|I|S|W|V)(\d{9})-\d+/u';
 
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
@@ -243,14 +278,15 @@ class RegistrarGradePdfParser
      */
     private function parseGradeSummary(string $text): array
     {
-        if (! preg_match('/%รวมMANUALเกรด(.+?)(?:controlcode|CONTROL CODE)/isu', $text, $blockMatch)) {
+        $summaryBody = $this->extractGradeSummaryBody($text);
+        if ($summaryBody === null) {
             return ['counts' => [], 'ranges' => [], 'uses_decimal' => false];
         }
 
         $counts = array_fill_keys(array_values(self::GRADE_KEYS), 0);
         $ranges = [];
         $usesDecimal = false;
-        $lines = array_filter(array_map('trim', explode("\n", trim($blockMatch[1]))));
+        $lines = array_filter(array_map('trim', explode("\n", trim($summaryBody))));
         $totalStudents = $this->parseSummaryTotalStudents($lines);
 
         foreach ($lines as $line) {
@@ -349,6 +385,22 @@ class RegistrarGradePdfParser
             ];
         }
 
+        if (preg_match('/^(.+)\s+-\s+(\d+(?:\.\d+)?)\s*(A)$/u', $line, $match)) {
+            $split = $this->splitCountAndMin($match[1], (float) $match[2], $totalStudents, 'A');
+            if ($split === null) {
+                return null;
+            }
+
+            return [
+                'percent' => $split['percent'],
+                'count' => $split['count'],
+                'min' => $split['min'],
+                'max' => (float) $match[2],
+                'grade' => 'A',
+                'uses_decimal' => $split['min'] != floor($split['min']),
+            ];
+        }
+
         if (preg_match('/^(.+)\s+-\s+(\d+(?:\.\d+)?)(A|B\+|B|C\+|C|D\+|D|F)$/u', $line, $match)) {
             $split = $this->splitCountAndMin($match[1], (float) $match[2], $totalStudents, $match[3]);
             if ($split === null) {
@@ -375,6 +427,39 @@ class RegistrarGradePdfParser
     /**
      * @return array{percent: float, count: int, min: float}|null
      */
+    private function extractGradeSummaryBody(string $text): ?string
+    {
+        if (! preg_match_all('/%รวมMANUALเกรด(.+?)(?:controlcode|CONTROL CODE)/isu', $text, $matches)) {
+            return null;
+        }
+
+        $bodies = $matches[1];
+        $bestBody = null;
+        $bestScore = -1;
+
+        foreach ($bodies as $body) {
+            $body = trim($body);
+            $score = 0;
+
+            if (preg_match('/\d+\.\d+\d+รวม/u', $body)) {
+                $score += 100;
+            }
+
+            foreach (array_filter(array_map('trim', explode("\n", $body))) as $line) {
+                if ($this->parseSummaryLine($line, null) !== null) {
+                    $score++;
+                }
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestBody = $body;
+            }
+        }
+
+        return $bestBody;
+    }
+
     private function splitCountAndMin(string $left, float $max, ?int $totalStudents, string $grade): ?array
     {
         if (! preg_match('/^(\d+\.\d{2})(\d+)$/u', $left, $parts)) {
@@ -490,6 +575,9 @@ class RegistrarGradePdfParser
     }
 
     /**
+     * อ่านคณะของนักศึกษาจากหัวข้อกลุ่มในเนื้อหา (บรรทัดขึ้นต้นด้วย "คณะ...")
+     * ไม่ใช้บรรทัดหัวกระดาษเช่น "ปริญญาตรี ภาคปกติ คณะวิทยาศาสตร์" ซึ่งเป็นคณะเจ้าของรายวิชา
+     *
      * @return list<string>
      */
     private function parseFaculties(string $text): array
@@ -501,29 +589,41 @@ class RegistrarGradePdfParser
             if (! preg_match('/^คณะ(.+)$/u', $line, $match)) {
                 continue;
             }
-            foreach (self::FACULTY_MAP as $thai => $code) {
-                if (str_contains($match[1], $thai)) {
-                    $codes[$code] = true;
-                }
+
+            $name = trim($match[1]);
+            // ข้ามบรรทัดที่ปนข้อมูลนักศึกษา / ไม่ใช่หัวข้อคณะ
+            if ($name === '' || preg_match('/(?:นาย|นาง|นางสาว|<>|\d{9})/u', $name)) {
+                continue;
             }
-        }
 
-        if ($codes !== []) {
-            return array_keys($codes);
-        }
-
-        if (preg_match_all('/คณะ([^\n]+)/u', $text, $matches)) {
-            foreach ($matches[1] as $name) {
-                $name = trim($name);
-                foreach (self::FACULTY_MAP as $thai => $code) {
-                    if (str_contains($name, $thai)) {
-                        $codes[$code] = true;
-                    }
-                }
+            $code = $this->mapFacultyName($name);
+            if ($code !== null) {
+                $codes[$code] = true;
             }
         }
 
         return array_keys($codes);
+    }
+
+    private function mapFacultyName(string $name): ?string
+    {
+        foreach (self::FACULTY_MAP as $thai => $code) {
+            if ($name === $thai || str_starts_with($name, $thai)) {
+                return $code;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ชื่อไฟล์มาตรฐานจากเนื้อหาที่อ่านได้ เช่น SC101011-01.pdf
+     */
+    public function canonicalFilename(string $subjectCode, int $section): string
+    {
+        $code = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $subjectCode) ?: 'SUBJECT');
+
+        return sprintf('%s-%02d.pdf', $code, $section);
     }
 
     private function parseDegree(string $text): int

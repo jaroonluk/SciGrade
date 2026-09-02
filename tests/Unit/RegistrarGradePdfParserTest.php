@@ -9,6 +9,66 @@ use Tests\TestCase;
 class RegistrarGradePdfParserTest extends TestCase
 {
     #[Test]
+    public function it_parses_sc101011_text_sample_with_new_registrar_layout(): void
+    {
+        $path = base_path('tests/Fixtures/registrar-pdfs/SC101011-sample.txt');
+        if (! is_file($path)) {
+            $this->markTestSkipped('SC101011 text sample not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parseText(
+            file_get_contents($path),
+            'random-upload-name.pdf',
+            1,
+            2566,
+        );
+
+        $this->assertSame('SC101011', $parsed['subject_code']);
+        $this->assertSame('BIOLOGY FOR AGRICULTURE I', $parsed['subject']);
+        $this->assertSame(1, $parsed['term']);
+        $this->assertSame(2566, $parsed['year']);
+        $this->assertStringContainsString('ศุจีภรณ์', $parsed['teacher']);
+        $this->assertSame(1, $parsed['grade_stds'][0]['sec']);
+        $this->assertSame('AG', $parsed['grade_stds'][0]['fac']);
+        $this->assertSame(575, $parsed['grade_stds'][0]['num_a']
+            + $parsed['grade_stds'][0]['num_bb']
+            + $parsed['grade_stds'][0]['num_b']
+            + $parsed['grade_stds'][0]['num_cc']
+            + $parsed['grade_stds'][0]['num_c']
+            + $parsed['grade_stds'][0]['num_dd']
+            + $parsed['grade_stds'][0]['num_d']
+            + $parsed['grade_stds'][0]['num_f']
+            + $parsed['grade_stds'][0]['num_w']);
+        $this->assertSame('100-80', $parsed['score_a']);
+    }
+
+    #[Test]
+    public function it_selects_all_student_faculties_from_content(): void
+    {
+        $path = base_path('tests/Fixtures/registrar-pdfs/SC101011-multi-fac-sample.txt');
+        if (! is_file($path)) {
+            $this->markTestSkipped('Multi-faculty sample not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parseText(
+            file_get_contents($path),
+            'not-following-name-convention.pdf',
+            2,
+            2568,
+        );
+
+        $fac = explode(',', (string) $parsed['grade_stds'][0]['fac']);
+        sort($fac);
+
+        $this->assertSame(['AG', 'SC'], $fac);
+        $this->assertSame(1, $parsed['grade_stds'][0]['sec']);
+        $this->assertSame(
+            'SC101011-01.pdf',
+            (new RegistrarGradePdfParser)->canonicalFilename($parsed['subject_code'], (int) $parsed['grade_stds'][0]['sec']),
+        );
+    }
+
+    #[Test]
     public function it_parses_sample_registrar_pdf(): void
     {
         $path = base_path('project_old/SC101011-01.pdf');

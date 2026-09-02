@@ -158,12 +158,6 @@ class GradeReportPageController extends Controller
                 'file',
                 'mimes:pdf',
                 'max:20480',
-                function (string $attribute, $value, \Closure $fail): void {
-                    $name = $value->getClientOriginalName();
-                    if (! preg_match('/^[A-Z0-9]+-\d{2}\.pdf$/i', $name)) {
-                        $fail('ชื่อไฟล์ต้องเป็นรูปแบบ รหัสวิชา-เลขกลุ่ม เช่น SC101011-01.pdf');
-                    }
-                },
             ],
         ], [
             'grade_file.mimes' => 'รองรับเฉพาะไฟล์ PDF จากสำนักทะเบียน',
@@ -188,12 +182,17 @@ class GradeReportPageController extends Controller
         }
 
         $path = $uploaded->store('grade-uploads/'.auth()->id(), UploadStorage::diskName());
+        $section = (int) ($parsed['grade_stds'][0]['sec'] ?? 0);
+        $canonicalName = $this->pdfParser->canonicalFilename(
+            (string) ($parsed['subject_code'] ?? 'SUBJECT'),
+            $section > 0 ? $section : 1,
+        );
 
         session([
             'grade_upload_path' => $path,
-            'grade_upload_name' => $uploaded->getClientOriginalName(),
-            'grade_upload_term' => $request->integer('term'),
-            'grade_upload_year' => $request->integer('year'),
+            'grade_upload_name' => $canonicalName,
+            'grade_upload_term' => (int) ($parsed['term'] ?? $request->integer('term')),
+            'grade_upload_year' => (int) ($parsed['year'] ?? $request->integer('year')),
             'grade_upload_subject_code' => $parsed['subject_code'] ?? null,
             'grade_upload_section' => $parsed['grade_stds'][0]['sec'] ?? null,
             'grade_upload_owner' => auth()->id(),
@@ -202,8 +201,8 @@ class GradeReportPageController extends Controller
 
         return redirect()
             ->route('grade-reports.create', [
-                'term' => $request->integer('term'),
-                'year' => $request->integer('year'),
+                'term' => (int) ($parsed['term'] ?? $request->integer('term')),
+                'year' => (int) ($parsed['year'] ?? $request->integer('year')),
                 'return' => 'dashboard',
             ])
             ->with('status', 'อ่านไฟล์ PDF สำเร็จ — เมื่อบันทึกรายงาน ระบบจะแนบเป็นใบส่งผลการศึกษา (REG) ให้อัตโนมัติ');

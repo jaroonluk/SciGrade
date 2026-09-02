@@ -45,9 +45,9 @@
                 <input type="file" name="grade_file" accept=".pdf,application/pdf" required
                     class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                 <p class="text-xs text-[#7A4A3A]/80 mt-2">
-                    ชื่อไฟล์ต้องเป็นรูปแบบ <strong class="text-[#5C2E1F]">รหัสวิชา-เลขกลุ่ม.pdf</strong>
-                    เช่น <code class="bg-amber-50 px-1 rounded">SC101011-01.pdf</code>
-                    (รหัสวิชา + เครื่องหมายขีด + เลขกลุ่ม 2 หลัก)
+                    ระบบจะ<strong class="text-[#5C2E1F]">อ่านข้อมูลจากเนื้อหาในไฟล์ PDF</strong>
+                    (รหัสวิชา, กลุ่มเรียน, คณะนักศึกษา, ตารางสรุปเกรด) โดยไม่ผูกกับชื่อไฟล์
+                    รองรับเฉพาะใบส่งผลการศึกษาจากระบบทะเบียน มข.
                 </p>
                 @error('grade_file')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
             </div>
@@ -66,7 +66,7 @@
         </h3>
         <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-[#5C2E1F] space-y-2 mb-4">
             <p><strong>ข้อมูลที่ต้องมีในไฟล์:</strong> รหัสรายวิชา, ชื่อวิชา, ชื่อผู้สอน, รหัสนักศึกษา, เกรด, ชื่อนักศึกษา</p>
-            <p><strong>หมายเหตุ:</strong> ไฟล์ 1 ไฟล์ต่อ 1 กลุ่มเรียน (Section) ตามเลขท้ายชื่อไฟล์ เช่น <code class="bg-white px-1 rounded">-01</code>, <code class="bg-white px-1 rounded">-02</code></p>
+            <p><strong>หมายเหตุ:</strong> ระบบอ่านกลุ่มเรียนและคณะจากเนื้อหาในไฟล์โดยอัตโนมัติ หากมีนักศึกษาหลายคณะ ระบบจะเลือกคณะทั้งหมดที่พบในไฟล์</p>
             <p><strong>ดาวน์โหลดไฟล์:</strong> <a href="https://reg.kku.ac.th/" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">ระบบทะเบียน มข. (reg.kku.ac.th)</a></p>
         </div>
 
