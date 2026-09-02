@@ -93,6 +93,19 @@ class GradeReportAttachmentSourceTest extends TestCase
         $this->assertCount(3, $service->collectFiles($reports, 'all'));
     }
 
+    public function test_dept_can_delete_reg_admin_only_before_faculty_status_change(): void
+    {
+        $saved = new GradeReport(['approv' => 0]);
+        $deptApproved = new GradeReport(['approv' => 1]);
+        $facultyChecked = new GradeReport(['approv' => 3]);
+        $centralApproved = new GradeReport(['approv' => 2]);
+
+        $this->assertTrue($saved->canDeptDeleteRegAdminFile());
+        $this->assertTrue($deptApproved->canDeptDeleteRegAdminFile());
+        $this->assertFalse($facultyChecked->canDeptDeleteRegAdminFile());
+        $this->assertFalse($centralApproved->canDeptDeleteRegAdminFile());
+    }
+
     public function test_zip_entry_paths_group_same_type_in_one_folder_with_reg_admin_naming(): void
     {
         $reportA = new GradeReport([

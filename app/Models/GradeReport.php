@@ -196,6 +196,14 @@ class GradeReport extends Model
         ], true);
     }
 
+    /**
+     * Admin สาขาลบไฟล์ REG-Admin ได้เมื่อ Admin กลางยังไม่เปลี่ยนสถานะ (เช่น ตรวจแล้ว/คณะอนุมัติ)
+     */
+    public function canDeptDeleteRegAdminFile(): bool
+    {
+        return $this->canDeptAttachRegistrar();
+    }
+
     public function canFacultyApprove(): bool
     {
         return in_array((int) $this->approv, GradeApprovalStatus::facultyReviewableValues(), true);

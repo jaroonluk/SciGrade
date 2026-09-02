@@ -160,6 +160,9 @@
     @error('download')
         <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
     @enderror
+    @error('reg_admin_file')
+        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
+    @enderror
 
     <form id="download-files-form" method="POST" action="{{ route('dept-admin.reviews.files.download') }}" class="form-section rounded-xl p-4 space-y-3">
         @csrf
@@ -241,7 +244,7 @@
                         </td>
                         <td class="px-3 py-2 text-center whitespace-nowrap">{{ \App\Support\ThaiDateTime::formatDate($report->created) }}</td>
                         <td class="px-3 py-2">
-                            @include('partials.grade-report-files-admin', ['report' => $report])
+                            @include('partials.grade-report-files-admin', ['report' => $report, 'allowDeptRegDelete' => true])
                         </td>
                         <td class="px-3 py-2 text-center">
                             <span class="inline-block px-2 py-1 rounded text-xs font-semibold {{ $badge }}">
@@ -335,6 +338,11 @@
 @push('scripts')
 <script>
 (function() {
+    const regAdminDeleteUrl = @json(route('dept-admin.reviews.reg-admin-files.destroy', ['gradeReport' => '__GRADE__', 'file' => '__FILE__']));
+    const buildRegAdminDeleteAction = (gradeId, fileId) => regAdminDeleteUrl
+        .replace('__GRADE__', String(gradeId))
+        .replace('__FILE__', String(fileId));
+
     const modal = document.getElementById('reject-modal');
     const form = document.getElementById('reject-form');
     document.querySelectorAll('.btn-reject').forEach((btn) => {
@@ -410,11 +418,16 @@
         uploadError.classList.remove('hidden');
     };
 
-    const appendRegistrarLink = (gradeId, name, url) => {
+    const appendRegistrarLink = (gradeId, name, url, fileId = null) => {
         const box = document.querySelector(`.js-registrar-dept-list[data-grade-id="${gradeId}"]`);
         if (!box || !url) return;
         box.querySelector('.js-registrar-empty')?.remove();
         box.querySelector('.js-registrar-dept-empty')?.remove();
+
+        const row = document.createElement('div');
+        row.className = 'js-reg-admin-file-row inline-flex items-center gap-1.5 flex-wrap';
+        if (fileId) row.dataset.fileId = String(fileId);
+
         const a = document.createElement('a');
         a.href = url;
         a.target = '_blank';
@@ -422,7 +435,28 @@
         a.className = 'text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 w-fit font-medium';
         a.title = name || 'ใบส่งผลการศึกษา (REG-Admin)';
         a.innerHTML = '<i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i> ใบส่งผลการศึกษา (REG-Admin)';
-        box.appendChild(a);
+        row.appendChild(a);
+
+        if (fileId) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = buildRegAdminDeleteAction(gradeId, fileId);
+            form.className = 'inline js-delete-reg-admin-form';
+            form.addEventListener('submit', (e) => {
+                if (!confirm('ลบไฟล์ REG-Admin นี้?')) {
+                    e.preventDefault();
+                }
+            });
+            form.innerHTML = `
+                <input type="hidden" name="_token" value="${csrf()}">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit"
+                    class="text-[10px] text-red-600 hover:text-red-800 font-medium px-1 py-0.5 rounded hover:bg-red-50"
+                    title="ลบไฟล์ REG-Admin">ลบ</button>`;
+            row.appendChild(form);
+        }
+
+        box.appendChild(row);
         if (window.lucide?.createIcons) {
             window.lucide.createIcons();
         }
@@ -558,7 +592,8 @@
                     appendRegistrarLink(
                         row.grade_id,
                         row.download_name || row.stored_name || row.original_name,
-                        row.view_url
+                        row.view_url,
+                        row.file_id || null
                     );
                 } else {
                     detailTd.textContent = row.reason || '';
