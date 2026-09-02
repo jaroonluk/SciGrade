@@ -83,6 +83,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/{gradeReport}/send-back', [GradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
         Route::post('/reviews/{gradeReport}/revert', [GradeReportReviewController::class, 'revert'])->name('reviews.revert');
         Route::get('/reports', [DepartmentReportController::class, 'form'])->name('reports.form');
+        Route::get('/reports/date-summary', [DepartmentReportController::class, 'dateSummary'])->name('reports.date-summary');
         Route::post('/reports/export', [DepartmentReportController::class, 'export'])->name('reports.export');
         Route::get('/reg-grade-status', [DeptRegGradeStatusController::class, 'index'])->name('reg-grade-status.index');
         Route::post('/reg-grade-status/{gradeReport}/approve-dept', [DeptRegGradeStatusController::class, 'approveDepartment'])->name('reg-grade-status.approve-dept');

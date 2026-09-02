@@ -11,7 +11,9 @@ use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -40,16 +42,58 @@ class DepartmentReportController extends Controller
             ];
         }
 
-        $initialDepartmentId = old('department_id', $departments->first()?->department_id);
+        $initialDepartmentId = (int) old('department_id', $departments->first()?->department_id);
+        $term = old('term', AcademicTerm::defaultTerm());
+        $year = old('year', AcademicTerm::defaultYear());
+        $educationLevel = old('education_level', 'graduate');
+
+        $dateSummary = $this->queryService->submissionDateSummary([
+            'department_ids' => $this->departmentAccess->allowedDepartmentIds($staff),
+            'department_id' => $initialDepartmentId ?: null,
+            'term' => $term !== null && $term !== '' ? (int) $term : null,
+            'year' => $year !== null && $year !== '' ? (int) $year : null,
+            'education_level' => $educationLevel,
+        ]);
 
         return view('dept-admin.reports.form', [
             'departments' => $departments,
-            'term' => AcademicTerm::defaultTerm(),
-            'year' => AcademicTerm::defaultYear(),
+            'term' => $term,
+            'year' => $year,
             'years' => AcademicTerm::yearOptions(),
             'patternsByDepartment' => $patternsByDepartment,
             'initialDepartmentId' => $initialDepartmentId,
+            'dateSummary' => $dateSummary,
+            'dateSummaryUrl' => route('dept-admin.reports.date-summary'),
         ]);
+    }
+
+    public function dateSummary(Request $request): JsonResponse
+    {
+        $staff = $this->requireStaff();
+        $departmentId = $request->integer('department_id');
+
+        abort_unless(
+            $departmentId > 0 && $this->departmentAccess->canAccessDepartment($staff, $departmentId),
+            403,
+            'ไม่มีสิทธิ์ดูสรุปสาขานี้',
+        );
+
+        $request->validate([
+            'department_id' => ['required', 'integer'],
+            'education_level' => ['nullable', 'string', 'in:bachelor,master,doctoral,graduate,all'],
+            'term' => ['nullable', 'integer', 'in:1,2,3'],
+            'year' => ['nullable', 'integer', 'min:2500', 'max:2600'],
+        ]);
+
+        $summary = $this->queryService->submissionDateSummary([
+            'department_ids' => $this->departmentAccess->allowedDepartmentIds($staff),
+            'department_id' => $departmentId,
+            'term' => $request->filled('term') ? $request->integer('term') : null,
+            'year' => $request->filled('year') ? $request->integer('year') : null,
+            'education_level' => $request->input('education_level', 'all'),
+        ]);
+
+        return response()->json($summary);
     }
 
     public function export(DepartmentReportExportRequest $request): Response|StreamedResponse|RedirectResponse
