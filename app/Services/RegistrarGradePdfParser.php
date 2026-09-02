@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Smalot\PdfParser\Parser;
 
@@ -81,24 +82,41 @@ class RegistrarGradePdfParser
      */
     public function parse(string $absolutePath, string $originalFilename, int $termFallback, int $yearFallback): array
     {
-        if (! is_readable($absolutePath)) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+        if ($absolutePath === '' || ! is_readable($absolutePath)) {
+            $this->failParse('unreadable_path', $originalFilename);
         }
 
         $previousMemoryLimit = ini_get('memory_limit');
-        ini_set('memory_limit', '512M');
+        $previousBacktrack = ini_get('pcre.backtrack_limit');
+        $previousRecursion = ini_get('pcre.recursion_limit');
+        ini_set('memory_limit', '1024M');
+        ini_set('pcre.backtrack_limit', '10000000');
+        ini_set('pcre.recursion_limit', '1000000');
 
         try {
-            $text = $this->parser->parseFile($absolutePath)->getText();
-        } catch (\Throwable) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+            try {
+                $text = $this->parser->parseFile($absolutePath)->getText();
+            } catch (\Throwable $e) {
+                $this->failParse('pdf_extract', $originalFilename, $e->getMessage());
+            }
+
+            if (! is_string($text) || trim($text) === '') {
+                $this->failParse('empty_text', $originalFilename);
+            }
+
+            // ต้อง parse ทั้งไฟล์ภายใต้ memory/PCRE ที่ขยายแล้ว — อย่าคืนค่า limit ก่อน parseText
+            return $this->parseText($text, $originalFilename, $termFallback, $yearFallback);
         } finally {
             if ($previousMemoryLimit !== false) {
                 ini_set('memory_limit', (string) $previousMemoryLimit);
             }
+            if ($previousBacktrack !== false) {
+                ini_set('pcre.backtrack_limit', (string) $previousBacktrack);
+            }
+            if ($previousRecursion !== false) {
+                ini_set('pcre.recursion_limit', (string) $previousRecursion);
+            }
         }
-
-        return $this->parseText($text, $originalFilename, $termFallback, $yearFallback);
     }
 
     /**
@@ -109,16 +127,16 @@ class RegistrarGradePdfParser
         $text = $this->normalizeText($rawText);
 
         if (! str_contains($text, 'ใบส่งผลการศึกษา')) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+            $this->failParse('missing_title', $originalFilename);
         }
 
-        if (! preg_match('/controlcode\s*:\s*(\d+)/iu', $text, $controlMatch)
-            && ! preg_match('/CONTROL\s+CODE\s*:\s*(\d+)/iu', $text)) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+        if (! preg_match('/control\s*code\s*:\s*(\d+)/iu', $text)
+            && ! preg_match('/controlcode\s*:\s*(\d+)/iu', $text)) {
+            $this->failParse('missing_control_code', $originalFilename);
         }
 
-        if (! preg_match('/^([A-Z]{2}\d{6})\s*:\s*(.+)$/mu', $text, $subjectMatch)) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+        if (! preg_match('/(?:^|\n)\s*([A-Z]{2}\d{5,8})\s*:\s*([^\n]+)/u', $text, $subjectMatch)) {
+            $this->failParse('missing_subject', $originalFilename);
         }
 
         $subjectCode = strtoupper(trim($subjectMatch[1]));
@@ -135,17 +153,20 @@ class RegistrarGradePdfParser
         $sectionFromFilename = $this->sectionFromFilename($originalFilename);
         [$teacher, $sectionFromPdf] = $this->parseTeacherAndSection($text, $sectionFromFilename);
         $section = $sectionFromPdf ?? $sectionFromFilename;
+        if ($section === null && preg_match('/กลุ่ม\s*(\d+)/u', $text, $groupOnly)) {
+            $section = (int) $groupOnly[1];
+        }
         if ($section === null) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+            $this->failParse('missing_section', $originalFilename);
         }
 
         if ($this->parseStudents($text) === []) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+            $this->failParse('missing_students', $originalFilename);
         }
 
         $summary = $this->parseGradeSummary($text);
         if (array_sum($summary['counts']) === 0 && $summary['ranges'] === []) {
-            throw new RegistrarPdfParseException($this->invalidFormatMessage());
+            $this->failParse('missing_summary', $originalFilename);
         }
 
         $faculties = $this->parseFaculties($text);
@@ -191,6 +212,21 @@ class RegistrarGradePdfParser
     public function invalidFormatMessage(): string
     {
         return 'ไฟล์ PDF ไม่ตรงรูปแบบใบส่งผลการศึกษาจากสำนักทะเบียน กรุณาดาวน์โหลดใบส่งผลการศึกษาจากระบบทะเบียน มข. ที่ https://reg.kku.ac.th/';
+    }
+
+    private function failParse(string $reason, string $originalFilename, ?string $detail = null): never
+    {
+        try {
+            Log::warning('Registrar grade PDF parse failed', [
+                'reason' => $reason,
+                'filename' => $originalFilename,
+                'detail' => $detail,
+            ]);
+        } catch (\Throwable) {
+            // ignore when logger is unavailable (CLI diagnostics)
+        }
+
+        throw new RegistrarPdfParseException($this->invalidFormatMessage());
     }
 
     private function normalizeText(string $text): string
@@ -260,11 +296,13 @@ class RegistrarGradePdfParser
     private function parseStudents(string $text): array
     {
         $students = [];
-        $pattern = '/(?:<>\s+|\n\s+)(?:(?:พ้นสภาพ[^\n]{0,40}|ลาพักการเรียน)\s+)?((?:นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.).+?)(A|B\+|B|C\+|C|D\+|D|F|I|S|W|V)(\d{9})-\d+/u';
+        // รูปแบบเบา ไม่พึ่ง <> และลด backtracking — ชื่อ + เกรด + รหัส 9 หลัก
+        $pattern = '/(?:นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)[^\n]{0,80}?(A|B\+|B|C\+|C|D\+|D|F|I|S|W|V)(\d{9})-\d+/u';
 
-        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
+        $matched = preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
+        if ($matched) {
             foreach ($matches as $match) {
-                $students[] = ['grade' => $match[2]];
+                $students[] = ['grade' => $match[1]];
             }
         }
 

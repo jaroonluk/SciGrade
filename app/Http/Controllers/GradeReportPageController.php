@@ -156,16 +156,23 @@ class GradeReportPageController extends Controller
             'grade_file' => [
                 'required',
                 'file',
-                'mimes:pdf',
+                'mimetypes:application/pdf,application/x-pdf,application/octet-stream',
                 'max:20480',
             ],
         ], [
-            'grade_file.mimes' => 'รองรับเฉพาะไฟล์ PDF จากสำนักทะเบียน',
+            'grade_file.mimetypes' => 'รองรับเฉพาะไฟล์ PDF จากสำนักทะเบียน',
             'grade_file.required' => 'กรุณาเลือกไฟล์ PDF',
         ]);
 
         $uploaded = $request->file('grade_file');
-        $tmpPath = $uploaded->getRealPath();
+        $tmpPath = $uploaded->getRealPath() ?: $uploaded->getPathname();
+
+        if (! is_string($tmpPath) || $tmpPath === '' || ! is_readable($tmpPath)) {
+            return redirect()
+                ->route('grade-reports.upload')
+                ->withInput()
+                ->withErrors(['grade_file' => $this->pdfParser->invalidFormatMessage()]);
+        }
 
         try {
             $parsed = $this->pdfParser->parse(
