@@ -201,7 +201,7 @@
             @if (($statusFilter ?? 'all') !== 'all')
                 <span class="text-xs text-sky-700 ml-1">(กรองตามสถานะแล้ว)</span>
             @endif
-            <span class="text-xs text-gray-500 ml-2">ติกสลับได้: ผ่านสาขาฯ ↔ ผ่านคณะฯ</span>
+            <span class="text-xs text-gray-500 ml-2">ติกสลับได้ที่แถวแรกของวิชา: ผ่านสาขาฯ ↔ ผ่านคณะฯ (มีผลทุก Sec.)</span>
         </div>
         <table class="w-full text-sm min-w-[900px]" id="status-table">
             <thead class="bg-amber-50/60">
@@ -224,16 +224,20 @@
                         $rowClass = $isContinuation
                             ? 'bg-[#F8FBFF] course-group-cont'
                             : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
-                        $canApproveFaculty = (int) $row->status === 2 && $row->grade_id;
-                        $canRevertFaculty = (int) $row->status === 3 && $row->grade_id;
+                        $isStatusControlRow = (bool) ($row->is_course_start ?? ! $isContinuation);
+                        $controlGradeId = $row->course_grade_id ?: $row->grade_id;
+                        $canApproveFaculty = $isStatusControlRow && (bool) ($row->course_can_approve_faculty ?? false) && $controlGradeId;
+                        $canRevertFaculty = $isStatusControlRow && (bool) ($row->course_can_revert_faculty ?? false) && $controlGradeId;
                         $radioName = 'status-'.$index.'-'.($row->grade_id ?: $row->COURSECODE.'-'.$row->SECTION);
                     @endphp
                     <tr class="border-t border-amber-100 {{ $rowClass }}"
+                        data-course-code="{{ strtoupper(trim((string) $row->COURSECODE)) }}"
                         data-grade-id="{{ $row->grade_id }}"
                         data-status="{{ $row->status }}"
-                        @if ($row->grade_id)
-                            data-approve-url="{{ route('faculty-admin.settings.reg-grade-status.approve-faculty', $row->grade_id) }}"
-                            data-revert-url="{{ route('faculty-admin.settings.reg-grade-status.revert-faculty', $row->grade_id) }}"
+                        data-status-control="{{ $isStatusControlRow ? '1' : '0' }}"
+                        @if ($controlGradeId)
+                            data-approve-url="{{ route('faculty-admin.settings.reg-grade-status.approve-faculty', $controlGradeId) }}"
+                            data-revert-url="{{ route('faculty-admin.settings.reg-grade-status.revert-faculty', $controlGradeId) }}"
                         @endif>
                         <td class="px-3 py-2 text-gray-500">{{ $index + 1 }}</td>
                         <td class="px-3 py-2 col-course">
@@ -342,6 +346,7 @@
         const cells = row.querySelectorAll('.status-cell');
         const approveUrl = row.dataset.approveUrl || '';
         const revertUrl = row.dataset.revertUrl || '';
+        const isControl = row.dataset.statusControl === '1';
 
         radios.forEach((r) => {
             const value = Number(r.value);
@@ -353,8 +358,8 @@
             r.style.cursor = 'default';
             r.dataset.busy = '0';
 
-            const canApprove = targetStatus === 2 && value === 3 && approveUrl;
-            const canRevert = targetStatus === 3 && value === 2 && revertUrl;
+            const canApprove = isControl && targetStatus === 2 && value === 3 && approveUrl;
+            const canRevert = isControl && targetStatus === 3 && value === 2 && revertUrl;
             if (canApprove || canRevert) {
                 r.disabled = false;
                 r.classList.add('is-clickable', 'btn-faculty-status');
@@ -373,6 +378,18 @@
         row.dataset.status = String(targetStatus);
     };
 
+    const courseRows = (row) => {
+        const code = row?.dataset.courseCode;
+        if (!code) return [row].filter(Boolean);
+        return Array.from(document.querySelectorAll('#status-table tr[data-course-code="' + CSS.escape(code) + '"]'));
+    };
+
+    const updatedGradeIds = (data, fallbackId) => {
+        const ids = Array.isArray(data.grade_ids) ? data.grade_ids : [];
+        if (ids.length) return ids.map(String);
+        return fallbackId ? [String(fallbackId)] : [];
+    };
+
     const bindFacultyRadio = (radio) => {
         if (radio.dataset.bound === '1') return;
         radio.dataset.bound = '1';
@@ -383,7 +400,6 @@
             const url = action === 'approve' ? row?.dataset.approveUrl : row?.dataset.revertUrl;
             if (!url || !action || radio.dataset.busy === '1') return;
 
-            const fromStatus = Number(row.dataset.status || 0);
             const targetStatus = action === 'approve' ? 3 : 2;
 
             radio.dataset.busy = '1';
@@ -407,10 +423,41 @@
                     return;
                 }
 
-                paintRow(row, targetStatus);
+                const gradeIds = new Set(updatedGradeIds(data, row.dataset.gradeId));
+
+                courseRows(row).forEach((courseRow) => {
+                    const rowGradeId = String(courseRow.dataset.gradeId || '');
+                    if (!rowGradeId || (gradeIds.size && !gradeIds.has(rowGradeId))) return;
+
+                    const rowFrom = Number(courseRow.dataset.status || 0);
+                    paintRow(courseRow, targetStatus);
+                    if (rowFrom !== targetStatus) bumpSummary(rowFrom, targetStatus);
+                });
+
+                if (!gradeIds.has(String(row.dataset.gradeId || ''))) {
+                    const radios = row.querySelectorAll('.status-radio');
+                    radios.forEach((r) => {
+                        const value = Number(r.value);
+                        r.classList.remove('is-clickable', 'btn-faculty-status');
+                        r.removeAttribute('data-action');
+                        r.disabled = true;
+                        r.dataset.busy = '0';
+                        r.style.cursor = 'default';
+                        const canApprove = targetStatus === 2 && value === 3 && (row.dataset.approveUrl || '');
+                        const canRevert = targetStatus === 3 && value === 2 && (row.dataset.revertUrl || '');
+                        if (canApprove || canRevert) {
+                            r.disabled = false;
+                            r.classList.add('is-clickable', 'btn-faculty-status');
+                            r.dataset.action = canApprove ? 'approve' : 'revert';
+                            r.title = canApprove ? 'คลิกเพื่อผ่านคณะฯ' : 'คลิกเพื่อกลับเป็นผ่านสาขาฯ';
+                            r.style.cursor = 'pointer';
+                            bindFacultyRadio(r);
+                        }
+                    });
+                }
+
                 const activeRadio = row.querySelector('.status-radio[value="' + targetStatus + '"]');
                 if (activeRadio) showToast(activeRadio, 'บันทึกสำเร็จ');
-                bumpSummary(fromStatus, targetStatus);
             } catch {
                 showToast(radio, 'เชื่อมต่อไม่สำเร็จ', true);
                 radio.disabled = false;

@@ -228,7 +228,7 @@
             @if (($statusFilter ?? 'all') !== 'all')
                 <span class="text-xs text-sky-700 ml-1">(กรองตามสถานะแล้ว)</span>
             @endif
-            <span class="text-xs text-gray-500 ml-2">ติกสลับได้: ส่งแล้ว ↔ ผ่านสาขาฯ (ถ้าคณะยังไม่อนุมัติ)</span>
+            <span class="text-xs text-gray-500 ml-2">ติกสลับได้ที่แถวแรกของวิชา: ส่งแล้ว ↔ ผ่านสาขาฯ (มีผลทุก Sec. ถ้าคณะยังไม่อนุมัติ)</span>
         </div>
         <div class="px-4 py-2 border-b border-amber-100 bg-white text-xs text-[#7A4A3A]/85">
             ประเภทกลุ่มจากตาราง <code>class</code> ใน REG ตามรหัสวิชา+Sec.
@@ -259,8 +259,10 @@
                         $rowClass = $isContinuation
                             ? 'bg-[#F8FBFF] course-group-cont'
                             : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
-                        $canApproveDept = (int) $row->status === 1 && $row->grade_id;
-                        $canRevertDept = (int) $row->status === 2 && $row->grade_id;
+                        $isStatusControlRow = (bool) ($row->is_course_start ?? ! $isContinuation);
+                        $controlGradeId = $row->course_grade_id ?: $row->grade_id;
+                        $canApproveDept = $isStatusControlRow && (bool) ($row->course_can_approve_dept ?? false) && $controlGradeId;
+                        $canRevertDept = $isStatusControlRow && (bool) ($row->course_can_revert_dept ?? false) && $controlGradeId;
                         $radioName = 'status-'.$index.'-'.($row->grade_id ?: $row->COURSECODE.'-'.$row->SECTION);
                         $programTypes = is_array($row->program_types ?? null) ? $row->program_types : [];
                         $programTypeLabels = [
@@ -270,11 +272,13 @@
                         ];
                     @endphp
                     <tr class="border-t border-amber-100 {{ $rowClass }}"
+                        data-course-code="{{ strtoupper(trim((string) $row->COURSECODE)) }}"
                         data-grade-id="{{ $row->grade_id }}"
                         data-status="{{ $row->status }}"
-                        @if ($row->grade_id)
-                            data-approve-url="{{ route('dept-admin.reg-grade-status.approve-dept', $row->grade_id) }}"
-                            data-revert-url="{{ route('dept-admin.reg-grade-status.revert-dept', $row->grade_id) }}"
+                        data-status-control="{{ $isStatusControlRow ? '1' : '0' }}"
+                        @if ($controlGradeId)
+                            data-approve-url="{{ route('dept-admin.reg-grade-status.approve-dept', $controlGradeId) }}"
+                            data-revert-url="{{ route('dept-admin.reg-grade-status.revert-dept', $controlGradeId) }}"
                         @endif>
                         <td class="px-3 py-2 text-gray-500">{{ $index + 1 }}</td>
                         <td class="px-3 py-2 col-course">
@@ -397,6 +401,7 @@
         const cells = row.querySelectorAll('.status-cell');
         const approveUrl = row.dataset.approveUrl || '';
         const revertUrl = row.dataset.revertUrl || '';
+        const isControl = row.dataset.statusControl === '1';
 
         radios.forEach((r) => {
             const value = Number(r.value);
@@ -408,8 +413,8 @@
             r.style.cursor = 'default';
             r.dataset.busy = '0';
 
-            const canApprove = targetStatus === 1 && value === 2 && approveUrl;
-            const canRevert = targetStatus === 2 && value === 1 && revertUrl;
+            const canApprove = isControl && targetStatus === 1 && value === 2 && approveUrl;
+            const canRevert = isControl && targetStatus === 2 && value === 1 && revertUrl;
             if (canApprove || canRevert) {
                 r.disabled = false;
                 r.classList.add('is-clickable', 'btn-dept-status');
@@ -428,6 +433,18 @@
         row.dataset.status = String(targetStatus);
     };
 
+    const courseRows = (row) => {
+        const code = row?.dataset.courseCode;
+        if (!code) return [row].filter(Boolean);
+        return Array.from(document.querySelectorAll('#status-table tr[data-course-code="' + CSS.escape(code) + '"]'));
+    };
+
+    const updatedGradeIds = (data, fallbackId) => {
+        const ids = Array.isArray(data.grade_ids) ? data.grade_ids : [];
+        if (ids.length) return ids.map(String);
+        return fallbackId ? [String(fallbackId)] : [];
+    };
+
     const bindDeptRadio = (radio) => {
         if (radio.dataset.bound === '1') return;
         radio.dataset.bound = '1';
@@ -438,7 +455,6 @@
             const url = action === 'approve' ? row?.dataset.approveUrl : row?.dataset.revertUrl;
             if (!url || !action || radio.dataset.busy === '1') return;
 
-            const fromStatus = Number(row.dataset.status || 0);
             const targetStatus = action === 'approve' ? 2 : 1;
 
             radio.dataset.busy = '1';
@@ -462,24 +478,57 @@
                     return;
                 }
 
-                paintRow(row, targetStatus);
+                const gradeIds = new Set(updatedGradeIds(data, row.dataset.gradeId));
+                const metaText = targetStatus === 2
+                    ? ['ผ่านสาขาฯ แล้ว', data.approver ? `โดย ${data.approver}` : '', data.approved_at ? `เมื่อ ${data.approved_at}` : '']
+                        .filter(Boolean).join(' · ')
+                    : '';
 
-                const meta = row.querySelector('.approve-meta');
-                if (meta) {
-                    if (targetStatus === 2) {
-                        const who = data.approver ? `โดย ${data.approver}` : '';
-                        const when = data.approved_at ? `เมื่อ ${data.approved_at}` : '';
-                        meta.textContent = ['ผ่านสาขาฯ แล้ว', who, when].filter(Boolean).join(' · ');
-                        meta.classList.remove('hidden');
-                    } else {
-                        meta.textContent = '';
-                        meta.classList.add('hidden');
+                courseRows(row).forEach((courseRow) => {
+                    const rowGradeId = String(courseRow.dataset.gradeId || '');
+                    if (!rowGradeId || (gradeIds.size && !gradeIds.has(rowGradeId))) return;
+
+                    const rowFrom = Number(courseRow.dataset.status || 0);
+                    paintRow(courseRow, targetStatus);
+
+                    const meta = courseRow.querySelector('.approve-meta');
+                    if (meta) {
+                        if (metaText) {
+                            meta.textContent = metaText;
+                            meta.classList.remove('hidden');
+                        } else {
+                            meta.textContent = '';
+                            meta.classList.add('hidden');
+                        }
                     }
+
+                    if (rowFrom !== targetStatus) bumpSummary(rowFrom, targetStatus);
+                });
+
+                if (!gradeIds.has(String(row.dataset.gradeId || ''))) {
+                    paintRow(row, Number(row.dataset.status || 0));
+                    const radios = row.querySelectorAll('.status-radio');
+                    radios.forEach((r) => {
+                        const value = Number(r.value);
+                        r.classList.remove('is-clickable', 'btn-dept-status');
+                        r.removeAttribute('data-action');
+                        r.disabled = true;
+                        r.dataset.busy = '0';
+                        const canApprove = targetStatus === 1 && value === 2 && (row.dataset.approveUrl || '');
+                        const canRevert = targetStatus === 2 && value === 1 && (row.dataset.revertUrl || '');
+                        if (canApprove || canRevert) {
+                            r.disabled = false;
+                            r.classList.add('is-clickable', 'btn-dept-status');
+                            r.dataset.action = canApprove ? 'approve' : 'revert';
+                            r.title = canApprove ? 'คลิกเพื่อผ่านสาขาฯ' : 'คลิกเพื่อกลับเป็นส่งแล้ว';
+                            r.style.cursor = 'pointer';
+                            bindDeptRadio(r);
+                        }
+                    });
                 }
 
                 const activeRadio = row.querySelector('.status-radio[value="' + targetStatus + '"]');
                 if (activeRadio) showToast(activeRadio, 'บันทึกสำเร็จ');
-                bumpSummary(fromStatus, targetStatus);
             } catch {
                 showToast(radio, 'เชื่อมต่อไม่สำเร็จ', true);
                 radio.disabled = false;

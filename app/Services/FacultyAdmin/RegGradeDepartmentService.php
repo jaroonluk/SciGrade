@@ -307,7 +307,7 @@ class RegGradeDepartmentService
             $key = $this->courseSectionKey((string) $course->COURSECODE, $course->SECTION);
             $report = $reportIndex[$key] ?? null;
 
-            return $this->statusRowFromCourse($course, $report);
+            return $this->statusRowFromCourse($course, $report, $course->SECTION);
         });
 
         $existingKeys = $rows
@@ -333,7 +333,7 @@ class RegGradeDepartmentService
             ->groupBy(fn (object $course) => strtoupper(trim((string) $course->COURSECODE)))
             ->map(fn (Collection $group) => $group->count());
 
-        return $merged
+        $sorted = $merged
             ->map(function (object $course) use ($sectionCounts) {
                 $code = strtoupper(trim((string) $course->COURSECODE));
                 $sectionCount = (int) ($sectionCounts[$code] ?? 1);
@@ -347,6 +347,76 @@ class RegGradeDepartmentService
                 strtoupper(trim((string) $course->COURSECODE)),
                 (int) $course->SECTION,
             ))
+            ->values();
+
+        return $this->attachCourseStatusControls($sorted);
+    }
+
+    /**
+     * รายงานรหัสวิชา+ภาค+ปีเดียวกัน (ใช้ตอนเปลี่ยนสถานะทั้งวิชา)
+     *
+     * @return Collection<int, GradeReport>
+     */
+    public function siblingReports(GradeReport $report): Collection
+    {
+        $code = strtoupper(trim((string) $report->subject_code));
+
+        if ($code === '') {
+            return collect([$report]);
+        }
+
+        $reports = GradeReport::query()
+            ->where('term', (string) $report->term)
+            ->where('year', (string) $report->year)
+            ->whereRaw('UPPER(TRIM(subject_code)) = ?', [$code])
+            ->orderBy('grade_id')
+            ->get();
+
+        if (! $reports->contains(fn (GradeReport $item) => (int) $item->grade_id === (int) $report->grade_id)) {
+            $reports->prepend($report);
+        }
+
+        return $reports;
+    }
+
+    /**
+     * ไฟล์ที่ควรแสดงบนแถว Sec. นี้ — กรองตามกลุ่มเรียน และไฟล์ระดับวิชา (หา Sec. ไม่ได้)
+     *
+     * @return Collection<int, object>
+     */
+    public function attachedFilesForSection(GradeReport $report, string|int|null $section): Collection
+    {
+        $sectionInt = (int) $section;
+
+        if (! $report->relationLoaded('files')) {
+            $report->load(['files' => fn ($q) => $q->orderByDesc('file_id')]);
+        }
+
+        if (! $report->relationLoaded('gradeStds')) {
+            $report->load(['gradeStds' => fn ($q) => $q->orderBy('sec')]);
+        }
+
+        return $report->files
+            ->filter(function (GradeReportFile $file) use ($report, $sectionInt) {
+                $resolved = $file->resolvedSection($report);
+
+                return $resolved === null || $resolved === $sectionInt;
+            })
+            ->sortBy(fn (GradeReportFile $file) => (int) $file->file_id)
+            ->map(function (GradeReportFile $file) use ($report) {
+                $baseLabel = match (true) {
+                    $file->isDeptAdminUpload($report) => 'ใบส่งผลการศึกษา (REG-Admin)',
+                    $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR => 'ใบส่งผลการศึกษา (REG)',
+                    default => 'แบบรายงานผลการสอบไล่',
+                };
+
+                return (object) [
+                    'file_id' => $file->file_id,
+                    'file_name' => $file->original_name,
+                    'file_type' => $file->resolvedType(),
+                    'type_label' => $file->attachmentLinkLabel($baseLabel, $report),
+                ];
+            })
             ->values();
     }
 
@@ -392,7 +462,7 @@ class RegGradeDepartmentService
         return strtoupper(trim($courseCode)).'|'.(string) ((int) $section);
     }
 
-    private function statusRowFromCourse(object $course, ?GradeReport $report): object
+    private function statusRowFromCourse(object $course, ?GradeReport $report, string|int|null $section = null): object
     {
         $status = 0;
         $gradeId = null;
@@ -402,7 +472,10 @@ class RegGradeDepartmentService
         $attachedFiles = collect();
 
         if ($report) {
-            [$status, $gradeId, $fileId, $fileName, $approv, $attachedFiles] = $this->statusFieldsFromReport($report);
+            [$status, $gradeId, $fileId, $fileName, $approv, $attachedFiles] = $this->statusFieldsFromReport(
+                $report,
+                $section ?? $course->SECTION,
+            );
         }
 
         return (object) [
@@ -425,7 +498,7 @@ class RegGradeDepartmentService
 
     private function statusRowFromReport(GradeReport $report, string $section, int $term, int $year): object
     {
-        [$status, $gradeId, $fileId, $fileName, $approv, $attachedFiles] = $this->statusFieldsFromReport($report);
+        [$status, $gradeId, $fileId, $fileName, $approv, $attachedFiles] = $this->statusFieldsFromReport($report, $section);
 
         return (object) [
             'COURSECODE' => strtoupper(trim((string) $report->subject_code)),
@@ -448,7 +521,7 @@ class RegGradeDepartmentService
     /**
      * @return array{0: int, 1: int|null, 2: int|null, 3: string|null, 4: int|null, 5: Collection<int, object>}
      */
-    private function statusFieldsFromReport(GradeReport $report): array
+    private function statusFieldsFromReport(GradeReport $report, string|int|null $section = null): array
     {
         $approv = (int) $report->approv;
         $status = match (true) {
@@ -458,27 +531,7 @@ class RegGradeDepartmentService
             default => 1,
         };
 
-        // แสดงไฟล์ล่าสุดของแต่ละประเภท (แบบรายงานผล / ใบส่งผล REG)
-        $attachedFiles = collect(GradeReportFile::allowedTypes())
-            ->map(function (string $type) use ($report) {
-                $file = $report->files->first(
-                    fn (GradeReportFile $candidate) => $candidate->resolvedType() === $type
-                );
-
-                if (! $file) {
-                    return null;
-                }
-
-                return (object) [
-                    'file_id' => $file->file_id,
-                    'file_name' => $file->original_name,
-                    'file_type' => $type,
-                    'type_label' => $file->typeLabel(),
-                ];
-            })
-            ->filter()
-            ->values();
-
+        $attachedFiles = $this->attachedFilesForSection($report, $section);
         $first = $attachedFiles->first();
 
         return [
@@ -489,6 +542,42 @@ class RegGradeDepartmentService
             $approv,
             $attachedFiles,
         ];
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, object>
+     */
+    private function attachCourseStatusControls(Collection $rows): Collection
+    {
+        $groups = $rows->groupBy(fn (object $row) => strtoupper(trim((string) $row->COURSECODE)));
+
+        $prevCode = null;
+
+        return $rows->map(function (object $row) use ($groups, &$prevCode) {
+            $code = strtoupper(trim((string) $row->COURSECODE));
+            $group = $groups->get($code, collect());
+            $withReport = $group->first(fn (object $item) => $item->grade_id);
+
+            $row->is_course_start = $prevCode !== $code;
+            $row->course_grade_id = $withReport?->grade_id;
+            $row->course_can_approve_dept = $group->contains(
+                fn (object $item) => (int) $item->status === 1 && $item->grade_id
+            );
+            $row->course_can_revert_dept = $group->contains(
+                fn (object $item) => (int) $item->status === 2 && $item->grade_id
+            );
+            $row->course_can_approve_faculty = $group->contains(
+                fn (object $item) => (int) $item->status === 2 && $item->grade_id
+            );
+            $row->course_can_revert_faculty = $group->contains(
+                fn (object $item) => (int) $item->status === 3 && $item->grade_id
+            );
+
+            $prevCode = $code;
+
+            return $row;
+        })->values();
     }
 
     private function approvalRank(GradeReport $report): int

@@ -71,10 +71,13 @@ class RegGradeStatusController extends Controller
     {
         abort_unless(SciGradeRole::isFacultyCapable(), 403);
 
-        try {
-            $this->approvalService->approve($gradeReport, $this->approverUsername());
-        } catch (InvalidArgumentException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+        [$updatedIds, $lastError] = $this->applyToCourseReports(
+            $gradeReport,
+            fn (GradeReport $report) => $this->approvalService->approve($report, $this->approverUsername()),
+        );
+
+        if ($updatedIds === []) {
+            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถอนุมัติได้'], 422);
         }
 
         return response()->json([
@@ -82,6 +85,7 @@ class RegGradeStatusController extends Controller
             'status' => 3,
             'approv' => 2,
             'grade_id' => $gradeReport->grade_id,
+            'grade_ids' => $updatedIds,
             'message' => 'ผ่านที่ประชุมกรรมการคณะฯ เรียบร้อย',
         ]);
     }
@@ -90,10 +94,13 @@ class RegGradeStatusController extends Controller
     {
         abort_unless(SciGradeRole::isFacultyCapable(), 403);
 
-        try {
-            $this->approvalService->revertToDepartmentApproved($gradeReport, $this->approverUsername());
-        } catch (InvalidArgumentException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+        [$updatedIds, $lastError] = $this->applyToCourseReports(
+            $gradeReport,
+            fn (GradeReport $report) => $this->approvalService->revertToDepartmentApproved($report, $this->approverUsername()),
+        );
+
+        if ($updatedIds === []) {
+            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถเปลี่ยนกลับได้'], 422);
         }
 
         return response()->json([
@@ -101,8 +108,30 @@ class RegGradeStatusController extends Controller
             'status' => 2,
             'approv' => 1,
             'grade_id' => $gradeReport->grade_id,
+            'grade_ids' => $updatedIds,
             'message' => 'เปลี่ยนกลับเป็นผ่านสาขาฯ เรียบร้อย',
         ]);
+    }
+
+    /**
+     * @param  callable(GradeReport): GradeReport  $action
+     * @return array{0: list<int>, 1: string|null}
+     */
+    private function applyToCourseReports(GradeReport $seed, callable $action): array
+    {
+        $updatedIds = [];
+        $lastError = null;
+
+        foreach ($this->service->siblingReports($seed) as $report) {
+            try {
+                $action($report);
+                $updatedIds[] = (int) $report->grade_id;
+            } catch (InvalidArgumentException $e) {
+                $lastError = $e->getMessage();
+            }
+        }
+
+        return [$updatedIds, $lastError];
     }
 
     private function approverUsername(): string

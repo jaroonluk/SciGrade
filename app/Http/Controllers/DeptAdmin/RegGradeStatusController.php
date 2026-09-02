@@ -102,19 +102,23 @@ class RegGradeStatusController extends Controller
     {
         $this->authorize('reviewDept', $gradeReport);
 
-        try {
-            $this->approvalService->approve($gradeReport, $this->staffUsername());
-        } catch (InvalidArgumentException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+        [$updatedIds, $lastError, $lastReport] = $this->applyToCourseReports(
+            $gradeReport,
+            fn (GradeReport $report) => $this->approvalService->approve($report, $this->staffUsername()),
+        );
+
+        if ($updatedIds === []) {
+            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถอนุมัติได้'], 422);
         }
 
-        $fresh = $gradeReport->fresh(['latestDeptApprovalLog.approver']);
+        $fresh = ($lastReport ?? $gradeReport)->fresh(['latestDeptApprovalLog.approver']);
 
         return response()->json([
             'ok' => true,
             'status' => 2,
             'approv' => 1,
             'grade_id' => $gradeReport->grade_id,
+            'grade_ids' => $updatedIds,
             'approved_at' => $fresh?->dateapprove1,
             'approver' => $fresh?->latestDeptApprovalLog?->approver?->displayName(),
             'message' => 'ผ่านที่ประชุมสาขาฯ เรียบร้อย',
@@ -125,10 +129,13 @@ class RegGradeStatusController extends Controller
     {
         $this->authorize('reviewDept', $gradeReport);
 
-        try {
-            $this->approvalService->resetToSaved($gradeReport, $this->staffUsername());
-        } catch (InvalidArgumentException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+        [$updatedIds, $lastError] = $this->applyToCourseReports(
+            $gradeReport,
+            fn (GradeReport $report) => $this->approvalService->resetToSaved($report, $this->staffUsername()),
+        );
+
+        if ($updatedIds === []) {
+            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถเปลี่ยนกลับได้'], 422);
         }
 
         return response()->json([
@@ -136,8 +143,35 @@ class RegGradeStatusController extends Controller
             'status' => 1,
             'approv' => 0,
             'grade_id' => $gradeReport->grade_id,
+            'grade_ids' => $updatedIds,
             'message' => 'เปลี่ยนกลับเป็นส่งแล้วเรียบร้อย',
         ]);
+    }
+
+    /**
+     * @param  callable(GradeReport): GradeReport  $action
+     * @return array{0: list<int>, 1: string|null, 2: GradeReport|null}
+     */
+    private function applyToCourseReports(GradeReport $seed, callable $action): array
+    {
+        $updatedIds = [];
+        $lastError = null;
+        $lastReport = null;
+
+        foreach ($this->regService->siblingReports($seed) as $report) {
+            if ($this->user()?->cannot('reviewDept', $report)) {
+                continue;
+            }
+
+            try {
+                $lastReport = $action($report);
+                $updatedIds[] = (int) $report->grade_id;
+            } catch (InvalidArgumentException $e) {
+                $lastError = $e->getMessage();
+            }
+        }
+
+        return [$updatedIds, $lastError, $lastReport];
     }
 
     private function requireStaff()
