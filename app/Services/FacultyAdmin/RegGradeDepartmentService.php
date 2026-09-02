@@ -293,61 +293,50 @@ class RegGradeDepartmentService
 
         $reports = $this->departmentGradeReports($term, $year, $departmentId, $allowedDepartmentIds);
 
-        $reportIndex = [];
-        $reportsByCourse = [];
-        foreach ($reports as $report) {
-            $courseCode = strtoupper(trim((string) $report->subject_code));
-            if ($courseCode !== '' && (
-                ! isset($reportsByCourse[$courseCode])
-                || $this->approvalRank($report) > $this->approvalRank($reportsByCourse[$courseCode])
-            )) {
-                $reportsByCourse[$courseCode] = $report;
+        [$reportsBySection, $reportsByCourse] = $this->indexReports($reports);
+
+        $usedPairs = [];
+        $rows = collect();
+
+        foreach ($courses as $course) {
+            $key = $this->courseSectionKey((string) $course->COURSECODE, $course->SECTION);
+            $courseKey = strtoupper(trim((string) $course->COURSECODE));
+            $matches = $reportsBySection[$key] ?? [];
+
+            if ($matches === []) {
+                $fallback = $this->bestReport($reportsByCourse[$courseKey] ?? []);
+                $matches = $fallback ? [$fallback] : [null];
             }
 
-            foreach ($report->gradeStds as $std) {
-                $this->rememberReport($reportIndex, (string) $report->subject_code, $std->sec, $report);
-            }
-
-            foreach ($report->files as $file) {
-                $fileSection = $file->resolvedSection($report);
-                if ($fileSection !== null) {
-                    $this->rememberReport($reportIndex, (string) $report->subject_code, $fileSection, $report);
+            foreach ($matches as $report) {
+                $rows->push($this->statusRowFromCourse($course, $report, $course->SECTION));
+                if ($report) {
+                    $usedPairs[(int) $report->grade_id.'|'.$key] = true;
                 }
             }
         }
 
-        $rows = $courses->map(function (object $course) use ($reportIndex, $reportsByCourse) {
-            $key = $this->courseSectionKey((string) $course->COURSECODE, $course->SECTION);
-            $courseKey = strtoupper(trim((string) $course->COURSECODE));
-            $report = $reportIndex[$key] ?? $reportsByCourse[$courseKey] ?? null;
-
-            return $this->statusRowFromCourse($course, $report, $course->SECTION);
-        });
-
-        $existingKeys = $rows
-            ->map(fn (object $row) => $this->courseSectionKey((string) $row->COURSECODE, $row->SECTION))
-            ->flip();
-
-        $extraRows = collect();
         foreach ($reports as $report) {
             foreach ($report->gradeStds as $std) {
                 $key = $this->courseSectionKey((string) $report->subject_code, $std->sec);
-                if (isset($existingKeys[$key])) {
+                $pair = (int) $report->grade_id.'|'.$key;
+                if (isset($usedPairs[$pair])) {
                     continue;
                 }
 
-                $existingKeys[$key] = true;
-                $extraRows->push($this->statusRowFromReport($report, (string) $std->sec, $term, $year));
+                $usedPairs[$pair] = true;
+                $rows->push($this->statusRowFromReport($report, (string) $std->sec, $term, $year));
             }
         }
 
-        $merged = $rows->concat($extraRows)->values();
-
-        $sectionCounts = $merged
+        $sectionCounts = $rows
             ->groupBy(fn (object $course) => strtoupper(trim((string) $course->COURSECODE)))
-            ->map(fn (Collection $group) => $group->count());
+            ->map(fn (Collection $group) => $group
+                ->map(fn (object $item) => (int) $item->SECTION)
+                ->unique()
+                ->count());
 
-        $sorted = $merged
+        $sorted = $rows
             ->map(function (object $course) use ($sectionCounts) {
                 $code = strtoupper(trim((string) $course->COURSECODE));
                 $sectionCount = (int) ($sectionCounts[$code] ?? 1);
@@ -357,13 +346,14 @@ class RegGradeDepartmentService
                 return $course;
             })
             ->sortBy(fn (object $course) => sprintf(
-                '%s|%05d',
+                '%s|%05d|%010d',
                 strtoupper(trim((string) $course->COURSECODE)),
                 (int) $course->SECTION,
+                (int) ($course->grade_id ?? 0),
             ))
             ->values();
 
-        return $this->attachCourseStatusControls($sorted);
+        return $this->attachCourseStatusControls($this->markDuplicateCourseSectionRows($sorted));
     }
 
     /**
@@ -476,14 +466,89 @@ class RegGradeDepartmentService
     }
 
     /**
-     * @param  array<string, GradeReport>  $reportIndex
+     * @param  Collection<int, GradeReport>  $reports
+     * @return array{0: array<string, list<GradeReport>>, 1: array<string, list<GradeReport>>}
      */
-    private function rememberReport(array &$reportIndex, string $courseCode, string|int|null $section, GradeReport $report): void
+    private function indexReports(Collection $reports): array
     {
-        $key = $this->courseSectionKey($courseCode, $section);
-        if (! isset($reportIndex[$key]) || $this->approvalRank($report) > $this->approvalRank($reportIndex[$key])) {
-            $reportIndex[$key] = $report;
+        $bySection = [];
+        $byCourse = [];
+
+        foreach ($reports as $report) {
+            $courseCode = strtoupper(trim((string) $report->subject_code));
+            if ($courseCode !== '') {
+                $byCourse[$courseCode][(int) $report->grade_id] = $report;
+            }
+
+            foreach ($report->gradeStds as $std) {
+                $key = $this->courseSectionKey((string) $report->subject_code, $std->sec);
+                $bySection[$key][(int) $report->grade_id] = $report;
+            }
+
+            foreach ($report->files as $file) {
+                $fileSection = $file->resolvedSection($report);
+                if ($fileSection === null) {
+                    continue;
+                }
+
+                $key = $this->courseSectionKey((string) $report->subject_code, $fileSection);
+                $bySection[$key][(int) $report->grade_id] = $report;
+            }
         }
+
+        return [
+            $this->sortIndexedReports($bySection),
+            $this->sortIndexedReports($byCourse),
+        ];
+    }
+
+    /**
+     * @param  array<string, array<int, GradeReport>>  $index
+     * @return array<string, list<GradeReport>>
+     */
+    private function sortIndexedReports(array $index): array
+    {
+        foreach ($index as $key => $map) {
+            ksort($map);
+            $index[$key] = array_values($map);
+        }
+
+        return $index;
+    }
+
+    /**
+     * @param  list<GradeReport>  $reports
+     */
+    private function bestReport(array $reports): ?GradeReport
+    {
+        $best = null;
+        foreach ($reports as $report) {
+            if ($best === null || $this->approvalRank($report) > $this->approvalRank($best)) {
+                $best = $report;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, object>
+     */
+    public function markDuplicateCourseSectionRows(Collection $rows): Collection
+    {
+        $counts = $rows
+            ->groupBy(fn (object $row) => $this->courseSectionKey((string) $row->COURSECODE, $row->SECTION))
+            ->map(fn (Collection $group) => $group->count());
+
+        return $rows->map(function (object $row) use ($counts) {
+            $key = $this->courseSectionKey((string) $row->COURSECODE, $row->SECTION);
+            $count = (int) ($counts[$key] ?? 1);
+            $row->duplicate_count = $count;
+            $row->is_duplicate_entry = $count > 1;
+
+            return $row;
+        })->values();
     }
 
     private function courseSectionKey(string $courseCode, string|int|null $section): string
@@ -513,7 +578,9 @@ class RegGradeDepartmentService
             'SECTION' => $course->SECTION,
             'ACADYEAR' => $course->ACADYEAR,
             'SEMESTER' => $course->SEMESTER,
-            'officers' => $course->officers,
+            'officers' => $report
+                ? (trim((string) $report->teacher) ?: $course->officers)
+                : $course->officers,
             'status' => $status,
             'grade_id' => $gradeId,
             'file_id' => $fileId,

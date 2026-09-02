@@ -25,6 +25,30 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
     }
 
     #[Test]
+    public function dept_admin_view_shows_duplicate_same_section_as_separate_rows(): void
+    {
+        $this->actingAs(new User(['name' => 'Dept Admin', 'email' => 'dept@kku.ac.th']));
+
+        $data = $this->viewData();
+        $first = $data['courses'][0];
+        $duplicate = clone $first;
+        $duplicate->grade_id = 202;
+        $duplicate->is_course_start = false;
+        $duplicate->is_duplicate_entry = true;
+        $duplicate->duplicate_count = 2;
+        $duplicate->officers = 'อาจารย์ อีกคน';
+        $first->is_duplicate_entry = true;
+        $first->duplicate_count = 2;
+        $data['courses'] = collect([$first, $duplicate, $data['courses'][1]]);
+
+        $html = view('dept-admin.reg-grade-status.index', $data)->render();
+
+        $this->assertSame(2, substr_count($html, 'กรอกซ้ำ 2 รายการ'));
+        $this->assertStringContainsString('↳ กรอกซ้ำ · ชื่อวิชาและ Sec. เดียวกัน', $html);
+        $this->assertStringContainsString('อาจารย์ อีกคน', $html);
+    }
+
+    #[Test]
     public function faculty_admin_view_keeps_section_details_but_one_click_control(): void
     {
         $this->actingAs(new User(['name' => 'Faculty Admin', 'email' => 'faculty@kku.ac.th']));

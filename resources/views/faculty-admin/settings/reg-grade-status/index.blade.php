@@ -39,6 +39,19 @@
         font-weight: 600;
         vertical-align: middle;
     }
+    .dup-tag {
+        display: inline-block;
+        margin-left: 0.35rem;
+        padding: 0.1rem 0.45rem;
+        border-radius: 9999px;
+        background: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+        font-size: 0.65rem;
+        font-weight: 700;
+        vertical-align: middle;
+    }
+    tr.course-dup td { background: #FFF5F5 !important; }
     .status-radio {
         appearance: none;
         -webkit-appearance: none;
@@ -201,7 +214,7 @@
             @if (($statusFilter ?? 'all') !== 'all')
                 <span class="text-xs text-sky-700 ml-1">(กรองตามสถานะแล้ว)</span>
             @endif
-            <span class="text-xs text-gray-500 ml-2">ติกสลับได้ที่แถวแรกของวิชา: ผ่านสาขาฯ ↔ ผ่านคณะฯ (มีผลทุก Sec.)</span>
+            <span class="text-xs text-gray-500 ml-2">ติกสลับได้ที่แถวแรกของวิชา: ผ่านสาขาฯ ↔ ผ่านคณะฯ (มีผลทุก Sec.) · รายการกรอกซ้ำชื่อวิชาและ Sec. เดียวกันแสดงแยกบรรทัด</span>
         </div>
         <table class="w-full text-sm min-w-[900px]" id="status-table">
             <thead class="bg-amber-50/60">
@@ -216,14 +229,20 @@
                 </tr>
             </thead>
             <tbody>
-                @php $prevCode = null; @endphp
+                @php $prevCode = null; $prevSection = null; @endphp
                 @forelse ($courses as $index => $row)
                     @php
-                        $isContinuation = $prevCode !== null && $prevCode === $row->COURSECODE;
-                        $isGroupStart = ! $isContinuation && $row->has_multi_section;
-                        $rowClass = $isContinuation
-                            ? 'bg-[#F8FBFF] course-group-cont'
-                            : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40'));
+                        $isSameSectionDuplicate = $prevCode !== null
+                            && $prevCode === $row->COURSECODE
+                            && $prevSection !== null
+                            && (int) $prevSection === (int) $row->SECTION;
+                        $isContinuation = $prevCode !== null && $prevCode === $row->COURSECODE && ! $isSameSectionDuplicate;
+                        $isGroupStart = ! $isContinuation && ! $isSameSectionDuplicate && ($row->has_multi_section || ! empty($row->is_duplicate_entry));
+                        $rowClass = $isSameSectionDuplicate
+                            ? 'bg-[#FFF5F5] course-dup'
+                            : ($isContinuation
+                                ? 'bg-[#F8FBFF] course-group-cont'
+                                : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40')));
                         $isStatusControlRow = (bool) ($row->is_course_start ?? ! $isContinuation);
                         $controlGradeId = $row->course_grade_id ?: $row->grade_id;
                         $canApproveFaculty = $isStatusControlRow && (bool) ($row->course_can_approve_faculty ?? false) && $controlGradeId;
@@ -241,7 +260,9 @@
                         @endif>
                         <td class="px-3 py-2 text-gray-500">{{ $index + 1 }}</td>
                         <td class="px-3 py-2 col-course">
-                            @if ($isContinuation)
+                            @if ($isSameSectionDuplicate)
+                                <span class="text-xs text-red-700 font-medium">↳ กรอกซ้ำ · ชื่อวิชาและ Sec. เดียวกัน</span>
+                            @elseif ($isContinuation)
                                 <span class="text-xs text-sky-700 font-medium">↳ Sec. ต่อเนื่อง · วิชาเดียวกัน</span>
                                 <div class="text-xs text-gray-500 mb-0.5">{{ $row->COURSECODE }}</div>
                             @endif
@@ -250,6 +271,9 @@
                                 @unless($isContinuation){{ $row->COURSECODE }} @endunless
                                 {{ $row->COURSENAMEENG }}
                             </span>
+                            @if (! empty($row->is_duplicate_entry))
+                                <span class="dup-tag">กรอกซ้ำ {{ $row->duplicate_count }} รายการ</span>
+                            @endif
 
                             @if ($row->grade_id && (int) $row->status >= 1)
                                 @php $attachedFiles = collect($row->attached_files ?? []); @endphp
@@ -307,7 +331,7 @@
                             </td>
                         @endforeach
                     </tr>
-                    @php $prevCode = $row->COURSECODE; @endphp
+                    @php $prevCode = $row->COURSECODE; $prevSection = $row->SECTION; @endphp
                 @empty
                     <tr>
                         <td colspan="7" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
