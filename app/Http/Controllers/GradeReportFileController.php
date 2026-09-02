@@ -78,7 +78,7 @@ class GradeReportFileController extends Controller
         $downloadName = $file->original_name;
         if ($file->isDeptAdminUpload($gradeReport)) {
             $gradeReport->loadMissing('gradeStds');
-            $downloadName = $gradeReport->deptRegistrarDownloadName();
+            $downloadName = $file->deptRegistrarDownloadName($gradeReport);
         }
 
         $this->auditLog->record(

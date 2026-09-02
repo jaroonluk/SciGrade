@@ -77,7 +77,7 @@ class GradeReportFileZipService
 
         if ($file->isDeptAdminUpload($report) && $report instanceof GradeReport) {
             $typeFolder = 'REG-Admin';
-            $filename = $report->deptRegistrarDownloadName();
+            $filename = $file->deptRegistrarDownloadName($report);
         } elseif ($file->isRegistrar()) {
             $typeFolder = 'REG';
             $filename = $this->safeFileBasename((string) $file->original_name);

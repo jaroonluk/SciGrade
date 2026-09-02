@@ -223,6 +223,33 @@ class GradeReport extends Model
     }
 
     /**
+     * จำนวนนักศึกษาที่รายงานผลตามกลุ่มเรียน (ถ้าไม่ระบุกลุ่ม คืนผลรวมทั้งรายวิชา)
+     */
+    public function sectionStudentCount(?int $section = null): int
+    {
+        if (! $this->relationLoaded('gradeStds')) {
+            $this->load('gradeStds');
+        }
+
+        if ($section === null) {
+            return $this->totalStudents();
+        }
+
+        foreach ($this->gradeStds as $row) {
+            $sec = trim((string) ($row->sec ?? ''));
+            if ($sec === '' || $sec === '-') {
+                continue;
+            }
+
+            if ((int) preg_replace('/\D/', '', $sec) === $section) {
+                return (int) ($row->total_std ?? 0);
+            }
+        }
+
+        return 0;
+    }
+
+    /**
      * กลุ่มเรียน (Section) พร้อมจำนวนผู้ลงทะเบียนในรายงาน
      *
      * @return Collection<int, array{sec: string, total: int}>
@@ -244,9 +271,11 @@ class GradeReport extends Model
 
     /**
      * ชื่อไฟล์ตอนดาวน์โหลด REG ของ Admin สาขา:
-     * รหัสวิชา-กลุ่ม-จำนวนนักศึกษารวมที่รายงานผลสอบ.pdf
+     * รหัสวิชา-กลุ่ม-จำนวนนักศึกษาของกลุ่มนั้น.pdf
+     *
+     * @param  int|null  $section  กลุ่มเรียนเฉพาะไฟล์ (เช่น 1 → 01) — ถ้าไม่ระบุและมีหลายกลุ่มจะรวมเป็น 01_02
      */
-    public function deptRegistrarDownloadName(): string
+    public function deptRegistrarDownloadName(?int $section = null): string
     {
         if (! $this->relationLoaded('gradeStds')) {
             $this->load('gradeStds');
@@ -254,21 +283,26 @@ class GradeReport extends Model
 
         $code = preg_replace('/[^\w.\-]+/u', '_', trim((string) $this->subject_code)) ?: 'SUBJECT';
 
-        $sections = $this->enrollmentSections()
-            ->pluck('sec')
-            ->filter(fn ($sec) => $sec !== '' && $sec !== '-')
-            ->map(function ($sec) {
-                $digits = preg_replace('/\D/', '', (string) $sec);
+        if ($section !== null) {
+            $group = str_pad((string) $section, 2, '0', STR_PAD_LEFT);
+        } else {
+            $sections = $this->enrollmentSections()
+                ->pluck('sec')
+                ->filter(fn ($sec) => $sec !== '' && $sec !== '-')
+                ->map(function ($sec) {
+                    $digits = preg_replace('/\D/', '', (string) $sec);
 
-                return $digits !== ''
-                    ? str_pad((string) (int) $digits, 2, '0', STR_PAD_LEFT)
-                    : preg_replace('/[^\w.\-]+/u', '_', (string) $sec);
-            })
-            ->unique()
-            ->values();
+                    return $digits !== ''
+                        ? str_pad((string) (int) $digits, 2, '0', STR_PAD_LEFT)
+                        : preg_replace('/[^\w.\-]+/u', '_', (string) $sec);
+                })
+                ->unique()
+                ->values();
 
-        $group = $sections->isNotEmpty() ? $sections->implode('_') : '00';
-        $total = $this->totalStudents();
+            $group = $sections->isNotEmpty() ? $sections->implode('_') : '00';
+        }
+
+        $total = $this->sectionStudentCount($section);
 
         return sprintf('%s-%s-%d.pdf', $code, $group, $total);
     }

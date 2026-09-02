@@ -40,7 +40,7 @@
                     <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
                        target="_blank" rel="noopener noreferrer"
                        class="text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 font-medium js-reg-admin-file-link"
-                       title="{{ $report->deptRegistrarDownloadName() }} (เก็บเป็น {{ $file->original_name }})">
+                       title="{{ $file->deptRegistrarDownloadName($report) }} (เก็บเป็น {{ $file->original_name }})">
                         <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
                         {{ $file->attachmentLinkLabel('ใบส่งผลการศึกษา (REG-Admin)', $report) }}
                     </a>

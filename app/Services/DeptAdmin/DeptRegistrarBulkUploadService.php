@@ -205,7 +205,7 @@ class DeptRegistrarBulkUploadService
             $described['stored_name'] = $record->original_name;
             $described['file_id'] = $record->file_id;
             $described['section_label'] = $described['section_label'] ?? ($sectionInt !== null ? 'Sec'.$sectionInt : null);
-            $described['download_name'] = $report->deptRegistrarDownloadName();
+            $described['download_name'] = $record->deptRegistrarDownloadName($report);
             $described['view_url'] = route('grade-reports.files.show', [
                 'gradeReport' => $report->grade_id,
                 'file' => $record->file_id,

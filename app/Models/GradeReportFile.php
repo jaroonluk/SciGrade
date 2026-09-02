@@ -157,6 +157,64 @@ class GradeReportFile extends Model
         return $this->attachmentLinkLabel($baseLabel, $report);
     }
 
+    /**
+     * กลุ่มเรียนของไฟล์นี้ (จากชื่อที่เก็บ หรือกลุ่มเดียวในรายงาน)
+     */
+    public function resolvedSection(?GradeReport $report = null): ?int
+    {
+        $section = $this->parseSectionFromStoredName((string) $this->original_name);
+
+        if ($section !== null && $section !== '') {
+            return (int) $section;
+        }
+
+        $report ??= $this->relationLoaded('gradeReport')
+            ? $this->gradeReport
+            : $this->gradeReport()->with('gradeStds')->first();
+
+        if ($report instanceof GradeReport) {
+            $sections = $report->enrollmentSections()
+                ->pluck('sec')
+                ->filter(fn ($sec) => $sec !== '' && $sec !== '-')
+                ->map(fn ($sec) => (int) preg_replace('/\D/', '', (string) $sec))
+                ->unique()
+                ->values();
+
+            if ($sections->count() === 1) {
+                return (int) $sections->first();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ชื่อไฟล์ตอนดาวน์โหลด REG-Admin ตามกลุ่มเรียนของไฟล์นี้
+     */
+    public function deptRegistrarDownloadName(?GradeReport $report = null): string
+    {
+        $report ??= $this->relationLoaded('gradeReport')
+            ? $this->gradeReport
+            : $this->gradeReport()->with('gradeStds')->first();
+
+        if (! $report instanceof GradeReport) {
+            return $this->safeDownloadBasename();
+        }
+
+        if (! $report->relationLoaded('gradeStds')) {
+            $report->load('gradeStds');
+        }
+
+        return $report->deptRegistrarDownloadName($this->resolvedSection($report));
+    }
+
+    private function safeDownloadBasename(): string
+    {
+        $base = basename(str_replace('\\', '/', (string) $this->original_name));
+
+        return $base !== '' ? $base : 'file.pdf';
+    }
+
     private function parseSectionFromStoredName(string $name): ?string
     {
         $base = basename(str_replace('\\', '/', $name));

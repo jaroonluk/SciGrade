@@ -22,6 +22,47 @@ class GradeReportAttachmentSourceTest extends TestCase
         ]));
 
         $this->assertSame('SC203001-01_02-45.pdf', $report->deptRegistrarDownloadName());
+        $this->assertSame('SC203001-01-20.pdf', $report->deptRegistrarDownloadName(1));
+        $this->assertSame('SC203001-02-25.pdf', $report->deptRegistrarDownloadName(2));
+    }
+
+    public function test_multi_section_reg_admin_files_get_per_section_download_names(): void
+    {
+        $report = new GradeReport([
+            'subject_code' => 'SC901102',
+            'username' => 'teacher01',
+        ]);
+        $report->grade_id = 200;
+        $report->setRelation('gradeStds', collect([
+            new GradeStd(['sec' => '1', 'total_std' => 60]),
+            new GradeStd(['sec' => '2', 'total_std' => 69]),
+        ]));
+
+        $fileSec1 = new GradeReportFile([
+            'grade_id' => 200,
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'username' => 'deptadmin',
+            'original_name' => 'REG_2568_2_SC901102_01.pdf',
+            'stored_path' => 'a/reg1.pdf',
+        ]);
+        $fileSec1->setRelation('gradeReport', $report);
+
+        $fileSec2 = new GradeReportFile([
+            'grade_id' => 200,
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'username' => 'deptadmin',
+            'original_name' => 'REG_2568_2_SC901102_02.pdf',
+            'stored_path' => 'a/reg2.pdf',
+        ]);
+        $fileSec2->setRelation('gradeReport', $report);
+
+        $this->assertSame('SC901102-01-60.pdf', $fileSec1->deptRegistrarDownloadName($report));
+        $this->assertSame('SC901102-02-69.pdf', $fileSec2->deptRegistrarDownloadName($report));
+
+        $service = new GradeReportFileZipService;
+        $used = [];
+        $this->assertSame('REG-Admin/SC901102-01-60.pdf', $service->zipEntryPathFor($fileSec1, $used));
+        $this->assertSame('REG-Admin/SC901102-02-69.pdf', $service->zipEntryPathFor($fileSec2, $used));
     }
 
     public function test_instructor_vs_dept_upload_detection(): void
