@@ -7,7 +7,8 @@ use App\Http\Requests\DeptAdmin\DeptRegistrarBulkUploadRequest;
 use App\Http\Requests\DeptAdmin\GradeReportApprovalRequest;
 use App\Http\Requests\DeptAdmin\GradeReportReviewFilterRequest;
 use App\Models\GradeReport;
-use App\Services\DeptAdmin\DepartmentAccessService;
+use App\Models\GradeReportFile;
+use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Services\DeptAdmin\DeptRegistrarBulkUploadService;
 use App\Services\DeptAdmin\GradeReportApprovalService;
@@ -28,6 +29,7 @@ class GradeReportReviewController extends Controller
         private readonly DepartmentReportQueryService $queryService,
         private readonly GradeReportApprovalService $approvalService,
         private readonly DeptRegistrarBulkUploadService $registrarUpload,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function index(GradeReportReviewFilterRequest $request): View
@@ -182,6 +184,39 @@ class GradeReportReviewController extends Controller
             'ok_count' => $okCount,
             'fail_count' => count($results) - $okCount,
         ]);
+    }
+
+    public function destroyRegistrarFile(Request $request, GradeReport $gradeReport, GradeReportFile $file): JsonResponse
+    {
+        $this->authorize('reviewDept', $gradeReport);
+        abort_unless((int) $file->grade_id === (int) $gradeReport->grade_id, 404);
+        abort_unless($file->isDeptAdminUpload($gradeReport), 422, 'ลบได้เฉพาะไฟล์ REG-Admin ที่สาขาอัปโหลด');
+
+        if (! $gradeReport->canDeptDeleteRegistrar()) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบไฟล์ได้ เนื่องจาก Admin กลางเปลี่ยนสถานะแล้ว',
+            ], 422);
+        }
+
+        $meta = [
+            'grade_id' => $gradeReport->grade_id,
+            'file_type' => $file->resolvedType(),
+            'original_name' => $file->original_name,
+            'source' => 'dept_registrar_delete',
+        ];
+        $fileId = $file->file_id;
+
+        $file->delete();
+
+        $this->auditLog->record(
+            'grade_report_file.delete',
+            subjectType: 'grade_report_file',
+            subjectId: $fileId,
+            metadata: $meta,
+            actorRole: 'dept_admin',
+        );
+
+        return response()->json(['ok' => true]);
     }
 
     /**

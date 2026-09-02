@@ -112,6 +112,7 @@ class DeptRegistrarBulkUploadService
         $base['grade_id'] = $report->grade_id;
         $base['subject_code'] = $report->subject_code;
         $base['subject'] = $report->subject;
+        $base['section_label'] = 'Sec'.((int) $parsed['section_int']);
 
         if (! $report->canDeptAttachRegistrar()) {
             $base['reason'] = $this->blockedReason($report);
@@ -154,8 +155,19 @@ class DeptRegistrarBulkUploadService
         $storedPath = null;
 
         try {
-            $displayName = $this->attachmentNames->generateDisplayName($report, GradeReportFile::TYPE_REGISTRAR);
-            $storedPath = $this->attachmentNames->storeUploadedFile($report, $file, GradeReportFile::TYPE_REGISTRAR);
+            $parsed = $this->parseFilename($originalName);
+            $sectionInt = $parsed['section_int'] ?? null;
+            $displayName = $this->attachmentNames->generateDisplayName(
+                $report,
+                GradeReportFile::TYPE_REGISTRAR,
+                $sectionInt,
+            );
+            $storedPath = $this->attachmentNames->storeUploadedFile(
+                $report,
+                $file,
+                GradeReportFile::TYPE_REGISTRAR,
+                $sectionInt,
+            );
 
             if (! UploadStorage::disk()->exists($storedPath)) {
                 $described['ok'] = false;
@@ -191,6 +203,8 @@ class DeptRegistrarBulkUploadService
             $described['ok'] = true;
             $described['reason'] = null;
             $described['stored_name'] = $record->original_name;
+            $described['file_id'] = $record->file_id;
+            $described['section_label'] = $described['section_label'] ?? ($sectionInt !== null ? 'Sec'.$sectionInt : null);
             $described['download_name'] = $report->deptRegistrarDownloadName();
             $described['view_url'] = route('grade-reports.files.show', [
                 'gradeReport' => $report->grade_id,

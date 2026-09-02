@@ -196,6 +196,12 @@ class GradeReport extends Model
         ], true);
     }
 
+    /** Admin สาขาลบ REG-Admin ได้ก่อนที่ Admin กลางจะเปลี่ยนสถานะ */
+    public function canDeptDeleteRegistrar(): bool
+    {
+        return $this->canDeptAttachRegistrar();
+    }
+
     public function canFacultyApprove(): bool
     {
         return in_array((int) $this->approv, GradeApprovalStatus::facultyReviewableValues(), true);

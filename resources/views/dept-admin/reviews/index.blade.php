@@ -241,7 +241,10 @@
                         </td>
                         <td class="px-3 py-2 text-center whitespace-nowrap">{{ \App\Support\ThaiDateTime::formatDate($report->created) }}</td>
                         <td class="px-3 py-2">
-                            @include('partials.grade-report-files-admin', ['report' => $report])
+                            @include('partials.grade-report-files-admin', [
+                                'report' => $report,
+                                'allowDeptRegDelete' => true,
+                            ])
                         </td>
                         <td class="px-3 py-2 text-center">
                             <span class="inline-block px-2 py-1 rounded text-xs font-semibold {{ $badge }}">
@@ -410,23 +413,86 @@
         uploadError.classList.remove('hidden');
     };
 
-    const appendRegistrarLink = (gradeId, name, url) => {
+    const appendRegistrarLink = (gradeId, fileId, name, url, sectionLabel) => {
         const box = document.querySelector(`.js-registrar-dept-list[data-grade-id="${gradeId}"]`);
         if (!box || !url) return;
         box.querySelector('.js-registrar-empty')?.remove();
         box.querySelector('.js-registrar-dept-empty')?.remove();
+
+        const row = document.createElement('div');
+        row.className = 'js-reg-admin-file-row inline-flex items-center gap-1 w-fit';
+        if (fileId) row.dataset.fileId = String(fileId);
+
+        const label = 'ใบส่งผลการศึกษา (REG-Admin)' + (sectionLabel ? `-${sectionLabel}` : '');
         const a = document.createElement('a');
         a.href = url;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
-        a.className = 'text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 w-fit font-medium';
-        a.title = name || 'ใบส่งผลการศึกษา (REG-Admin)';
-        a.innerHTML = '<i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i> ใบส่งผลการศึกษา (REG-Admin)';
-        box.appendChild(a);
+        a.className = 'text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 font-medium js-reg-admin-file-link';
+        a.title = name || label;
+        a.innerHTML = `<i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i> ${label}`;
+        row.appendChild(a);
+
+        if (fileId) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-delete-reg-admin-file text-red-600 hover:text-red-800 shrink-0';
+            btn.dataset.gradeId = String(gradeId);
+            btn.dataset.fileId = String(fileId);
+            btn.dataset.deleteUrl = regAdminDeleteUrl(gradeId, fileId);
+            btn.title = 'ลบไฟล์ REG-Admin';
+            btn.innerHTML = '<i data-lucide="x" class="w-3.5 h-3.5"></i>';
+            bindDeleteRegAdminFile(btn);
+            row.appendChild(btn);
+        }
+
+        box.appendChild(row);
         if (window.lucide?.createIcons) {
             window.lucide.createIcons();
         }
     };
+
+    const regAdminDeleteUrl = (gradeId, fileId) =>
+        @json(rtrim(url('/dept-admin/reviews'), '/')) + `/${gradeId}/registrar-files/${fileId}`;
+
+    function bindDeleteRegAdminFile(btn) {
+        if (!btn || btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', async () => {
+            if (!confirm('ต้องการลบไฟล์ REG-Admin นี้หรือไม่?')) return;
+
+            const deleteUrl = btn.dataset.deleteUrl
+                || regAdminDeleteUrl(btn.dataset.gradeId, btn.dataset.fileId);
+
+            const res = await fetch(deleteUrl, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'ลบไฟล์ไม่สำเร็จ');
+                return;
+            }
+
+            const row = btn.closest('.js-reg-admin-file-row');
+            const box = row?.closest('.js-registrar-dept-list');
+            row?.remove();
+
+            if (box && !box.querySelector('.js-reg-admin-file-row')) {
+                const empty = document.createElement('span');
+                empty.className = 'js-registrar-empty js-registrar-dept-empty text-xs text-gray-400';
+                empty.textContent = 'ไม่มีไฟล์';
+                box.appendChild(empty);
+            }
+        });
+    }
+
+    document.querySelectorAll('.btn-delete-reg-admin-file').forEach(bindDeleteRegAdminFile);
 
     let selectedFiles = [];
 
@@ -557,8 +623,10 @@
                     }
                     appendRegistrarLink(
                         row.grade_id,
+                        row.file_id,
                         row.download_name || row.stored_name || row.original_name,
-                        row.view_url
+                        row.view_url,
+                        row.section_label || null
                     );
                 } else {
                     detailTd.textContent = row.reason || '';

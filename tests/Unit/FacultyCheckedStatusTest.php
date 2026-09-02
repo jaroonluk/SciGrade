@@ -61,5 +61,8 @@ class FacultyCheckedStatusTest extends TestCase
         $this->assertTrue($deptApproved->canDeptAttachRegistrar());
         $this->assertFalse($checked->canDeptAttachRegistrar());
         $this->assertFalse($rejected->canDeptAttachRegistrar());
+        $this->assertTrue($saved->canDeptDeleteRegistrar());
+        $this->assertTrue($deptApproved->canDeptDeleteRegistrar());
+        $this->assertFalse($checked->canDeptDeleteRegistrar());
     }
 }

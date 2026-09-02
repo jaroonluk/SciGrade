@@ -144,4 +144,44 @@ class GradeReportAttachmentSourceTest extends TestCase
         $this->assertStringNotContainsString('SC203001_101', $pathA);
         $this->assertStringNotContainsString('SC203002_102', $pathB);
     }
+
+    public function test_registrar_section_label_from_stored_name(): void
+    {
+        $report = new GradeReport(['username' => 'teacher01']);
+        $report->setRelation('gradeStds', collect([
+            new GradeStd(['sec' => '1', 'total_std' => 20]),
+            new GradeStd(['sec' => '2', 'total_std' => 25]),
+        ]));
+
+        $instructorFile = new GradeReportFile([
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'original_name' => 'REG_2568_2_SC203001_01.pdf',
+            'username' => 'teacher01',
+        ]);
+        $deptFile = new GradeReportFile([
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'original_name' => 'REG_2568_2_SC203001_02.pdf',
+            'username' => 'deptadmin',
+        ]);
+
+        $this->assertSame('Sec1', $instructorFile->attachmentSectionSuffix($report));
+        $this->assertSame('Sec2', $deptFile->attachmentSectionSuffix($report));
+        $this->assertSame(
+            'ใบส่งผลการศึกษา (REG-Admin)-Sec2',
+            $deptFile->attachmentLinkLabel('ใบส่งผลการศึกษา (REG-Admin)', $report),
+        );
+
+        $examFile = new GradeReportFile([
+            'file_type' => GradeReportFile::TYPE_EXAM_REPORT,
+            'original_name' => '2568_2_SC203001_01.pdf',
+        ]);
+        $this->assertSame(
+            'แบบรายงานผลการสอบไล่-Sec1',
+            $examFile->attachmentLinkLabel('แบบรายงานผลการสอบไล่', $report),
+        );
+        $this->assertSame(
+            'ใบส่งผลการศึกษา (REG)-Sec1',
+            $instructorFile->attachmentLinkLabel('ใบส่งผลการศึกษา (REG)', $report),
+        );
+    }
 }

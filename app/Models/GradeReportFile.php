@@ -103,6 +103,83 @@ class GradeReportFile extends Model
         return $this->isRegistrar() && ! $this->isInstructorUpload($report);
     }
 
+    /**
+     * ป้ายกลุ่มเรียนสำหรับแสดงต่อท้ายชื่อไฟล์ เช่น Sec1
+     */
+    public function attachmentSectionSuffix(?GradeReport $report = null): ?string
+    {
+        $section = $this->parseSectionFromStoredName((string) $this->original_name);
+
+        if ($section === null) {
+            $report ??= $this->relationLoaded('gradeReport')
+                ? $this->gradeReport
+                : $this->gradeReport()->with('gradeStds')->first();
+
+            if ($report instanceof GradeReport) {
+                $sections = $report->enrollmentSections()
+                    ->pluck('sec')
+                    ->filter(fn ($sec) => $sec !== '' && $sec !== '-')
+                    ->map(fn ($sec) => (string) (int) preg_replace('/\D/', '', (string) $sec))
+                    ->unique()
+                    ->values();
+
+                if ($sections->count() === 1) {
+                    $section = $sections->first();
+                }
+            }
+        }
+
+        if ($section === null || $section === '') {
+            return null;
+        }
+
+        return 'Sec'.((int) $section);
+    }
+
+    /** @deprecated Use attachmentSectionSuffix() */
+    public function registrarSectionLabel(?GradeReport $report = null): ?string
+    {
+        return $this->attachmentSectionSuffix($report);
+    }
+
+    /**
+     * ข้อความลิงก์ที่แสดงให้ผู้ใช้ เช่น ใบส่งผลการศึกษา (REG-Admin)-Sec1
+     */
+    public function attachmentLinkLabel(string $baseLabel, ?GradeReport $report = null): string
+    {
+        $suffix = $this->attachmentSectionSuffix($report);
+
+        return $suffix !== null ? $baseLabel.'-'.$suffix : $baseLabel;
+    }
+
+    public function registrarLinkLabel(string $baseLabel, ?GradeReport $report = null): string
+    {
+        return $this->attachmentLinkLabel($baseLabel, $report);
+    }
+
+    private function parseSectionFromStoredName(string $name): ?string
+    {
+        $base = basename(str_replace('\\', '/', $name));
+
+        if (preg_match('/^REG_\d+_\d+_[A-Z0-9]+_(\d{1,2})(?:_\d{2})?\.pdf$/i', $base, $match)) {
+            return (string) (int) $match[1];
+        }
+
+        if (preg_match('/^\d+_\d+_[A-Z0-9]+_(\d{1,2})(?:_\d{2})?\.pdf$/i', $base, $match)) {
+            return (string) (int) $match[1];
+        }
+
+        if (preg_match('/^[A-Za-z0-9]+-(\d{1,2})\.pdf$/i', $base, $match)) {
+            return (string) (int) $match[1];
+        }
+
+        if (preg_match('/^[A-Za-z0-9]+-(\d{1,2})-\d+\.pdf$/i', $base, $match)) {
+            return (string) (int) $match[1];
+        }
+
+        return null;
+    }
+
     public function scopeOfType(Builder $query, string $type): Builder
     {
         if ($type === self::TYPE_EXAM_REPORT) {

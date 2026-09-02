@@ -15,9 +15,12 @@ class GradeReportAttachmentNameService
      * ใบส่งผล REG: REG_{ปี}_{ภาค}_{รหัสวิชา}_{section}.pdf
      * ไฟล์ถัดไป: ..._02.pdf, ..._03.pdf
      */
-    public function generateDisplayName(GradeReport $report, string $fileType = GradeReportFile::TYPE_EXAM_REPORT): string
-    {
-        $base = $this->baseName($report, $fileType);
+    public function generateDisplayName(
+        GradeReport $report,
+        string $fileType = GradeReportFile::TYPE_EXAM_REPORT,
+        ?int $sectionOverride = null,
+    ): string {
+        $base = $this->baseName($report, $fileType, $sectionOverride);
         $sequence = $this->nextSequence($report->grade_id, $base, $fileType);
 
         if ($sequence === 1) {
@@ -31,13 +34,14 @@ class GradeReportAttachmentNameService
         GradeReport $report,
         UploadedFile $uploaded,
         string $fileType = GradeReportFile::TYPE_EXAM_REPORT,
+        ?int $sectionOverride = null,
     ): string {
         $directory = 'grade-report-files/'.$report->grade_id;
         if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
             $directory .= '/registrar';
         }
 
-        $filename = $this->generateDisplayName($report, $fileType);
+        $filename = $this->generateDisplayName($report, $fileType, $sectionOverride);
         $disk = UploadStorage::disk();
 
         while ($disk->exists($directory.'/'.$filename)) {
@@ -47,7 +51,7 @@ class GradeReportAttachmentNameService
         return $uploaded->storeAs($directory, $filename, UploadStorage::diskName());
     }
 
-    private function baseName(GradeReport $report, string $fileType): string
+    private function baseName(GradeReport $report, string $fileType, ?int $sectionOverride = null): string
     {
         $report->loadMissing('gradeStds');
 
@@ -55,8 +59,12 @@ class GradeReportAttachmentNameService
         $term = preg_replace('/\D/', '', (string) $report->term) ?: '0';
         $subjectCode = Str::upper(preg_replace('/[^A-Za-z0-9]/', '', (string) $report->subject_code) ?: 'SUBJECT');
 
-        $sectionValue = $report->gradeStds->sortBy(fn ($row) => (int) $row->sec)->first()?->sec ?? 0;
-        $section = str_pad((string) (int) $sectionValue, 2, '0', STR_PAD_LEFT);
+        if ($sectionOverride !== null) {
+            $section = str_pad((string) $sectionOverride, 2, '0', STR_PAD_LEFT);
+        } else {
+            $sectionValue = $report->gradeStds->sortBy(fn ($row) => (int) $row->sec)->first()?->sec ?? 0;
+            $section = str_pad((string) (int) $sectionValue, 2, '0', STR_PAD_LEFT);
+        }
 
         $base = "{$year}_{$term}_{$subjectCode}_{$section}";
 
