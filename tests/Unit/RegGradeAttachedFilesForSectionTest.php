@@ -43,6 +43,34 @@ class RegGradeAttachedFilesForSectionTest extends TestCase
     }
 
     #[Test]
+    public function it_still_shows_documents_on_section_one_when_files_are_tagged_for_another_section(): void
+    {
+        $report = new GradeReport([
+            'subject_code' => 'SC203001',
+            'username' => 'teacher01',
+        ]);
+        $report->grade_id = 501;
+        $report->setRelation('gradeStds', collect([
+            new GradeStd(['sec' => '2', 'total_std' => 25]),
+        ]));
+
+        $regSec2 = new GradeReportFile([
+            'grade_id' => 501,
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'original_name' => 'REG_2568_2_SC203001_02.pdf',
+            'username' => 'teacher01',
+        ]);
+        $regSec2->file_id = 22;
+        $regSec2->setRelation('gradeReport', $report);
+        $report->setRelation('files', collect([$regSec2]));
+
+        $sec1 = $this->makeService()->attachedFilesForSection($report, 1);
+
+        $this->assertSame([22], $sec1->pluck('file_id')->all());
+        $this->assertSame('ใบส่งผลการศึกษา (REG)-Sec2', $sec1->first()->type_label);
+    }
+
+    #[Test]
     public function it_does_not_drop_section_one_when_a_later_section_file_is_newer(): void
     {
         $report = $this->multiSectionReport();

@@ -158,8 +158,10 @@ class RegGradeStatusController extends Controller
         $lastError = null;
         $lastReport = null;
 
+        $user = auth()->user();
+
         foreach ($this->regService->siblingReports($seed) as $report) {
-            if ($this->user()?->cannot('reviewDept', $report)) {
+            if ($user === null || $user->cannot('reviewDept', $report)) {
                 continue;
             }
 

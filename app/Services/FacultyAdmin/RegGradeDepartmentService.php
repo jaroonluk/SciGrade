@@ -294,18 +294,32 @@ class RegGradeDepartmentService
         $reports = $this->departmentGradeReports($term, $year, $departmentId, $allowedDepartmentIds);
 
         $reportIndex = [];
+        $reportsByCourse = [];
         foreach ($reports as $report) {
+            $courseCode = strtoupper(trim((string) $report->subject_code));
+            if ($courseCode !== '' && (
+                ! isset($reportsByCourse[$courseCode])
+                || $this->approvalRank($report) > $this->approvalRank($reportsByCourse[$courseCode])
+            )) {
+                $reportsByCourse[$courseCode] = $report;
+            }
+
             foreach ($report->gradeStds as $std) {
-                $key = $this->courseSectionKey((string) $report->subject_code, $std->sec);
-                if (! isset($reportIndex[$key]) || $this->approvalRank($report) > $this->approvalRank($reportIndex[$key])) {
-                    $reportIndex[$key] = $report;
+                $this->rememberReport($reportIndex, (string) $report->subject_code, $std->sec, $report);
+            }
+
+            foreach ($report->files as $file) {
+                $fileSection = $file->resolvedSection($report);
+                if ($fileSection !== null) {
+                    $this->rememberReport($reportIndex, (string) $report->subject_code, $fileSection, $report);
                 }
             }
         }
 
-        $rows = $courses->map(function (object $course) use ($reportIndex) {
+        $rows = $courses->map(function (object $course) use ($reportIndex, $reportsByCourse) {
             $key = $this->courseSectionKey((string) $course->COURSECODE, $course->SECTION);
-            $report = $reportIndex[$key] ?? null;
+            $courseKey = strtoupper(trim((string) $course->COURSECODE));
+            $report = $reportIndex[$key] ?? $reportsByCourse[$courseKey] ?? null;
 
             return $this->statusRowFromCourse($course, $report, $course->SECTION);
         });
@@ -396,12 +410,16 @@ class RegGradeDepartmentService
             $report->load(['gradeStds' => fn ($q) => $q->orderBy('sec')]);
         }
 
-        return $report->files
-            ->filter(function (GradeReportFile $file) use ($report, $sectionInt) {
-                $resolved = $file->resolvedSection($report);
+        $matched = $report->files->filter(function (GradeReportFile $file) use ($report, $sectionInt) {
+            $resolved = $file->resolvedSection($report);
 
-                return $resolved === null || $resolved === $sectionInt;
-            })
+            return $resolved === null || $resolved === $sectionInt;
+        });
+
+        // ถ้าไม่มีไฟล์ที่ติด Sec. นี้ ให้ยังแสดงเอกสารของรายงานไว้ ไม่ว่างแถว Sec. 1
+        $files = $matched->isNotEmpty() ? $matched : $report->files;
+
+        return $files
             ->sortBy(fn (GradeReportFile $file) => (int) $file->file_id)
             ->map(function (GradeReportFile $file) use ($report) {
                 $baseLabel = match (true) {
@@ -455,6 +473,17 @@ class RegGradeDepartmentService
         }
 
         return $query->get();
+    }
+
+    /**
+     * @param  array<string, GradeReport>  $reportIndex
+     */
+    private function rememberReport(array &$reportIndex, string $courseCode, string|int|null $section, GradeReport $report): void
+    {
+        $key = $this->courseSectionKey($courseCode, $section);
+        if (! isset($reportIndex[$key]) || $this->approvalRank($report) > $this->approvalRank($reportIndex[$key])) {
+            $reportIndex[$key] = $report;
+        }
     }
 
     private function courseSectionKey(string $courseCode, string|int|null $section): string
