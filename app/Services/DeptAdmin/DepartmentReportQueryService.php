@@ -3,7 +3,9 @@
 namespace App\Services\DeptAdmin;
 
 use App\Models\GradeReport;
+use App\Support\ThaiDateTime;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class DepartmentReportQueryService
@@ -165,8 +167,9 @@ class DepartmentReportQueryService
         $statsQuery = $this->buildExportQuery($summaryFilters);
 
         $count = (clone $statsQuery)->count();
-        $minDate = $count > 0 ? $this->normalizeDateString((clone $statsQuery)->min('created')) : null;
-        $maxDate = $count > 0 ? $this->normalizeDateString((clone $statsQuery)->max('created')) : null;
+        [$minDate, $maxDate] = $count > 0
+            ? $this->submissionDateBounds($statsQuery)
+            : [null, null];
 
         $term = isset($filters['term']) && $filters['term'] !== null && $filters['term'] !== ''
             ? (int) $filters['term']
@@ -187,26 +190,91 @@ class DepartmentReportQueryService
         ];
     }
 
+    /**
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function submissionDateBounds(Builder $statsQuery): array
+    {
+        try {
+            $bounds = (clone $statsQuery)->toBase()->selectRaw(
+                'MIN(created) as min_created, MAX(created) as max_created,
+                 MIN(created_stamp) as min_stamp, MAX(created_stamp) as max_stamp'
+            )->first();
+        } catch (\Throwable) {
+            $bounds = (clone $statsQuery)->toBase()->selectRaw(
+                'MIN(created) as min_created, MAX(created) as max_created'
+            )->first();
+        }
+
+        $dates = collect([
+            $bounds->min_created ?? null,
+            $bounds->max_created ?? null,
+            $bounds->min_stamp ?? null,
+            $bounds->max_stamp ?? null,
+        ])
+            ->map(fn (mixed $value) => $this->normalizeDateString($value))
+            ->filter()
+            ->values();
+
+        if ($dates->isEmpty()) {
+            return [null, null];
+        }
+
+        return [$dates->min(), $dates->max()];
+    }
+
     private function normalizeDateString(mixed $value): ?string
     {
         if ($value === null || $value === '') {
             return null;
         }
 
+        if ($value instanceof \DateTimeInterface) {
+            $dt = Carbon::instance(Carbon::parse($value))->timezone('Asia/Bangkok');
+
+            return $this->gregorianYmd($dt);
+        }
+
+        if (is_numeric($value) && (int) $value > 1_000_000_000) {
+            return $this->gregorianYmd(Carbon::createFromTimestamp((int) $value, 'Asia/Bangkok'));
+        }
+
+        $raw = trim((string) $value);
+
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/', $raw, $match)) {
+            $day = (int) $match[1];
+            $month = (int) $match[2];
+            $year = (int) $match[3];
+            if ($year >= 2400) {
+                $year -= 543;
+            }
+
+            if (checkdate($month, $day, $year)) {
+                return sprintf('%04d-%02d-%02d', $year, $month, $day);
+            }
+        }
+
         try {
-            return \Illuminate\Support\Carbon::parse((string) $value)->format('Y-m-d');
+            $dt = Carbon::parse($raw, 'Asia/Bangkok');
         } catch (\Throwable) {
             return null;
         }
+
+        return $this->gregorianYmd($dt);
+    }
+
+    private function gregorianYmd(Carbon $dt): string
+    {
+        if ((int) $dt->format('Y') >= 2400) {
+            $dt = $dt->copy()->subYears(543);
+        }
+
+        return $dt->timezone('Asia/Bangkok')->format('Y-m-d');
     }
 
     private function formatThaiDate(string $ymd): string
     {
-        try {
-            return \Illuminate\Support\Carbon::parse($ymd)->format('d/m/Y');
-        } catch (\Throwable) {
-            return $ymd;
-        }
+        return ThaiDateTime::formatDate($ymd);
     }
 
     private function termLabel(?int $term): string

@@ -100,7 +100,7 @@
                     <span id="summary-empty-text">ยังไม่พบรายวิชาตามเงื่อนไขสาขา / ภาค / ปี ที่เลือก</span>
                 @endif
             </p>
-            <p class="text-xs text-[#7A4A3A]/80">ใช้ช่วงนี้เป็นแนวทางเลือกวันที่พิมพ์รายงาน (อิงวันที่ที่อาจารย์บันทึกรายงานผลสอบ)</p>
+            <p class="text-xs text-[#7A4A3A]/80">ใช้ช่วงนี้เป็นแนวทางเลือกวันที่พิมพ์รายงาน (อิงวันที่กรอก/บันทึกจริง แสดงเป็น พ.ศ.)</p>
             <button type="button" id="btn-apply-summary-dates"
                     class="mt-1 text-xs font-medium text-[#8B4513] hover:underline disabled:opacity-40 disabled:no-underline"
                     @disabled(($summary['count'] ?? 0) === 0)>
