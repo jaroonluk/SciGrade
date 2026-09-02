@@ -917,7 +917,6 @@ function setupSectionStdManager() {
 
 function collectGradeReportPayload() {
     const { reasonid, reason } = buildReason();
-    const selecttype = parseInt(document.getElementById('selecttype')?.value || '1', 10);
     const statuseva = parseInt(document.querySelector('input[name="statuseva"]:checked')?.value || '2', 10);
 
     document.querySelectorAll('.grade-range-input').forEach((input) => applyGradeRangeFormat(input));
@@ -943,13 +942,9 @@ function collectGradeReportPayload() {
         subject_code: document.getElementById('subject-code')?.value?.trim().replace(/\s+/g, ''),
         subject: document.getElementById('subject-name')?.value?.trim(),
         teacher: document.getElementById('teacher-input')?.value?.trim(),
-        selecttype,
-        degree: selecttype === 1
-            ? parseInt(document.getElementById('degree')?.value || '3', 10)
-            : 3,
-        programid: selecttype === 1
-            ? document.getElementById('programid')?.value?.trim() || null
-            : null,
+        selecttype: 1,
+        degree: 3,
+        programid: null,
         type_course: parseInt(document.querySelector('input[name="type_course"]:checked')?.value || '1', 10),
         mean: (() => {
             const v = document.getElementById('mean-score')?.value?.trim();
@@ -1113,27 +1108,6 @@ function chainGradeRanges() {
     });
 }
 
-function toggleSelecttypeFields() {
-    const selecttype = document.getElementById('selecttype')?.value;
-    const programField = document.getElementById('program-field');
-    const degree = document.getElementById('degree');
-    const masterOpt = document.getElementById('degree-opt-master');
-    const phdOpt = document.getElementById('degree-opt-phd');
-
-    if (selecttype === '1') {
-        programField?.classList.remove('hidden');
-        if (masterOpt) masterOpt.disabled = false;
-        if (phdOpt) phdOpt.disabled = false;
-    } else {
-        programField?.classList.add('hidden');
-        const programSelect = document.getElementById('programid');
-        if (programSelect) programSelect.value = '';
-        if (degree) degree.value = '3';
-        if (masterOpt) masterOpt.disabled = true;
-        if (phdOpt) phdOpt.disabled = true;
-    }
-}
-
 function toggleEvaFields() {
     const statuseva = document.querySelector('input[name="statuseva"]:checked')?.value;
     const reportEva = document.getElementById('report-eva-fields');
@@ -1184,16 +1158,10 @@ function setRadio(name, value) {
 function populateFormFromRecord(record) {
     if (!record) return;
 
-    document.getElementById('selecttype').value = String(record.selecttype ?? 1);
     document.getElementById('subject-code').value = record.subject_code || '';
     document.getElementById('subject-name').value = record.subject || '';
     setRadio('term', record.term ?? 1);
     if (record.year) document.getElementById('year-input').value = record.year;
-    if (record.degree) document.getElementById('degree').value = record.degree;
-    if (record.programid) {
-        const programSelect = document.getElementById('programid');
-        if (programSelect) programSelect.value = String(record.programid);
-    }
     document.getElementById('teacher-input').value = record.teacher || '';
     if (record.report_date) document.getElementById('report-date').value = record.report_date;
 
@@ -1244,7 +1212,6 @@ function populateFormFromRecord(record) {
     }
     updateReasonFieldsState();
 
-    toggleSelecttypeFields();
     toggleEvaFields();
     updateGradeBoundaryHint();
     updateGradeRangeColumnHeaders();
@@ -1263,7 +1230,6 @@ function initTempladeForm(options = {}) {
         setupReasonIdFields();
         setupSectionStdManager();
         setupFacMultiSelect();
-        document.getElementById('selecttype')?.addEventListener('change', toggleSelecttypeFields);
         document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
             el.addEventListener('change', toggleEvaFields);
         });
@@ -1271,7 +1237,6 @@ function initTempladeForm(options = {}) {
     }
 
     setupEvaHintPopover(options.teacherHelpImageUrl);
-    toggleSelecttypeFields();
     toggleEvaFields();
     updateGradeBoundaryHint();
     updateGradeRangeColumnHeaders();

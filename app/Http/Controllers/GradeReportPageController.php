@@ -6,7 +6,6 @@ use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\GradeReportController;
 use App\Models\GradeReport;
 use App\Models\GradeType;
-use App\Models\TblProgramQa;
 use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
@@ -30,15 +29,6 @@ class GradeReportPageController extends Controller
 
     private function formView(?int $reportId, array $nav = [], ?array $uploadParsed = null, ?array $prefillReport = null): View
     {
-        $deptId = session('staff_department_id');
-        if ($deptId === null && auth()->user()) {
-            $staff = $this->staffAuth->findByEmail(auth()->user()->email);
-            if ($staff) {
-                $this->staffAuth->storeInSession($staff);
-                $deptId = (int) $staff->department_id;
-            }
-        }
-
         $teacherHelpImageUrl = file_exists(public_path('images/teacher2.png'))
             ? asset('images/teacher2.png')
             : (Storage::disk('public')->exists('teacher2.png')
@@ -63,7 +53,6 @@ class GradeReportPageController extends Controller
                 auth()->user()->name,
             ),
             'teacherHelpImageUrl' => $teacherHelpImageUrl,
-            'programs' => TblProgramQa::forDepartment($deptId),
             'faculties' => GradeType::forForm(),
             'prefillTerm' => $prefillTerm,
             'prefillYear' => $prefillYear,
@@ -205,6 +194,9 @@ class GradeReportPageController extends Controller
             'grade_upload_name' => $uploaded->getClientOriginalName(),
             'grade_upload_term' => $request->integer('term'),
             'grade_upload_year' => $request->integer('year'),
+            'grade_upload_subject_code' => $parsed['subject_code'] ?? null,
+            'grade_upload_section' => $parsed['grade_stds'][0]['sec'] ?? null,
+            'grade_upload_owner' => auth()->id(),
             'grade_upload_parsed' => $parsed,
         ]);
 
@@ -214,7 +206,7 @@ class GradeReportPageController extends Controller
                 'year' => $request->integer('year'),
                 'return' => 'dashboard',
             ])
-            ->with('status', 'อ่านไฟล์ PDF สำเร็จ กรุณาตรวจสอบข้อมูลและเลือกประเภทรายวิชาก่อนบันทึก');
+            ->with('status', 'อ่านไฟล์ PDF สำเร็จ — เมื่อบันทึกรายงาน ระบบจะแนบเป็นใบส่งผลการศึกษา (REG) ให้อัตโนมัติ');
     }
 
     public function my(Request $request): View

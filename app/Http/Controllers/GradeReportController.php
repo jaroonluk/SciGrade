@@ -6,6 +6,7 @@ use App\Models\GradeReport;
 use App\Models\GradeStd;
 use App\Services\AuditLogService;
 use App\Services\GradReport2Service;
+use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class GradeReportController extends Controller
         private readonly StaffAuthService $staffAuth,
         private readonly GradReport2Service $gradReport2,
         private readonly AuditLogService $auditLog,
+        private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
     public function index(Request $request): JsonResponse
     {
@@ -70,6 +72,8 @@ class GradeReportController extends Controller
 
             return $report->load('gradeStds');
         });
+
+        $this->pendingRegistrar->attachFromSession($report, $this->staffUsername());
 
         $this->auditLog->record(
             'grade_report.create',
@@ -331,9 +335,9 @@ class GradeReportController extends Controller
             'subject_code2' => ['nullable', 'string', 'max:50'],
             'subject' => [$updating ? 'sometimes' : 'required', 'string', 'max:150'],
             'teacher' => ['nullable', 'string', 'max:250'],
-            'selecttype' => [$updating ? 'sometimes' : 'required', 'integer', 'in:1,2'],
+            'selecttype' => ['nullable', 'integer', 'in:1,2'],
             'degree' => ['nullable', 'integer', 'in:3,5,7'],
-            'programid' => ['nullable', 'required_if:selecttype,1', 'string', 'max:4'],
+            'programid' => ['nullable', 'string', 'max:4'],
             'type_course' => ['nullable', 'integer', 'in:1,2,3,4,5'],
             'mean' => ['nullable', 'numeric'],
             'sd' => ['nullable', 'numeric'],

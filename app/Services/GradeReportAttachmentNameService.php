@@ -51,6 +51,40 @@ class GradeReportAttachmentNameService
         return $uploaded->storeAs($directory, $filename, UploadStorage::diskName());
     }
 
+    /**
+     * คัดลอกไฟล์ที่เก็บไว้แล้วไปยังโฟลเดอร์แนบของรายงาน (ใช้หลังอัปโหลด PDF จากสำนักทะเบียน)
+     */
+    public function storeFromStoragePath(
+        GradeReport $report,
+        string $sourcePath,
+        string $fileType = GradeReportFile::TYPE_REGISTRAR,
+        ?int $sectionOverride = null,
+    ): string {
+        $directory = 'grade-report-files/'.$report->grade_id;
+        if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
+            $directory .= '/registrar';
+        }
+
+        $filename = $this->generateDisplayName($report, $fileType, $sectionOverride);
+        $disk = UploadStorage::disk();
+
+        while ($disk->exists($directory.'/'.$filename)) {
+            $filename = $this->bumpFilename($filename);
+        }
+
+        $destination = $directory.'/'.$filename;
+
+        if (! $disk->exists($sourcePath)) {
+            throw new \RuntimeException('ไม่พบไฟล์ต้นทางสำหรับแนบ REG');
+        }
+
+        if (! $disk->copy($sourcePath, $destination)) {
+            throw new \RuntimeException('ไม่สามารถคัดลอกไฟล์ REG ได้');
+        }
+
+        return $destination;
+    }
+
     private function baseName(GradeReport $report, string $fileType, ?int $sectionOverride = null): string
     {
         $report->loadMissing('gradeStds');

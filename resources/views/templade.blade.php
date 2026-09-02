@@ -111,21 +111,14 @@
                 </h2>
                 <form id="grade-form" class="space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-3">
-                            <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">ประเภทรายวิชา *</label>
-                            <select id="selecttype" class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
-                                <option value="1">วิชาในหลักสูตร</option>
-                                <option value="2">รายวิชาบริการ</option>
-                            </select>
-                        </div>
-                        <div class="relative md:col-span-2">
+                        <div class="relative md:col-span-3">
                             <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">รหัสวิชา *</label>
                             <input id="subject-code" type="text" maxlength="20" autocomplete="off"
                                 class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white" placeholder="รหัสวิชา">
                             <div id="subject-suggestions"
                                 class="absolute left-0 top-full mt-1.5 z-40 hidden bg-white border border-amber-300 rounded-lg"></div>
                         </div>
-                        <div class="md:col-span-7">
+                        <div class="md:col-span-9">
                             <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">ชื่อวิชา *</label>
                             <input id="subject-name" type="text"
                                 class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white" placeholder="PHYSICAL SCIENCE">
@@ -147,26 +140,6 @@
                                 @for ($y = 2565; $y <= 2575; $y++)
                                     <option value="{{ $y }}" @selected($y === $defaultYear)>{{ $y }}</option>
                                 @endfor
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="curriculum-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">ระดับการศึกษา</label>
-                            <select id="degree" class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
-                                <option value="3">ปริญญาตรี</option>
-                                <option value="5" id="degree-opt-master">ปริญญาโท</option>
-                                <option value="7" id="degree-opt-phd">ปริญญาเอก</option>
-                            </select>
-                        </div>
-                        <div id="program-field" class="hidden">
-                            <label for="programid" class="block text-sm font-medium mb-1 text-[#5C2E1F]">หลักสูตร <span class="text-red-600">*</span></label>
-                            <select id="programid" class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
-                                <option value="">— เลือกหลักสูตร —</option>
-                                @foreach ($programs as $program)
-                                    <option value="{{ $program->programid }}">{{ $program->programname }}</option>
-                                @endforeach
                             </select>
                         </div>
                     </div>
@@ -531,10 +504,6 @@
             const payload = collectGradeReportPayload();
             if (!payload.subject_code || !payload.subject) {
                 showToast('กรุณากรอกรหัสวิชาและชื่อวิชา', 'error');
-                return;
-            }
-            if (payload.selecttype === 1 && !payload.programid) {
-                showToast('กรุณาเลือกหลักสูตร (วิชาในหลักสูตร)', 'error');
                 return;
             }
             if (payload.reasonid === 1 && !payload.reason) {

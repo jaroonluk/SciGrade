@@ -13,6 +13,7 @@
         <h2 class="text-lg font-bold text-[#5C2E1F] mb-2">อัปโหลดไฟล์จากสำนักทะเบียน</h2>
         <p class="text-sm text-[#7A4A3A]/80 mb-6">
             เลือกภาคการศึกษาและปีการศึกษาก่อนอัปโหลด ระบบรองรับเฉพาะไฟล์ PDF ใบส่งผลการศึกษาจากสำนักทะเบียน มข.
+            เมื่อบันทึกรายงานผลสอบ ไฟล์นี้จะถูกแนบเป็น <strong class="text-[#5C2E1F]">ใบส่งผลการศึกษา (REG)</strong> ของอาจารย์โดยอัตโนมัติ
         </p>
 
         <form method="POST" action="{{ route('grade-reports.upload.store') }}" enctype="multipart/form-data" class="space-y-5">
