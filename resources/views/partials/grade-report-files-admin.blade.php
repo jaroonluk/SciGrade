@@ -8,7 +8,6 @@
         fn ($f) => $f->isDeptAdminUpload($report)
     );
     $hasAnyFile = $examFiles->isNotEmpty() || $regInstructorFiles->isNotEmpty() || $regDeptFiles->isNotEmpty();
-    $canDeleteDeptReg = ($allowDeptRegDelete ?? false) && $report->canDeptDeleteRegAdminFile();
 @endphp
 <div class="space-y-1.5 min-w-[12rem]">
     <div class="flex flex-col gap-0.5">
@@ -36,29 +35,13 @@
 
         <div class="js-registrar-dept-list js-registrar-list flex flex-col gap-0.5" data-grade-id="{{ $report->grade_id }}">
             @forelse ($regDeptFiles as $file)
-                <div class="js-reg-admin-file-row inline-flex items-center gap-1.5 flex-wrap" data-file-id="{{ $file->file_id }}">
-                    <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
-                       target="_blank" rel="noopener noreferrer"
-                       class="text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 w-fit font-medium"
-                       title="{{ $report->deptRegistrarDownloadName() }} (เก็บเป็น {{ $file->original_name }})">
-                        <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
-                        ใบส่งผลการศึกษา (REG-Admin)
-                    </a>
-                    @if ($canDeleteDeptReg)
-                        <form method="POST"
-                              action="{{ route('dept-admin.reviews.reg-admin-files.destroy', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
-                              class="inline js-delete-reg-admin-form"
-                              onsubmit="return confirm('ลบไฟล์ REG-Admin นี้?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit"
-                                class="text-[10px] text-red-600 hover:text-red-800 font-medium px-1 py-0.5 rounded hover:bg-red-50"
-                                title="ลบไฟล์ REG-Admin">
-                                ลบ
-                            </button>
-                        </form>
-                    @endif
-                </div>
+                <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
+                   target="_blank" rel="noopener noreferrer"
+                   class="text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 w-fit font-medium"
+                   title="{{ $report->deptRegistrarDownloadName() }} (เก็บเป็น {{ $file->original_name }})">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
+                    ใบส่งผลการศึกษา (REG-Admin)
+                </a>
             @empty
                 <span class="js-registrar-empty js-registrar-dept-empty hidden"></span>
             @endforelse

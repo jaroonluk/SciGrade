@@ -76,7 +76,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/files/download', [GradeReportFileDownloadController::class, 'downloadDept'])->name('reviews.files.download');
         Route::post('/reviews/registrar-files/preview', [GradeReportReviewController::class, 'previewRegistrarUploads'])->name('reviews.registrar-files.preview');
         Route::post('/reviews/registrar-files', [GradeReportReviewController::class, 'uploadRegistrarFiles'])->name('reviews.registrar-files.store');
-        Route::delete('/reviews/{gradeReport}/reg-admin-files/{file}', [GradeReportReviewController::class, 'destroyRegAdminFile'])->name('reviews.reg-admin-files.destroy');
         Route::post('/reviews/{gradeReport}/approve', [GradeReportReviewController::class, 'approve'])->name('reviews.approve');
         Route::post('/reviews/{gradeReport}/reject', [GradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::post('/reviews/{gradeReport}/send-back', [GradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');

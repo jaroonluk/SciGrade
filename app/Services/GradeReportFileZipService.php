@@ -48,7 +48,7 @@ class GradeReportFileZipService
                 continue;
             }
 
-            $entry = $this->entryName($file, $usedNames);
+            $entry = $this->zipEntryPathFor($file, $usedNames);
             $zip->addFromString($entry, $contents);
         }
 
@@ -67,16 +67,15 @@ class GradeReportFileZipService
     }
 
     /**
-     * ไฟล์ประเภทเดียวกันอยู่โฟลเดอร์เดียว (ไม่แยกตามรหัสวิชา/รายการ)
+     * path ภายใน ZIP — ไฟล์ประเภทเดียวกันอยู่โฟลเดอร์เดียว (ไม่แยกตามรหัสวิชา)
      *
      * @param  array<string, true>  $usedNames
      */
-    private function entryName(GradeReportFile $file, array &$usedNames): string
+    public function zipEntryPathFor(GradeReportFile $file, array &$usedNames = []): string
     {
-        $report = $file->relationLoaded('gradeReport') ? $file->gradeReport : null;
+        $report = $this->resolveReportFor($file);
 
         if ($file->isDeptAdminUpload($report) && $report instanceof GradeReport) {
-            $report->loadMissing('gradeStds');
             $typeFolder = 'REG-Admin';
             $filename = $report->deptRegistrarDownloadName();
         } elseif ($file->isRegistrar()) {
@@ -110,14 +109,22 @@ class GradeReportFileZipService
         return $candidate;
     }
 
-    /**
-     * Path ภายใน ZIP สำหรับไฟล์หนึ่งรายการ (ใช้ทดสอบ)
-     *
-     * @param  array<string, true>  $usedNames
-     */
-    public function zipEntryPath(GradeReportFile $file, array &$usedNames = []): string
+    private function resolveReportFor(GradeReportFile $file): ?GradeReport
     {
-        return $this->entryName($file, $usedNames);
+        if ($file->relationLoaded('gradeReport') && $file->gradeReport instanceof GradeReport) {
+            $report = $file->gradeReport;
+        } else {
+            $report = $file->gradeReport()->with('gradeStds')->first();
+            if ($report instanceof GradeReport) {
+                $file->setRelation('gradeReport', $report);
+            }
+        }
+
+        if ($report instanceof GradeReport && ! $report->relationLoaded('gradeStds')) {
+            $report->load('gradeStds');
+        }
+
+        return $report instanceof GradeReport ? $report : null;
     }
 
     private function safeFileBasename(string $name): string
@@ -157,11 +164,13 @@ class GradeReportFileZipService
 
         return $files
             ->filter(function (GradeReportFile $file) use ($fileType) {
+                $report = $file->relationLoaded('gradeReport') ? $file->gradeReport : null;
+
                 return match ($fileType) {
                     GradeReportFile::TYPE_EXAM_REPORT => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT,
                     GradeReportFile::TYPE_REGISTRAR => $file->isRegistrar(),
-                    'registrar_instructor' => $file->isRegistrar() && $file->isInstructorUpload(),
-                    'registrar_dept' => $file->isDeptAdminUpload(),
+                    'registrar_instructor' => $file->isRegistrar() && $file->isInstructorUpload($report),
+                    'registrar_dept' => $file->isDeptAdminUpload($report),
                     default => false,
                 };
             })

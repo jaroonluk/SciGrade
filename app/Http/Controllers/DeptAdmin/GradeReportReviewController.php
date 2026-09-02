@@ -7,8 +7,6 @@ use App\Http\Requests\DeptAdmin\DeptRegistrarBulkUploadRequest;
 use App\Http\Requests\DeptAdmin\GradeReportApprovalRequest;
 use App\Http\Requests\DeptAdmin\GradeReportReviewFilterRequest;
 use App\Models\GradeReport;
-use App\Models\GradeReportFile;
-use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Services\DeptAdmin\DeptRegistrarBulkUploadService;
@@ -30,7 +28,6 @@ class GradeReportReviewController extends Controller
         private readonly DepartmentReportQueryService $queryService,
         private readonly GradeReportApprovalService $approvalService,
         private readonly DeptRegistrarBulkUploadService $registrarUpload,
-        private readonly AuditLogService $auditLog,
     ) {}
 
     public function index(GradeReportReviewFilterRequest $request): View
@@ -133,48 +130,6 @@ class GradeReportReviewController extends Controller
         }
 
         return $this->successResponse($request, 'ย้อนสถานะเป็นบันทึกแล้วเรียบร้อย');
-    }
-
-    public function destroyRegAdminFile(Request $request, GradeReport $gradeReport, GradeReportFile $file): JsonResponse|RedirectResponse
-    {
-        $this->authorize('reviewDept', $gradeReport);
-        abort_unless((int) $file->grade_id === (int) $gradeReport->grade_id, 404);
-
-        if (! $file->isDeptAdminUpload($gradeReport)) {
-            return $this->fileDeleteFailureResponse($request, 'ลบได้เฉพาะไฟล์ REG-Admin ที่ Admin สาขาอัปโหลด', 422);
-        }
-
-        if (! $gradeReport->canDeptDeleteRegAdminFile()) {
-            return $this->fileDeleteFailureResponse(
-                $request,
-                'ไม่สามารถลบไฟล์ได้ เนื่องจาก Admin กลางเปลี่ยนสถานะรายวิชาแล้ว',
-                422,
-            );
-        }
-
-        $meta = [
-            'grade_id' => $gradeReport->grade_id,
-            'file_type' => $file->resolvedType(),
-            'original_name' => $file->original_name,
-            'source' => 'dept_reg_admin_delete',
-        ];
-        $fileId = $file->file_id;
-
-        $file->delete();
-
-        $this->auditLog->record(
-            'grade_report_file.delete',
-            subjectType: 'grade_report_file',
-            subjectId: $fileId,
-            metadata: $meta,
-            actorRole: 'dept_admin',
-        );
-
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true, 'message' => 'ลบไฟล์ REG-Admin เรียบร้อย']);
-        }
-
-        return back()->with('status', 'ลบไฟล์ REG-Admin เรียบร้อย');
     }
 
     public function previewRegistrarUploads(Request $request): JsonResponse
@@ -281,14 +236,5 @@ class GradeReportReviewController extends Controller
         }
 
         return back()->withErrors(['approval' => $message]);
-    }
-
-    private function fileDeleteFailureResponse(Request $request, string $message, int $code): JsonResponse|RedirectResponse
-    {
-        if ($request->expectsJson()) {
-            return response()->json(['message' => $message], $code);
-        }
-
-        return back()->withErrors(['reg_admin_file' => $message]);
     }
 }
