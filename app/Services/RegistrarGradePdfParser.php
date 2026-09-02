@@ -21,9 +21,14 @@ class RegistrarGradePdfParser
         'F' => 'num_f',
         'I' => 'num_i',
         'S' => 'num_s',
+        'AU' => 'num_s', // ใบ REG เกรด AU → เลือก S ในฟอร์ม
+        'U' => 'num_v',  // ใบ REG เกรด U → เลือก U ในฟอร์ม (ฟิลด์ num_v)
         'W' => 'num_w',
         'V' => 'num_v',
     ];
+
+    /** เกรดที่รองรับในคอลัมน์เกรดของใบส่งผล (ลำดับสำคัญ: AU ก่อน A, B+ ก่อน B) */
+    private const GRADE_TOKEN = 'AU|B\+|A|B|C\+|C|D\+|D|F|I|S|U|W|V';
 
     private const SCORE_KEYS = [
         'A' => 'score_a',
@@ -296,17 +301,36 @@ class RegistrarGradePdfParser
     private function parseStudents(string $text): array
     {
         $students = [];
-        // รูปแบบเบา ไม่พึ่ง <> และลด backtracking — ชื่อ + เกรด + รหัส 9 หลัก
-        $pattern = '/(?:นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)[^\n]{0,80}?(A|B\+|B|C\+|C|D\+|D|F|I|S|W|V)(\d{9})-\d+/u';
+        // รองรับเฉพาะเกรดในชุดที่กำหนด — อื่น ๆ ข้าม (เว้นไว้)
+        $pattern = '/(?:นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)[^\n]{0,80}?('.self::GRADE_TOKEN.')(\d{9})-\d+/u';
 
         $matched = preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
         if ($matched) {
             foreach ($matches as $match) {
-                $students[] = ['grade' => $match[1]];
+                $grade = $this->normalizeGradeSymbol($match[1]);
+                if ($grade === null) {
+                    continue;
+                }
+                $students[] = ['grade' => $grade];
             }
         }
 
         return $students;
+    }
+
+    /**
+     * S/AU → S, U → U (num_v), เกรดชุดเดิมคงไว้ — นอกนั้นไม่รองรับ
+     */
+    private function normalizeGradeSymbol(string $grade): ?string
+    {
+        $grade = strtoupper(trim($grade));
+
+        return match ($grade) {
+            'AU' => 'S',
+            'U' => 'U',
+            'A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F', 'I', 'S', 'W', 'V' => $grade,
+            default => null,
+        };
     }
 
     /**
@@ -343,7 +367,7 @@ class RegistrarGradePdfParser
 
             $field = self::GRADE_KEYS[$row['grade']] ?? null;
             if ($field !== null) {
-                $counts[$field] = $row['count'];
+                $counts[$field] = ($counts[$field] ?? 0) + $row['count'];
             }
 
             $scoreField = self::SCORE_KEYS[$row['grade']] ?? null;
@@ -432,12 +456,15 @@ class RegistrarGradePdfParser
      */
     private function parseSummaryLine(string $line, ?int $totalStudents): ?array
     {
-        // รูปแบบไม่มีช่วงคะแนนในแถว: 5.563<<->>A / 14.818<<->>B+ / 0.000<<->>F / 0.352<<->>W
+        // รูปแบบไม่มีช่วงคะแนนในแถว: 5.563<<->>A / 14.818<<->>B+ / 0.000<<->>AU / 0.352<<->>W
         if (str_contains($line, '<<->>')) {
-            if (preg_match('/^(\d+\.\d{2})(\d*)<<->>(A|B\+|B|C\+|C|D\+|D|F|I|S|W|V)$/u', $line, $match)) {
+            if (preg_match('/^(\d+\.\d{2})(\d*)<<->>('.self::GRADE_TOKEN.')$/u', $line, $match)) {
                 $percent = (float) $match[1];
                 $countDigits = $match[2];
-                $grade = $match[3];
+                $grade = $this->normalizeGradeSymbol($match[3]);
+                if ($grade === null) {
+                    return null;
+                }
 
                 if ($totalStudents !== null) {
                     $count = $percent < 0.005
@@ -494,8 +521,13 @@ class RegistrarGradePdfParser
             ];
         }
 
-        if (preg_match('/^(.+)\s+-\s+(\d+(?:\.\d+)?)(A|B\+|B|C\+|C|D\+|D|F)$/u', $line, $match)) {
-            $split = $this->splitCountAndMin($match[1], (float) $match[2], $totalStudents, $match[3]);
+        if (preg_match('/^(.+)\s+-\s+(\d+(?:\.\d+)?)('.self::GRADE_TOKEN.')$/u', $line, $match)) {
+            $grade = $this->normalizeGradeSymbol($match[3]);
+            if ($grade === null) {
+                return null;
+            }
+
+            $split = $this->splitCountAndMin($match[1], (float) $match[2], $totalStudents, $grade);
             if ($split === null) {
                 return null;
             }
@@ -509,7 +541,7 @@ class RegistrarGradePdfParser
                 'count' => $split['count'],
                 'min' => $split['min'],
                 'max' => (float) $match[2],
-                'grade' => $match[3],
+                'grade' => $grade,
                 'uses_decimal' => $usesDecimal || str_contains($match[2], '.'),
             ];
         }

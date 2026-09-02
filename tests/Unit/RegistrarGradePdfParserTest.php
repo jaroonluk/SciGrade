@@ -9,6 +9,48 @@ use Tests\TestCase;
 class RegistrarGradePdfParserTest extends TestCase
 {
     #[Test]
+    public function it_maps_s_au_to_s_and_u_to_u_and_skips_unknown_grades(): void
+    {
+        $text = <<<'TXT'
+หมายเหตุชื่อ-สกุลเกรดรหัสประจำตัวลำดับ
+ปริญญาตรี ภาคปกติ   คณะวิทยาศาสตร์
+SC999001 : TEST COURSE
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 1 / 2568
+ผู้สอน
+มหาวิทยาลัยขอนแก่น
+อ.ทดสอบ ระบบ	กลุ่ม 1
+รายวิชา
+ระดับการศึกษา
+วิทยาเขต ขอนแก่น
+หน่วยกิต 1 (1-0-2)
+คณะวิทยาศาสตร์
+<>   นายหนึ่ง  ดีS683020001-01
+<>   นายสอง  ผ่านAU683020002-82
+<>   นายสาม  ไม่ผ่านU683020003-63
+<>   นายสี่  พิเศษX683020004-44
+<>   นายห้า  ได้A683020005-25
+%รวมMANUALเกรด
+20.001<<->>S
+20.001<<->>AU
+20.001<<->>U
+20.001<<->>X
+20.001<<->>A
+100.005รวม
+CONTROL CODE:1234567
+controlcode : 1234567
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'ignore.pdf', 1, 2568);
+        $std = $parsed['grade_stds'][0];
+
+        $this->assertSame(2, $std['num_s']); // S + AU
+        $this->assertSame(1, $std['num_v']); // U → คอลัมน์ U
+        $this->assertSame(1, $std['num_a']);
+        $this->assertSame(0, $std['num_b']);
+    }
+
+    #[Test]
     public function it_parses_sc201101_compact_summary_arrows(): void
     {
         $path = base_path('project_old/file_test/SC201101-02.pdf');
