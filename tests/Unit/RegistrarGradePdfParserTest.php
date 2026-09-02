@@ -9,6 +9,38 @@ use Tests\TestCase;
 class RegistrarGradePdfParserTest extends TestCase
 {
     #[Test]
+    public function it_parses_sc201101_compact_summary_arrows(): void
+    {
+        $path = base_path('project_old/file_test/SC201101-02.pdf');
+        if (! is_file($path)) {
+            $this->markTestSkipped('SC201101-02 sample PDF not available.');
+        }
+
+        $parsed = (new RegistrarGradePdfParser)->parse($path, 'any-name.pdf', 1, 2568);
+        $std = $parsed['grade_stds'][0];
+
+        $this->assertSame('SC201101', $parsed['subject_code']);
+        $this->assertSame(2, $parsed['term']);
+        $this->assertSame(2568, $parsed['year']);
+        $this->assertSame(2, $parsed['type_course']);
+        $this->assertSame(2, $std['sec']);
+        $this->assertSame('PH', $std['fac']);
+        $this->assertSame(3, $std['num_a']);
+        $this->assertSame(8, $std['num_bb']);
+        $this->assertSame(17, $std['num_b']);
+        $this->assertSame(13, $std['num_cc']);
+        $this->assertSame(12, $std['num_c']);
+        $this->assertSame(0, $std['num_dd']);
+        $this->assertSame(1, $std['num_d']);
+        $this->assertSame(0, $std['num_f']);
+        $this->assertSame(54, $std['num_a'] + $std['num_bb'] + $std['num_b'] + $std['num_cc']
+            + $std['num_c'] + $std['num_dd'] + $std['num_d'] + $std['num_f'] + $std['num_w']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('79-72', $parsed['score_bb']);
+        $this->assertSame('23-0', $parsed['score_f']);
+    }
+
+    #[Test]
     public function it_parses_sc101011_text_sample_with_new_registrar_layout(): void
     {
         $path = base_path('tests/Fixtures/registrar-pdfs/SC101011-sample.txt');

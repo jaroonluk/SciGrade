@@ -352,6 +352,11 @@ class RegistrarGradePdfParser
             }
         }
 
+        // บางไฟล์ใส่ช่วงคะแนนแยกท้ายหน้า เป็น 80-100 72-79 ... (A ถึง F)
+        if ($ranges === []) {
+            $ranges = $this->parseTrailingScoreRanges($text);
+        }
+
         return ['counts' => $counts, 'ranges' => $ranges, 'uses_decimal' => $usesDecimal];
     }
 
@@ -367,6 +372,41 @@ class RegistrarGradePdfParser
         }
 
         return null;
+    }
+
+    /**
+     * ช่วงคะแนนแบบแยกท้ายไฟล์: 80-100 72-79 64-71 52-63 40-51 32-39 24-31 0-23
+     * (บางไฟล์ตัวเลข control code ติดกับ 80-100 เช่น 246417380-100)
+     *
+     * @return array<string, string>
+     */
+    private function parseTrailingScoreRanges(string $text): array
+    {
+        // ใช้ \d{2} สำหรับฝั่งที่ไม่ใช่ 100 เพื่อไม่ให้กลืนเลข control code (เช่น 246417380-100 → 80-100)
+        $pattern = '/(\d{2})\s*-\s*(100)\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(0)\s*-\s*(\d{1,3})/u';
+        $altPattern = '/(100)\s*-\s*(\d{2})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(\d{1,3})\s*-\s*(\d{1,3})\s+(0)\s*-\s*(\d{1,3})/u';
+
+        $match = null;
+        if (preg_match($pattern, $text, $m)) {
+            $match = $m;
+        } elseif (preg_match($altPattern, $text, $m)) {
+            $match = $m;
+        }
+
+        if ($match === null) {
+            return [];
+        }
+
+        $keys = ['score_a', 'score_bb', 'score_b', 'score_cc', 'score_c', 'score_dd', 'score_d', 'score_f'];
+        $ranges = [];
+
+        for ($i = 0; $i < 8; $i++) {
+            $left = (float) $match[$i * 2 + 1];
+            $right = (float) $match[$i * 2 + 2];
+            $ranges[$keys[$i]] = $this->formatScoreRange(max($left, $right), min($left, $right), false);
+        }
+
+        return $ranges;
     }
 
     private function formatScoreRange(float $max, float $min, bool $decimal): string
@@ -392,14 +432,29 @@ class RegistrarGradePdfParser
      */
     private function parseSummaryLine(string $line, ?int $totalStudents): ?array
     {
+        // รูปแบบไม่มีช่วงคะแนนในแถว: 5.563<<->>A / 14.818<<->>B+ / 0.000<<->>F / 0.352<<->>W
         if (str_contains($line, '<<->>')) {
-            if (preg_match('/^(\d+\.\d{2})(\d+)<<->>W$/u', $line, $match)) {
+            if (preg_match('/^(\d+\.\d{2})(\d*)<<->>(A|B\+|B|C\+|C|D\+|D|F|I|S|W|V)$/u', $line, $match)) {
+                $percent = (float) $match[1];
+                $countDigits = $match[2];
+                $grade = $match[3];
+
+                if ($totalStudents !== null) {
+                    $count = $percent < 0.005
+                        ? 0
+                        : (int) round($totalStudents * $percent / 100);
+                } elseif ($countDigits === '') {
+                    $count = 0;
+                } else {
+                    $count = (int) $countDigits;
+                }
+
                 return [
-                    'percent' => (float) $match[1],
-                    'count' => (int) $match[2],
+                    'percent' => $percent,
+                    'count' => $count,
                     'min' => null,
                     'max' => null,
-                    'grade' => 'W',
+                    'grade' => $grade,
                     'uses_decimal' => false,
                 ];
             }
