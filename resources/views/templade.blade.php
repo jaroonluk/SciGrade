@@ -344,6 +344,23 @@
                         <div>
                             <p class="text-sm font-medium text-[#5C2E1F] mb-2">จำนวนนักศึกษาแยกตามเกรด</p>
                             <p class="text-xs text-[#7A4A3A]/70 mb-2">ช่วงคะแนนด้านล่างอัปเดตตามที่กำหนดในตารางช่วงคะแนน</p>
+
+                            <div class="mb-3 rounded-lg border border-dashed border-amber-300 bg-white px-4 py-3 space-y-2">
+                                <label for="section-pdf-upload" class="block text-sm font-medium text-[#5C2E1F]">
+                                    อัปโหลดใบส่งผลการศึกษา (PDF) เพื่อกรอกจำนวนนักศึกษา
+                                </label>
+                                <p class="text-xs text-[#7A4A3A]/80">
+                                    ระบบจะตรวจรหัสวิชา ภาคการศึกษา และปีการศึกษาให้ตรงกับที่กรอกด้านบน
+                                    เมื่อบันทึกรายงาน ไฟล์นี้จะถูกแนบเป็นใบส่งผลการศึกษา (REG) อัตโนมัติ
+                                </p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <input id="section-pdf-upload" type="file" accept=".pdf,application/pdf"
+                                        class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                                    <span id="section-pdf-upload-status" class="text-xs text-[#7A4A3A]"></span>
+                                </div>
+                                <p id="section-pdf-upload-error" class="hidden text-xs text-red-600"></p>
+                            </div>
+
                             <div class="overflow-x-auto rounded-lg border border-amber-200 bg-white">
                                 <table id="student-grade-table" class="w-full text-sm min-w-[640px]">
                                     <thead>

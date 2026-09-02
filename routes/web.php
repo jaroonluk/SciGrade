@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [GradeReportPageController::class, 'create'])->name('create');
         Route::get('/upload', [GradeReportPageController::class, 'upload'])->name('upload');
         Route::post('/upload', [GradeReportPageController::class, 'storeUpload'])->name('upload.store');
+        Route::post('/parse-section-pdf', [GradeReportPageController::class, 'parseSectionPdf'])->name('parse-section-pdf');
         Route::get('/my', [GradeReportPageController::class, 'my'])->name('my');
         Route::post('/{gradeReport}/submit-corrections', [GradeReportPageController::class, 'submitCorrections'])->name('submit-corrections');
         Route::get('/approve', [GradeReportPageController::class, 'approve'])->name('approve');

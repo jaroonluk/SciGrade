@@ -119,6 +119,8 @@ class GradeReportController extends Controller
             }
         });
 
+        $this->pendingRegistrar->attachFromSession($gradeReport->fresh(), $this->staffUsername());
+
         $this->auditLog->record(
             'grade_report.update',
             subjectType: 'grade_report',

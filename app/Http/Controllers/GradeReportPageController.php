@@ -7,6 +7,7 @@ use App\Http\Controllers\GradeReportController;
 use App\Models\GradeReport;
 use App\Models\GradeType;
 use App\Services\Instructor\GradeReportSubmissionService;
+use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Services\StaffAuthService;
@@ -14,9 +15,11 @@ use App\Support\AcademicTerm;
 use App\Support\SciGradeRole;
 use App\Support\ThaiDateTime;
 use App\Support\UploadStorage;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class GradeReportPageController extends Controller
@@ -25,6 +28,7 @@ class GradeReportPageController extends Controller
         private readonly StaffAuthService $staffAuth,
         private readonly RegistrarGradePdfParser $pdfParser,
         private readonly GradeReportSubmissionService $submissionService,
+        private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
 
     private function formView(?int $reportId, array $nav = [], ?array $uploadParsed = null, ?array $prefillReport = null): View
@@ -195,16 +199,16 @@ class GradeReportPageController extends Controller
             $section > 0 ? $section : 1,
         );
 
-        session([
-            'grade_upload_path' => $path,
-            'grade_upload_name' => $canonicalName,
-            'grade_upload_term' => (int) ($parsed['term'] ?? $request->integer('term')),
-            'grade_upload_year' => (int) ($parsed['year'] ?? $request->integer('year')),
-            'grade_upload_subject_code' => $parsed['subject_code'] ?? null,
-            'grade_upload_section' => $parsed['grade_stds'][0]['sec'] ?? null,
-            'grade_upload_owner' => auth()->id(),
-            'grade_upload_parsed' => $parsed,
+        $this->pendingRegistrar->remember([
+            'path' => $path,
+            'name' => $canonicalName,
+            'term' => (int) ($parsed['term'] ?? $request->integer('term')),
+            'year' => (int) ($parsed['year'] ?? $request->integer('year')),
+            'subject_code' => (string) ($parsed['subject_code'] ?? ''),
+            'section' => $parsed['grade_stds'][0]['sec'] ?? null,
+            'owner' => auth()->id(),
         ]);
+        session(['grade_upload_parsed' => $parsed]);
 
         return redirect()
             ->route('grade-reports.create', [
@@ -213,6 +217,110 @@ class GradeReportPageController extends Controller
                 'return' => 'dashboard',
             ])
             ->with('status', 'อ่านไฟล์ PDF สำเร็จ — เมื่อบันทึกรายงาน ระบบจะแนบเป็นใบส่งผลการศึกษา (REG) ให้อัตโนมัติ');
+    }
+
+    /**
+     * อัปโหลด PDF ในหน้าฟอร์มกรอกจำนวนนักศึกษา — ตรวจรหัสวิชา/ภาค/ปีกับค่าในฟอร์ม
+     */
+    public function parseSectionPdf(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'subject_code' => ['required', 'string', 'max:32'],
+            'term' => ['required', 'integer', 'in:1,2,3'],
+            'year' => ['required', 'integer', 'min:2500', 'max:2600'],
+            'grade_file' => [
+                'required',
+                'file',
+                'mimetypes:application/pdf,application/x-pdf,application/octet-stream',
+                'max:20480',
+            ],
+        ], [
+            'subject_code.required' => 'กรุณากรอกรหัสวิชาก่อนอัปโหลดไฟล์',
+            'term.required' => 'กรุณาเลือกภาคการศึกษาก่อนอัปโหลดไฟล์',
+            'year.required' => 'กรุณาเลือกปีการศึกษาก่อนอัปโหลดไฟล์',
+            'grade_file.required' => 'กรุณาเลือกไฟล์ PDF',
+            'grade_file.mimetypes' => 'รองรับเฉพาะไฟล์ PDF จากสำนักทะเบียน',
+        ]);
+
+        $uploaded = $request->file('grade_file');
+        $tmpPath = $uploaded->getRealPath() ?: $uploaded->getPathname();
+
+        if (! is_string($tmpPath) || $tmpPath === '' || ! is_readable($tmpPath)) {
+            return response()->json([
+                'message' => 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง',
+            ], 422);
+        }
+
+        try {
+            $parsed = $this->pdfParser->parse(
+                $tmpPath,
+                $uploaded->getClientOriginalName(),
+                (int) $data['term'],
+                (int) $data['year'],
+            );
+        } catch (RegistrarPdfParseException $e) {
+            return response()->json([
+                'message' => $e->getMessage().' หรือกรอกข้อมูลเอง',
+            ], 422);
+        }
+
+        $mismatch = $this->registrarMismatchMessages($parsed, $data);
+        if ($mismatch !== []) {
+            return response()->json([
+                'message' => 'ไม่สามารถอัปโหลดไฟล์ได้ — ข้อมูลในไฟล์ไม่ตรงกับที่กรอกด้านบน กรุณาตรวจสอบก่อนอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง',
+                'errors' => ['grade_file' => $mismatch],
+                'mismatch' => $mismatch,
+            ], 422);
+        }
+
+        $section = (int) ($parsed['grade_stds'][0]['sec'] ?? 0);
+        $canonicalName = $this->pdfParser->canonicalFilename(
+            (string) ($parsed['subject_code'] ?? 'SUBJECT'),
+            $section > 0 ? $section : 1,
+        );
+        $path = $uploaded->store('grade-uploads/'.auth()->id(), UploadStorage::diskName());
+
+        $this->pendingRegistrar->remember([
+            'path' => $path,
+            'name' => $canonicalName,
+            'term' => (int) $parsed['term'],
+            'year' => (int) $parsed['year'],
+            'subject_code' => (string) $parsed['subject_code'],
+            'section' => $parsed['grade_stds'][0]['sec'] ?? null,
+            'owner' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'อ่านไฟล์สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว เมื่อบันทึกรายงาน ระบบจะแนบเป็นใบส่งผลการศึกษา (REG) อัตโนมัติ',
+            'parsed' => $parsed,
+            'file_name' => $canonicalName,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $parsed
+     * @param  array{subject_code: string, term: int, year: int}  $expected
+     * @return list<string>
+     */
+    private function registrarMismatchMessages(array $parsed, array $expected): array
+    {
+        $messages = [];
+        $formSubject = Str::upper(trim((string) $expected['subject_code']));
+        $pdfSubject = Str::upper(trim((string) ($parsed['subject_code'] ?? '')));
+
+        if ($formSubject === '' || $pdfSubject === '' || $formSubject !== $pdfSubject) {
+            $messages[] = 'รหัสวิชาในไฟล์ ('.($pdfSubject !== '' ? $pdfSubject : '-').') ไม่ตรงกับที่กรอก ('.($formSubject !== '' ? $formSubject : '-').')';
+        }
+
+        if ((int) ($parsed['term'] ?? 0) !== (int) $expected['term']) {
+            $messages[] = 'ภาคการศึกษาในไฟล์ ('.($parsed['term'] ?? '-').') ไม่ตรงกับที่กรอก ('.$expected['term'].')';
+        }
+
+        if ((int) ($parsed['year'] ?? 0) !== (int) $expected['year']) {
+            $messages[] = 'ปีการศึกษาในไฟล์ ('.($parsed['year'] ?? '-').') ไม่ตรงกับที่กรอก ('.$expected['year'].')';
+        }
+
+        return $messages;
     }
 
     public function my(Request $request): View

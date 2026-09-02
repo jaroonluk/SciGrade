@@ -744,6 +744,137 @@ function cancelSectionEdit() {
     refreshSectionSelectOptions();
 }
 
+function applyParsedSectionFromPdf(parsed) {
+    if (!parsed) return;
+
+    if (parsed.intflag != null) setRadio('intflag', parsed.intflag);
+    if (parsed.type_course != null) setRadio('type_course', parsed.type_course);
+
+    parseScoreRange(parsed.score_a, 'range-a-max', 'range-a-min');
+    parseScoreRange(parsed.score_bb, 'range-bp-max', 'range-bp-min');
+    parseScoreRange(parsed.score_b, 'range-b-max', 'range-b-min');
+    parseScoreRange(parsed.score_cc, 'range-cp-max', 'range-cp-min');
+    parseScoreRange(parsed.score_c, 'range-c-max', 'range-c-min');
+    parseScoreRange(parsed.score_dd, 'range-dp-max', 'range-dp-min');
+    parseScoreRange(parsed.score_d, 'range-d-max', 'range-d-min');
+    parseScoreRange(parsed.score_f, 'range-f-max', 'range-f-min');
+    recalcAllGradeChains();
+
+    const std = Array.isArray(parsed.grade_stds) && parsed.grade_stds.length
+        ? parsed.grade_stds[0]
+        : null;
+    if (!std) return;
+
+    const sec = std.sec ?? 1;
+    const existingIndex = sectionStdRows.findIndex((row) => Number(row.sec) === Number(sec));
+    editingSectionIndex = existingIndex >= 0 ? existingIndex : null;
+
+    document.getElementById('section-input').value = String(sec);
+    setFacultiesSelected(std.fac || '');
+    setRadio('type_course', std.type_course ?? parsed.type_course ?? 1);
+    loadGradeStdToForm({
+        ...std,
+        sec,
+        fac: std.fac || '',
+        type_course: std.type_course ?? parsed.type_course ?? 1,
+    });
+
+    const saved = addOrUpdateSectionFromForm();
+    if (!saved.ok) {
+        showToast(saved.error || 'อ่านไฟล์แล้ว แต่บันทึก Section ไม่สำเร็จ — กรุณาตรวจสอบคณะ/ข้อมูล', 'error');
+    }
+}
+
+async function uploadSectionRegistrarPdf(file) {
+    const statusEl = document.getElementById('section-pdf-upload-status');
+    const errorEl = document.getElementById('section-pdf-upload-error');
+    const input = document.getElementById('section-pdf-upload');
+
+    const showError = (msg) => {
+        if (errorEl) {
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+        }
+        if (statusEl) statusEl.textContent = '';
+        showToast(msg, 'error');
+    };
+
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+
+    const subjectCode = document.getElementById('subject-code')?.value?.trim();
+    const term = document.querySelector('input[name="term"]:checked')?.value
+        || document.getElementById('term-input')?.value;
+    const year = document.getElementById('year-input')?.value;
+
+    if (!subjectCode) {
+        showError('กรุณากรอกรหัสวิชาก่อนอัปโหลดไฟล์ หรือกรอกจำนวนนักศึกษาเอง');
+        if (input) input.value = '';
+        return;
+    }
+    if (!term || !year) {
+        showError('กรุณาเลือกภาคการศึกษาและปีการศึกษาก่อนอัปโหลดไฟล์ หรือกรอกจำนวนนักศึกษาเอง');
+        if (input) input.value = '';
+        return;
+    }
+
+    if (statusEl) statusEl.textContent = 'กำลังอ่านไฟล์...';
+
+    const body = new FormData();
+    body.append('grade_file', file);
+    body.append('subject_code', subjectCode);
+    body.append('term', term);
+    body.append('year', year);
+
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    try {
+        const res = await fetch('/grade-reports/parse-section-pdf', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const details = Array.isArray(data.mismatch) && data.mismatch.length
+                ? data.mismatch.join(' ')
+                : (data.errors?.grade_file
+                    ? [].concat(data.errors.grade_file).join(' ')
+                    : null);
+            throw new Error(details || data.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง');
+        }
+
+        applyParsedSectionFromPdf(data.parsed);
+        if (statusEl) {
+            statusEl.textContent = data.file_name
+                ? `อ่านสำเร็จ: ${data.file_name}`
+                : 'อ่านไฟล์สำเร็จ';
+        }
+        showToast(data.message || 'อ่านไฟล์สำเร็จ', 'success');
+    } catch (err) {
+        showError(err?.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง');
+    } finally {
+        if (input) input.value = '';
+    }
+}
+
+function setupSectionPdfUpload() {
+    const input = document.getElementById('section-pdf-upload');
+    if (!input || input.dataset.bound === '1') return;
+    input.dataset.bound = '1';
+    input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (file) uploadSectionRegistrarPdf(file);
+    });
+}
+
 function addOrUpdateSectionFromForm() {
     const error = validateSectionStdForm();
     if (error) return { ok: false, error };
@@ -1230,6 +1361,7 @@ function initTempladeForm(options = {}) {
         setupReasonIdFields();
         setupSectionStdManager();
         setupFacMultiSelect();
+        setupSectionPdfUpload();
         document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
             el.addEventListener('change', toggleEvaFields);
         });

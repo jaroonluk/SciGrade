@@ -74,8 +74,10 @@ class InstructorPendingRegistrarServiceTest extends TestCase
             InstructorPendingRegistrarService::SESSION_OWNER => $user->id,
         ]);
 
-        $file = $service->attachFromSession($report, 'teacher01', $user->id);
+        $files = $service->attachFromSession($report, 'teacher01', $user->id);
 
+        $this->assertCount(1, $files);
+        $file = $files[0];
         $this->assertInstanceOf(GradeReportFile::class, $file);
         $this->assertSame(GradeReportFile::TYPE_REGISTRAR, $file->resolvedType());
         $this->assertSame('teacher01', $file->username);
@@ -119,7 +121,7 @@ class InstructorPendingRegistrarServiceTest extends TestCase
             InstructorPendingRegistrarService::SESSION_OWNER => $user->id,
         ]);
 
-        $this->assertNull($service->attachFromSession($report, 'teacher01', $user->id));
+        $this->assertSame([], $service->attachFromSession($report, 'teacher01', $user->id));
         $this->assertTrue(UploadStorage::disk()->exists($sourcePath));
     }
 }
