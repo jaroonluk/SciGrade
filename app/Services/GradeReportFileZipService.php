@@ -80,7 +80,7 @@ class GradeReportFileZipService
             $filename = $file->deptRegistrarDownloadName($report);
         } elseif ($file->isRegistrar()) {
             $typeFolder = 'REG';
-            $filename = $this->safeFileBasename((string) $file->original_name);
+            $filename = $file->instructorRegistrarDownloadName($report);
         } else {
             $typeFolder = 'exam_report';
             $filename = $this->safeFileBasename((string) $file->original_name);

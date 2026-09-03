@@ -236,7 +236,8 @@
                 <p class="text-sm font-semibold text-[#5C2E1F]">ดาวน์โหลดไฟล์แนบ</p>
                 <p class="text-xs text-[#7A4A3A]/80 mt-0.5">
                     เลือกดาวน์โหลดไฟล์ของอาจารย์ หรือ REG ที่ Admin สาขาอัปโหลด —
-                    ไฟล์ REG ของ Admin สาขาจะตั้งชื่อเป็น <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม-จำนวนนักศึกษา.pdf</code>
+                    ไฟล์ REG ของอาจารย์: <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม.pdf</code>
+                    · REG ของ Admin สาขา: <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม-จำนวนนักศึกษา.pdf</code>
                 </p>
             </div>
             <div class="flex flex-wrap items-end gap-2">

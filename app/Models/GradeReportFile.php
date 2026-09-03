@@ -246,6 +246,64 @@ class GradeReportFile extends Model
         return $report->deptRegistrarDownloadName($this->resolvedSection($report));
     }
 
+    /**
+     * ชื่อไฟล์ตอนดาวน์โหลด REG ที่อาจารย์อัปโหลด: รหัสวิชา-กลุ่ม.pdf (เช่น SC101011-01.pdf)
+     */
+    public function instructorRegistrarDownloadName(?GradeReport $report = null): string
+    {
+        $identity = $this->parseRegistrarIdentityFromStoredName((string) $this->original_name);
+        $code = $identity['code'];
+        $section = $identity['section'];
+
+        if ($code === null || $section === null) {
+            $report ??= $this->relationLoaded('gradeReport')
+                ? $this->gradeReport
+                : $this->gradeReport()->with('gradeStds')->first();
+
+            if ($report instanceof GradeReport) {
+                if ($code === null) {
+                    $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $report->subject_code) ?: '');
+                    $code = $code !== '' ? $code : null;
+                }
+
+                if ($section === null) {
+                    $resolved = $this->resolvedSection($report);
+                    $section = $resolved !== null ? (string) $resolved : null;
+                }
+            }
+        }
+
+        if ($code === null) {
+            return $this->safeDownloadBasename();
+        }
+
+        if ($section === null || $section === '') {
+            return $code.'.pdf';
+        }
+
+        return $code.'-'.str_pad((string) (int) $section, 2, '0', STR_PAD_LEFT).'.pdf';
+    }
+
+    /**
+     * ชื่อไฟล์ที่ใช้ตอนดาวน์โหลด/เปิดดู ตามประเภทและแหล่งอัปโหลด
+     */
+    public function downloadBasename(?GradeReport $report = null): string
+    {
+        $report ??= $this->relationLoaded('gradeReport')
+            ? $this->gradeReport
+            : null;
+
+        if ($this->isDeptAdminUpload($report)) {
+            return $this->deptRegistrarDownloadName($report);
+        }
+
+        if ($this->isRegistrar() && $this->isInstructorUpload($report)) {
+            return $this->instructorRegistrarDownloadName($report);
+        }
+
+        return $this->safeDownloadBasename();
+    }
+
     private function safeDownloadBasename(): string
     {
         $base = basename(str_replace('\\', '/', (string) $this->original_name));

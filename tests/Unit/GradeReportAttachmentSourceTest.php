@@ -10,6 +10,32 @@ use Tests\TestCase;
 
 class GradeReportAttachmentSourceTest extends TestCase
 {
+    public function test_instructor_registrar_download_name_uses_code_and_section(): void
+    {
+        $report = new GradeReport([
+            'subject_code' => 'SC101011',
+            'username' => 'teacher01',
+        ]);
+        $report->setRelation('gradeStds', collect([
+            new GradeStd(['sec' => '1', 'total_std' => 40]),
+        ]));
+
+        $file = new GradeReportFile([
+            'file_type' => GradeReportFile::TYPE_REGISTRAR,
+            'username' => 'teacher01',
+            'original_name' => 'REG_2568_2_SC101011_01.pdf',
+            'stored_path' => 'x/reg.pdf',
+        ]);
+        $file->setRelation('gradeReport', $report);
+
+        $this->assertSame('SC101011-01.pdf', $file->instructorRegistrarDownloadName($report));
+        $this->assertSame('SC101011-01.pdf', $file->downloadBasename($report));
+
+        $service = new GradeReportFileZipService;
+        $used = [];
+        $this->assertSame('REG/SC101011-01.pdf', $service->zipEntryPathFor($file, $used));
+    }
+
     public function test_dept_registrar_download_name_uses_code_group_and_total(): void
     {
         $report = new GradeReport([

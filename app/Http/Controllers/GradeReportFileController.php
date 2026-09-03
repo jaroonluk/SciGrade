@@ -75,11 +75,9 @@ class GradeReportFileController extends Controller
         abort_unless($this->canViewFiles($gradeReport), 403);
         abort_unless((int) $file->grade_id === (int) $gradeReport->grade_id, 404);
 
-        $downloadName = $file->original_name;
-        if ($file->isDeptAdminUpload($gradeReport)) {
-            $gradeReport->loadMissing('gradeStds');
-            $downloadName = $file->deptRegistrarDownloadName($gradeReport);
-        }
+        $gradeReport->loadMissing('gradeStds');
+        $file->setRelation('gradeReport', $gradeReport);
+        $downloadName = $file->downloadBasename($gradeReport);
 
         $this->auditLog->record(
             'grade_report_file.view',
