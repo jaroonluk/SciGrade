@@ -270,10 +270,10 @@ class GradeReport extends Model
     }
 
     /**
-     * ชื่อไฟล์ตอนดาวน์โหลด REG ของ Admin สาขา:
-     * รหัสวิชา-กลุ่ม-จำนวนนักศึกษาของกลุ่มนั้น.pdf
+     * ชื่อไฟล์ตอนดาวน์โหลดใบ REG:
+     * รหัสวิชา-SecN.pdf (เช่น SC101011-Sec1.pdf)
      *
-     * @param  int|null  $section  กลุ่มเรียนเฉพาะไฟล์ (เช่น 1 → 01) — ถ้าไม่ระบุและมีหลายกลุ่มจะรวมเป็น 01_02
+     * @param  int|null  $section  กลุ่มเรียนเฉพาะไฟล์ — ถ้าไม่ระบุและมีหลายกลุ่มจะรวมเป็น Sec1_2
      */
     public function deptRegistrarDownloadName(?int $section = null): string
     {
@@ -284,7 +284,7 @@ class GradeReport extends Model
         $code = preg_replace('/[^\w.\-]+/u', '_', trim((string) $this->subject_code)) ?: 'SUBJECT';
 
         if ($section !== null) {
-            $group = str_pad((string) $section, 2, '0', STR_PAD_LEFT);
+            $secLabel = 'Sec'.(int) $section;
         } else {
             $sections = $this->enrollmentSections()
                 ->pluck('sec')
@@ -292,19 +292,18 @@ class GradeReport extends Model
                 ->map(function ($sec) {
                     $digits = preg_replace('/\D/', '', (string) $sec);
 
-                    return $digits !== ''
-                        ? str_pad((string) (int) $digits, 2, '0', STR_PAD_LEFT)
-                        : preg_replace('/[^\w.\-]+/u', '_', (string) $sec);
+                    return $digits !== '' ? (string) (int) $digits : null;
                 })
+                ->filter()
                 ->unique()
                 ->values();
 
-            $group = $sections->isNotEmpty() ? $sections->implode('_') : '00';
+            $secLabel = $sections->isNotEmpty()
+                ? 'Sec'.$sections->implode('_')
+                : 'Sec0';
         }
 
-        $total = $this->sectionStudentCount($section);
-
-        return sprintf('%s-%s-%d.pdf', $code, $group, $total);
+        return sprintf('%s-%s.pdf', $code, $secLabel);
     }
 
     public function termLabel(): string

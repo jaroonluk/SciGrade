@@ -227,7 +227,7 @@ class GradeReportFile extends Model
     }
 
     /**
-     * ชื่อไฟล์ตอนดาวน์โหลด REG-Admin ตามกลุ่มเรียนของไฟล์นี้
+     * ชื่อไฟล์ตอนดาวน์โหลด REG ตามกลุ่มเรียนของไฟล์นี้: รหัสวิชา-SecN.pdf
      */
     public function deptRegistrarDownloadName(?GradeReport $report = null): string
     {

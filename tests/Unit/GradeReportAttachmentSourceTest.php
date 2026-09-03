@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class GradeReportAttachmentSourceTest extends TestCase
 {
-    public function test_dept_registrar_download_name_uses_code_group_and_total(): void
+    public function test_dept_registrar_download_name_uses_code_and_sec(): void
     {
         $report = new GradeReport([
             'subject_code' => 'SC203001',
@@ -21,9 +21,9 @@ class GradeReportAttachmentSourceTest extends TestCase
             new GradeStd(['sec' => '2', 'total_std' => 25]),
         ]));
 
-        $this->assertSame('SC203001-01_02-45.pdf', $report->deptRegistrarDownloadName());
-        $this->assertSame('SC203001-01-20.pdf', $report->deptRegistrarDownloadName(1));
-        $this->assertSame('SC203001-02-25.pdf', $report->deptRegistrarDownloadName(2));
+        $this->assertSame('SC203001-Sec1_2.pdf', $report->deptRegistrarDownloadName());
+        $this->assertSame('SC203001-Sec1.pdf', $report->deptRegistrarDownloadName(1));
+        $this->assertSame('SC203001-Sec2.pdf', $report->deptRegistrarDownloadName(2));
     }
 
     public function test_multi_section_reg_admin_files_get_per_section_download_names(): void
@@ -56,13 +56,13 @@ class GradeReportAttachmentSourceTest extends TestCase
         ]);
         $fileSec2->setRelation('gradeReport', $report);
 
-        $this->assertSame('SC901102-01-60.pdf', $fileSec1->deptRegistrarDownloadName($report));
-        $this->assertSame('SC901102-02-69.pdf', $fileSec2->deptRegistrarDownloadName($report));
+        $this->assertSame('SC901102-Sec1.pdf', $fileSec1->deptRegistrarDownloadName($report));
+        $this->assertSame('SC901102-Sec2.pdf', $fileSec2->deptRegistrarDownloadName($report));
 
         $service = new GradeReportFileZipService;
         $used = [];
-        $this->assertSame('REG-Admin/SC901102-01-60.pdf', $service->zipEntryPathFor($fileSec1, $used));
-        $this->assertSame('REG-Admin/SC901102-02-69.pdf', $service->zipEntryPathFor($fileSec2, $used));
+        $this->assertSame('REG-Admin/SC901102-Sec1.pdf', $service->zipEntryPathFor($fileSec1, $used));
+        $this->assertSame('REG-Admin/SC901102-Sec2.pdf', $service->zipEntryPathFor($fileSec2, $used));
     }
 
     public function test_instructor_vs_dept_upload_detection(): void
@@ -132,9 +132,19 @@ class GradeReportAttachmentSourceTest extends TestCase
         $this->assertSame('reg_d.pdf', $service->collectFiles($reports, 'registrar_dept')->first()->original_name);
         $this->assertCount(2, $service->collectFiles($reports, 'registrar'));
         $this->assertCount(3, $service->collectFiles($reports, 'all'));
+
+        $used = [];
+        $this->assertSame(
+            'REG/SC101-Sec1.pdf',
+            $service->zipEntryPathFor($regInstructor->setRelation('gradeReport', $report), $used),
+        );
+        $this->assertSame(
+            'REG-Admin/SC101-Sec1.pdf',
+            $service->zipEntryPathFor($regDept->setRelation('gradeReport', $report), $used),
+        );
     }
 
-    public function test_batch_zip_puts_reg_admin_files_in_shared_folder_with_code_group_total_name(): void
+    public function test_batch_zip_puts_reg_admin_files_in_shared_folder_with_code_sec_name(): void
     {
         $reportA = new GradeReport([
             'subject_code' => 'SC203001',
@@ -178,8 +188,8 @@ class GradeReportAttachmentSourceTest extends TestCase
         $pathA = $service->zipEntryPathFor($fileA, $used);
         $pathB = $service->zipEntryPathFor($fileB, $used);
 
-        $this->assertSame('REG-Admin/SC203001-01-20.pdf', $pathA);
-        $this->assertSame('REG-Admin/SC203002-02-30.pdf', $pathB);
+        $this->assertSame('REG-Admin/SC203001-Sec1.pdf', $pathA);
+        $this->assertSame('REG-Admin/SC203002-Sec2.pdf', $pathB);
         $this->assertStringStartsWith('REG-Admin/', $pathA);
         $this->assertStringStartsWith('REG-Admin/', $pathB);
         $this->assertStringNotContainsString('SC203001_101', $pathA);
