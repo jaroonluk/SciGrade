@@ -196,9 +196,9 @@
                     </div>
 
                     <div class="bg-white border border-amber-200 rounded-lg p-4">
-                        <p class="text-sm font-semibold text-[#5C2E1F] mb-2">รูปแบบการกรอกจำนวนนักศึกษา</p>
-                        <label class="flex items-center gap-2 text-sm mb-1"><input type="radio" name="statuseva" value="1" class="accent-amber-700"> ต้องกรอกช่วงคะแนนตาม Section</label>
-                        <label class="flex items-center gap-2 text-sm"><input type="radio" name="statuseva" value="2" checked class="accent-amber-700"> กรอกช่วงคะแนนรวม</label>
+                        <p class="text-sm font-semibold text-[#5C2E1F] mb-2">เลือกรูปแบบการกรอกผลการประเมินรายวิชา</p>
+                        <label class="flex items-center gap-2 text-sm mb-1"><input type="radio" name="statuseva" value="1" class="accent-amber-700"> กรอกคะแนนประเมินรายวิชาตาม Section</label>
+                        <label class="flex items-center gap-2 text-sm"><input type="radio" name="statuseva" value="2" checked class="accent-amber-700"> กรอกคะแนนประเมินรายวิชาแบบรวม</label>
                     </div>
 
                     <div id="report-eva-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
