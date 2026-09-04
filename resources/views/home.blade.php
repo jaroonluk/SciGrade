@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', 'หน้าหลัก — SciGrad')
+@section('title', 'หน้าหลัก — SciGrade')
 
 @push('styles')
 <style>
@@ -256,6 +256,17 @@
     .entry-card.tone-upload::before { background: #0f766e; }
     .entry-card.tone-upload .entry-icon { background: #ccfbf1; color: #0f766e; }
     .entry-card.tone-upload .entry-cta { color: #0f766e; }
+    .entry-card.tone-thesis {
+        background: linear-gradient(135deg, #fefce8 0%, #fef9c3 45%, #fff 100%);
+        border-color: #facc15;
+    }
+    .entry-card.tone-thesis::before { background: #ca8a04; }
+    .entry-card.tone-thesis .entry-icon { background: #fef08a; color: #a16207; }
+    .entry-card.tone-thesis .entry-cta { color: #a16207; }
+    .entry-card.tone-thesis:hover {
+        border-color: #eab308;
+        box-shadow: 0 6px 18px rgba(161, 98, 7, 0.12);
+    }
 
     .role-tone-instructor {
         border-color: #fed7aa;
@@ -428,6 +439,25 @@
                                     นำเข้าไฟล์รายงานผลสอบ แล้วตรวจสอบ/แก้ไขก่อนบันทึก
                                 </p>
                                 <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปอัปโหลด →</span>
+                            </div>
+                        </div>
+                    </a>
+                    @php $thesisGradeUrl = trim((string) config('scigrade.thesis_grade_url', '')); @endphp
+                    <a href="{{ $thesisGradeUrl !== '' ? $thesisGradeUrl : '#' }}"
+                       @if ($thesisGradeUrl !== '' && str_starts_with($thesisGradeUrl, 'http'))
+                           target="_blank" rel="noopener noreferrer"
+                       @endif
+                       class="entry-card tone-thesis rounded-xl p-5 block md:col-span-2">
+                        <div class="flex items-start gap-4">
+                            <div class="entry-icon p-2">
+                                <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
+                            </div>
+                            <div>
+                                <p class="text-base font-bold text-[#854d0e]">ส่งผลการเรียนรายวิชาวิทยานิพนธ์/การศึกษาอิสระ</p>
+                                <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
+                                    สำหรับรายวิชาวิทยานิพนธ์ หรือการศึกษาอิสระ ที่แยกจากรายงานผลการสอบไล่ทั่วไป
+                                </p>
+                                <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปส่งผล →</span>
                             </div>
                         </div>
                     </a>

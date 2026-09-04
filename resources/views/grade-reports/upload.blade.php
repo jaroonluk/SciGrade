@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', 'อัปโหลดไฟล์ — SciGrad')
+@section('title', 'อัปโหลดไฟล์ — SciGrade')
 
 @section('subnav')
 <span class="text-gray-400">/</span>

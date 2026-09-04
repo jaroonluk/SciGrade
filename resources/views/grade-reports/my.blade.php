@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', 'รายงานของฉัน — SciGrad')
+@section('title', 'รายงานของฉัน — SciGrade')
 
 @section('subnav')
 <span class="text-gray-400">/</span>

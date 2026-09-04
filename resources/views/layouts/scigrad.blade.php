@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'ระบบรายงานผลการสอบ SciGrad')</title>
+    <title>@yield('title', 'ระบบรายงานผลการสอบ SciGrade')</title>
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +32,7 @@
                     <i data-lucide="graduation-cap" class="w-6 h-6 text-amber-900"></i>
                 </div>
                 <div class="min-w-0">
-                    <h1 class="canva-text text-lg font-bold truncate">ระบบรายงานผลการสอบ SciGrad</h1>
+                    <h1 class="canva-text text-lg font-bold truncate">ระบบรายงานผลการสอบ SciGrade</h1>
                     <p class="canva-text text-sm opacity-90 truncate">คณะวิทยาศาสตร์ มหาวิทยาลัยขอนแก่น</p>
                 </div>
             </a>

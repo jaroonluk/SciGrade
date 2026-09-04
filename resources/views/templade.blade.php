@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', isset($reportId) ? 'แก้ไขรายงานผลสอบ — SciGrad' : 'กรอกผลสอบ — SciGrad')
+@section('title', isset($reportId) ? 'แก้ไขรายงานผลสอบ — SciGrade' : 'กรอกผลสอบ — SciGrade')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
