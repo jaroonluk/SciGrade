@@ -1,10 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-hidden="true">
-  <!-- Bound thesis / research volume -->
   <rect x="14" y="14" width="30" height="40" rx="3" fill="#FEF9C3" stroke="#A16207" stroke-width="2.5"/>
   <path d="M14 18h30" stroke="#CA8A04" stroke-width="2.5" stroke-linecap="round"/>
   <path d="M20 28h18M20 35h18M20 42h12" stroke="#CA8A04" stroke-width="2.2" stroke-linecap="round"/>
   <path d="M14 14v40" stroke="#854D0E" stroke-width="3.5" stroke-linecap="round"/>
-  <!-- Graduation cap  graduate / thesis -->
   <path d="M36 10l18 7-18 7-18-7 18-7z" fill="#EAB308" stroke="#854D0E" stroke-width="1.8" stroke-linejoin="round"/>
   <path d="M48 18.5v8.5c0 2.2-5.4 4-12 4s-12-1.8-12-4v-8.5" stroke="#854D0E" stroke-width="1.8" fill="none"/>
   <path d="M54 17.5v10.5" stroke="#854D0E" stroke-width="2" stroke-linecap="round"/>
