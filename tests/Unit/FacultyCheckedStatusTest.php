@@ -65,4 +65,30 @@ class FacultyCheckedStatusTest extends TestCase
         $this->assertTrue($deptApproved->canDeptDeleteRegistrar());
         $this->assertFalse($checked->canDeptDeleteRegistrar());
     }
+
+    #[Test]
+    public function it_uses_plain_language_instructor_track_status(): void
+    {
+        $pending = new GradeReport(['approv' => 0]);
+        $pending->setRelation('approvalLogs', collect());
+        $this->assertSame('ส่งแล้ว — รอสาขาตรวจสอบ', $pending->instructorTrackStatusLabel());
+
+        $rejected = new GradeReport(['approv' => -1]);
+        $this->assertSame('ส่งกลับให้แก้ไข', $rejected->instructorTrackStatusLabel());
+
+        $resubmitted = new GradeReport(['approv' => 0]);
+        $resubmitted->setRelation('approvalLogs', collect([
+            new \App\Models\GradeReportApprovalLog(['action' => 'instructor_resubmitted']),
+        ]));
+        $this->assertSame('ส่งการแก้ไขแล้ว — รอสาขา', $resubmitted->instructorTrackStatusLabel());
+
+        $dept = new GradeReport(['approv' => 1]);
+        $this->assertSame('สาขาอนุมัติแล้ว — รอคณะ', $dept->instructorTrackStatusLabel());
+
+        $checked = new GradeReport(['approv' => 3]);
+        $this->assertSame('สาขาอนุมัติแล้ว — รอคณะ', $checked->instructorTrackStatusLabel());
+
+        $done = new GradeReport(['approv' => 2]);
+        $this->assertSame('คณะอนุมัติแล้ว — เสร็จสิ้น', $done->instructorTrackStatusLabel());
+    }
 }

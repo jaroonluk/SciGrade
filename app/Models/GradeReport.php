@@ -133,6 +133,35 @@ class GradeReport extends Model
         };
     }
 
+    public function instructorTrackStatusLabel(): string
+    {
+        $approv = (int) $this->approv;
+
+        if ($approv === -1) {
+            return 'ส่งกลับให้แก้ไข';
+        }
+
+        if ($approv === 0 && $this->awaitingDeptResubmit()) {
+            return 'ส่งการแก้ไขแล้ว — รอสาขา';
+        }
+
+        return match ($approv) {
+            1, 3 => 'สาขาอนุมัติแล้ว — รอคณะ',
+            2 => 'คณะอนุมัติแล้ว — เสร็จสิ้น',
+            default => 'ส่งแล้ว — รอสาขาตรวจสอบ',
+        };
+    }
+
+    public function instructorTrackStatusClass(): string
+    {
+        return match ((int) $this->approv) {
+            1, 3 => 'status-dept',
+            2 => 'status-approved',
+            -1 => 'status-rejected',
+            default => 'status-pending',
+        };
+    }
+
     public function approvalResultLabel(): string
     {
         return match ((int) $this->approv) {

@@ -332,7 +332,7 @@ class GradeReportPageController extends Controller
         $username = $this->resolveStaffUsername();
         if ($username) {
             $reports = GradeReport::query()
-                ->with(['gradeStds', 'approvalLogs'])
+                ->with(['gradeStds', 'files', 'approvalLogs.approver'])
                 ->where('username', $username)
                 ->where('term', (string) $term)
                 ->where('year', (string) $year)

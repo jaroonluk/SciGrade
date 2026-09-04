@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\DeptSubmission;
-use App\Models\GradeReport;
 use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DeptSubmissionService;
@@ -32,7 +31,6 @@ class HomeController extends Controller
         $term = (int) $request->input('term', $defaultTerm);
         $year = (int) $request->input('year', $defaultYear);
 
-        $reports = collect();
         $departments = collect();
         $deptDepartmentId = null;
         $deptSubmissions = [
@@ -40,20 +38,6 @@ class HomeController extends Controller
             DeptSubmission::EDUCATION_GRADUATE => null,
         ];
         $openDeptSubmissions = collect();
-
-        if ($role === SciGradeRole::INSTRUCTOR) {
-            $username = $this->resolveStaffUsername();
-            if ($username) {
-                $reports = GradeReport::query()
-                    ->with(['gradeStds', 'files', 'approvalLogs.approver'])
-                    ->where('username', $username)
-                    ->where('term', (string) $term)
-                    ->where('year', (string) $year)
-                    ->orderByDesc('created_stamp')
-                    ->orderByDesc('grade_id')
-                    ->get();
-            }
-        }
 
         if ($role === SciGradeRole::DEPT_ADMIN) {
             $staff = $this->staffAuth->findByEmail(auth()->user()->email);
@@ -98,7 +82,6 @@ class HomeController extends Controller
                 auth()->user()->email,
                 auth()->user()->name,
             ),
-            'reports' => $reports,
             'term' => $term,
             'year' => $year,
             'years' => AcademicTerm::yearOptions(),
@@ -130,20 +113,5 @@ class HomeController extends Controller
         ]);
 
         return redirect()->route('dashboard');
-    }
-
-    private function resolveStaffUsername(): ?string
-    {
-        $username = session('staff_username');
-
-        if (empty($username) && auth()->user()) {
-            $staff = $this->staffAuth->findByEmail(auth()->user()->email);
-            if ($staff) {
-                $this->staffAuth->storeInSession($staff);
-                $username = $staff->username;
-            }
-        }
-
-        return $username ? (string) $username : null;
     }
 }
