@@ -28,6 +28,23 @@
         border: 1px dashed #E8C4B8; border-radius: .5rem; padding: .5rem;
         background: #fffaf5;
     }
+    .reg-source-block {
+        border-radius: .5rem;
+        padding: .45rem .5rem;
+        border: 1px solid #f0e0d0;
+    }
+    .reg-source-block + .reg-source-block { margin-top: .5rem; }
+    .reg-source-instructor { background: #fffaf5; border-color: #f0e0d0; }
+    .reg-source-dept { background: #f0fdfa; border-color: #ccfbf1; }
+    .reg-source-label {
+        font-size: .65rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+        margin-bottom: .35rem;
+        line-height: 1.2;
+    }
+    .reg-source-instructor .reg-source-label { color: #8B4513; }
+    .reg-source-dept .reg-source-label { color: #0f766e; }
 
     /* Admin กลาง / Super Admin menu groups */
     .admin-workflow {
@@ -545,7 +562,13 @@
                                     <td>
                                         @php
                                             $examFiles = $report->files->filter(fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_EXAM_REPORT);
-                                            $regFiles = $report->files->filter(fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_REGISTRAR);
+                                            $regInstructorFiles = $report->files->filter(
+                                                fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_REGISTRAR
+                                                    && $f->isInstructorUpload($report)
+                                            );
+                                            $regDeptFiles = $report->files->filter(
+                                                fn ($f) => $f->isDeptAdminUpload($report)
+                                            );
                                         @endphp
                                         <div class="space-y-2" data-report-files="{{ $report->grade_id }}" data-file-type="exam_report">
                                             @if ($examFiles->isEmpty())
@@ -594,60 +617,93 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="space-y-2" data-report-files="{{ $report->grade_id }}" data-file-type="registrar">
-                                            @if ($regFiles->isEmpty())
-                                                <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์</p>
-                                            @else
-                                                <div class="flex flex-col gap-1.5 file-list">
-                                                    @foreach ($regFiles as $file)
-                                                        @php
-                                                            $regDisplayName = $file->registrarDisplayName($report);
-                                                        @endphp
-                                                        <div class="file-chip" data-file-id="{{ $file->file_id }}">
-                                                            <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
-                                                            <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
-                                                               target="_blank" rel="noopener noreferrer"
-                                                               class="hover:underline truncate max-w-[9rem]" title="{{ $regDisplayName }}">
-                                                                {{ $regDisplayName }}
-                                                            </a>
-                                                            @if ($canEdit)
-                                                                <button type="button"
-                                                                    class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
-                                                                    data-report-id="{{ $report->grade_id }}"
-                                                                    data-file-id="{{ $file->file_id }}"
-                                                                    title="ลบไฟล์">
-                                                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                                                                </button>
-                                                            @endif
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @endif
+                                        <div class="space-y-2 min-w-[11rem]">
+                                            <div class="reg-source-block reg-source-instructor space-y-2"
+                                                data-report-files="{{ $report->grade_id }}"
+                                                data-file-type="registrar"
+                                                data-reg-source="instructor">
+                                                <p class="reg-source-label">อาจารย์อัปโหลด</p>
+                                                @if ($regInstructorFiles->isEmpty())
+                                                    <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์</p>
+                                                @else
+                                                    <div class="flex flex-col gap-1.5 file-list">
+                                                        @foreach ($regInstructorFiles as $file)
+                                                            @php
+                                                                $regDisplayName = $file->registrarDisplayName($report);
+                                                            @endphp
+                                                            <div class="file-chip" data-file-id="{{ $file->file_id }}">
+                                                                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+                                                                <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
+                                                                   target="_blank" rel="noopener noreferrer"
+                                                                   class="hover:underline truncate max-w-[9rem]" title="{{ $regDisplayName }}">
+                                                                    {{ $regDisplayName }}
+                                                                </a>
+                                                                @if ($canEdit)
+                                                                    <button type="button"
+                                                                        class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
+                                                                        data-report-id="{{ $report->grade_id }}"
+                                                                        data-file-id="{{ $file->file_id }}"
+                                                                        title="ลบไฟล์">
+                                                                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                                                    </button>
+                                                                @endif
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
 
-                                            @if ($canEdit)
-                                                <label class="file-upload-zone block cursor-pointer">
-                                                    <input type="file" accept=".pdf,application/pdf" class="hidden file-upload-input"
-                                                        data-report-id="{{ $report->grade_id }}"
-                                                        data-file-type="registrar">
-                                                    <span class="text-xs text-[#8B4513] font-medium flex items-center gap-1">
-                                                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                                                        อัปโหลดจาก REG
-                                                    </span>
-                                                </label>
-                                                @if ($canSubmitCorrections)
-                                                    <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5 leading-relaxed">
-                                                        แก้ไขครบแล้ว กด «ส่งการแก้ไข» เพื่อส่งให้สาขาวิชาดำเนินการ
+                                                @if ($canEdit)
+                                                    <label class="file-upload-zone block cursor-pointer">
+                                                        <input type="file" accept=".pdf,application/pdf" class="hidden file-upload-input"
+                                                            data-report-id="{{ $report->grade_id }}"
+                                                            data-file-type="registrar"
+                                                            data-reg-source="instructor">
+                                                        <span class="text-xs text-[#8B4513] font-medium flex items-center gap-1">
+                                                            <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                                                            อัปโหลดจาก REG
+                                                        </span>
+                                                    </label>
+                                                    @if ($canSubmitCorrections)
+                                                        <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5 leading-relaxed">
+                                                            แก้ไขครบแล้ว กด «ส่งการแก้ไข» เพื่อส่งให้สาขาวิชาดำเนินการ
+                                                        </p>
+                                                    @endif
+                                                @elseif ($awaitingDept)
+                                                    <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
+                                                        ส่งการแก้ไขแล้ว — รอสาขาวิชาส่งรายงานผลการสอบไล่อีกครั้ง
+                                                    </p>
+                                                @else
+                                                    <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
+                                                        รายงานผ่านการอนุมัติแล้ว — ไม่สามารถอัปโหลดหรือแก้ไขไฟล์ได้จนกว่าเจ้าหน้าที่จะคืนสถานะเป็นรออนุมัติ
                                                     </p>
                                                 @endif
-                                            @elseif ($awaitingDept)
-                                                <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
-                                                    ส่งการแก้ไขแล้ว — รอสาขาวิชาส่งรายงานผลการสอบไล่อีกครั้ง
-                                                </p>
-                                            @else
-                                                <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
-                                                    รายงานผ่านการอนุมัติแล้ว — ไม่สามารถอัปโหลดหรือแก้ไขไฟล์ได้จนกว่าเจ้าหน้าที่จะคืนสถานะเป็นรออนุมัติ
-                                                </p>
-                                            @endif
+                                            </div>
+
+                                            <div class="reg-source-block reg-source-dept space-y-2"
+                                                data-report-files="{{ $report->grade_id }}"
+                                                data-file-type="registrar"
+                                                data-reg-source="dept">
+                                                <p class="reg-source-label">Admin สาขาอัปโหลด</p>
+                                                @if ($regDeptFiles->isEmpty())
+                                                    <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์จากสาขา</p>
+                                                @else
+                                                    <div class="flex flex-col gap-1.5 file-list">
+                                                        @foreach ($regDeptFiles as $file)
+                                                            @php
+                                                                $regDisplayName = $file->registrarDisplayName($report);
+                                                            @endphp
+                                                            <div class="file-chip" data-file-id="{{ $file->file_id }}">
+                                                                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-teal-700"></i>
+                                                                <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
+                                                                   target="_blank" rel="noopener noreferrer"
+                                                                   class="hover:underline truncate max-w-[9rem]" title="{{ $regDisplayName }}">
+                                                                    {{ $regDisplayName }}
+                                                                </a>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            </div>
                                         </div>
                                     </td>
                                     <td>
@@ -1209,7 +1265,10 @@
             }
 
             const uploaded = await res.json();
-            const container = document.querySelector(`[data-report-files="${reportId}"][data-file-type="${fileType}"]`);
+            const regSource = input.dataset.regSource;
+            const container = regSource
+                ? document.querySelector(`[data-report-files="${reportId}"][data-file-type="${fileType}"][data-reg-source="${regSource}"]`)
+                : document.querySelector(`[data-report-files="${reportId}"][data-file-type="${fileType}"]`);
             if (!container) return;
 
             container.querySelector('.file-empty-msg')?.remove();
@@ -1219,7 +1278,11 @@
                 list = document.createElement('div');
                 list.className = 'flex flex-col gap-1.5 file-list';
                 const uploadZone = container.querySelector('.file-upload-zone');
-                container.insertBefore(list, uploadZone);
+                if (uploadZone) {
+                    container.insertBefore(list, uploadZone);
+                } else {
+                    container.appendChild(list);
+                }
             }
 
             const chip = document.createElement('div');
@@ -1274,9 +1337,18 @@
                 list.remove();
                 const empty = document.createElement('p');
                 empty.className = 'text-xs text-gray-500 file-empty-msg';
-                empty.textContent = 'ยังไม่มีไฟล์';
+                empty.textContent = container.dataset.regSource === 'dept'
+                    ? 'ยังไม่มีไฟล์จากสาขา'
+                    : 'ยังไม่มีไฟล์';
                 const uploadZone = container.querySelector('.file-upload-zone');
-                container.insertBefore(empty, uploadZone);
+                const label = container.querySelector('.reg-source-label');
+                if (uploadZone) {
+                    container.insertBefore(empty, uploadZone);
+                } else if (label) {
+                    label.after(empty);
+                } else {
+                    container.appendChild(empty);
+                }
             }
         });
     }
