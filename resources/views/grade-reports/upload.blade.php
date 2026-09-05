@@ -58,22 +58,5 @@
             </div>
         </form>
     </div>
-
-    <div class="form-section rounded-xl p-6">
-        <h3 class="text-base font-bold text-[#5C2E1F] mb-3 flex items-center gap-2">
-            <i data-lucide="image" class="w-5 h-5"></i>
-            ตัวอย่างข้อมูลในไฟล์ที่ระบบรองรับ
-        </h3>
-        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-[#5C2E1F] space-y-2 mb-4">
-            <p><strong>ข้อมูลที่ต้องมีในไฟล์:</strong> รหัสรายวิชา, ชื่อวิชา, ชื่อผู้สอน, รหัสนักศึกษา, เกรด, ชื่อนักศึกษา</p>
-            <p><strong>หมายเหตุ:</strong> ระบบอ่านกลุ่มเรียนและคณะจากเนื้อหาในไฟล์โดยอัตโนมัติ หากมีนักศึกษาหลายคณะ ระบบจะเลือกคณะทั้งหมดที่พบในไฟล์</p>
-            <p><strong>ดาวน์โหลดไฟล์:</strong> <a href="https://reg.kku.ac.th/" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">ระบบทะเบียน มข. (reg.kku.ac.th)</a></p>
-        </div>
-
-        <div class="rounded-lg border border-amber-200 overflow-hidden bg-white shadow-sm">
-            @include('partials.registrar-grade-sample')
-        </div>
-        <p class="text-xs text-gray-500 mt-3 text-center">ภาพตัวอย่างเพื่ออธิบายรูปแบบข้อมูล — ไม่ใช่ไฟล์จริงจากสำนักทะเบียน</p>
-    </div>
 </div>
 @endsection
