@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS thesis_grade (
   return_reason TEXT NULL,
   returned_at DATETIME NULL,
   returned_by VARCHAR(20) NULL,
+  faculty_received_at DATETIME NULL,
+  faculty_received_by VARCHAR(20) NULL,
   created_at DATETIME NULL,
   updated_at DATETIME NULL,
   PRIMARY KEY (thesis_grade_id),
@@ -73,7 +75,16 @@ CREATE TABLE IF NOT EXISTS thesis_grade_file (
 | `draft` | ร่าง |
 | `submitted` | รอสาขา |
 | `returned` | ส่งกลับแก้ไข |
-| `received` | สาขารับแล้ว |
+| `received` | สาขารับแล้ว — รอคณะ |
+| `approved` | คณะรับแล้ว |
+
+If `thesis_grade` already exists, add faculty columns:
+
+```sql
+ALTER TABLE thesis_grade
+  ADD COLUMN faculty_received_at DATETIME NULL AFTER returned_by,
+  ADD COLUMN faculty_received_by VARCHAR(20) NULL AFTER faculty_received_at;
+```
 
 ### `thesis_grade_file.file_type`
 | Value | Meaning |

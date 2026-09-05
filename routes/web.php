@@ -16,6 +16,7 @@ use App\Http\Controllers\FacultyAdmin\RegCourseController;
 use App\Http\Controllers\FacultyAdmin\RegGradeDumpController;
 use App\Http\Controllers\FacultyAdmin\RegGradeManageController;
 use App\Http\Controllers\FacultyAdmin\RegGradeStatusController;
+use App\Http\Controllers\FacultyAdmin\ThesisGradeReviewController as FacultyThesisGradeReviewController;
 use App\Http\Controllers\FacultyDeptSubmissionController;
 use App\Http\Controllers\GradeReportController;
 use App\Http\Controllers\GradeReportFileController;
@@ -109,6 +110,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/{gradeReport}/mark-checked', [FacultyGradeReportReviewController::class, 'markChecked'])->name('reviews.mark-checked');
         Route::post('/reviews/{gradeReport}/reject', [FacultyGradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::post('/reviews/{gradeReport}/send-back', [FacultyGradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
+
+        Route::get('/thesis-grades', [FacultyThesisGradeReviewController::class, 'index'])->name('thesis-grades.index');
+        Route::post('/thesis-grades/download', [FacultyThesisGradeReviewController::class, 'downloadSelected'])->name('thesis-grades.download');
+        Route::get('/thesis-grades/{thesisGrade}', [FacultyThesisGradeReviewController::class, 'show'])->name('thesis-grades.show');
+        Route::post('/thesis-grades/{thesisGrade}/receive', [FacultyThesisGradeReviewController::class, 'receive'])->name('thesis-grades.receive');
+        Route::post('/thesis-grades/{thesisGrade}/send-back', [FacultyThesisGradeReviewController::class, 'sendBack'])->name('thesis-grades.send-back');
+        Route::get('/thesis-grades/{thesisGrade}/files-zip', [FacultyThesisGradeReviewController::class, 'downloadReport'])->name('thesis-grades.files.zip');
+        Route::get('/thesis-grades/{thesisGrade}/files/{file}', [FacultyThesisGradeReviewController::class, 'showFile'])->name('thesis-grades.files.show');
 
         Route::get('/settings/term', [GradeTermController::class, 'edit'])->name('settings.term');
         Route::put('/settings/term', [GradeTermController::class, 'update'])->name('settings.term.update');

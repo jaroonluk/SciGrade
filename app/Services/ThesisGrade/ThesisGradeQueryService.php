@@ -62,4 +62,49 @@ class ThesisGradeQueryService
 
         return $query;
     }
+
+    /**
+     * @param  array{term?: int, year?: int, status?: string, department_id?: int, subject_code?: string, q?: string}  $filters
+     */
+    public function facultyQuery(array $filters): Builder
+    {
+        $query = ThesisGrade::query()
+            ->with(['students', 'files'])
+            ->where('status', '!=', ThesisGrade::STATUS_DRAFT)
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('thesis_grade_id');
+
+        if (! empty($filters['department_id'])) {
+            $this->subjectFilter->applyToQuery($query, (int) $filters['department_id']);
+        }
+
+        if (! empty($filters['term'])) {
+            $query->where('term', (int) $filters['term']);
+        }
+
+        if (! empty($filters['year'])) {
+            $query->where('year', (int) $filters['year']);
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        $code = trim((string) ($filters['subject_code'] ?? ''));
+        if ($code !== '') {
+            $query->where('subject_code', 'like', '%'.$code.'%');
+        }
+
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $query->where(function (Builder $inner) use ($q): void {
+                $inner->where('subject_code', 'like', '%'.$q.'%')
+                    ->orWhere('subject', 'like', '%'.$q.'%')
+                    ->orWhere('teacher', 'like', '%'.$q.'%')
+                    ->orWhere('username', 'like', '%'.$q.'%');
+            });
+        }
+
+        return $query;
+    }
 }

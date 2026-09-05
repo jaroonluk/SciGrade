@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', 'รับผลการเรียนวิทยานิพนธ์ — Admin สาขา')
+@section('title', 'รับผลการเรียนวิทยานิพนธ์ — Admin กลาง')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
@@ -11,27 +11,25 @@
 <div>
     <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">THESIS · DISSERTATION · INDEPENDENT STUDY</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">งานบริการ ป.บัณฑิต</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">รับผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจไฟล์ TS หนังสือ S=0 และวันที่สอบ แล้วรับเรื่องหรือส่งกลับ</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">ดูและดาวน์โหลดไฟล์ทุกสาขา แล้วรับเรื่องเป็นขั้นที่สองหลังสาขารับแล้ว</p>
         </div>
     </div>
 
     <div class="form-section rounded-xl p-5 mb-5">
         <form method="GET" class="grid md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
-            @if ($departments->count() > 1)
-                <div>
-                    <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา</label>
-                    <select name="department_id" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="">ทุกสาขาที่มีสิทธิ์</option>
-                        @foreach ($departments as $dept)
-                            <option value="{{ $dept->department_id }}" @selected(($filters['department_id'] ?? null) == $dept->department_id)>
-                                {{ $dept->department_name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-            @endif
+            <div>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา</label>
+                <select name="department_id" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="">ทุกสาขา</option>
+                    @foreach ($departments as $dept)
+                        <option value="{{ $dept->department_id }}" @selected(($filters['department_id'] ?? null) == $dept->department_id)>
+                            {{ $dept->department_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
                 <select name="term" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
@@ -70,7 +68,7 @@
         </form>
     </div>
 
-    <form method="POST" action="{{ route('dept-admin.thesis-grades.download') }}" id="bulk-zip">
+    <form method="POST" action="{{ route('faculty-admin.thesis-grades.download') }}" id="bulk-zip">
         @csrf
         <div class="flex justify-end mb-3">
             <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดไฟล์ที่เลือก</button>
@@ -108,12 +106,9 @@
                             <td class="p-3 text-xs">
                                 TS {{ $report->tsFiles()->count() }}
                                 · S=0 {{ $report->s0Files()->count() }}
-                                @if ($report->missingS0Count())
-                                    <p class="text-red-700">ขาดหนังสือ {{ $report->missingS0Count() }}</p>
-                                @endif
                             </td>
                             <td class="p-3"><span class="text-xs px-2 py-0.5 rounded-full {{ $report->statusChipClass() }}">{{ $report->statusLabel() }}</span></td>
-                            <td class="p-3"><a href="{{ route('dept-admin.thesis-grades.show', $report) }}" class="text-[#a16207] font-semibold hover:underline">เปิดดู</a></td>
+                            <td class="p-3"><a href="{{ route('faculty-admin.thesis-grades.show', $report) }}" class="text-[#a16207] font-semibold hover:underline">เปิดดู</a></td>
                         </tr>
                     @empty
                         <tr><td colspan="7" class="p-8 text-center text-[#7A4A3A]/70">ไม่มีรายการตามตัวกรอง</td></tr>

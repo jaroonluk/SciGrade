@@ -980,6 +980,32 @@
                 </div>
             </section>
 
+            @if ($canReviewThesisGrades ?? false)
+                <section class="role-panel mb-6" style="border-color:#facc15;background:linear-gradient(180deg,#fffbeb 0%,#fff 55%);">
+                    <div class="role-panel-head">
+                        <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ · งานบริการ ป.บัณฑิต</p>
+                        <h4 class="role-title" style="color:#854d0e;">รับผลการเรียนระดับคณะ</h4>
+                        <p class="role-desc">ดูและดาวน์โหลดไฟล์ TS ทุกสาขา แล้วรับเรื่องเป็นขั้นที่สองหลังสาขารับแล้ว</p>
+                    </div>
+                    <div class="role-panel-body">
+                        <a href="{{ route('faculty-admin.thesis-grades.index', ['term' => $term, 'year' => $year]) }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
+                            <div class="flex items-start gap-4">
+                                <div class="entry-icon p-2">
+                                    <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
+                                </div>
+                                <div>
+                                    <p class="text-base font-bold text-[#854d0e]">รับผลการเรียนวิทยานิพนธ์</p>
+                                    <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
+                                        ดูรายการที่สาขารับแล้ว เปิดไฟล์ ดาวน์โหลดรวม และอนุมัติ/รับเรื่องระดับคณะ
+                                    </p>
+                                    <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปรับเรื่อง →</span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </section>
+            @endif
+
             {{-- 6. อนุมัติระดับคณะ --}}
             <section id="admin-step-6" class="admin-section admin-tone-approve">
                 <div class="admin-section-head">

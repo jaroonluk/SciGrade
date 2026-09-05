@@ -18,6 +18,8 @@ class ThesisGrade extends Model
 
     public const STATUS_RECEIVED = 'received';
 
+    public const STATUS_APPROVED = 'approved';
+
     protected $connection = 'scigrad';
 
     protected $table = 'thesis_grade';
@@ -44,6 +46,8 @@ class ThesisGrade extends Model
         'return_reason',
         'returned_at',
         'returned_by',
+        'faculty_received_at',
+        'faculty_received_by',
     ];
 
     protected function casts(): array
@@ -56,6 +60,7 @@ class ThesisGrade extends Model
             'submitted_at' => 'datetime',
             'received_at' => 'datetime',
             'returned_at' => 'datetime',
+            'faculty_received_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
@@ -109,7 +114,8 @@ class ThesisGrade extends Model
         return match ($this->status) {
             self::STATUS_SUBMITTED => 'รอสาขา',
             self::STATUS_RETURNED => 'ส่งกลับแก้ไข',
-            self::STATUS_RECEIVED => 'สาขารับแล้ว',
+            self::STATUS_RECEIVED => 'สาขารับแล้ว — รอคณะ',
+            self::STATUS_APPROVED => 'คณะรับแล้ว',
             default => 'ร่าง',
         };
     }
@@ -119,7 +125,8 @@ class ThesisGrade extends Model
         return match ($this->status) {
             self::STATUS_SUBMITTED => 'status-pending',
             self::STATUS_RETURNED => 'status-rejected',
-            self::STATUS_RECEIVED => 'status-approved',
+            self::STATUS_RECEIVED => 'status-checked',
+            self::STATUS_APPROVED => 'status-approved',
             default => 'status-checked',
         };
     }

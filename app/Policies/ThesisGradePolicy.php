@@ -19,7 +19,7 @@ class ThesisGradePolicy
 
     public function view(User $user, ThesisGrade $report): bool
     {
-        return $this->owns($user, $report) || $this->reviewDept($user, $report);
+        return $this->owns($user, $report) || $this->reviewDept($user, $report) || $this->reviewFaculty($user, $report);
     }
 
     public function update(User $user, ThesisGrade $report): bool
@@ -60,6 +60,19 @@ class ThesisGradePolicy
                 $this->subjectFilter->applyDepartmentsToQuery($query, $allowedIds);
             })
             ->exists();
+    }
+
+    public function reviewFaculty(User $user, ThesisGrade $report): bool
+    {
+        if (! SciGradeRole::canReviewThesisGrades()) {
+            return false;
+        }
+
+        if ($this->staffAuth->findByEmail($user->email) === null) {
+            return false;
+        }
+
+        return $report->status !== ThesisGrade::STATUS_DRAFT;
     }
 
     private function owns(User $user, ThesisGrade $report): bool

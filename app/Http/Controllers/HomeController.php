@@ -89,6 +89,7 @@ class HomeController extends Controller
             'deptDepartmentId' => $deptDepartmentId,
             'deptSubmissions' => $deptSubmissions,
             'openDeptSubmissions' => $openDeptSubmissions,
+            'canReviewThesisGrades' => SciGradeRole::canReviewThesisGrades(),
         ]);
     }
 
