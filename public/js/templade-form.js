@@ -1623,13 +1623,10 @@ function showWizardStep(step, config) {
     if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
 
     if (step === 2) loadJointPeers();
-    if (step === 7 && config.currentReportId) {
-        const print = document.getElementById('wizard-print-link');
-        if (print) print.href = `/grade-reports/${config.currentReportId}/print`;
-    }
 }
 
 function showWizardDone() {
+    clearWizardState();
     document.getElementById('grade-form')?.classList.add('hidden');
     document.getElementById('wizard-stepper')?.classList.add('hidden');
     document.getElementById('wizard-nav')?.classList.add('hidden');
@@ -1681,6 +1678,7 @@ async function saveWizardReport(config) {
     loading?.classList.add('hidden');
     overlay?.classList.add('hidden');
     document.body.style.overflow = '';
+    persistWizardState(config, 7);
     return { ok: true };
 }
 
@@ -1718,12 +1716,60 @@ async function uploadExamReport(config, file) {
     }
 }
 
+function wizardStorageKey() {
+    return 'scigrade.wizard.create';
+}
+
+function persistWizardState(config, step) {
+    try {
+        sessionStorage.setItem(wizardStorageKey(), JSON.stringify({
+            reportId: config.currentReportId || null,
+            step,
+            at: Date.now(),
+        }));
+    } catch {
+        /* ignore quota / private mode */
+    }
+}
+
+function restoreWizardState(config) {
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(wizardStorageKey()) || 'null');
+        if (!saved || typeof saved !== 'object') return 1;
+
+        if (config.currentReportId && saved.reportId && String(saved.reportId) !== String(config.currentReportId)) {
+            return 1;
+        }
+        if (!config.currentReportId && saved.reportId) {
+            config.currentReportId = String(saved.reportId);
+        }
+
+        const step = Number(saved.step);
+        return step >= 1 && step <= 8 ? step : 1;
+    } catch {
+        return 1;
+    }
+}
+
+function clearWizardState() {
+    try {
+        sessionStorage.removeItem(wizardStorageKey());
+    } catch {
+        /* ignore */
+    }
+}
+
+function printReportUrl(reportId) {
+    return `/grade-reports/${encodeURIComponent(reportId)}/print`;
+}
+
 function initGradeReportWizard(config) {
     window.wizardHasPendingReg = Boolean(config.hasPendingRegistrar || config.cameFromUpload);
-    let step = 1;
+    let step = restoreWizardState(config);
 
     const go = (next) => {
         step = next;
+        persistWizardState(config, step);
         showWizardStep(step, config);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -1758,6 +1804,24 @@ function initGradeReportWizard(config) {
         e.target.value = '';
     });
 
+    document.getElementById('wizard-print-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!config.currentReportId) {
+            showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «บันทึกแล้วไปต่อ» อีกครั้ง', 'error');
+            return;
+        }
+        persistWizardState(config, step);
+        const opened = window.open(printReportUrl(config.currentReportId), '_blank', 'noopener,noreferrer');
+        if (!opened) {
+            showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วกดพิมพ์อีกครั้ง', 'error');
+        }
+    });
+
+    document.getElementById('btn-cancel')?.addEventListener('click', () => {
+        clearWizardState();
+    });
+
     document.getElementById('grade-form')?.addEventListener('submit', (e) => e.preventDefault());
-    showWizardStep(1, config);
+    showWizardStep(step, config);
 }
