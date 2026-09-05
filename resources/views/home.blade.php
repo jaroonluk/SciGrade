@@ -46,40 +46,71 @@
     .reg-source-instructor .reg-source-label { color: #8B4513; }
     .reg-source-dept .reg-source-label { color: #0f766e; }
 
-    /* Admin กลาง / Super Admin menu groups */
-    .admin-workflow {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
-    }
-    @@media (max-width: 900px) {
-        .admin-workflow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @@media (max-width: 520px) {
-        .admin-workflow { grid-template-columns: 1fr; }
-    }
-    .admin-workflow-step {
-        border-radius: 0.85rem;
-        padding: 0.7rem 0.75rem;
-        border: 1px solid transparent;
-        background: #fff;
-        text-align: left;
-        min-height: 4.25rem;
-    }
-    .admin-workflow-step .step-no {
-        font-size: 0.65rem;
+    /* Admin กลาง — แถบลำดับงานแบบลูกศร */
+    .admin-phase-label {
+        font-size: 0.72rem;
         font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        opacity: 0.85;
+        letter-spacing: 0.02em;
+        color: #7A4A3A;
+        margin: 0.75rem 0 0.4rem;
     }
-    .admin-workflow-step .step-title {
-        font-size: 0.78rem;
-        font-weight: 700;
-        line-height: 1.25;
-        margin-top: 0.2rem;
-        color: #3d2a22;
+    .admin-trail {
+        display: flex;
+        flex-wrap: wrap;
+        list-style: none;
+        padding: 0;
+        margin: 0 0 0.35rem;
+        gap: 0.35rem 0;
+    }
+    .admin-trail-item { flex: 1 1 calc(25% - 0.2rem); min-width: 5.6rem; }
+    .admin-chevron {
+        --arrow: #e5e7eb;
+        --ink: #374151;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 3.35rem;
+        padding: 0.35rem 0.85rem;
+        background: var(--arrow);
+        color: var(--ink);
+        text-decoration: none;
+        clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
+        transition: filter .15s ease, transform .15s ease;
+    }
+    .admin-trail-item:first-child .admin-chevron,
+    .admin-trail-item:nth-child(4n+1) .admin-chevron {
+        clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+    }
+    .admin-chevron:hover { filter: brightness(0.97); transform: translateY(-1px); }
+    .admin-chevron .step-no { font-size: 0.68rem; font-weight: 800; }
+    .admin-chevron .step-title { font-size: 0.7rem; font-weight: 700; line-height: 1.2; text-align: center; }
+    .admin-trail-item[data-tone="setup"] .admin-chevron { --arrow: #dbeafe; --ink: #1e40af; }
+    .admin-trail-item[data-tone="courses"] .admin-chevron { --arrow: #ffedd5; --ink: #9a3412; }
+    .admin-trail-item[data-tone="access"] .admin-chevron { --arrow: #f5e6d8; --ink: #7c2d12; }
+    .admin-trail-item[data-tone="docs"] .admin-chevron { --arrow: #ccfbf1; --ink: #0f766e; }
+    .admin-trail-item[data-tone="status"] .admin-chevron { --arrow: #fde68a; --ink: #854d0e; }
+    .admin-trail-item[data-tone="approve"] .admin-chevron { --arrow: #bbf7d0; --ink: #166534; }
+    .admin-trail-item[data-tone="report"] .admin-chevron { --arrow: #fed7aa; --ink: #9a3412; }
+    @@media (min-width: 768px) {
+        .admin-trail { flex-wrap: nowrap; }
+        .admin-trail-item { flex: 1 1 0; min-width: 0; margin-left: -10px; }
+        .admin-trail-item:first-child { margin-left: 0; }
+        .admin-trail-item:nth-child(1) { z-index: 7; }
+        .admin-trail-item:nth-child(2) { z-index: 6; }
+        .admin-trail-item:nth-child(3) { z-index: 5; }
+        .admin-trail-item:nth-child(4) { z-index: 4; }
+        .admin-chevron,
+        .admin-trail-item:first-child .admin-chevron,
+        .admin-trail-item:nth-child(4n+1) .admin-chevron {
+            clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+        }
+        .admin-trail-item:first-child .admin-chevron {
+            clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+        }
+        .admin-trail-item:last-child .admin-chevron {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+        }
     }
     .admin-section {
         border-radius: 1.1rem;
@@ -87,6 +118,7 @@
         background: #fff;
         overflow: hidden;
         box-shadow: 0 1px 0 rgba(92, 46, 31, 0.04);
+        scroll-margin-top: 5.5rem;
     }
     .admin-section-head {
         padding: 0.95rem 1.15rem;
@@ -129,13 +161,12 @@
         --tone-icon: #0f766e;
         border-color: var(--tone-border);
     }
-    .admin-tone-docs .admin-section-head,
-    .admin-workflow-step.tone-docs {
+    .admin-tone-docs .admin-section-head {
         background: linear-gradient(135deg, #ecfdf8 0%, #f0fdfa 55%, #fff 100%);
         border-color: #99f6e4;
     }
     .admin-tone-docs .menu-icon { background: #ccfbf1; color: #0f766e; }
-    .admin-tone-docs .menu-step, .admin-tone-docs .step-no { color: #0f766e; }
+    .admin-tone-docs .menu-step { color: #0f766e; }
 
     .admin-tone-approve {
         --tone: #166534;
@@ -143,13 +174,12 @@
         --tone-border: #bbf7d0;
         border-color: var(--tone-border);
     }
-    .admin-tone-approve .admin-section-head,
-    .admin-workflow-step.tone-approve {
+    .admin-tone-approve .admin-section-head {
         background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 55%, #fff 100%);
         border-color: #bbf7d0;
     }
     .admin-tone-approve .menu-icon { background: #dcfce7; color: #166534; }
-    .admin-tone-approve .menu-step, .admin-tone-approve .step-no { color: #166534; }
+    .admin-tone-approve .menu-step { color: #166534; }
 
     .admin-tone-courses {
         --tone: #9a3412;
@@ -157,13 +187,12 @@
         --tone-border: #fed7aa;
         border-color: var(--tone-border);
     }
-    .admin-tone-courses .admin-section-head,
-    .admin-workflow-step.tone-courses {
+    .admin-tone-courses .admin-section-head {
         background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 55%, #fff 100%);
         border-color: #fed7aa;
     }
     .admin-tone-courses .menu-icon { background: #ffedd5; color: #9a3412; }
-    .admin-tone-courses .menu-step, .admin-tone-courses .step-no { color: #c2410c; }
+    .admin-tone-courses .menu-step { color: #c2410c; }
 
     .admin-tone-settings {
         --tone: #1e4b7b;
@@ -171,13 +200,12 @@
         --tone-border: #bfdbfe;
         border-color: var(--tone-border);
     }
-    .admin-tone-settings .admin-section-head,
-    .admin-workflow-step.tone-settings {
+    .admin-tone-settings .admin-section-head {
         background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #fff 100%);
         border-color: #bfdbfe;
     }
     .admin-tone-settings .menu-icon { background: #dbeafe; color: #1e4b7b; }
-    .admin-tone-settings .menu-step, .admin-tone-settings .step-no { color: #1d4ed8; }
+    .admin-tone-settings .menu-step { color: #1d4ed8; }
 
     .admin-tone-access {
         --tone: #7c2d12;
@@ -185,13 +213,36 @@
         --tone-border: #e8c4b8;
         border-color: var(--tone-border);
     }
-    .admin-tone-access .admin-section-head,
-    .admin-workflow-step.tone-access {
+    .admin-tone-access .admin-section-head {
         background: linear-gradient(135deg, #fdf4f0 0%, #faf0e6 55%, #fff 100%);
         border-color: #e8c4b8;
     }
     .admin-tone-access .menu-icon { background: #f5e6d8; color: #7c2d12; }
-    .admin-tone-access .menu-step, .admin-tone-access .step-no { color: #9a3412; }
+    .admin-tone-access .menu-step { color: #9a3412; }
+
+    .admin-tone-status {
+        --tone: #854d0e;
+        --tone-border: #fde68a;
+        border-color: var(--tone-border);
+    }
+    .admin-tone-status .admin-section-head {
+        background: linear-gradient(135deg, #fffbeb 0%, #fefce8 55%, #fff 100%);
+        border-color: #fde68a;
+    }
+    .admin-tone-status .menu-icon { background: #fef3c7; color: #854d0e; }
+    .admin-tone-status .menu-step { color: #854d0e; }
+
+    .admin-tone-report {
+        --tone: #9a3412;
+        --tone-border: #fdba74;
+        border-color: var(--tone-border);
+    }
+    .admin-tone-report .admin-section-head {
+        background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 55%, #fff 100%);
+        border-color: #fdba74;
+    }
+    .admin-tone-report .menu-icon { background: #ffedd5; color: #9a3412; }
+    .admin-tone-report .menu-step { color: #9a3412; }
 
     .admin-badge {
         display: inline-flex;
@@ -634,46 +685,198 @@
                 <i data-lucide="building-2" class="w-5 h-5"></i>
                 เมนู {{ $isSuper ? 'Super Admin' : 'Admin กลาง' }}
             </h3>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ลำดับงานแนะนำ — เริ่มจากรับเอกสาร แล้วอนุมัติ/รายงาน ตามด้วยจัดการรายวิชาและตั้งค่า</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">เข้ามาแล้วทำตามลำดับ 1 ถึง 7 — ต้นภาคทำขั้น 1–3 ก่อน จากนั้นค่อยรับเอกสารและอนุมัติ</p>
         </div>
 
-        <div class="admin-workflow no-print">
-            <a href="#admin-section-docs" class="admin-workflow-step tone-docs">
-                <div class="step-no">งานหลัก</div>
-                <div class="step-title">รับเอกสารจากหน่วยงาน</div>
-            </a>
-            <a href="#admin-section-approve" class="admin-workflow-step tone-approve">
-                <div class="step-no">ลำดับ 1</div>
-                <div class="step-title">อนุมัติและรายงาน</div>
-            </a>
-            <a href="#admin-section-courses" class="admin-workflow-step tone-courses">
-                <div class="step-no">ลำดับ 2</div>
-                <div class="step-title">จัดการข้อมูลรายวิชา</div>
-            </a>
-            <a href="#admin-section-settings" class="admin-workflow-step tone-settings">
-                <div class="step-no">ลำดับ 3</div>
-                <div class="step-title">ตั้งค่าระบบ</div>
-            </a>
-            <a href="#admin-section-access" class="admin-workflow-step tone-access">
-                <div class="step-no">ลำดับ 4</div>
-                <div class="step-title">สิทธิผู้ใช้งาน</div>
-            </a>
+        <div class="no-print mb-6">
+            <p class="admin-phase-label">ก. เตรียมระบบก่อนเปิดภาค — ทำก่อนให้อาจารย์และสาขาส่งงาน</p>
+            <ol class="admin-trail" aria-label="เตรียมระบบก่อนเปิดภาค">
+                <li class="admin-trail-item" data-tone="setup">
+                    <a href="#admin-step-1" class="admin-chevron"><span class="step-no">1</span><span class="step-title">กำหนดภาคการศึกษา</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="courses">
+                    <a href="#admin-step-2" class="admin-chevron"><span class="step-no">2</span><span class="step-title">เตรียมรายวิชา</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="access">
+                    <a href="#admin-step-3" class="admin-chevron"><span class="step-no">3</span><span class="step-title">สิทธิผู้ใช้งาน</span></a>
+                </li>
+            </ol>
+            <p class="admin-phase-label">ข. งานระหว่างภาค — ทำเมื่อมีเอกสารและรายงานเข้า</p>
+            <ol class="admin-trail" aria-label="งานระหว่างภาค">
+                <li class="admin-trail-item" data-tone="docs">
+                    <a href="#admin-step-4" class="admin-chevron"><span class="step-no">4</span><span class="step-title">รับเอกสารจากสาขา</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="status">
+                    <a href="#admin-step-5" class="admin-chevron"><span class="step-no">5</span><span class="step-title">ตรวจสถานะส่งผล</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="approve">
+                    <a href="#admin-step-6" class="admin-chevron"><span class="step-no">6</span><span class="step-title">อนุมัติระดับคณะ</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="report">
+                    <a href="#admin-step-7" class="admin-chevron"><span class="step-no">7</span><span class="step-title">ดู/พิมพ์รายงาน</span></a>
+                </li>
+            </ol>
         </div>
 
         <div class="space-y-6 mb-8">
-            {{-- งานหลัก: รับเอกสาร + ประวัติ --}}
-            <section id="admin-section-docs" class="admin-section admin-tone-docs">
+            {{-- 1. กำหนดภาคการศึกษา --}}
+            <section id="admin-step-1" class="admin-section admin-tone-settings">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-sky-700 text-white text-xs font-bold">1</span>
+                            <h4 class="text-base font-bold text-sky-950">กำหนดภาคการศึกษา</h4>
+                        </div>
+                        <p class="text-xs text-sky-900/70 ml-9">ทำเป็นอันดับแรกของภาคใหม่ เพื่อตั้งภาค/ปีการศึกษาเริ่มต้นของระบบ</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('faculty-admin.settings.term') }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="calendar" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">1.1</p>
+                                    <p class="font-semibold text-sky-950">กำหนดภาคการศึกษา</p>
+                                    <p class="text-sm text-sky-900/65 mt-1">ตั้งค่าภาค/ปีการศึกษาเริ่มต้นของระบบ</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            {{-- 2. เตรียมรายวิชา --}}
+            <section id="admin-step-2" class="admin-section admin-tone-courses">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-700 text-white text-xs font-bold">2</span>
+                            <h4 class="text-base font-bold text-orange-950">เตรียมรายวิชา</h4>
+                        </div>
+                        <p class="text-xs text-orange-900/70 ml-9">ทำหลังตั้งภาคแล้ว เพื่อให้อาจารย์เลือกวิชาได้ และสาขาเห็นรายวิชาที่ต้องส่งผล</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('faculty-admin.settings.reg-courses.index') }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="book-marked" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">2.1</p>
+                                    <p class="font-semibold text-orange-950">Download ข้อมูลรายวิชาจาก REG</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">ดึงชื่อวิชาเข้า pdcourse เพื่อให้อาจารย์เลือกตอนรายงานผลการสอบ</p>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="{{ route('faculty-admin.settings.reg-grade-manage.index', ['term' => $term, 'year' => $year]) }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">2.2</p>
+                                    <p class="font-semibold text-orange-950">จัดการรายวิชา REG</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">ดึงจาก REG แล้วเพิ่ม/แก้ไข/ลบรายวิชาตามสาขา</p>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="{{ route('faculty-admin.grad-report2-groups.index') }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="git-merge" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">2.3</p>
+                                    <p class="font-semibold text-orange-950">จัดกลุ่มรายวิชา</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">กำหนดรหัสที่ตัดเกรดร่วมกัน (grad_report2)</p>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="{{ route('faculty-admin.department-patterns.index') }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="filter" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">2.4</p>
+                                    <p class="font-semibold text-orange-950">จัดการรหัสสาขาที่ใช้กรอง</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">เพิ่ม / แก้ไข / ลบเงื่อนไขรหัสวิชาของแต่ละสาขา</p>
+                                </div>
+                            </div>
+                        </a>
+                        @if ($isSuper)
+                            <a href="{{ route('faculty-admin.settings.programs.index') }}" class="menu-card rounded-xl p-5 block ring-1 ring-orange-200">
+                                <div class="flex items-start gap-3">
+                                    <div class="menu-icon"><i data-lucide="book-open" class="w-5 h-5"></i></div>
+                                    <div>
+                                        <p class="menu-step">2.5 · Super Admin</p>
+                                        <p class="font-semibold text-orange-950">จัดการหลักสูตร</p>
+                                        <p class="text-sm text-orange-900/65 mt-1">เพิ่ม/แก้ไขหลักสูตรใน tblprogram_qa</p>
+                                    </div>
+                                </div>
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </section>
+
+            {{-- 3. สิทธิผู้ใช้งาน --}}
+            <section id="admin-step-3" class="admin-section admin-tone-access">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#8B4513] text-white text-xs font-bold">3</span>
+                            <h4 class="text-base font-bold text-[#5C2E1F]">ตรวจสิทธิผู้ใช้งาน</h4>
+                        </div>
+                        <p class="text-xs text-[#7A4A3A]/75 ml-9">ทำก่อนเปิดภาค เพื่อให้เจ้าหน้าที่สาขาและงานบริการเข้าใช้งานได้</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('faculty-admin.settings.privileges.index') }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="users" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">3.1</p>
+                                    <p class="font-semibold text-[#5C2E1F]">ผู้มีสิทธิใช้งาน</p>
+                                    <p class="text-sm text-[#7A4A3A]/70 mt-1">กำหนดเจ้าหน้าที่สาขา/งานบริการ</p>
+                                </div>
+                            </div>
+                        </a>
+                        @if ($canImpersonate ?? false)
+                            <a href="{{ route('super-admin.impersonate') }}" class="menu-card rounded-xl p-5 block ring-1 ring-[#E8C4B8]">
+                                <div class="flex items-start gap-3">
+                                    <div class="menu-icon"><i data-lucide="user-cog" class="w-5 h-5"></i></div>
+                                    <div>
+                                        <p class="menu-step">3.2 · Super Admin</p>
+                                        <p class="font-semibold text-[#5C2E1F]">เข้าใช้งานแทนบุคลากร</p>
+                                        <p class="text-sm text-[#7A4A3A]/70 mt-1">เข้าแทนอาจารย์ / Admin สาขา / Admin กลาง</p>
+                                    </div>
+                                </div>
+                            </a>
+                            <a href="{{ route('super-admin.audit-logs.index') }}" class="menu-card rounded-xl p-5 block ring-1 ring-[#E8C4B8]">
+                                <div class="flex items-start gap-3">
+                                    <div class="menu-icon"><i data-lucide="scroll-text" class="w-5 h-5"></i></div>
+                                    <div>
+                                        <p class="menu-step">3.3 · Super Admin</p>
+                                        <p class="font-semibold text-[#5C2E1F]">บันทึกการใช้งานระบบ</p>
+                                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ดูประวัติการเข้าใช้และการเปลี่ยนแปลงสำคัญ</p>
+                                    </div>
+                                </div>
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </section>
+
+            {{-- 4. รับเอกสารจากหน่วยงาน --}}
+            <section id="admin-step-4" class="admin-section admin-tone-docs">
                 <div class="admin-section-head">
                     <div>
                         <div class="flex flex-wrap items-center gap-2 mb-1">
-                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-teal-700 text-white text-xs font-bold">0</span>
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-teal-700 text-white text-xs font-bold">4</span>
                             <h4 class="text-base font-bold text-[#134e4a]">รับเอกสารจากหน่วยงาน</h4>
                             @if ($openCount > 0)
                                 <span class="admin-badge">รอรับ {{ $openCount }} รายการ</span>
                             @endif
                         </div>
                         <p class="text-xs text-teal-900/70 ml-9">
-                            เลือกภาคการศึกษา กดรับเอกสารทีละสาขา — เอกสารแยกช่องทางปริญญาตรีและบัณฑิตศึกษา
+                            ทำเมื่อสาขาส่งเอกสารแล้ว — เลือกภาค/ปี กดรับทีละสาขา เอกสารแยกช่องทางปริญญาตรีและบัณฑิตศึกษา
                             หลังรับแล้วสาขาจะไม่สามารถแก้ไขชื่อหรือไฟล์ในรอบนั้นได้
                         </p>
                     </div>
@@ -721,15 +924,42 @@
                 </div>
             </section>
 
-            {{-- 1. อนุมัติและรายงาน --}}
-            <section id="admin-section-approve" class="admin-section admin-tone-approve">
+            {{-- 5. ตรวจสถานะการส่งผลการสอบ --}}
+            <section id="admin-step-5" class="admin-section admin-tone-status">
                 <div class="admin-section-head">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold">1</span>
-                            <h4 class="text-base font-bold text-green-900">อนุมัติและรายงาน</h4>
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-700 text-white text-xs font-bold">5</span>
+                            <h4 class="text-base font-bold text-amber-950">ตรวจสถานะการส่งผลการสอบ</h4>
                         </div>
-                        <p class="text-xs text-green-900/70 ml-9">อนุมัติระดับคณะ พิมพ์และดูรายงานทุกสาขา</p>
+                        <p class="text-xs text-amber-900/70 ml-9">ทำเมื่อมีรายวิชาเปิดภาคแล้ว เพื่อดูว่าแต่ละรายวิชาส่ง / ผ่านสาขา / ผ่านคณะแล้วหรือยัง</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('faculty-admin.settings.reg-grade-status.index', ['term' => $term, 'year' => $year]) }}" class="menu-card rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">5.1</p>
+                                    <p class="font-semibold text-amber-950">ตรวจสอบสถานะการส่งผลการสอบ</p>
+                                    <p class="text-sm text-amber-900/65 mt-1">ดูว่าแต่ละรายวิชาส่ง/ผ่านสาขา/ผ่านคณะแล้วหรือยัง</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            {{-- 6. อนุมัติระดับคณะ --}}
+            <section id="admin-step-6" class="admin-section admin-tone-approve">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold">6</span>
+                            <h4 class="text-base font-bold text-green-900">อนุมัติระดับคณะ</h4>
+                        </div>
+                        <p class="text-xs text-green-900/70 ml-9">ทำเมื่อสาขาอนุมัติแล้ว — ตรวจสอบทุกสถานะ อนุมัติหรือส่งกลับ</p>
                     </div>
                 </div>
                 <div class="admin-section-body">
@@ -738,182 +968,39 @@
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="badge-check" class="w-5 h-5"></i></div>
                                 <div>
-                                    <p class="menu-step">1.1</p>
+                                    <p class="menu-step">6.1</p>
                                     <p class="font-semibold text-green-950">อนุมัติระดับคณะ</p>
                                     <p class="text-sm text-green-900/65 mt-1">ตรวจสอบทุกสถานะ อนุมัติ/ส่งกลับเมื่อสาขาอนุมัติแล้ว</p>
                                 </div>
                             </div>
                         </a>
+                    </div>
+                </div>
+            </section>
+
+            {{-- 7. ดู/พิมพ์รายงาน --}}
+            <section id="admin-step-7" class="admin-section admin-tone-report">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-800 text-white text-xs font-bold">7</span>
+                            <h4 class="text-base font-bold text-orange-950">ดู/พิมพ์รายงานทุกสาขา</h4>
+                        </div>
+                        <p class="text-xs text-orange-900/70 ml-9">ทำหลังมีรายงานเข้าแล้ว เพื่อพิมพ์ตามสาขาและสถานะรับรองผลสอบ</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <a href="{{ route('grade-reports.reports') }}" class="menu-card rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="layers" class="w-5 h-5"></i></div>
                                 <div>
-                                    <p class="menu-step">1.2</p>
-                                    <p class="font-semibold text-green-950">ดูรายงานทุกสาขา</p>
-                                    <p class="text-sm text-green-900/65 mt-1">พิมพ์รายงานตามสาขาและสถานะรับรองผลสอบ</p>
+                                    <p class="menu-step">7.1</p>
+                                    <p class="font-semibold text-orange-950">ดูรายงานทุกสาขา</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">พิมพ์รายงานตามสาขาและสถานะรับรองผลสอบ</p>
                                 </div>
                             </div>
                         </a>
-                    </div>
-                </div>
-            </section>
-
-            {{-- 2. จัดการข้อมูลรายวิชาที่ส่งผลสอบ --}}
-            <section id="admin-section-courses" class="admin-section admin-tone-courses">
-                <div class="admin-section-head">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-700 text-white text-xs font-bold">2</span>
-                            <h4 class="text-base font-bold text-orange-950">จัดการข้อมูลรายวิชาที่ส่งผลสอบ</h4>
-                        </div>
-                        <p class="text-xs text-orange-900/70 ml-9">ดึงรายวิชาจาก REG → แก้ไขตามสาขา → ตรวจสอบสถานะการส่ง</p>
-                    </div>
-                </div>
-                <div class="admin-section-body">
-                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('faculty-admin.settings.reg-grade-manage.index', ['term' => $term, 'year' => $year]) }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">2.1</p>
-                                    <p class="font-semibold text-orange-950">จัดการรายวิชา REG</p>
-                                    <p class="text-sm text-orange-900/65 mt-1">ดึงจาก REG แล้วเพิ่ม/แก้ไข/ลบรายวิชาตามสาขา</p>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="{{ route('faculty-admin.settings.reg-grade-status.index', ['term' => $term, 'year' => $year]) }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">2.2</p>
-                                    <p class="font-semibold text-orange-950">ตรวจสอบสถานะการส่งผลการสอบ</p>
-                                    <p class="text-sm text-orange-900/65 mt-1">ดูว่าแต่ละรายวิชาส่ง/ผ่านสาขา/ผ่านคณะแล้วหรือยัง</p>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-            </section>
-
-            {{-- 3. ตั้งค่าระบบและข้อมูลพื้นฐาน --}}
-            <section id="admin-section-settings" class="admin-section admin-tone-settings">
-                <div class="admin-section-head">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-sky-700 text-white text-xs font-bold">3</span>
-                            <h4 class="text-base font-bold text-sky-950">ตั้งค่าระบบและข้อมูลพื้นฐาน</h4>
-                        </div>
-                        <p class="text-xs text-sky-900/70 ml-9">
-                            กำหนดภาคการศึกษา ชื่อวิชา และรหัสสาขาที่ใช้กรอง
-                            @if ($isSuper)
-                                รวมถึงหลักสูตร
-                            @endif
-                        </p>
-                    </div>
-                </div>
-                <div class="admin-section-body">
-                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('faculty-admin.settings.term') }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="calendar" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">3.1</p>
-                                    <p class="font-semibold text-sky-950">กำหนดภาคการศึกษา</p>
-                                    <p class="text-sm text-sky-900/65 mt-1">ตั้งค่าภาค/ปีการศึกษาเริ่มต้นของระบบ</p>
-                                </div>
-                            </div>
-                        </a>
-                        @if ($isSuper)
-                            <a href="{{ route('faculty-admin.settings.programs.index') }}" class="menu-card rounded-xl p-5 block ring-1 ring-sky-200">
-                                <div class="flex items-start gap-3">
-                                    <div class="menu-icon"><i data-lucide="book-open" class="w-5 h-5"></i></div>
-                                    <div>
-                                        <p class="menu-step">3.2 · Super Admin</p>
-                                        <p class="font-semibold text-sky-950">จัดการหลักสูตร</p>
-                                        <p class="text-sm text-sky-900/65 mt-1">เพิ่ม/แก้ไขหลักสูตรใน tblprogram_qa</p>
-                                    </div>
-                                </div>
-                            </a>
-                        @endif
-                        <a href="{{ route('faculty-admin.settings.reg-courses.index') }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="book-marked" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">3.3</p>
-                                    <p class="font-semibold text-sky-950">Download ข้อมูลรายวิชาจาก REG</p>
-                                    <p class="text-sm text-sky-900/65 mt-1">ดึงชื่อวิชาเข้า pdcourse เพื่อให้อาจารย์เลือกตอนรายงานผลการสอบ</p>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="{{ route('faculty-admin.grad-report2-groups.index') }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="git-merge" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">3.4</p>
-                                    <p class="font-semibold text-sky-950">จัดกลุ่มรายวิชา</p>
-                                    <p class="text-sm text-sky-900/65 mt-1">กำหนดรหัสที่ตัดเกรดร่วมกัน (grad_report2)</p>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="{{ route('faculty-admin.department-patterns.index') }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="filter" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">3.5</p>
-                                    <p class="font-semibold text-sky-950">จัดการรหัสสาขาที่ใช้กรอง</p>
-                                    <p class="text-sm text-sky-900/65 mt-1">เพิ่ม / แก้ไข / ลบเงื่อนไขรหัสวิชาของแต่ละสาขา</p>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-            </section>
-
-            {{-- 4. สิทธิผู้ใช้งาน --}}
-            <section id="admin-section-access" class="admin-section admin-tone-access">
-                <div class="admin-section-head">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#8B4513] text-white text-xs font-bold">4</span>
-                            <h4 class="text-base font-bold text-[#5C2E1F]">สิทธิผู้ใช้งาน</h4>
-                        </div>
-                        <p class="text-xs text-[#7A4A3A]/75 ml-9">กำหนดสิทธิเจ้าหน้าที่ เข้าใช้งานแทนบุคลากร และดูบันทึกการใช้งาน</p>
-                    </div>
-                </div>
-                <div class="admin-section-body">
-                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('faculty-admin.settings.privileges.index') }}" class="menu-card rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="users" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">4.1</p>
-                                    <p class="font-semibold text-[#5C2E1F]">ผู้มีสิทธิใช้งาน</p>
-                                    <p class="text-sm text-[#7A4A3A]/70 mt-1">กำหนดเจ้าหน้าที่สาขา/งานบริการ</p>
-                                </div>
-                            </div>
-                        </a>
-                        @if ($canImpersonate ?? false)
-                            <a href="{{ route('super-admin.impersonate') }}" class="menu-card rounded-xl p-5 block ring-1 ring-[#E8C4B8]">
-                                <div class="flex items-start gap-3">
-                                    <div class="menu-icon"><i data-lucide="user-cog" class="w-5 h-5"></i></div>
-                                    <div>
-                                        <p class="menu-step">4.2 · Super Admin</p>
-                                        <p class="font-semibold text-[#5C2E1F]">เข้าใช้งานแทนบุคลากร</p>
-                                        <p class="text-sm text-[#7A4A3A]/70 mt-1">เข้าแทนอาจารย์ / Admin สาขา / Admin กลาง</p>
-                                    </div>
-                                </div>
-                            </a>
-                            <a href="{{ route('super-admin.audit-logs.index') }}" class="menu-card rounded-xl p-5 block ring-1 ring-[#E8C4B8]">
-                                <div class="flex items-start gap-3">
-                                    <div class="menu-icon"><i data-lucide="scroll-text" class="w-5 h-5"></i></div>
-                                    <div>
-                                        <p class="menu-step">4.3 · Super Admin</p>
-                                        <p class="font-semibold text-[#5C2E1F]">บันทึกการใช้งานระบบ</p>
-                                        <p class="text-sm text-[#7A4A3A]/70 mt-1">ดูประวัติการเข้าใช้และการเปลี่ยนแปลงสำคัญ</p>
-                                    </div>
-                                </div>
-                            </a>
-                        @endif
                     </div>
                 </div>
             </section>
