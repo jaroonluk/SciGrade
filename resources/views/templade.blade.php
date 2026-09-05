@@ -95,52 +95,84 @@
     }
     .wizard-step { display: none; }
     .wizard-step.is-active { display: block; }
-    .wizard-trail { display: flex; flex-wrap: wrap; gap: 0.45rem 0.2rem; list-style: none; padding: 0; margin: 0 0 1.25rem; }
+    .wizard-trail {
+        display: flex; flex-wrap: wrap; align-items: stretch;
+        list-style: none; padding: 0; margin: 0 0 1.25rem;
+        gap: 0.35rem 0;
+    }
     .wizard-step-item {
-        flex: 1 1 calc(25% - 0.2rem);
-        display: flex; flex-direction: column; align-items: center; gap: 0.28rem;
-        min-width: 4.4rem;
-    }
-    .wizard-arrow {
-        --arrow: #f3f4f6;
+        flex: 1 1 calc(25% - 0.15rem);
+        display: flex; flex-direction: column; align-items: center;
+        min-width: 4.6rem; position: relative;
+        --arrow: #d1d5db;
         --ink: #6b7280;
-        width: 2.65rem; height: 1.72rem;
-        display: grid; place-items: center;
-        background: var(--arrow); color: var(--ink);
-        font-size: 0.72rem; font-weight: 800; letter-spacing: .01em;
-        clip-path: polygon(0 18%, 68% 18%, 68% 0, 100% 50%, 68% 100%, 68% 82%, 0 82%);
-        transition: background .2s ease, color .2s ease, transform .2s ease, filter .2s ease;
+        --label: #9ca3af;
     }
-    .wizard-step-item[data-tone="1"]:not(.is-current):not(.is-done) { --arrow: #fecaca; --ink: #991b1b; }
-    .wizard-step-item[data-tone="2"]:not(.is-current):not(.is-done) { --arrow: #fed7aa; --ink: #9a3412; }
-    .wizard-step-item[data-tone="3"]:not(.is-current):not(.is-done) { --arrow: #fdba74; --ink: #9a3412; }
-    .wizard-step-item[data-tone="4"]:not(.is-current):not(.is-done) { --arrow: #fcd34d; --ink: #92400e; }
-    .wizard-step-item[data-tone="5"]:not(.is-current):not(.is-done) { --arrow: #fde68a; --ink: #854d0e; }
-    .wizard-step-item[data-tone="6"]:not(.is-current):not(.is-done) { --arrow: #d9f99d; --ink: #3f6212; }
-    .wizard-step-item[data-tone="7"]:not(.is-current):not(.is-done) { --arrow: #bbf7d0; --ink: #166534; }
-    .wizard-step-item[data-tone="8"]:not(.is-current):not(.is-done) { --arrow: #86efac; --ink: #14532d; }
-    .wizard-step-item[data-tone="1"].is-current { --arrow: #dc2626; --ink: #fff; }
-    .wizard-step-item[data-tone="2"].is-current { --arrow: #ea580c; --ink: #fff; }
-    .wizard-step-item[data-tone="3"].is-current { --arrow: #f97316; --ink: #fff; }
-    .wizard-step-item[data-tone="4"].is-current { --arrow: #f59e0b; --ink: #fff; }
-    .wizard-step-item[data-tone="5"].is-current { --arrow: #d97706; --ink: #fff; }
-    .wizard-step-item[data-tone="6"].is-current { --arrow: #ca8a04; --ink: #fff; }
-    .wizard-step-item[data-tone="7"].is-current { --arrow: #65a30d; --ink: #fff; }
-    .wizard-step-item[data-tone="8"].is-current { --arrow: #16a34a; --ink: #fff; }
-    .wizard-step-item.is-current .wizard-arrow { transform: scale(1.14); filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }
-    .wizard-step-item.is-current .wizard-label { font-weight: 700; color: #5C2E1F; }
-    .wizard-step-item.is-done { --arrow: #16a34a; --ink: #fff; }
-    .wizard-step-item.is-done .wizard-label { color: #166534; }
-    .wizard-trail.is-complete .wizard-step-item { --arrow: #16a34a; --ink: #fff; }
-    .wizard-trail.is-complete .wizard-step-item .wizard-label { color: #166534; font-weight: 600; }
-    .wizard-label { font-size: .65rem; line-height: 1.2; color: #7A4A3A; max-width: 5.6rem; text-align: center; }
+    .wizard-chevron {
+        width: 100%;
+        min-height: 2.35rem;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--arrow); color: var(--ink);
+        font-size: 0.8rem; font-weight: 800;
+        clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
+        transition: background .25s ease, color .25s ease, filter .25s ease, transform .25s ease;
+    }
+    .wizard-step-item:nth-child(4n+1) .wizard-chevron {
+        clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+        padding-left: 0.15rem;
+    }
+    .wizard-arrow-num { position: relative; z-index: 1; }
+    .wizard-label {
+        font-size: .62rem; line-height: 1.2; color: var(--label);
+        max-width: 6rem; text-align: center; margin-top: 0.28rem;
+    }
+    .wizard-step-item.is-current[data-tone="1"],
+    .wizard-step-item.is-done[data-tone="1"] { --arrow: #dc2626; --ink: #fff; --label: #b91c1c; }
+    .wizard-step-item.is-current[data-tone="2"],
+    .wizard-step-item.is-done[data-tone="2"] { --arrow: #ea580c; --ink: #fff; --label: #c2410c; }
+    .wizard-step-item.is-current[data-tone="3"],
+    .wizard-step-item.is-done[data-tone="3"] { --arrow: #f97316; --ink: #fff; --label: #c2410c; }
+    .wizard-step-item.is-current[data-tone="4"],
+    .wizard-step-item.is-done[data-tone="4"] { --arrow: #f59e0b; --ink: #fff; --label: #b45309; }
+    .wizard-step-item.is-current[data-tone="5"],
+    .wizard-step-item.is-done[data-tone="5"] { --arrow: #ca8a04; --ink: #fff; --label: #854d0e; }
+    .wizard-step-item.is-current[data-tone="6"],
+    .wizard-step-item.is-done[data-tone="6"] { --arrow: #65a30d; --ink: #fff; --label: #3f6212; }
+    .wizard-step-item.is-current[data-tone="7"],
+    .wizard-step-item.is-done[data-tone="7"] { --arrow: #22c55e; --ink: #fff; --label: #15803d; }
+    .wizard-step-item.is-current[data-tone="8"],
+    .wizard-step-item.is-done[data-tone="8"] { --arrow: #16a34a; --ink: #fff; --label: #166534; }
+    .wizard-step-item.is-current .wizard-chevron { transform: scale(1.04); filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }
+    .wizard-step-item.is-current .wizard-label { font-weight: 700; }
+    .wizard-trail.is-complete .wizard-step-item { --arrow: #16a34a; --ink: #fff; --label: #166534; }
+    .wizard-trail.is-complete .wizard-label { font-weight: 600; }
     .field-locked, .field-locked:disabled { background: #f3f4f6 !important; color: #4b5563; cursor: not-allowed; }
     .lock-note { border: 1px solid #bbf7d0; background: #f0fdf4; }
     .group-note { border: 1px solid #93c5fd; background: #eff6ff; }
     .prior-sec-chip { background: #fff; border: 1px solid #fdba74; color: #9a3412; }
     @@media (min-width: 768px) {
-        .wizard-step-item { flex: 1 1 0; min-width: 0; }
-        .wizard-label { font-size: .72rem; max-width: 7.2rem; }
+        .wizard-trail { flex-wrap: nowrap; }
+        .wizard-step-item { flex: 1 1 0; min-width: 0; margin-left: -10px; }
+        .wizard-step-item:nth-child(1) { z-index: 8; }
+        .wizard-step-item:nth-child(2) { z-index: 7; }
+        .wizard-step-item:nth-child(3) { z-index: 6; }
+        .wizard-step-item:nth-child(4) { z-index: 5; }
+        .wizard-step-item:nth-child(5) { z-index: 4; }
+        .wizard-step-item:nth-child(6) { z-index: 3; }
+        .wizard-step-item:nth-child(7) { z-index: 2; }
+        .wizard-step-item:nth-child(8) { z-index: 1; }
+        .wizard-step-item:first-child { margin-left: 0; }
+        .wizard-step-item:nth-child(4n+1) .wizard-chevron,
+        .wizard-chevron {
+            clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+        }
+        .wizard-step-item:first-child .wizard-chevron {
+            clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+        }
+        .wizard-step-item:last-child .wizard-chevron {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+        }
+        .wizard-label { font-size: .7rem; max-width: 7.2rem; }
     }
     .scheme-box { border: 1px solid #f0e0d0; background: #fff; }
     .scheme-box input:checked + span { color: #5C2E1F; font-weight: 600; }
@@ -172,7 +204,7 @@
                         8 => 'อัปโหลดใบขวาง',
                     ] as $n => $label)
                         <li class="wizard-step-item {{ $n === 1 ? 'is-current' : '' }}" data-wizard-dot="{{ $n }}" data-tone="{{ $n }}">
-                            <span class="wizard-arrow" aria-hidden="true"><span class="wizard-arrow-num">{{ $n }}</span></span>
+                            <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">{{ $n }}</span></span>
                             <span class="wizard-label">{{ $label }}</span>
                         </li>
                     @endforeach
