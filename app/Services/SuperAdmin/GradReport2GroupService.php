@@ -4,6 +4,7 @@ namespace App\Services\SuperAdmin;
 
 use App\Models\GradReport2;
 use App\Services\GradReport2Service;
+use App\Support\ThesisCourse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -134,6 +135,8 @@ class GradReport2GroupService
             ]);
         }
 
+        $this->assertExamReportableCodes([$groupCode, ...$memberCodes], $subject);
+
         $members = $this->normalizeMemberList($memberCodes, $groupCode);
         if ($members === []) {
             throw ValidationException::withMessages([
@@ -223,6 +226,8 @@ class GradReport2GroupService
                 'subject_code' => 'กรุณาระบุรหัสวิชา',
             ]);
         }
+
+        $this->assertExamReportableCodes([$groupCode, $subjectCode], $subject);
 
         if ($this->memberExists($subjectCode)) {
             $existing = GradReport2::query()->whereNormalizedCode('subject_code', $subjectCode)->first();
@@ -451,6 +456,26 @@ class GradReport2GroupService
         $codes[] = $groupCode;
 
         return array_values(array_unique($codes));
+    }
+
+    /**
+     * @param  list<string>  $codes
+     */
+    private function assertExamReportableCodes(array $codes, ?string $subject = null): void
+    {
+        if (ThesisCourse::isThesisTitle($subject)) {
+            throw ValidationException::withMessages([
+                'subject' => ThesisCourse::EXAM_BLOCK_MESSAGE,
+            ]);
+        }
+
+        foreach ($codes as $code) {
+            if (ThesisCourse::isThesisSubject((string) $code, $subject)) {
+                throw ValidationException::withMessages([
+                    'subject_code' => ThesisCourse::EXAM_BLOCK_MESSAGE,
+                ]);
+            }
+        }
     }
 
     private function memberExists(string $subjectCode): bool

@@ -1666,6 +1666,11 @@ async function refreshCourseContext() {
 
 function applyCourseContext(data) {
     window.courseContext = data || {};
+    const thesisBlocked = data?.exam_reportable === false;
+    renderCourseThesisBanner(thesisBlocked, data?.message);
+    if (thesisBlocked) {
+        data = { grouped: false, members: [], prior: null, reported_sections: [] };
+    }
     const members = Array.isArray(data?.members) ? data.members : [];
     const grouped = Boolean(data?.grouped && members.length);
     const prior = data?.prior && data.prior.exists ? data.prior : null;
@@ -1710,6 +1715,14 @@ function applyCourseContext(data) {
     updateReasonFieldsState();
     updateSectionFormHint();
     refreshSectionSelectOptions();
+}
+
+function renderCourseThesisBanner(blocked, message) {
+    const banner = document.getElementById('course-thesis-banner');
+    const body = document.getElementById('course-thesis-body');
+    if (!banner) return;
+    banner.classList.toggle('hidden', !blocked);
+    if (body && message && !body.querySelector('a')) body.textContent = message;
 }
 
 function renderCourseGroupBanner(members, grouped) {

@@ -245,6 +245,7 @@ class DeptRegistrarBulkUploadService
         $paddedSection = str_pad((string) $section, 2, '0', STR_PAD_LEFT);
 
         $query = GradeReport::query()
+            ->examReportable()
             ->with('gradeStds')
             ->whereHas('gradeStds', function ($q) use ($section, $paddedSection): void {
                 $q->where('sec', $section)

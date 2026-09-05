@@ -508,22 +508,27 @@
                             </div>
                         </div>
                     </a>
-                    @php $thesisGradeUrl = trim((string) config('scigrade.thesis_grade_url', '')); @endphp
-                    <a href="{{ $thesisGradeUrl !== '' ? $thesisGradeUrl : '#' }}"
+                    @php
+                        $thesisGradeUrl = trim((string) config('scigrade.thesis_grade_url', ''));
+                        $thesisHref = $thesisGradeUrl !== ''
+                            ? $thesisGradeUrl
+                            : route('thesis-grades.index', ['term' => $term, 'year' => $year]);
+                    @endphp
+                    <a href="{{ $thesisHref }}"
                        @if ($thesisGradeUrl !== '' && str_starts_with($thesisGradeUrl, 'http'))
                            target="_blank" rel="noopener noreferrer"
                        @endif
-                       class="entry-card tone-thesis entry-card-compact rounded-xl block h-full">
-                        <div class="flex items-start gap-3">
-                            <div class="entry-icon p-1.5">
-                                <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-6 h-6" width="24" height="24">
+                       class="entry-card tone-thesis rounded-xl p-5 block h-full">
+                        <div class="flex items-start gap-4">
+                            <div class="entry-icon p-2">
+                                <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
                             </div>
                             <div>
-                                <p class="text-sm font-bold text-[#854d0e] leading-snug">ส่งผลการเรียนวิทยานิพนธ์/การศึกษาอิสระ</p>
-                                <p class="text-xs text-[#7A4A3A]/80 mt-1 leading-relaxed">
-                                    รายวิชาวิทยานิพนธ์หรือการศึกษาอิสระ (แยกจากรายงานสอบไล่)
+                                <p class="text-base font-bold text-[#854d0e]">ส่งผลการเรียนวิทยานิพนธ์/การศึกษาอิสระ</p>
+                                <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
+                                    อัปโหลดใบ TS ตรวจเค้าโครง และส่งเข้าสาขา — ส่งได้ตลอด
                                 </p>
-                                <span class="entry-cta inline-block mt-2 text-xs font-semibold">ไปส่งผล →</span>
+                                <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปส่งผล →</span>
                             </div>
                         </div>
                     </a>
@@ -670,6 +675,30 @@
                         </div>
                     </a>
                 </div>
+            </div>
+        </section>
+
+        <section class="role-panel mb-6" style="border-color:#facc15;background:linear-gradient(180deg,#fffbeb 0%,#fff 55%);">
+            <div class="role-panel-head">
+                <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ</p>
+                <h4 class="role-title" style="color:#854d0e;">รับผลการเรียนจากอาจารย์</h4>
+                <p class="role-desc">ตรวจไฟล์ TS หนังสือชี้แจง S=0 และวันที่สอบ แล้วรับเรื่องหรือส่งกลับ — แยกจากคิวสอบไล่</p>
+            </div>
+            <div class="role-panel-body">
+                <a href="{{ route('dept-admin.thesis-grades.index') }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
+                    <div class="flex items-start gap-4">
+                        <div class="entry-icon p-2">
+                            <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
+                        </div>
+                        <div>
+                            <p class="text-base font-bold text-[#854d0e]">รับผลการเรียนวิทยานิพนธ์</p>
+                            <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
+                                ดูรายการที่อาจารย์ส่งมา เปิดไฟล์ และดาวน์โหลดรวมชื่อมาตรฐาน TS
+                            </p>
+                            <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปรับเรื่อง →</span>
+                        </div>
+                    </div>
+                </a>
             </div>
         </section>
     @endif

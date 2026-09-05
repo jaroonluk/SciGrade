@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use App\Enums\GradeApprovalStatus;
+use App\Support\ThesisCourse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class GradeReport extends Model
@@ -70,6 +73,14 @@ class GradeReport extends Model
             'totalnumstdevz' => 'integer',
             'totalevaluationscore' => 'float',
         ];
+    }
+
+    /**
+     * รายงานสอบไล่ปกติ — ไม่รวมวิทยานิพนธ์/การศึกษาอิสระ
+     */
+    public function scopeExamReportable(Builder $query): Builder
+    {
+        return ThesisCourse::constrainExamReportable($query, $query->getModel()->qualifyColumn('subject'));
     }
 
     public function gradeStds(): HasMany
@@ -353,7 +364,7 @@ class GradeReport extends Model
      *     role_label: string,
      *     action_label: string,
      *     text: string,
-     *     at: \Illuminate\Support\Carbon|null,
+     *     at: Carbon|null,
      *     approver: string|null,
      *     tone: string,
      * }>

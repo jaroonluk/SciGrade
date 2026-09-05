@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\FacultyAdmin\FacultyReportController;
-use App\Http\Controllers\GradeReportController;
 use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Models\GradeType;
+use App\Models\TblUser;
 use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\RegistrarGradePdfParser;
@@ -15,6 +15,7 @@ use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
 use App\Support\SciGradeRole;
 use App\Support\ThaiDateTime;
+use App\Support\ThesisCourse;
 use App\Support\UploadStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -132,6 +133,7 @@ class GradeReportPageController extends Controller
     {
         $username = $this->resolveStaffUsername();
         abort_unless($username && $gradeReport->username === $username, 403);
+        abort_if(ThesisCourse::isThesisSubject((string) $gradeReport->subject_code, (string) $gradeReport->subject), 404);
         abort_unless($gradeReport->canEdit(), 403, 'ไม่สามารถแก้ไขรายการนี้ได้');
 
         $gradeReport->load(['gradeStds', 'files']);
@@ -356,6 +358,7 @@ class GradeReportPageController extends Controller
         $username = $this->resolveStaffUsername();
         if ($username) {
             $reports = GradeReport::query()
+                ->examReportable()
                 ->with(['gradeStds', 'files', 'approvalLogs.approver'])
                 ->where('username', $username)
                 ->where('term', (string) $term)
@@ -402,7 +405,7 @@ class GradeReportPageController extends Controller
         $role = session('scigrade_role', 'dept_admin');
         abort_if(! in_array($role, ['dept_admin', 'faculty_admin', 'super_admin'], true), 403);
 
-        $query = GradeReport::query()->with('gradeStds')->orderBy('subject_code');
+        $query = GradeReport::query()->examReportable()->with('gradeStds')->orderBy('subject_code');
 
         if ($role === 'dept_admin') {
             $query->whereIn('approv', [0, 1, 2, 3, -1]);
@@ -428,13 +431,15 @@ class GradeReportPageController extends Controller
 
     public function print(GradeReport $gradeReport): View
     {
+        abort_if(ThesisCourse::isThesisSubject((string) $gradeReport->subject_code, (string) $gradeReport->subject), 404);
+
         if (session('scigrade_role', 'instructor') === 'instructor') {
             abort_unless($gradeReport->username === session('staff_username'), 403);
         }
 
         $gradeReport->load('gradeStds');
 
-        $staff = \App\Models\TblUser::query()
+        $staff = TblUser::query()
             ->with('titleRelation')
             ->find($gradeReport->username);
 

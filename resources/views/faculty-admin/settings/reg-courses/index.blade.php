@@ -53,9 +53,9 @@
         </form>
         <p class="text-xs text-[#7A4A3A]/70 mt-3">
             ระบบจะอ่านจากฐาน <span class="font-medium">reg.course</span>
-            (รายวิชา SC ที่สร้างในปีปฏิทินที่ตรงกับปีการศึกษา − 543 รวมวิชา SEMINAR)
+            (รายวิชา SC ที่สร้างในปีปฏิทินที่ตรงกับปีการศึกษา − 543 รวม SEMINAR, THESIS, DISSERTATION และ INDEPENDENT STUDY หากมี)
             แล้วเพิ่มเฉพาะรหัสที่ยังไม่มีใน <span class="font-medium">eoffice.pdcourse</span>
-            เพื่อให้อาจารย์เลือกชื่อวิชาตอนรายงานผลการสอบ — ยังไม่ดึง THESIS / Independent Study / Dissertation
+            วิชา THESIS / DISSERTATION / INDEPENDENT STUDY ใช้เฉพาะเมนูส่งผลการเรียนวิทยานิพนธ์/การศึกษาอิสระ ไม่ขึ้นในรายงานสอบไล่
         </p>
     </div>
 

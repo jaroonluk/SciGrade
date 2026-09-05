@@ -219,6 +219,14 @@
                         <p id="course-prior-title" class="text-sm font-semibold text-green-900">มีข้อมูลเกณฑ์รายวิชานี้ในระบบแล้ว</p>
                         <p id="course-prior-body" class="text-xs text-green-800/90 mt-0.5 leading-relaxed"></p>
                     </div>
+                    <div id="course-thesis-banner" class="hidden rounded-lg px-3 py-2.5 border border-amber-300 bg-amber-50">
+                        <p class="text-sm font-semibold text-amber-950">รายวิชานี้ไม่ใช้เมนูรายงานสอบไล่</p>
+                        <p id="course-thesis-body" class="text-xs text-amber-900/80 mt-0.5 leading-relaxed">
+                            ใช้เมนู
+                            <a href="{{ route('thesis-grades.index') }}" class="underline font-semibold">ส่งผลการเรียนวิทยานิพนธ์/การศึกษาอิสระ</a>
+                            เท่านั้น
+                        </p>
+                    </div>
                 </div>
                 <form id="grade-form" class="space-y-5">
                     <div class="wizard-step is-active space-y-5" data-wizard-step="1">

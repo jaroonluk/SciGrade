@@ -11,9 +11,13 @@ use App\Services\GradReport2Service;
 use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
 use App\Support\SubjectDegree;
+use App\Support\ThesisCourse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class GradeReportController extends Controller
 {
@@ -23,9 +27,11 @@ class GradeReportController extends Controller
         private readonly AuditLogService $auditLog,
         private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
+
     public function index(Request $request): JsonResponse
     {
         $query = GradeReport::query()
+            ->examReportable()
             ->with('gradeStds')
             ->when($request->filled('approv'), fn ($q) => $q->where('approv', $request->integer('approv')))
             ->when($request->filled('term'), fn ($q) => $q->where('term', (string) $request->integer('term')))
@@ -42,6 +48,8 @@ class GradeReportController extends Controller
 
     public function show(Request $request, GradeReport $gradeReport): JsonResponse
     {
+        abort_if(ThesisCourse::isThesisSubject((string) $gradeReport->subject_code, (string) $gradeReport->subject), 404);
+
         if ($request->input('role', 'instructor') === 'instructor') {
             abort_unless($this->ownsReport($gradeReport), 403);
         }
@@ -56,6 +64,17 @@ class GradeReportController extends Controller
         $year = (int) $request->query('year', 0);
         $exclude = (int) $request->query('exclude', 0);
 
+        if ($code !== '' && ThesisCourse::isThesisSubject($code)) {
+            return response()->json([
+                'exam_reportable' => false,
+                'message' => ThesisCourse::EXAM_BLOCK_MESSAGE,
+                'grouped' => false,
+                'members' => [],
+                'prior' => null,
+                'reported_sections' => [],
+            ]);
+        }
+
         $members = $code !== '' ? $this->gradReport2->groupMembersForSubject($code) : [];
 
         $prior = null;
@@ -63,6 +82,7 @@ class GradeReportController extends Controller
 
         if ($code !== '' && $term > 0 && $year > 0) {
             $reports = GradeReport::query()
+                ->examReportable()
                 ->with('gradeStds')
                 ->whereRaw(GradReport2::normalizedCodeSql('subject_code').' = ?', [$code])
                 ->where('term', (string) $term)
@@ -129,6 +149,7 @@ class GradeReportController extends Controller
     {
         $data = $this->validateReport($request);
         unset($data['append_sections']);
+        $this->assertExamReportable($data);
 
         $existing = $this->findExistingCourseReport($data);
         if ($existing) {
@@ -176,6 +197,7 @@ class GradeReportController extends Controller
             abort_unless($this->ownsReport($gradeReport) || $this->canContribute($gradeReport), 403);
             $data = $this->validateReport($request, updating: true);
             unset($data['append_sections']);
+            $this->assertExamReportable($data, $gradeReport);
 
             return $this->appendSectionsToReport($request, $gradeReport, $data);
         }
@@ -191,6 +213,7 @@ class GradeReportController extends Controller
         }
 
         $data = $this->validateReport($request, updating: true);
+        $this->assertExamReportable($data, $gradeReport);
         $stds = $data['grade_stds'] ?? null;
         unset($data['grade_stds'], $data['grade_std']);
 
@@ -318,7 +341,7 @@ class GradeReportController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, GradeReport>  $reports
+     * @param  Collection<int, GradeReport>  $reports
      * @return list<string>
      */
     private function collectTeacherNames($reports): array
@@ -350,6 +373,7 @@ class GradeReportController extends Controller
         }
 
         return GradeReport::query()
+            ->examReportable()
             ->whereRaw(GradReport2::normalizedCodeSql('subject_code').' = ?', [$code])
             ->where('term', (string) $term)
             ->where('year', (string) $year)
@@ -536,12 +560,36 @@ class GradeReportController extends Controller
         }
 
         try {
-            $has = \Illuminate\Support\Facades\Schema::connection('scigrad')->hasColumn('grade_report', 'grade_scheme');
+            $has = Schema::connection('scigrad')->hasColumn('grade_report', 'grade_scheme');
         } catch (\Throwable) {
             $has = false;
         }
 
         return $has;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function assertExamReportable(array $data, ?GradeReport $existing = null): void
+    {
+        $code = (string) ($data['subject_code'] ?? $existing?->subject_code ?? '');
+        $name = (string) ($data['subject'] ?? $existing?->subject ?? '');
+
+        if (ThesisCourse::isThesisSubject($code, $name)
+            || ($existing && ThesisCourse::isThesisSubject((string) $existing->subject_code, (string) $existing->subject))) {
+            throw ValidationException::withMessages([
+                'subject_code' => ThesisCourse::EXAM_BLOCK_MESSAGE,
+            ]);
+        }
+
+        foreach ($data['joint_subject_codes'] ?? [] as $jointCode) {
+            if (ThesisCourse::isThesisSubject((string) $jointCode)) {
+                throw ValidationException::withMessages([
+                    'joint_subject_codes' => ThesisCourse::EXAM_BLOCK_MESSAGE,
+                ]);
+            }
+        }
     }
 
     private function validateReport(Request $request, bool $updating = false): array

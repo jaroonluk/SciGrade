@@ -39,6 +39,7 @@ class FacultyReportQueryService
     public function baseQuery(array $filters): Builder
     {
         $query = GradeReport::query()
+            ->examReportable()
             ->with(['gradeStds', 'files', 'latestDeptApprovalLog.approver', 'latestCentralApprovalLog.approver'])
             ->whereHas('gradeStds');
 

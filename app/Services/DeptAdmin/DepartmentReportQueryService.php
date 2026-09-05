@@ -37,6 +37,7 @@ class DepartmentReportQueryService
         }
 
         $query = GradeReport::query()
+            ->examReportable()
             ->with(['gradeStds', 'files', 'latestDeptApprovalLog.approver', 'approvalLogs'])
             ->whereHas('gradeStds');
 
@@ -102,7 +103,7 @@ class DepartmentReportQueryService
             $departmentIds = [(int) $filters['department_id']];
         }
 
-        $query = GradeReport::query()->whereHas('gradeStds');
+        $query = GradeReport::query()->examReportable()->whereHas('gradeStds');
         $this->subjectFilter->applyDepartmentsToQuery($query, $departmentIds);
 
         if (! empty($filters['term'])) {

@@ -97,6 +97,9 @@
         @if (session('status'))
             <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm no-print">{{ session('status') }}</div>
         @endif
+        @if (session('error'))
+            <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm no-print whitespace-pre-line">{{ session('error') }}</div>
+        @endif
         @yield('content')
     </main>
 

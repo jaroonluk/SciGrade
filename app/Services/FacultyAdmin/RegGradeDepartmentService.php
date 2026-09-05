@@ -439,6 +439,7 @@ class RegGradeDepartmentService
         ?array $allowedDepartmentIds = null,
     ): Collection {
         $query = GradeReport::query()
+            ->examReportable()
             ->with([
                 'gradeStds' => fn ($q) => $q->orderBy('sec'),
                 'files' => fn ($q) => $q->orderByDesc('file_id'),

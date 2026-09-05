@@ -20,6 +20,38 @@ class SubjectController extends Controller
         $like = '%'.$q.'%';
 
         $rows = PdCourse::query()
+            ->examReportable()
+            ->select('subjcode', 'subjname')
+            ->where(function ($query) use ($like) {
+                $query->where('subjcode', 'like', $like)
+                    ->orWhere('subjname', 'like', $like);
+            })
+            ->orderBy('subjcode')
+            ->limit(50)
+            ->get()
+            ->unique(fn ($row) => strtoupper(trim($row->subjcode)))
+            ->take(15)
+            ->values()
+            ->map(fn ($row) => [
+                'subject_code' => trim($row->subjcode),
+                'subject' => trim($row->subjname ?? ''),
+            ]);
+
+        return response()->json($rows);
+    }
+
+    public function searchThesis(Request $request): JsonResponse
+    {
+        $q = trim($request->get('q', ''));
+
+        if (strlen($q) < 1) {
+            return response()->json([]);
+        }
+
+        $like = '%'.$q.'%';
+
+        $rows = PdCourse::query()
+            ->thesisOnly()
             ->select('subjcode', 'subjname')
             ->where(function ($query) use ($like) {
                 $query->where('subjcode', 'like', $like)

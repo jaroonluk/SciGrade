@@ -2,9 +2,10 @@
 
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\DeptAdmin\DepartmentReportController;
-use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
 use App\Http\Controllers\DeptAdmin\DeptSubmissionFileController;
+use App\Http\Controllers\DeptAdmin\GradeReportReviewController;
 use App\Http\Controllers\DeptAdmin\RegGradeStatusController as DeptRegGradeStatusController;
+use App\Http\Controllers\DeptAdmin\ThesisGradeReviewController;
 use App\Http\Controllers\FacultyAdmin\DeptSubmissionHistoryController;
 use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\FacultyAdmin\GradeReportReviewController as FacultyGradeReportReviewController;
@@ -22,10 +23,12 @@ use App\Http\Controllers\GradeReportFileDownloadController;
 use App\Http\Controllers\GradeReportPageController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SuperAdmin\AuditLogController;
 use App\Http\Controllers\SuperAdmin\DepartmentSubjectPatternController;
 use App\Http\Controllers\SuperAdmin\GradReport2GroupController;
-use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\ThesisGradeFileController;
+use App\Http\Controllers\ThesisGradePageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -85,6 +88,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', [DepartmentReportController::class, 'form'])->name('reports.form');
         Route::get('/reports/date-summary', [DepartmentReportController::class, 'dateSummary'])->name('reports.date-summary');
         Route::post('/reports/export', [DepartmentReportController::class, 'export'])->name('reports.export');
+        Route::get('/thesis-grades', [ThesisGradeReviewController::class, 'index'])->name('thesis-grades.index');
+        Route::post('/thesis-grades/download', [ThesisGradeReviewController::class, 'downloadSelected'])->name('thesis-grades.download');
+        Route::get('/thesis-grades/{thesisGrade}', [ThesisGradeReviewController::class, 'show'])->name('thesis-grades.show');
+        Route::post('/thesis-grades/{thesisGrade}/receive', [ThesisGradeReviewController::class, 'receive'])->name('thesis-grades.receive');
+        Route::post('/thesis-grades/{thesisGrade}/send-back', [ThesisGradeReviewController::class, 'sendBack'])->name('thesis-grades.send-back');
+        Route::get('/thesis-grades/{thesisGrade}/files-zip', [ThesisGradeReviewController::class, 'downloadReport'])->name('thesis-grades.files.zip');
+        Route::get('/thesis-grades/{thesisGrade}/files/{file}', [ThesisGradeReviewController::class, 'showFile'])->name('thesis-grades.files.show');
+
         Route::get('/reg-grade-status', [DeptRegGradeStatusController::class, 'index'])->name('reg-grade-status.index');
         Route::post('/reg-grade-status/{gradeReport}/approve-dept', [DeptRegGradeStatusController::class, 'approveDepartment'])->name('reg-grade-status.approve-dept');
         Route::post('/reg-grade-status/{gradeReport}/revert-dept', [DeptRegGradeStatusController::class, 'revertDepartment'])->name('reg-grade-status.revert-dept');
@@ -160,7 +171,22 @@ Route::middleware('auth')->group(function () {
 
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
 
+    Route::prefix('thesis-grades')->name('thesis-grades.')->group(function () {
+        Route::get('/', [ThesisGradePageController::class, 'index'])->name('index');
+        Route::get('/create', [ThesisGradePageController::class, 'create'])->name('create');
+        Route::post('/', [ThesisGradePageController::class, 'store'])->name('store');
+        Route::get('/{thesisGrade}', [ThesisGradePageController::class, 'edit'])->name('edit');
+        Route::put('/{thesisGrade}', [ThesisGradePageController::class, 'update'])->name('update');
+        Route::delete('/{thesisGrade}', [ThesisGradePageController::class, 'destroy'])->name('destroy');
+        Route::post('/{thesisGrade}/submit', [ThesisGradePageController::class, 'submit'])->name('submit');
+        Route::get('/{thesisGrade}/files-zip', [ThesisGradePageController::class, 'downloadZip'])->name('files.zip');
+        Route::post('/{thesisGrade}/files', [ThesisGradeFileController::class, 'store'])->name('files.store');
+        Route::get('/{thesisGrade}/files/{file}', [ThesisGradeFileController::class, 'show'])->name('files.show');
+        Route::delete('/{thesisGrade}/files/{file}', [ThesisGradeFileController::class, 'destroy'])->name('files.destroy');
+    });
+
     Route::get('/api/subjects/search', [SubjectController::class, 'search']);
+    Route::get('/api/subjects/search-thesis', [SubjectController::class, 'searchThesis']);
     Route::get('/api/grad-report2/peers', [SubjectController::class, 'jointPeers']);
 
     Route::get('/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'show'])->name('dept-submissions.files.show');

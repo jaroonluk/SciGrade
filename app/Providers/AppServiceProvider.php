@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Models\GradeReport;
+use App\Models\ThesisGrade;
 use App\Policies\GradeReportPolicy;
+use App\Policies\ThesisGradePolicy;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,5 +29,6 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
         Gate::policy(GradeReport::class, GradeReportPolicy::class);
+        Gate::policy(ThesisGrade::class, ThesisGradePolicy::class);
     }
 }
