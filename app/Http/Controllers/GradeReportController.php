@@ -10,6 +10,7 @@ use App\Services\AuditLogService;
 use App\Services\GradReport2Service;
 use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
+use App\Support\SubjectDegree;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -91,10 +92,12 @@ class GradeReportController extends Controller
                 } catch (\Throwable) {
                     // ใช้ชื่ออาจารย์จากรายงาน หากดึงข้อมูลบุคลากรไม่ได้
                 }
+                $teacherNames = $this->collectTeacherNames($reports);
                 $prior = [
                     'exists' => true,
                     'grade_id' => $first->grade_id,
-                    'teacher' => $first->teacher,
+                    'teacher' => implode(', ', $teacherNames),
+                    'teachers' => $teacherNames,
                     'filled_by' => $filledBy,
                     'username' => $first->username,
                     'term' => (int) $first->term,
@@ -125,6 +128,12 @@ class GradeReportController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateReport($request);
+        unset($data['append_sections']);
+
+        $existing = $this->findExistingCourseReport($data);
+        if ($existing) {
+            return $this->appendSectionsToReport($request, $existing, $data);
+        }
 
         $report = DB::connection('scigrad')->transaction(function () use ($data, $request) {
             $stds = $data['grade_stds'];
@@ -161,6 +170,14 @@ class GradeReportController extends Controller
     {
         if ($request->has('approv')) {
             return $this->updateApproval($request, $gradeReport);
+        }
+
+        if ($request->boolean('append_sections') || ! $this->ownsReport($gradeReport)) {
+            abort_unless($this->ownsReport($gradeReport) || $this->canContribute($gradeReport), 403);
+            $data = $this->validateReport($request, updating: true);
+            unset($data['append_sections']);
+
+            return $this->appendSectionsToReport($request, $gradeReport, $data);
         }
 
         abort_unless($this->ownsReport($gradeReport), 403);
@@ -295,6 +312,113 @@ class GradeReportController extends Controller
         return $report->username === $this->staffUsername();
     }
 
+    private function canContribute(GradeReport $report): bool
+    {
+        return (int) $report->approv <= 0 && ! $report->awaitingDeptResubmit();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, GradeReport>  $reports
+     * @return list<string>
+     */
+    private function collectTeacherNames($reports): array
+    {
+        $names = [];
+        foreach ($reports as $report) {
+            foreach (preg_split('/[,;\/]+/u', (string) $report->teacher) ?: [] as $name) {
+                $name = trim($name);
+                if ($name === '') {
+                    continue;
+                }
+                $names[$name] = $name;
+            }
+        }
+
+        return array_values($names);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function findExistingCourseReport(array $data): ?GradeReport
+    {
+        $code = GradReport2::normalizeCode((string) ($data['subject_code'] ?? ''));
+        $term = (int) ($data['term'] ?? 0);
+        $year = (int) ($data['year'] ?? 0);
+        if ($code === '' || $term < 1 || $year < 1) {
+            return null;
+        }
+
+        return GradeReport::query()
+            ->whereRaw(GradReport2::normalizedCodeSql('subject_code').' = ?', [$code])
+            ->where('term', (string) $term)
+            ->where('year', (string) $year)
+            ->orderBy('created_stamp')
+            ->orderBy('grade_id')
+            ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function appendSectionsToReport(Request $request, GradeReport $report, array $data): JsonResponse
+    {
+        if ((int) $report->approv > 0) {
+            return response()->json(['message' => 'รายวิชานี้มีรายงานที่อนุมัติแล้ว ไม่สามารถเพิ่ม Section ได้'], 422);
+        }
+        if ($report->awaitingDeptResubmit()) {
+            return response()->json(['message' => 'รายการส่งการแก้ไขแล้ว รอสาขาวิชาดำเนินการ'], 422);
+        }
+
+        $stds = $data['grade_stds'] ?? [];
+        if ($stds === []) {
+            return response()->json(['message' => 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section'], 422);
+        }
+
+        DB::connection('scigrad')->transaction(function () use ($report, $stds, $data) {
+            $teacher = trim((string) ($data['teacher'] ?? ''));
+            if ($teacher !== '') {
+                $report->update(['teacher' => mb_substr($teacher, 0, 250)]);
+            }
+            $this->mergeNewGradeStds($report, $stds);
+        });
+
+        $this->pendingRegistrar->attachFromSession($report->fresh(), $this->staffUsername());
+
+        $this->auditLog->record(
+            'grade_report.append_sections',
+            subjectType: 'grade_report',
+            subjectId: $report->grade_id,
+            metadata: [
+                'subject_code' => $report->subject_code,
+                'term' => $report->term,
+                'year' => $report->year,
+            ],
+        );
+
+        return response()->json($this->formatReport($report->fresh('gradeStds')));
+    }
+
+    private function mergeNewGradeStds(GradeReport $report, array $stds): void
+    {
+        $existingSecs = $report->gradeStds()
+            ->pluck('sec')
+            ->map(fn ($sec) => (int) $sec)
+            ->all();
+
+        foreach ($stds as $std) {
+            $sec = (int) ($std['sec'] ?? 0);
+            if ($sec > 0 && in_array($sec, $existingSecs, true)) {
+                continue;
+            }
+
+            $stdData = $this->normalizeStdData($std);
+            $stdData['total_std'] = (string) $this->calcTotalStd($stdData);
+            $created = $report->gradeStds()->create($stdData);
+            $existingSecs[] = (int) $created->sec;
+        }
+    }
+
     /**
      * เงื่อนไขจาก project_old/grade_add_new.php — checksubject() + checksubjectID()
      */
@@ -341,7 +465,7 @@ class GradeReportController extends Controller
             'subject' => $data['subject'] ?? '',
             'teacher' => $data['teacher'] ?? '',
             'selecttype' => (int) ($data['selecttype'] ?? 1),
-            'degree' => (int) ($data['degree'] ?? 3),
+            'degree' => $this->resolveDegree($data),
             'programid' => substr((string) ($data['programid'] ?? ''), 0, 4),
             'type_course' => (string) ($data['type_course'] ?? 1),
             'mean' => $data['mean'] !== null && $data['mean'] !== '' ? (string) $data['mean'] : '',
@@ -378,6 +502,23 @@ class GradeReportController extends Controller
         }
 
         return $attributes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveDegree(array $data): int
+    {
+        $provided = (int) ($data['degree'] ?? SubjectDegree::BACHELOR);
+        $inferred = SubjectDegree::fromSubjectCode((string) ($data['subject_code'] ?? ''));
+
+        if (in_array($inferred, [SubjectDegree::MASTER, SubjectDegree::DOCTORAL], true)) {
+            return $inferred;
+        }
+
+        return in_array($provided, [SubjectDegree::MASTER, SubjectDegree::DOCTORAL], true)
+            ? $provided
+            : SubjectDegree::BACHELOR;
     }
 
     private function normalizeGradeScheme(mixed $value): string
@@ -459,6 +600,7 @@ class GradeReportController extends Controller
             'score_s' => ['nullable', 'string', 'max:20'],
             'score_u' => ['nullable', 'string', 'max:20'],
             'grade_scheme' => ['nullable', 'string', 'in:credit,audit,both'],
+            'append_sections' => ['nullable', 'boolean'],
             'grade_stds' => [$updating ? 'sometimes' : 'required', 'array', 'min:1'],
             ...$this->gradeStdItemRules('grade_stds.*'),
         ], [

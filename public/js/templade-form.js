@@ -62,6 +62,7 @@ function setupSubjectAutocomplete() {
         nameInput.value = name;
         hideList();
         refreshCourseContext();
+        applyGraduateFacultyDefault();
     };
 
     const render = (items) => {
@@ -549,6 +550,49 @@ function renderFacTags() {
     refreshSectionSelectOptions();
 }
 
+const GRADUATE_FACULTY = 'GS';
+
+function inferDegreeFromSubjectCode(raw) {
+    const code = String(raw || '').replace(/\s+/g, '').toUpperCase();
+    if (!code) return 3;
+    const letters = (code.match(/^[A-Z]+/) || [''])[0];
+    const digits = code.slice(letters.length).replace(/\D/g, '');
+    if (!digits) return 3;
+    const level = parseInt(digits.charAt(letters.length >= 2 && digits.length >= 3 ? 2 : 0), 10);
+    if (Number.isNaN(level)) return 3;
+    if (level >= 7) return 7;
+    if (level >= 5) return 5;
+    return 3;
+}
+
+function currentCourseDegree() {
+    const fromCode = inferDegreeFromSubjectCode(document.getElementById('subject-code')?.value);
+    const known = [window.parsedCourseDegree, window.reportDegree]
+        .map((n) => Number(n))
+        .find((n) => n === 5 || n === 7);
+    if (fromCode === 5 || fromCode === 7) return fromCode;
+    return known || 3;
+}
+
+function isGraduateCourse() {
+    return currentCourseDegree() !== 3;
+}
+
+function applyGraduateFacultyDefault(options = {}) {
+    const hint = document.getElementById('fac-graduate-hint');
+    const graduate = isGraduateCourse();
+    if (hint) hint.classList.toggle('hidden', !graduate);
+    if (!graduate || editingSectionIndex !== null) return;
+
+    const gs = Array.from(document.querySelectorAll('.fac-checkbox'))
+        .find((cb) => String(cb.value).toUpperCase() === GRADUATE_FACULTY);
+    if (!gs) return;
+
+    if (!options.resetForm && getCurrentFacString()) return;
+
+    setFacultiesSelected(gs.value);
+}
+
 function setFacultiesSelected(codes) {
     const set = new Set((codes || '').split(',').map((c) => c.trim()).filter(Boolean));
     document.querySelectorAll('.fac-checkbox').forEach((cb) => {
@@ -778,7 +822,7 @@ function updateSectionFormHint() {
         return;
     }
     hint.textContent = window.priorReportedSections?.length
-        ? 'กรอก Section ที่ยังไม่มีในภาคนี้ แล้วกด «บันทึก Section นี้» — Section ที่รายงานไปแล้วจะไม่แสดงในรายการ'
+        ? 'กรอก Section ที่ยังไม่มีในภาคนี้ แล้วกด «บันทึก Section นี้» — ระบบจะเพิ่มเข้าในรายการเดิม Section ที่กรอกแล้วจะไม่ให้เลือก'
         : 'กรอกข้อมูล Section แล้วกด «บันทึก Section นี้» — Section ที่บันทึกแล้วจะไม่แสดงในรายการ';
 }
 
@@ -789,6 +833,7 @@ function cancelSectionEdit() {
     document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
     renderFacTags();
     setRadio('type_course', 1);
+    applyGraduateFacultyDefault({ resetForm: true });
     updateSectionFormHint();
     const cancelBtn = document.getElementById('btn-cancel-section-edit');
     if (cancelBtn) cancelBtn.classList.add('hidden');
@@ -810,6 +855,7 @@ function applyParsedSectionFromPdf(parsed) {
         parseScoreRange(parsed.score_f, 'range-f-max', 'range-f-min');
         recalcAllGradeChains();
     }
+    if (parsed.degree != null) window.parsedCourseDegree = Number(parsed.degree);
     if (parsed.type_course != null) setRadio('type_course', parsed.type_course);
 
     const std = Array.isArray(parsed.grade_stds) && parsed.grade_stds.length
@@ -821,13 +867,17 @@ function applyParsedSectionFromPdf(parsed) {
     const existingIndex = sectionStdRows.findIndex((row) => Number(row.sec) === Number(sec));
     editingSectionIndex = existingIndex >= 0 ? existingIndex : null;
 
+    const existing = existingIndex >= 0 ? sectionStdRows[existingIndex] : null;
+    const fac = existing?.fac
+        ? existing.fac
+        : (isGraduateCourse() ? GRADUATE_FACULTY : (std.fac || ''));
     document.getElementById('section-input').value = String(sec);
-    setFacultiesSelected(std.fac || '');
+    setFacultiesSelected(fac);
     setRadio('type_course', std.type_course ?? parsed.type_course ?? 1);
     loadGradeStdToForm({
         ...std,
         sec,
-        fac: std.fac || '',
+        fac,
         type_course: std.type_course ?? parsed.type_course ?? 1,
     });
 
@@ -970,6 +1020,7 @@ function addOrUpdateSectionFromForm() {
     document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
     renderFacTags();
     setRadio('type_course', 1);
+    applyGraduateFacultyDefault({ resetForm: true });
     updateSectionFormHint();
     const cancelBtn = document.getElementById('btn-cancel-section-edit');
     if (cancelBtn) cancelBtn.classList.add('hidden');
@@ -1141,7 +1192,7 @@ function collectGradeReportPayload() {
         subject: document.getElementById('subject-name')?.value?.trim(),
         teacher: document.getElementById('teacher-input')?.value?.trim(),
         selecttype: 1,
-        degree: 3,
+        degree: currentCourseDegree(),
         programid: null,
         type_course: parseInt(document.querySelector('input[name="type_course"]:checked')?.value || '1', 10),
         mean: (() => {
@@ -1176,6 +1227,7 @@ function collectGradeReportPayload() {
         grade_scheme: currentGradeScheme(),
         remark: null,
         grade_stds: gradeStds,
+        append_sections: Boolean(window.appendingToPriorReport),
     };
 }
 
@@ -1444,6 +1496,11 @@ function setRadio(name, value) {
 function populateFormFromRecord(record) {
     if (!record) return;
 
+    window.reportDegree = record.degree != null ? Number(record.degree) : null;
+    if (record.degree != null && (Number(record.degree) === 5 || Number(record.degree) === 7)) {
+        window.parsedCourseDegree = Number(record.degree);
+    }
+
     document.getElementById('subject-code').value = record.subject_code || '';
     document.getElementById('subject-name').value = record.subject || '';
     setRadio('term', record.term ?? 1);
@@ -1469,12 +1526,16 @@ function populateFormFromRecord(record) {
     recalcAllGradeChains();
 
     const std = record.grade_std || {};
+    const keepSavedFac = Boolean(record.__backendId || record.grade_id);
+    const withDefaultFac = (rows) => rows.map((row) => (
+        keepSavedFac || !isGraduateCourse()
+            ? row
+            : { ...row, fac: GRADUATE_FACULTY }
+    ));
     if (Array.isArray(record.grade_stds) && record.grade_stds.length) {
-        setSectionStdRows(record.grade_stds);
-        setFacultiesSelected(record.grade_stds[0].fac || '');
+        setSectionStdRows(withDefaultFac(record.grade_stds));
     } else if (std.sec || std.fac) {
-        setSectionStdRows([std]);
-        setFacultiesSelected(std.fac || '');
+        setSectionStdRows(withDefaultFac([std]));
     } else {
         resetSectionStdRows();
     }
@@ -1504,6 +1565,7 @@ function populateFormFromRecord(record) {
     toggleEvaFields();
     updateGradeBoundaryHint();
     updateGradeRangeColumnHeaders();
+    applyGraduateFacultyDefault();
     refreshCourseContext();
 }
 
@@ -1539,6 +1601,7 @@ function initTempladeForm(options = {}) {
     renderSectionStdList();
     updateSectionFormHint();
     refreshSectionSelectOptions();
+    applyGraduateFacultyDefault();
 }
 
 window.courseContext = null;
@@ -1561,7 +1624,10 @@ function setupCourseContextWatchers() {
         clearTimeout(timer);
         timer = setTimeout(() => refreshCourseContext(), 280);
     };
-    document.getElementById('subject-code')?.addEventListener('blur', schedule);
+    document.getElementById('subject-code')?.addEventListener('blur', () => {
+        schedule();
+        applyGraduateFacultyDefault();
+    });
     document.getElementById('year-input')?.addEventListener('change', schedule);
     document.querySelectorAll('input[name="term"]').forEach((el) => {
         el.addEventListener('change', schedule);
@@ -1572,7 +1638,7 @@ async function refreshCourseContext() {
     const code = document.getElementById('subject-code')?.value?.trim().replace(/\s+/g, '') || '';
     const term = document.querySelector('input[name="term"]:checked')?.value || '';
     const year = document.getElementById('year-input')?.value || '';
-    const exclude = currentWizardReportId() || '';
+    const exclude = window.appendingToPriorReport ? '' : (currentWizardReportId() || '');
     const seq = ++courseContextSeq;
 
     if (!code) {
@@ -1610,6 +1676,7 @@ function applyCourseContext(data) {
     window.courseGroupLocked = grouped;
     window.sharedFieldsLocked = Boolean(prior);
     window.priorSectionEvaEditable = Boolean(prior && Number(prior.statuseva) === 1);
+    attachWizardToPriorReport(prior);
 
     renderCourseGroupBanner(members, grouped);
     renderCoursePriorBanner(prior);
@@ -1634,6 +1701,7 @@ function applyCourseContext(data) {
         clearInheritedPriorCriteria();
         priorCriteriaApplied = false;
     }
+    applyPriorTeacherNames(prior);
 
     setSharedFieldsLocked(window.sharedFieldsLocked, {
         sectionEvaEditable: window.priorSectionEvaEditable,
@@ -1694,8 +1762,90 @@ function renderCoursePriorBanner(prior) {
 
     banner.classList.remove('hidden');
     body.textContent = `${termLabel} ปีการศึกษา ${year} กรอกโดย ${name} `
-        + 'ระบบดึงช่วงคะแนน ค่าเฉลี่ย ส่วนเบี่ยงเบนมาตรฐาน และรายละเอียดเกณฑ์มาให้แล้ว และไม่สามารถแก้ไขได้ '
+        + 'ระบบจะเพิ่ม Section เข้าในรายการเดิม ไม่สร้างรายงานใหม่ '
+        + 'ช่วงคะแนน ค่าเฉลี่ย ส่วนเบี่ยงเบนมาตรฐาน และเกณฑ์ถูกดึงมาให้แล้ว และไม่สามารถแก้ไขได้ '
         + `หากต้องการเปลี่ยนแปลงเกณฑ์ กรุณาติดต่อ ${name}${sectionNote}`;
+}
+
+let priorTeacherSourceId = null;
+
+function splitTeacherNames(value) {
+    return String(value || '')
+        .split(/[,;\/]+/)
+        .map((name) => name.trim())
+        .filter(Boolean);
+}
+
+function mergeTeacherNames(existing, extra) {
+    const names = splitTeacherNames(existing);
+    splitTeacherNames(extra).forEach((name) => {
+        const key = name.replace(/\s+/g, '');
+        if (!names.some((item) => item.replace(/\s+/g, '') === key)) {
+            names.push(name);
+        }
+    });
+    return names.join(', ');
+}
+
+function applyPriorTeacherNames(prior) {
+    const input = document.getElementById('teacher-input');
+    const hint = document.getElementById('teacher-help-text');
+    if (!input) return;
+
+    if (window.wizardConfig?.openedAsEdit) {
+        return;
+    }
+
+    if (!prior) {
+        if (priorTeacherSourceId) {
+            input.value = input.dataset.defaultTeacher || '';
+            priorTeacherSourceId = null;
+        }
+        if (hint) {
+            hint.textContent = 'ดึงชื่อจากข้อมูลบุคลากรเป็นค่าเริ่มต้น — สามารถแก้ไขหรือเพิ่มชื่ออาจารย์ผู้สอนได้';
+        }
+        return;
+    }
+
+    const sourceId = String(prior.grade_id || '');
+    const priorNames = prior.teacher
+        || (Array.isArray(prior.teachers) ? prior.teachers.join(', ') : '');
+    if (priorTeacherSourceId === sourceId) {
+        if (hint) {
+            hint.textContent = 'แสดงชื่ออาจารย์จากรายการเดิมในภาคนี้ — สามารถเพิ่มชื่ออาจารย์ผู้สอนได้';
+        }
+        return;
+    }
+
+    input.value = mergeTeacherNames(priorNames, input.dataset.defaultTeacher || '');
+    priorTeacherSourceId = sourceId;
+    if (hint) {
+        hint.textContent = 'แสดงชื่ออาจารย์จากรายการเดิมในภาคนี้ — สามารถเพิ่มชื่ออาจารย์ผู้สอนได้';
+    }
+}
+
+function attachWizardToPriorReport(prior) {
+    const config = window.wizardConfig;
+    if (!config) {
+        window.appendingToPriorReport = Boolean(prior);
+        return;
+    }
+
+    if (config.openedAsEdit) {
+        window.appendingToPriorReport = false;
+        return;
+    }
+
+    if (!prior?.grade_id) {
+        if (window.appendingToPriorReport) {
+            config.currentReportId = null;
+        }
+        window.appendingToPriorReport = false;
+        return;
+    }
+
+    window.appendingToPriorReport = true;
+    config.currentReportId = String(prior.grade_id);
 }
 
 function renderPriorSectionsBox(sections) {
@@ -1972,6 +2122,7 @@ function showWizardStep(step, config) {
     if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
 
     if (step === 2) refreshCourseContext();
+    if (step === 5) applyGraduateFacultyDefault();
     updateAttachmentChecklist(config);
 }
 
@@ -2131,6 +2282,7 @@ function printReportUrl(reportId) {
 }
 
 function initGradeReportWizard(config) {
+    config.openedAsEdit = Boolean(config.openedAsEdit);
     window.wizardConfig = config;
     window.wizardHasPendingReg = Boolean(config.hasPendingRegistrar || config.cameFromUpload);
     let step = restoreWizardState(config);

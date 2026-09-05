@@ -24,7 +24,7 @@ class GradeReportFileController extends Controller
 
     public function store(Request $request, GradeReport $gradeReport): JsonResponse
     {
-        abort_unless($this->ownsReport($gradeReport), 403);
+        abort_unless($this->ownsReport($gradeReport) || $this->canContribute($gradeReport), 403);
 
         if (! $gradeReport->canUploadFiles()) {
             return response()->json([
@@ -153,6 +153,11 @@ class GradeReportFileController extends Controller
     private function ownsReport(GradeReport $gradeReport): bool
     {
         return $gradeReport->username === $this->staffUsername();
+    }
+
+    private function canContribute(GradeReport $gradeReport): bool
+    {
+        return (int) $gradeReport->approv <= 0 && ! $gradeReport->awaitingDeptResubmit();
     }
 
     private function canViewFiles(GradeReport $gradeReport): bool

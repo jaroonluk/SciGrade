@@ -263,7 +263,7 @@
                                 data-default-teacher="{{ $staffTeacherName }}"
                                 class="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white"
                                 value="{{ $staffTeacherName }}" placeholder="ชื่ออาจารย์ผู้สอน">
-                            <p class="text-xs text-[#7A4A3A]/80 mt-1">ดึงชื่อจากข้อมูลบุคลากรเป็นค่าเริ่มต้น — สามารถแก้ไขหรือเพิ่มชื่ออาจารย์ผู้สอนได้</p>
+                            <p id="teacher-help-text" class="text-xs text-[#7A4A3A]/80 mt-1">ดึงชื่อจากข้อมูลบุคลากรเป็นค่าเริ่มต้น — สามารถแก้ไขหรือเพิ่มชื่ออาจารย์ผู้สอนได้</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">วันที่บันทึก</label>
@@ -441,7 +441,7 @@
                         </div>
                         <div id="prior-sections-box" class="hidden rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5">
                             <p class="text-sm font-semibold text-orange-950">Section ที่รายงานไปแล้วในภาคนี้</p>
-                            <p class="text-xs text-orange-900/80 mt-0.5">กรอกได้เฉพาะ Section ที่ยังไม่มีในระบบ — Section ที่รายงานแล้วจะไม่แสดงในรายการเลือก</p>
+                            <p class="text-xs text-orange-900/80 mt-0.5">Section เหล่านี้มีในรายการเดิมแล้ว จึงไม่แสดงให้เลือก — กรอกเฉพาะ Section ที่ยังไม่มี ระบบจะเพิ่มเข้าในรายงานเดิม</p>
                             <div id="prior-sections-list" class="flex flex-wrap gap-1.5 mt-2"></div>
                         </div>
 
@@ -472,6 +472,9 @@
                                     @endforelse
                                 </div>
                                 <div id="fac-selected-tags" class="flex flex-wrap gap-1.5 mt-2"></div>
+                                <p id="fac-graduate-hint" class="hidden text-xs text-[#7A4A3A]/80 mt-1">
+                                    รายวิชานี้อยู่นอกระดับปริญญาตรี ระบบเลือกคณะ GS บัณฑิตศึกษาให้แล้ว — สามารถเปลี่ยนได้
+                                </p>
                             </div>
                         </div>
 
@@ -729,7 +732,7 @@
         const hasRegistrarFile = @json($hasRegistrarFile ?? false);
         const hasExamReportFile = @json($hasExamReportFile ?? false);
 
-        window.wizardConfig = { currentReportId: reportId };
+        window.wizardConfig = { currentReportId: reportId, openedAsEdit: Boolean(reportId) };
         initTempladeForm({ teacherHelpImageUrl });
 
         if (prefillReport) {
@@ -757,15 +760,14 @@
             }
         }
 
-        initGradeReportWizard({
-            currentReportId: reportId,
+        initGradeReportWizard(Object.assign(window.wizardConfig, {
             cameFromUpload,
             hasPendingRegistrar,
             hasRegistrarFile,
             hasExamReportFile,
             returnUrl,
             dashboardUrl,
-        });
+        }));
 
         document.getElementById('save-overlay-error-close')?.addEventListener('click', () => {
             document.getElementById('save-overlay')?.classList.add('hidden');
