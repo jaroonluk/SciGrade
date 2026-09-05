@@ -905,6 +905,11 @@ async function uploadSectionRegistrarPdf(file) {
 
         applyParsedSectionFromPdf(data.parsed);
         window.wizardHasPendingReg = true;
+        if (window.wizardConfig) {
+            window.wizardConfig.hasPendingRegistrar = true;
+            persistWizardState(window.wizardConfig, 6);
+            updateAttachmentChecklist(window.wizardConfig);
+        }
         if (statusEl) {
             statusEl.textContent = data.file_name
                 ? `อ่านสำเร็จ: ${data.file_name}`
@@ -1838,13 +1843,70 @@ function setupWizardRegUpload() {
     });
 }
 
-function shouldSkipRegStep(config) {
+function hasRegistrarAttachment(config) {
     return Boolean(
         window.wizardHasPendingReg
-        || config.cameFromUpload
-        || config.hasPendingRegistrar
-        || config.hasRegistrarFile
+        || config?.cameFromUpload
+        || config?.hasPendingRegistrar
+        || config?.hasRegistrarFile
     );
+}
+
+function hasExamReportAttachment(config) {
+    return Boolean(config?.hasExamReportFile);
+}
+
+function shouldSkipRegStep(config) {
+    return hasRegistrarAttachment(config);
+}
+
+function requiredAttachmentError(config) {
+    const hasReg = hasRegistrarAttachment(config);
+    const hasExam = hasExamReportAttachment(config);
+    if (hasReg && hasExam) return null;
+    if (!hasReg && !hasExam) {
+        return 'กรุณาแนบไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น: ใบส่งผลการศึกษา (REG) ในขั้นตอนที่ 6 และใบขวางในขั้นตอนที่ 8';
+    }
+    if (!hasReg) {
+        return 'ยังไม่ได้แนบใบส่งผลการศึกษา (REG) กรุณาย้อนกลับไปขั้นตอนที่ 6 เพื่ออัปโหลดไฟล์ก่อนเสร็จสิ้น';
+    }
+    return 'ยังไม่ได้แนบใบขวาง กรุณาอัปโหลดไฟล์ PDF ที่พิมพ์และลงนามแล้วในขั้นตอนที่ 8 ก่อนเสร็จสิ้น';
+}
+
+function updateAttachmentChecklist(config) {
+    const hasReg = hasRegistrarAttachment(config);
+    const hasExam = hasExamReportAttachment(config);
+    const regCheck = document.getElementById('wizard-reg-check');
+    const examCheck = document.getElementById('wizard-exam-check');
+    const box = document.getElementById('wizard-attachment-checklist');
+
+    if (regCheck) {
+        regCheck.textContent = hasReg
+            ? 'แนบใบส่งผลการศึกษา (REG) แล้ว'
+            : 'ยังไม่ได้แนบใบส่งผลการศึกษา (REG) — ย้อนกลับไปขั้นตอนที่ 6';
+        regCheck.className = `text-sm ${hasReg ? 'text-green-800 font-medium' : 'text-red-700'}`;
+    }
+    if (examCheck) {
+        examCheck.textContent = hasExam
+            ? 'แนบใบขวางแล้ว'
+            : 'ยังไม่ได้แนบใบขวาง — อัปโหลดในขั้นตอนนี้';
+        examCheck.className = `text-sm ${hasExam ? 'text-green-800 font-medium' : 'text-red-700'}`;
+    }
+    if (box) {
+        box.classList.toggle('border-green-200', hasReg && hasExam);
+        box.classList.toggle('bg-green-50', hasReg && hasExam);
+        box.classList.toggle('border-amber-200', !(hasReg && hasExam));
+        box.classList.toggle('bg-[#FFFBF7]', !(hasReg && hasExam));
+    }
+
+    const regStatus = document.getElementById('wizard-reg-status');
+    if (regStatus && hasReg && !regStatus.textContent) {
+        regStatus.textContent = 'แนบไฟล์ REG แล้ว';
+    }
+    const examStatus = document.getElementById('wizard-exam-status');
+    if (examStatus && hasExam && !examStatus.textContent) {
+        examStatus.textContent = 'แนบใบขวางแล้ว';
+    }
 }
 
 function nextWizardStep(current, config) {
@@ -1857,7 +1919,7 @@ function prevWizardStep(current, config) {
     return current - 1;
 }
 
-function validateWizardStep(step) {
+function validateWizardStep(step, config) {
     if (step === 1) {
         const code = document.getElementById('subject-code')?.value?.trim();
         const name = document.getElementById('subject-name')?.value?.trim();
@@ -1884,6 +1946,12 @@ function validateWizardStep(step) {
         if (!sectionStdRows.length) return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section';
         return validateEvaluationScores(collectGradeReportPayload());
     }
+    if (step === 6 && !hasRegistrarAttachment(config)) {
+        return 'กรุณาแนบใบส่งผลการศึกษา (REG) ก่อนไปขั้นตอนถัดไป';
+    }
+    if (step === 8) {
+        return requiredAttachmentError(config);
+    }
     return null;
 }
 
@@ -1904,6 +1972,7 @@ function showWizardStep(step, config) {
     if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
 
     if (step === 2) refreshCourseContext();
+    updateAttachmentChecklist(config);
 }
 
 function showWizardDone() {
@@ -1966,6 +2035,9 @@ async function saveWizardReport(config) {
     loading?.classList.add('hidden');
     overlay?.classList.add('hidden');
     document.body.style.overflow = '';
+    if (hasRegistrarAttachment(config)) {
+        config.hasRegistrarFile = true;
+    }
     persistWizardState(config, 7);
     refreshCourseContext();
     return { ok: true };
@@ -1998,6 +2070,8 @@ async function uploadExamReport(config, file) {
         if (!res.ok) throw new Error(data.message || 'อัปโหลดไม่สำเร็จ');
         if (status) status.textContent = `อัปโหลดแล้ว: ${data.original_name || file.name}`;
         config.hasExamReportFile = true;
+        persistWizardState(config, 8);
+        updateAttachmentChecklist(config);
         showToast('อัปโหลดใบขวางเรียบร้อย', 'success');
     } catch (err) {
         if (status) status.textContent = '';
@@ -2014,6 +2088,8 @@ function persistWizardState(config, step) {
         sessionStorage.setItem(wizardStorageKey(), JSON.stringify({
             reportId: config.currentReportId || null,
             step,
+            hasRegistrarFile: hasRegistrarAttachment(config),
+            hasExamReportFile: hasExamReportAttachment(config),
             at: Date.now(),
         }));
     } catch {
@@ -2032,6 +2108,8 @@ function restoreWizardState(config) {
         if (!config.currentReportId && saved.reportId) {
             config.currentReportId = String(saved.reportId);
         }
+        if (saved.hasRegistrarFile) config.hasRegistrarFile = true;
+        if (saved.hasExamReportFile) config.hasExamReportFile = true;
 
         const step = Number(saved.step);
         return step >= 1 && step <= 8 ? step : 1;
@@ -2065,9 +2143,10 @@ function initGradeReportWizard(config) {
     };
 
     document.getElementById('wizard-next')?.addEventListener('click', async () => {
-        const error = validateWizardStep(step);
+        const error = validateWizardStep(step, config);
         if (error) {
             showToast(error, 'error');
+            updateAttachmentChecklist(config);
             return;
         }
 

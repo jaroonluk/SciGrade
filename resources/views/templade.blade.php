@@ -606,7 +606,7 @@
                             <p class="text-sm text-[#7A4A3A]/80 leading-relaxed">
                                 กรณีกรอกข้อมูลเอง กรุณาดาวน์โหลดใบส่งผลการศึกษาจากสำนักทะเบียน
                                 <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>
-                                แล้วอัปโหลดไฟล์ PDF ที่นี่ หากอัปโหลดไว้แล้วในขั้นตอนก่อนหน้า สามารถข้ามได้
+                                แล้วอัปโหลดไฟล์ PDF ที่นี่ ต้องแนบไฟล์นี้ก่อนจึงจะเสร็จสิ้นได้ หากอัปโหลดไว้แล้วในขั้นตอนที่ 5 ระบบจะข้ามขั้นตอนนี้ให้อัตโนมัติ
                             </p>
                             <input id="wizard-reg-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
@@ -626,9 +626,14 @@
                     </div>
 
                     <div class="wizard-step space-y-4" data-wizard-step="8">
+                        <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
+                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องแนบไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น</p>
+                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">ใบส่งผลการศึกษา (REG) — ขั้นตอนที่ 6</p>
+                            <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบขวางที่พิมพ์และลงนามแล้ว — ขั้นตอนที่ 8</p>
+                        </div>
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
                             <h3 class="font-bold text-[#5C2E1F]">อัปโหลดรายงานผลการสอบไล่ (ใบขวาง)</h3>
-                            <p class="text-sm text-[#7A4A3A]/80">แนะนำให้อัปโหลดไฟล์ PDF ที่พิมพ์และลงนามแล้ว เพื่อให้สาขาตรวจสอบได้</p>
+                            <p class="text-sm text-[#7A4A3A]/80">กรุณาอัปโหลดไฟล์ PDF ที่พิมพ์และลงนามแล้ว เพื่อให้สาขาตรวจสอบได้ — ต้องแนบไฟล์นี้ก่อนจึงจะเสร็จสิ้นได้</p>
                             <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
                             <p id="wizard-exam-status" class="text-xs text-[#7A4A3A]"></p>
