@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PdCourse;
+use App\Services\GradReport2Service;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,5 +37,12 @@ class SubjectController extends Controller
             ]);
 
         return response()->json($rows);
+    }
+
+    public function jointPeers(Request $request, GradReport2Service $gradReport2): JsonResponse
+    {
+        $code = trim((string) $request->query('subject_code', ''));
+
+        return response()->json($gradReport2->peersForSubject($code));
     }
 }

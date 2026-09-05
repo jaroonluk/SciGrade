@@ -27,4 +27,13 @@ class GradReport2CodeNormalizationTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         GradReport2::normalizedCodeSql('subject');
     }
+
+    #[Test]
+    public function it_returns_no_joint_peers_for_blank_subject_code(): void
+    {
+        $service = new \App\Services\GradReport2Service();
+
+        $this->assertSame([], $service->peersForSubject(''));
+        $this->assertSame([], $service->peersForSubject('   '));
+    }
 }

@@ -352,7 +352,15 @@ function setupJointGradeSubjectSearch() {
 
 function setupReasonIdFields() {
     document.querySelectorAll('input[name="reasonid"]').forEach((radio) => {
-        radio.addEventListener('change', updateReasonFieldsState);
+        radio.addEventListener('change', () => {
+            updateReasonFieldsState();
+            loadJointPeers();
+        });
+    });
+    document.getElementById('subject-code')?.addEventListener('blur', () => {
+        if (document.querySelector('input[name="reasonid"]:checked')?.value === '1') {
+            loadJointPeers();
+        }
     });
     updateReasonFieldsState();
 }
@@ -865,10 +873,17 @@ async function uploadSectionRegistrarPdf(file) {
         }
 
         applyParsedSectionFromPdf(data.parsed);
+        window.wizardHasPendingReg = true;
         if (statusEl) {
             statusEl.textContent = data.file_name
                 ? `อ่านสำเร็จ: ${data.file_name}`
                 : 'อ่านไฟล์สำเร็จ';
+        }
+        const wizardRegStatus = document.getElementById('wizard-reg-status');
+        if (wizardRegStatus) {
+            wizardRegStatus.textContent = data.file_name
+                ? `แนบไฟล์แล้ว: ${data.file_name}`
+                : 'แนบไฟล์ REG แล้ว';
         }
         showToast(data.message || 'อ่านไฟล์สำเร็จ', 'success');
     } catch (err) {
@@ -1117,6 +1132,9 @@ function collectGradeReportPayload() {
         score_dd: buildScoreRange('range-dp-max', 'range-dp-min'),
         score_d: buildScoreRange('range-d-max', 'range-d-min'),
         score_f: buildScoreRange('range-f-max', 'range-f-min'),
+        score_s: buildScoreRange('range-s-max', 'range-s-min'),
+        score_u: buildScoreRange('range-u-max', 'range-u-min'),
+        grade_scheme: currentGradeScheme(),
         remark: null,
         grade_stds: gradeStds,
     };
@@ -1144,14 +1162,92 @@ function validateEvaluationScores(payload) {
 }
 
 const GRADE_RANGE_KEYS = ['a', 'bp', 'b', 'cp', 'c', 'dp', 'd', 'f'];
-const GRADE_RANGE_LABELS = { a: 'A', bp: 'B+', b: 'B', cp: 'C+', c: 'C', dp: 'D+', d: 'D', f: 'F' };
+const SU_RANGE_KEYS = ['s', 'u'];
+const GRADE_RANGE_LABELS = { a: 'A', bp: 'B+', b: 'B', cp: 'C+', c: 'C', dp: 'D+', d: 'D', f: 'F', s: 'S', u: 'U' };
 
 function defaultAMaxValue() {
     return isDecimalMode() ? '100.00' : '100';
 }
 
+function currentGradeScheme() {
+    const credit = document.getElementById('scheme-credit')?.checked;
+    const audit = document.getElementById('scheme-audit')?.checked;
+    if (credit && audit) return 'both';
+    if (audit) return 'audit';
+    return 'credit';
+}
+
+function visibleRangeKeys() {
+    const scheme = currentGradeScheme();
+    if (scheme === 'audit') return SU_RANGE_KEYS;
+    if (scheme === 'both') return [...GRADE_RANGE_KEYS, ...SU_RANGE_KEYS];
+    return GRADE_RANGE_KEYS;
+}
+
+function applyGradeSchemeUi() {
+    const scheme = currentGradeScheme();
+    const showCredit = scheme === 'credit' || scheme === 'both';
+    const showAudit = scheme === 'audit' || scheme === 'both';
+    document.getElementById('credit-range-table')?.classList.toggle('hidden', !showCredit);
+    document.getElementById('audit-range-table')?.classList.toggle('hidden', !showAudit);
+    document.querySelectorAll('#student-grade-table th, #student-grade-table td').forEach((cell, idx) => {
+        const col = idx % 12;
+        const isCreditCol = col <= 7;
+        const isSuCol = col === 9 || col === 10;
+        if (scheme === 'audit' && isCreditCol) cell.classList.add('opacity-40');
+        else if (scheme === 'credit' && isSuCol) cell.classList.add('opacity-40');
+        else cell.classList.remove('opacity-40');
+    });
+}
+
+function setGradeScheme(scheme) {
+    const credit = document.getElementById('scheme-credit');
+    const audit = document.getElementById('scheme-audit');
+    const both = document.getElementById('scheme-both');
+    if (!credit || !audit || !both) return;
+    if (scheme === 'both') {
+        credit.checked = true;
+        audit.checked = true;
+        both.checked = true;
+    } else if (scheme === 'audit') {
+        credit.checked = false;
+        audit.checked = true;
+        both.checked = false;
+    } else {
+        credit.checked = true;
+        audit.checked = false;
+        both.checked = false;
+    }
+    applyGradeSchemeUi();
+}
+
+function setupGradeScheme() {
+    const credit = document.getElementById('scheme-credit');
+    const audit = document.getElementById('scheme-audit');
+    const both = document.getElementById('scheme-both');
+    if (!credit || !audit || !both) return;
+
+    const sync = (source) => {
+        if (source === 'both') {
+            credit.checked = both.checked;
+            audit.checked = both.checked;
+            if (!both.checked) credit.checked = true;
+        } else {
+            both.checked = credit.checked && audit.checked;
+            if (!credit.checked && !audit.checked) credit.checked = true;
+        }
+        applyGradeSchemeUi();
+    };
+
+    credit.addEventListener('change', () => sync('credit'));
+    audit.addEventListener('change', () => sync('audit'));
+    both.addEventListener('change', () => sync('both'));
+    applyGradeSchemeUi();
+}
+
 function chainGradeFromMin(gradeKey) {
-    const idx = GRADE_RANGE_KEYS.indexOf(gradeKey);
+    const keys = GRADE_RANGE_KEYS.includes(gradeKey) ? GRADE_RANGE_KEYS : SU_RANGE_KEYS;
+    const idx = keys.indexOf(gradeKey);
     if (idx < 0) return;
 
     const minEl = document.getElementById(`range-${gradeKey}-min`);
@@ -1159,12 +1255,12 @@ function chainGradeFromMin(gradeKey) {
     const minVal = parseFloat(minRaw);
     const decimal = isDecimalMode();
 
-    if (gradeKey === 'a' && minRaw !== '') {
-        const maxA = document.getElementById('range-a-max');
-        if (maxA) maxA.value = defaultAMaxValue();
+    if ((gradeKey === 'a' || gradeKey === 's') && minRaw !== '') {
+        const maxEl = document.getElementById(`range-${gradeKey}-max`);
+        if (maxEl) maxEl.value = defaultAMaxValue();
     }
 
-    const nextKey = GRADE_RANGE_KEYS[idx + 1];
+    const nextKey = keys[idx + 1];
     if (!nextKey) return;
 
     const nextMax = document.getElementById(`range-${nextKey}-max`);
@@ -1172,7 +1268,7 @@ function chainGradeFromMin(gradeKey) {
 
     if (minRaw === '' || Number.isNaN(minVal)) {
         if (minRaw.length > 0 && idx > 0) {
-            const prevMin = parseFloat(document.getElementById(`range-${GRADE_RANGE_KEYS[idx - 1]}-min`)?.value);
+            const prevMin = parseFloat(document.getElementById(`range-${keys[idx - 1]}-min`)?.value);
             if (!Number.isNaN(prevMin)) {
                 nextMax.value = decimal ? (prevMin - 0.01).toFixed(2) : String(Math.round(prevMin - 1));
             }
@@ -1182,14 +1278,14 @@ function chainGradeFromMin(gradeKey) {
         return;
     }
 
-    if (minVal > 0 || gradeKey === 'f') {
+    if (minVal > 0 || gradeKey === 'f' || gradeKey === 'u') {
         nextMax.value = decimal ? (minVal - 0.01).toFixed(2) : String(Math.round(minVal - 1));
     }
     updateGradeRangeColumnHeaders();
 }
 
 function recalcAllGradeChains() {
-    GRADE_RANGE_KEYS.forEach((key) => chainGradeFromMin(key));
+    [...GRADE_RANGE_KEYS, ...SU_RANGE_KEYS].forEach((key) => chainGradeFromMin(key));
 }
 
 function parseRangeInput(id) {
@@ -1206,7 +1302,8 @@ function isGradeRangeFilled(key) {
 }
 
 function validateGradeRanges() {
-    for (const key of GRADE_RANGE_KEYS) {
+    const keys = visibleRangeKeys();
+    for (const key of keys) {
         const max = parseRangeInput(`range-${key}-max`);
         const min = parseRangeInput(`range-${key}-min`);
         if (max !== null && min !== null && max < min) {
@@ -1214,15 +1311,21 @@ function validateGradeRanges() {
         }
     }
 
-    for (let i = GRADE_RANGE_KEYS.length - 1; i >= 0; i--) {
-        const key = GRADE_RANGE_KEYS[i];
-        if (isGradeRangeFilled(key)) {
-            for (let j = 0; j < i; j++) {
-                if (!isGradeRangeFilled(GRADE_RANGE_KEYS[j])) {
-                    return `กรุณากรอกช่วงคะแนนให้ครบถึงเกรด ${GRADE_RANGE_LABELS[GRADE_RANGE_KEYS[j]]} ด้วย`;
+    const groups = currentGradeScheme() === 'both'
+        ? [GRADE_RANGE_KEYS, SU_RANGE_KEYS]
+        : [keys];
+
+    for (const group of groups) {
+        for (let i = group.length - 1; i >= 0; i--) {
+            const key = group[i];
+            if (isGradeRangeFilled(key)) {
+                for (let j = 0; j < i; j++) {
+                    if (!isGradeRangeFilled(group[j])) {
+                        return `กรุณากรอกช่วงคะแนนให้ครบถึงเกรด ${GRADE_RANGE_LABELS[group[j]]} ด้วย`;
+                    }
                 }
+                break;
             }
-            break;
         }
     }
 
@@ -1230,7 +1333,7 @@ function validateGradeRanges() {
 }
 
 function chainGradeRanges() {
-    GRADE_RANGE_KEYS.forEach((key) => {
+    [...GRADE_RANGE_KEYS, ...SU_RANGE_KEYS].forEach((key) => {
         const minEl = document.getElementById(`range-${key}-min`);
         if (!minEl) return;
         minEl.addEventListener('input', () => chainGradeFromMin(key));
@@ -1245,7 +1348,7 @@ function chainGradeRanges() {
             const key = btn.dataset.grade;
             const maxEl = document.getElementById(`range-${key}-max`);
             const minEl = document.getElementById(`range-${key}-min`);
-            if (maxEl) maxEl.value = key === 'a' ? defaultAMaxValue() : '';
+            if (maxEl) maxEl.value = (key === 'a' || key === 's') ? defaultAMaxValue() : '';
             if (minEl) minEl.value = '';
             updateGradeRangeColumnHeaders();
         });
@@ -1321,6 +1424,9 @@ function populateFormFromRecord(record) {
     parseScoreRange(record.score_dd, 'range-dp-max', 'range-dp-min');
     parseScoreRange(record.score_d, 'range-d-max', 'range-d-min');
     parseScoreRange(record.score_f, 'range-f-max', 'range-f-min');
+    parseScoreRange(record.score_s, 'range-s-max', 'range-s-min');
+    parseScoreRange(record.score_u, 'range-u-max', 'range-u-min');
+    setGradeScheme(record.grade_scheme || (record.score_s || record.score_u ? 'both' : 'credit'));
     recalcAllGradeChains();
 
     const std = record.grade_std || {};
@@ -1367,6 +1473,7 @@ function initTempladeForm(options = {}) {
     if (!templadeFormBootstrapped) {
         chainGradeRanges();
         setupGradeRangeInputs();
+        setupGradeScheme();
         setupIntflagMode();
         setupScoreDecimalInputs();
         setupSubjectAutocomplete();
@@ -1375,6 +1482,7 @@ function initTempladeForm(options = {}) {
         setupSectionStdManager();
         setupFacMultiSelect();
         setupSectionPdfUpload();
+        setupWizardRegUpload();
         document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
             el.addEventListener('change', toggleEvaFields);
         });
@@ -1390,4 +1498,266 @@ function initTempladeForm(options = {}) {
     renderSectionStdList();
     updateSectionFormHint();
     refreshSectionSelectOptions();
+}
+
+async function loadJointPeers() {
+    const box = document.getElementById('joint-peer-box');
+    const list = document.getElementById('joint-peer-list');
+    const empty = document.getElementById('joint-peer-empty');
+    if (!box || !list) return;
+
+    const isJoint = document.querySelector('input[name="reasonid"]:checked')?.value === '1';
+    if (!isJoint) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    const code = document.getElementById('subject-code')?.value?.trim().replace(/\s+/g, '');
+    box.classList.remove('hidden');
+    if (!code) {
+        list.innerHTML = '';
+        empty?.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/grad-report2/peers?subject_code=${encodeURIComponent(code)}`, {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const peers = await res.json();
+        if (!Array.isArray(peers) || !peers.length) {
+            list.innerHTML = '';
+            empty?.classList.remove('hidden');
+            return;
+        }
+
+        empty?.classList.add('hidden');
+        list.innerHTML = peers.map((peer) => `
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-white border border-sky-200 text-[#0c4a6e]">
+                <span class="font-semibold">${peer.subject_code}</span>
+                ${peer.subject ? `<span class="truncate">— ${peer.subject}</span>` : ''}
+            </span>
+        `).join('');
+
+        peers.forEach((peer) => addJointGradeSubject(peer.subject_code, peer.subject || ''));
+    } catch {
+        list.innerHTML = '';
+        empty?.classList.remove('hidden');
+    }
+}
+
+function setupWizardRegUpload() {
+    const input = document.getElementById('wizard-reg-upload');
+    if (!input || input.dataset.bound === '1') return;
+    input.dataset.bound = '1';
+    input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (file) uploadSectionRegistrarPdf(file);
+    });
+}
+
+function shouldSkipRegStep(config) {
+    return Boolean(
+        window.wizardHasPendingReg
+        || config.cameFromUpload
+        || config.hasPendingRegistrar
+        || config.hasRegistrarFile
+    );
+}
+
+function nextWizardStep(current, config) {
+    if (current === 5 && shouldSkipRegStep(config)) return 7;
+    return current + 1;
+}
+
+function prevWizardStep(current, config) {
+    if (current === 7 && shouldSkipRegStep(config)) return 5;
+    return current - 1;
+}
+
+function validateWizardStep(step) {
+    if (step === 1) {
+        const code = document.getElementById('subject-code')?.value?.trim();
+        const name = document.getElementById('subject-name')?.value?.trim();
+        if (!code || !name) return 'กรุณากรอกรหัสวิชาและชื่อวิชา';
+        return null;
+    }
+    if (step === 2) {
+        const reasonid = document.querySelector('input[name="reasonid"]:checked')?.value;
+        if (reasonid === '1' && !jointGradeSubjects.length) {
+            return 'กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
+        }
+        return null;
+    }
+    if (step === 3) {
+        if (!document.getElementById('scheme-credit')?.checked && !document.getElementById('scheme-audit')?.checked) {
+            return 'กรุณาเลือกรูปแบบช่วงคะแนนอย่างน้อย 1 รายการ';
+        }
+        return validateGradeRanges();
+    }
+    if (step === 4) {
+        return validateEvaluationScores(collectGradeReportPayload());
+    }
+    if (step === 5) {
+        if (!sectionStdRows.length) return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section';
+        return validateEvaluationScores(collectGradeReportPayload());
+    }
+    return null;
+}
+
+function showWizardStep(step, config) {
+    document.querySelectorAll('[data-wizard-step]').forEach((el) => {
+        el.classList.toggle('is-active', Number(el.dataset.wizardStep) === step);
+    });
+    document.querySelectorAll('[data-wizard-dot]').forEach((el) => {
+        const n = Number(el.dataset.wizardDot);
+        const dot = el.querySelector('.wizard-dot');
+        if (!dot) return;
+        dot.classList.toggle('is-current', n === step);
+        dot.classList.toggle('is-done', n < step);
+    });
+
+    const back = document.getElementById('wizard-back');
+    const next = document.getElementById('wizard-next');
+    if (back) back.classList.toggle('hidden', step <= 1);
+    if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
+
+    if (step === 2) loadJointPeers();
+    if (step === 7 && config.currentReportId) {
+        const print = document.getElementById('wizard-print-link');
+        if (print) print.href = `/grade-reports/${config.currentReportId}/print`;
+    }
+}
+
+function showWizardDone() {
+    document.getElementById('grade-form')?.classList.add('hidden');
+    document.getElementById('wizard-stepper')?.classList.add('hidden');
+    document.getElementById('wizard-nav')?.classList.add('hidden');
+    document.getElementById('wizard-done')?.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+async function saveWizardReport(config) {
+    const payload = collectGradeReportPayload();
+    const rangeError = validateGradeRanges();
+    if (rangeError) return { ok: false, error: rangeError };
+    if (!payload.grade_stds?.length) return { ok: false, error: 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section' };
+    const evaError = validateEvaluationScores(payload);
+    if (evaError) return { ok: false, error: evaError };
+
+    const overlay = document.getElementById('save-overlay');
+    const loading = document.getElementById('save-overlay-loading');
+    const success = document.getElementById('save-overlay-success');
+    const errorBox = document.getElementById('save-overlay-error');
+    loading?.classList.remove('hidden');
+    success?.classList.add('hidden');
+    errorBox?.classList.add('hidden');
+    overlay?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    let result;
+    try {
+        if (config.currentReportId) {
+            payload.__backendId = String(config.currentReportId);
+            result = await window.dataSdk.update(payload);
+        } else {
+            result = await window.dataSdk.create(payload);
+        }
+    } catch (err) {
+        result = { isOk: false, error: err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ' };
+    }
+
+    if (!result.isOk) {
+        loading?.classList.add('hidden');
+        const errorMsg = document.getElementById('save-overlay-error-msg');
+        if (errorMsg) errorMsg.textContent = result.error || 'บันทึกไม่สำเร็จ';
+        errorBox?.classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return { ok: false };
+    }
+
+    const savedId = result.data?.__backendId || result.data?.grade_id || config.currentReportId;
+    config.currentReportId = savedId ? String(savedId) : config.currentReportId;
+    loading?.classList.add('hidden');
+    overlay?.classList.add('hidden');
+    document.body.style.overflow = '';
+    return { ok: true };
+}
+
+async function uploadExamReport(config, file) {
+    if (!config.currentReportId) {
+        showToast('กรุณาบันทึกรายงานก่อนอัปโหลดใบขวาง', 'error');
+        return;
+    }
+    const status = document.getElementById('wizard-exam-status');
+    if (status) status.textContent = 'กำลังอัปโหลด...';
+
+    const formData = new FormData();
+    formData.append('attachment', file);
+    formData.append('file_type', 'exam_report');
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    try {
+        const res = await fetch(`/api/grade-reports/${config.currentReportId}/files`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+                Accept: 'application/json',
+            },
+            body: formData,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'อัปโหลดไม่สำเร็จ');
+        if (status) status.textContent = `อัปโหลดแล้ว: ${data.original_name || file.name}`;
+        config.hasExamReportFile = true;
+        showToast('อัปโหลดใบขวางเรียบร้อย', 'success');
+    } catch (err) {
+        if (status) status.textContent = '';
+        showToast(err?.message || 'อัปโหลดไม่สำเร็จ', 'error');
+    }
+}
+
+function initGradeReportWizard(config) {
+    window.wizardHasPendingReg = Boolean(config.hasPendingRegistrar || config.cameFromUpload);
+    let step = 1;
+
+    const go = (next) => {
+        step = next;
+        showWizardStep(step, config);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    document.getElementById('wizard-next')?.addEventListener('click', async () => {
+        const error = validateWizardStep(step);
+        if (error) {
+            showToast(error, 'error');
+            return;
+        }
+
+        if (step === 5 || step === 6) {
+            const saved = await saveWizardReport(config);
+            if (!saved.ok) return;
+        }
+
+        if (step === 8) {
+            showWizardDone();
+            return;
+        }
+
+        go(nextWizardStep(step, config));
+    });
+
+    document.getElementById('wizard-back')?.addEventListener('click', () => {
+        go(prevWizardStep(step, config));
+    });
+
+    document.getElementById('wizard-exam-upload')?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) uploadExamReport(config, file);
+        e.target.value = '';
+    });
+
+    document.getElementById('grade-form')?.addEventListener('submit', (e) => e.preventDefault());
+    showWizardStep(1, config);
 }

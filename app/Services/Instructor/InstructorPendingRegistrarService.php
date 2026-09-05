@@ -170,6 +170,11 @@ class InstructorPendingRegistrarService
         return $attached;
     }
 
+    public function hasPending(): bool
+    {
+        return $this->pendingItems() !== [];
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

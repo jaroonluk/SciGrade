@@ -93,6 +93,20 @@
     .save-success-icon {
         animation: saveSuccessPop 0.45s ease-out;
     }
+    .wizard-step { display: none; }
+    .wizard-step.is-active { display: block; }
+    .wizard-dot {
+        width: 1.75rem; height: 1.75rem; border-radius: 9999px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .7rem; font-weight: 700; border: 2px solid #E8C4B8;
+        background: #fff; color: #9ca3af;
+    }
+    .wizard-dot.is-done { background: #166534; border-color: #166534; color: #fff; }
+    .wizard-dot.is-current { background: #8B4513; border-color: #8B4513; color: #fff; }
+    .wizard-label { font-size: .65rem; line-height: 1.2; color: #7A4A3A; max-width: 5.5rem; }
+    @@media (min-width: 768px) { .wizard-label { font-size: .75rem; max-width: 7rem; } }
+    .scheme-box { border: 1px solid #f0e0d0; background: #fff; }
+    .scheme-box input:checked + span { color: #5C2E1F; font-weight: 600; }
 </style>
 @endpush
 
@@ -109,7 +123,25 @@
                     <i data-lucide="file-text" class="w-5 h-5 text-[#8B4513]"></i>
                     {{ isset($reportId) ? 'แก้ไขแบบรายงานผลการสอบไล่' : 'สร้างแบบรายงานผลการสอบไล่' }}
                 </h2>
+                <ol id="wizard-stepper" class="grid grid-cols-4 md:grid-cols-8 gap-2 mb-6">
+                    @foreach ([
+                        1 => 'ข้อมูลรายวิชา',
+                        2 => 'หมายเหตุ',
+                        3 => 'ช่วงคะแนน',
+                        4 => 'ประเมินรายวิชา',
+                        5 => 'จำนวนนักศึกษา',
+                        6 => 'แนบ REG',
+                        7 => 'พิมพ์ใบขวาง',
+                        8 => 'อัปโหลดใบขวาง',
+                    ] as $n => $label)
+                        <li class="flex flex-col items-center text-center gap-1" data-wizard-dot="{{ $n }}">
+                            <span class="wizard-dot {{ $n === 1 ? 'is-current' : '' }}">{{ $n }}</span>
+                            <span class="wizard-label">{{ $label }}</span>
+                        </li>
+                    @endforeach
+                </ol>
                 <form id="grade-form" class="space-y-5">
+                    <div class="wizard-step is-active space-y-5" data-wizard-step="1">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div class="relative md:col-span-3">
                             <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">รหัสวิชา *</label>
@@ -173,9 +205,12 @@
                             <p class="text-xs text-[#7A4A3A]/80 mt-1">กรอกทศนิยม 2 ตำแหน่ง — หากมีนักเรียนน้อยกว่า 5 คน ไม่ต้องกรอกช่องนี้</p>
                         </div>
                     </div>
+                    </div>
 
+                    <div class="wizard-step space-y-5" data-wizard-step="2">
                     <div class="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
                         <p class="text-sm font-semibold text-[#5C2E1F]">หมายเหตุ</p>
+                        <p class="text-xs text-[#7A4A3A]/80">ข้ามขั้นตอนนี้ได้หากไม่มีหมายเหตุ</p>
                         <label class="flex items-start gap-2 text-sm">
                             <input type="radio" name="reasonid" value="1" class="accent-amber-700 mt-1 shrink-0">
                             <div class="flex-1 min-w-0">
@@ -187,6 +222,11 @@
                                     <div id="joint-subject-suggestions"
                                         class="absolute left-0 right-0 top-full mt-1 z-30 hidden bg-white border border-amber-300 rounded-lg shadow-lg text-sm min-w-[16rem]"></div>
                                     <div id="joint-subject-tags" class="flex flex-wrap gap-1.5 mt-2"></div>
+                                    <div id="joint-peer-box" class="hidden mt-3 rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2">
+                                        <p class="text-xs font-semibold text-[#0c4a6e] mb-1">รายวิชาในกลุ่มเดียวกัน (จากฐานข้อมูลตัดเกรดร่วม)</p>
+                                        <div id="joint-peer-list" class="flex flex-wrap gap-1.5"></div>
+                                        <p id="joint-peer-empty" class="hidden text-xs text-[#0c4a6e]/70">ยังไม่พบรายวิชาอื่นในกลุ่มเดียวกับรหัสที่กำลังกรอก</p>
+                                    </div>
                                     <p class="text-xs text-[#7A4A3A]/70 mt-1">เลือกจากรายการเพื่อแสดงชื่อวิชา — หากไม่มีในฐานข้อมูล กด Enter หรือเลือก «กรอกเอง» เพื่อเพิ่มรหัสวิชา</p>
                                 </div>
                             </div>
@@ -194,7 +234,9 @@
                         <label class="flex items-center gap-2 text-sm"><input type="radio" name="reasonid" value="2" class="accent-amber-700"> ได้ I เนื่องจาก <input id="std-i2" type="text" class="border border-amber-200 rounded px-2 py-1 text-sm flex-1"></label>
                         <label class="flex items-center gap-2 text-sm"><input type="radio" name="reasonid" value="3" class="accent-amber-700"> อื่นๆ <input id="std-i3" type="text" class="border border-amber-200 rounded px-2 py-1 text-sm flex-1"></label>
                     </div>
+                    </div>
 
+                    <div class="wizard-step space-y-5" data-wizard-step="4">
                     <div class="bg-white border border-amber-200 rounded-lg p-4">
                         <p class="text-sm font-semibold text-[#5C2E1F] mb-2">เลือกรูปแบบการกรอกผลการประเมินรายวิชา</p>
                         <label class="flex items-center gap-2 text-sm mb-1"><input type="radio" name="statuseva" value="1" class="accent-amber-700"> กรอกคะแนนประเมินรายวิชาตาม Section</label>
@@ -216,21 +258,38 @@
                             <p class="text-xs text-[#7A4A3A]/80 mt-1">คะแนนเฉลี่ย 0–5 เท่านั้น — ไม่ใช่จำนวนนักศึกษา — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
                         </div>
                     </div>
+                    </div>
 
                     <div id="eva-hint-popover" class="fixed z-[9999] no-print pointer-events-none">
                         <img src="{{ $teacherHelpImageUrl }}" alt="ตัวอย่างการกรอกผลประเมินรายวิชา"
                             onerror="this.onerror=null;this.src='https://e.sc.kku.ac.th/sci-eoffice/teacher/images2/teacher2.png';">
                     </div>
 
+                    <div class="wizard-step space-y-5" data-wizard-step="3">
                     <div>
                         <p class="text-sm font-semibold text-[#5C2E1F] mb-2">ช่วงคะแนนของแต่ละเกรด</p>
+                        <p class="text-xs text-[#7A4A3A]/80 mb-3">เลือกรูปแบบที่ต้องการกรอกอย่างน้อย 1 รายการ</p>
+                        <div class="grid sm:grid-cols-3 gap-2 mb-4">
+                            <label class="scheme-box flex items-start gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer">
+                                <input id="scheme-credit" type="checkbox" class="accent-amber-700 mt-0.5" checked>
+                                <span>Credit (A–F)</span>
+                            </label>
+                            <label class="scheme-box flex items-start gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer">
+                                <input id="scheme-audit" type="checkbox" class="accent-amber-700 mt-0.5">
+                                <span>Audit/SU เช่น รายวิชาสัมมนา</span>
+                            </label>
+                            <label class="scheme-box flex items-start gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer">
+                                <input id="scheme-both" type="checkbox" class="accent-amber-700 mt-0.5">
+                                <span>มีทั้งสองแบบ</span>
+                            </label>
+                        </div>
                         <div class="flex flex-wrap gap-4 mb-2">
                             <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="intflag" value="0" checked class="accent-amber-700"> มีทศนิยม</label>
                             <label class="flex items-center gap-1.5 text-sm"><input type="radio" name="intflag" value="1" class="accent-amber-700"> เป็นจำนวนเต็ม</label>
                         </div>
                         <p id="grade-boundary-hint" class="text-xs mb-3">กรุณากรอกเฉพาะขอบเขตล่างของช่วงคะแนน เป็นจำนวนทศนิยม เท่านั้น!!</p>
                         <p class="text-xs text-[#7A4A3A]/70 mb-3">ช่องซ้าย (สูงสุด) คำนวณอัตโนมัติ — กรอกเฉพาะช่องขวา (ขอบเขตล่าง) ของแต่ละเกรด</p>
-                        <div class="bg-white border border-amber-200 rounded-lg p-4 max-w-lg">
+                        <div id="credit-range-table" class="bg-white border border-amber-200 rounded-lg p-4 max-w-lg">
                             <table class="w-full text-sm">
                                 <thead>
                                     <tr class="border-b border-amber-200">
@@ -258,8 +317,40 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        <div id="audit-range-table" class="hidden bg-white border border-amber-200 rounded-lg p-4 max-w-lg mt-4">
+                            <p class="text-sm font-semibold text-[#5C2E1F] mb-2">ช่วงคะแนน S และ U</p>
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-amber-200">
+                                        <th class="py-2 text-left font-semibold text-[#5C2E1F] w-16">เกรด</th>
+                                        <th class="py-2 text-left font-semibold text-[#5C2E1F]">ช่วงคะแนน</th>
+                                        <th class="py-2 w-10"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ([['s','S'],['u','U']] as [$key, $label])
+                                        <tr class="border-b border-amber-100 last:border-0">
+                                            <td class="py-2 font-medium">{{ $label }}</td>
+                                            <td class="py-2">
+                                                <div class="flex items-center gap-2">
+                                                    <input id="range-{{ $key }}-max" type="text" class="grade-range-input w-24 border border-amber-200 rounded px-2 py-1.5 text-sm text-center bg-gray-100" value="{{ $key === 's' ? '100' : '' }}" readonly>
+                                                    <span class="text-xs text-gray-500">-</span>
+                                                    <input id="range-{{ $key }}-min" type="text" data-grade="{{ $key }}" class="grade-range-min grade-range-input w-24 border border-amber-200 rounded px-2 py-1.5 text-sm text-center" placeholder="">
+                                                </div>
+                                            </td>
+                                            <td class="py-2 text-center">
+                                                <button type="button" class="grade-range-clear text-gray-400 hover:text-red-600 text-xs" data-grade="{{ $key }}" title="ล้างช่วงคะแนน">✕</button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                     </div>
 
+                    <div class="wizard-step space-y-5" data-wizard-step="5">
                     <div id="section-std-form" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-5 space-y-5 shadow-sm">
                         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-3">
                             <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2 text-base">
@@ -267,37 +358,6 @@
                                 กรอกจำนวนนักศึกษา
                             </h3>
                             <p id="section-form-hint" class="text-xs text-[#7A4A3A]/80"></p>
-                        </div>
-
-                        <div id="section-std-list-empty" class="rounded-lg border border-dashed border-amber-300 bg-white px-4 py-6 text-center text-sm text-[#7A4A3A]/80">
-                            ยังไม่มีข้อมูล Section — กรอกด้านล่างแล้วกด «บันทึก Section นี้»
-                        </div>
-
-                        <div id="section-std-list-wrap" class="hidden overflow-x-auto rounded-lg border border-amber-200 bg-white">
-                            <table class="w-full text-xs min-w-[900px]">
-                                <thead>
-                                    <tr class="bg-gradient-to-b from-[#fdf6f0] to-[#f5e6d8]">
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">ดำเนินการ</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">กลุ่ม</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">คณะ</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">รวม</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">A</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">B+</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">B</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">C+</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">C</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">D+</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">D</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">F</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">I</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">S</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">U</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">W</th>
-                                        <th id="section-list-eva-col" class="px-2 py-2 text-center border-b border-amber-200 hidden">คะแนนประเมิน</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="section-std-list-body"></tbody>
-                            </table>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -342,9 +402,6 @@
                         </div>
 
                         <div>
-                            <p class="text-sm font-medium text-[#5C2E1F] mb-2">จำนวนนักศึกษาแยกตามเกรด</p>
-                            <p class="text-xs text-[#7A4A3A]/70 mb-2">ช่วงคะแนนด้านล่างอัปเดตตามที่กำหนดในตารางช่วงคะแนน</p>
-
                             <div class="mb-3 rounded-lg border border-dashed border-amber-300 bg-white px-4 py-3 space-y-2">
                                 <label for="section-pdf-upload" class="block text-sm font-medium text-[#5C2E1F]">
                                     อัปโหลดใบส่งผลการศึกษา (PDF) เพื่อกรอกจำนวนนักศึกษา
@@ -360,6 +417,9 @@
                                 </div>
                                 <p id="section-pdf-upload-error" class="hidden text-xs text-red-600"></p>
                             </div>
+
+                            <p class="text-sm font-medium text-[#5C2E1F] mb-2">จำนวนนักศึกษาแยกตามเกรด</p>
+                            <p class="text-xs text-[#7A4A3A]/70 mb-2">ช่วงคะแนนด้านล่างอัปเดตตามที่กำหนดในตารางช่วงคะแนน</p>
 
                             <div class="overflow-x-auto rounded-lg border border-amber-200 bg-white">
                                 <table id="student-grade-table" class="w-full text-sm min-w-[640px]">
@@ -421,15 +481,101 @@
                                 ยกเลิกแก้ไข
                             </button>
                         </div>
+
+                        <div id="section-std-list-empty" class="rounded-lg border border-dashed border-amber-300 bg-white px-4 py-6 text-center text-sm text-[#7A4A3A]/80">
+                            ยังไม่มีข้อมูล Section — กรอกด้านบนแล้วกด «บันทึก Section นี้»
+                        </div>
+
+                        <div id="section-std-list-wrap" class="hidden overflow-x-auto rounded-lg border border-amber-200 bg-white">
+                            <table class="w-full text-xs min-w-[900px]">
+                                <thead>
+                                    <tr class="bg-gradient-to-b from-[#fdf6f0] to-[#f5e6d8]">
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">ดำเนินการ</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">กลุ่ม</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">คณะ</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">รวม</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">A</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">B+</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">B</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">C+</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">C</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">D+</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">D</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">F</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">I</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">S</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">U</th>
+                                        <th class="px-2 py-2 text-center border-b border-amber-200">W</th>
+                                        <th id="section-list-eva-col" class="px-2 py-2 text-center border-b border-amber-200 hidden">คะแนนประเมิน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="section-std-list-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
                     </div>
 
-                    <div class="flex gap-3 pt-2">
-                        <button type="submit" id="btn-submit" class="px-6 py-2.5 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800">
-                            <i data-lucide="send" class="w-4 h-4 inline mr-1"></i>{{ isset($reportId) ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล' }}
-                        </button>
-                        <a id="btn-cancel" href="{{ $returnUrl }}" class="px-6 py-2.5 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50 inline-flex items-center">ยกเลิก</a>
+                    <div class="wizard-step space-y-4" data-wizard-step="6">
+                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
+                            <h3 class="font-bold text-[#5C2E1F]">แนบใบส่งผลการศึกษา (REG)</h3>
+                            <p class="text-sm text-[#7A4A3A]/80 leading-relaxed">
+                                กรณีกรอกข้อมูลเอง กรุณาดาวน์โหลดใบส่งผลการศึกษาจากสำนักทะเบียน
+                                <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>
+                                แล้วอัปโหลดไฟล์ PDF ที่นี่ หากอัปโหลดไว้แล้วในขั้นตอนก่อนหน้า สามารถข้ามได้
+                            </p>
+                            <input id="wizard-reg-upload" type="file" accept=".pdf,application/pdf"
+                                class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                            <p id="wizard-reg-status" class="text-xs text-[#7A4A3A]"></p>
+                        </div>
+                    </div>
+
+                    <div class="wizard-step space-y-4" data-wizard-step="7">
+                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
+                            <h3 class="font-bold text-[#5C2E1F]">พิมพ์รายงานผลการสอบไล่ (ใบขวาง)</h3>
+                            <p class="text-sm text-[#7A4A3A]/80">ระบบบันทึกรายงานแล้ว — กดปุ่มด้านล่างเพื่อเปิดแบบพิมพ์ใบขวางในแท็บใหม่</p>
+                            <a id="wizard-print-link" href="#" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-700 text-white rounded-lg text-sm font-semibold hover:bg-amber-800">
+                                <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์ใบขวาง
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="wizard-step space-y-4" data-wizard-step="8">
+                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
+                            <h3 class="font-bold text-[#5C2E1F]">อัปโหลดรายงานผลการสอบไล่ (ใบขวาง)</h3>
+                            <p class="text-sm text-[#7A4A3A]/80">แนะนำให้อัปโหลดไฟล์ PDF ที่พิมพ์และลงนามแล้ว เพื่อให้สาขาตรวจสอบได้</p>
+                            <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
+                                class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                            <p id="wizard-exam-status" class="text-xs text-[#7A4A3A]"></p>
+                        </div>
+                    </div>
+
+                    <div id="wizard-nav" class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-amber-200">
+                        <a id="btn-cancel" href="{{ $returnUrl }}" class="px-4 py-2 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50 inline-flex items-center">ยกเลิก</a>
+                        <div class="flex gap-2">
+                            <button type="button" id="wizard-back" class="hidden px-5 py-2 border border-amber-400 text-[#5C2E1F] rounded-lg text-sm font-medium hover:bg-amber-50">ย้อนกลับ</button>
+                            <button type="button" id="wizard-next" class="px-5 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-semibold hover:bg-[#6B3410]">ถัดไป</button>
+                            <button type="submit" id="btn-submit" class="hidden">บันทึก</button>
+                        </div>
                     </div>
                 </form>
+                <div id="wizard-done" class="hidden rounded-xl border border-green-200 bg-green-50 p-8 text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                        <i data-lucide="check-circle" class="w-10 h-10 text-green-700"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-green-900">ดำเนินการรายงานผลการสอบไล่เรียบร้อยแล้ว</h3>
+                    <p class="mt-2 text-sm text-[#5C2E1F] leading-relaxed max-w-xl mx-auto">
+                        ระบบได้รับข้อมูลรายวิชานี้แล้ว ท่านสามารถกลับหน้าหลักเพื่อกรอกผลการสอบรายวิชาถัดไป หรือไปติดตามสถานะที่ส่งแล้ว
+                    </p>
+                    <div class="mt-6 flex flex-wrap justify-center gap-3">
+                        <a href="{{ $dashboardUrl }}" class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-semibold hover:bg-[#6B3410]">
+                            กลับหน้าหลัก — กรอกรายวิชาถัดไป
+                        </a>
+                        <a href="{{ $trackUrl ?? route('grade-reports.my') }}" class="px-5 py-2.5 border border-amber-300 text-[#5C2E1F] rounded-lg text-sm font-medium hover:bg-amber-50">
+                            ติดตามรายงานผลการสอบ
+                        </a>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -488,6 +634,10 @@
         const dashboardUrl = @json($dashboardUrl);
         const uploadParsed = @json($uploadParsed ?? null);
         const prefillReport = @json($prefillReport ?? null);
+        const cameFromUpload = @json($cameFromUpload ?? false);
+        const hasPendingRegistrar = @json($hasPendingRegistrar ?? false);
+        const hasRegistrarFile = @json($hasRegistrarFile ?? false);
+        const hasExamReportFile = @json($hasExamReportFile ?? false);
 
         initTempladeForm({ teacherHelpImageUrl });
 
@@ -516,121 +666,20 @@
             }
         }
 
-        document.getElementById('grade-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = collectGradeReportPayload();
-            if (!payload.subject_code || !payload.subject) {
-                showToast('กรุณากรอกรหัสวิชาและชื่อวิชา', 'error');
-                return;
-            }
-            if (payload.reasonid === 1 && !payload.reason) {
-                showToast('กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา', 'error');
-                return;
-            }
-            const rangeError = validateGradeRanges();
-            if (rangeError) {
-                showToast(rangeError, 'error');
-                return;
-            }
-            if (!payload.grade_stds?.length) {
-                showToast('กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section', 'error');
-                return;
-            }
-            const evaError = validateEvaluationScores(payload);
-            if (evaError) {
-                showToast(evaError, 'error');
-                return;
-            }
-
-            const btn = document.getElementById('btn-submit');
-            const cancelLink = document.getElementById('btn-cancel');
-            const form = document.getElementById('grade-form');
-            btn.disabled = true;
-            if (cancelLink) cancelLink.classList.add('pointer-events-none', 'opacity-40');
-            form.querySelectorAll('input, select, textarea, button').forEach((el) => {
-                if (el !== btn) el.disabled = true;
-            });
-
-            showSaveProcessing(reportId ? 'update' : 'create');
-
-            let result;
-            try {
-                if (reportId) {
-                    payload.__backendId = String(reportId);
-                    result = await window.dataSdk.update(payload);
-                } else {
-                    result = await window.dataSdk.create(payload);
-                }
-            } catch (err) {
-                result = { isOk: false, error: err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ' };
-            }
-
-            if (result.isOk) {
-                const successMsg = reportId
-                    ? 'แก้ไขแบบรายงานผลการสอบไล่ของท่านเรียบร้อยแล้ว'
-                    : 'บันทึกแบบรายงานผลการสอบไล่ของท่านเรียบร้อยแล้ว';
-                showSaveSuccess(successMsg);
-                await new Promise((r) => setTimeout(r, reportId ? 2200 : 2800));
-
-                hideSaveOverlay();
-                restoreFormAfterSave(btn, form, cancelLink);
-
-                if (!reportId) {
-                    const term = payload.term;
-                    const year = payload.year;
-                    window.location.href = `${dashboardUrl}?term=${term}&year=${year}`;
-                } else {
-                    window.location.href = returnUrl;
-                }
-            } else {
-                showSaveError(result.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
-                restoreFormAfterSave(btn, form, cancelLink);
-            }
+        initGradeReportWizard({
+            currentReportId: reportId,
+            cameFromUpload,
+            hasPendingRegistrar,
+            hasRegistrarFile,
+            hasExamReportFile,
+            returnUrl,
+            dashboardUrl,
         });
 
-        function restoreFormAfterSave(btn, form, cancelLink) {
-            btn.disabled = false;
-            btn.innerHTML = `<i data-lucide="send" class="w-4 h-4 inline mr-1"></i>${reportId ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล'}`;
-            if (cancelLink) cancelLink.classList.remove('pointer-events-none', 'opacity-40');
-            form.querySelectorAll('input, select, textarea, button').forEach((el) => {
-                el.disabled = false;
-            });
-            lucide.createIcons();
-        }
-
-        function showSaveProcessing(mode) {
-            const overlay = document.getElementById('save-overlay');
-            document.getElementById('save-overlay-loading').classList.remove('hidden');
-            document.getElementById('save-overlay-success').classList.add('hidden');
-            document.getElementById('save-overlay-error').classList.add('hidden');
-            document.getElementById('save-overlay-title').textContent =
-                mode === 'update' ? 'กำลังบันทึกการแก้ไข...' : 'กำลังบันทึกข้อมูล...';
-            overlay.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function showSaveSuccess(message) {
-            document.getElementById('save-overlay-loading').classList.add('hidden');
-            document.getElementById('save-overlay-error').classList.add('hidden');
-            document.getElementById('save-overlay-success-msg').textContent = message;
-            document.getElementById('save-overlay-success').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function showSaveError(message) {
-            document.getElementById('save-overlay-loading').classList.add('hidden');
-            document.getElementById('save-overlay-success').classList.add('hidden');
-            document.getElementById('save-overlay-error-msg').textContent = message;
-            document.getElementById('save-overlay-error').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function hideSaveOverlay() {
-            document.getElementById('save-overlay').classList.add('hidden');
+        document.getElementById('save-overlay-error-close')?.addEventListener('click', () => {
+            document.getElementById('save-overlay')?.classList.add('hidden');
             document.body.style.overflow = '';
-        }
-
-        document.getElementById('save-overlay-error-close')?.addEventListener('click', hideSaveOverlay);
+        });
 
         lucide.createIcons();
     })();

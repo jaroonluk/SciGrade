@@ -46,20 +46,21 @@
         },
         async create(record) {
             try {
-                await request('/api/grade-reports', {
+                const data = await request('/api/grade-reports', {
                     method: 'POST',
                     body: JSON.stringify(record),
                 });
-                await reload();
-                return { isOk: true };
+                try { await reload(); } catch { /* wizard continues without list refresh */ }
+                return { isOk: true, data };
             } catch (e) {
                 return { isOk: false, error: e.message };
             }
         },
         async update(record) {
             try {
+                let data = null;
                 if (record.approv !== undefined) {
-                    await request(`/api/grade-reports/${record.__backendId}`, {
+                    data = await request(`/api/grade-reports/${record.__backendId}`, {
                         method: 'PUT',
                         body: JSON.stringify({
                             approv: record.approv,
@@ -68,13 +69,13 @@
                         }),
                     });
                 } else {
-                    await request(`/api/grade-reports/${record.__backendId}`, {
+                    data = await request(`/api/grade-reports/${record.__backendId}`, {
                         method: 'PUT',
                         body: JSON.stringify(record),
                     });
                 }
-                await reload();
-                return { isOk: true };
+                try { await reload(); } catch { /* wizard continues without list refresh */ }
+                return { isOk: true, data };
             } catch (e) {
                 return { isOk: false, error: e.message };
             }

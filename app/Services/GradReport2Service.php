@@ -202,6 +202,48 @@ class GradReport2Service
         ));
     }
 
+    /**
+     * รายวิชาอื่นในกลุ่มตัดเกรดร่วมเดียวกับรหัสที่กำลังกรอก
+     *
+     * @return list<array{subject_code: string, subject: string}>
+     */
+    public function peersForSubject(string $subjectCode): array
+    {
+        $code = $this->normalizeSubjectCode($subjectCode);
+        if ($code === '') {
+            return [];
+        }
+
+        $row = GradReport2::query()
+            ->whereNormalizedCode('subject_code', $code)
+            ->first();
+
+        if (! $row) {
+            $row = GradReport2::query()
+                ->whereNormalizedCode('subject_code2', $code)
+                ->first();
+        }
+
+        if (! $row) {
+            return [];
+        }
+
+        $groupCode = GradReport2::normalizeCode((string) $row->subject_code2);
+
+        return GradReport2::query()
+            ->whereNormalizedCode('subject_code2', $groupCode)
+            ->orderBy('subject_code')
+            ->get()
+            ->filter(fn (GradReport2 $peer) => GradReport2::normalizeCode((string) $peer->subject_code) !== $code)
+            ->map(fn (GradReport2 $peer) => [
+                'subject_code' => trim((string) $peer->subject_code),
+                'subject' => trim((string) $peer->subject),
+            ])
+            ->unique('subject_code')
+            ->values()
+            ->all();
+    }
+
     public function normalizeSubjectCode(string $code): string
     {
         return GradReport2::normalizeCode($code);

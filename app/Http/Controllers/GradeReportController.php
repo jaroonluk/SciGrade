@@ -294,6 +294,12 @@ class GradeReportController extends Controller
             'score_f' => (string) ($data['score_f'] ?? ''),
         ];
 
+        if ($this->gradeReportHasSchemeColumns()) {
+            $attributes['score_s'] = (string) ($data['score_s'] ?? '');
+            $attributes['score_u'] = (string) ($data['score_u'] ?? '');
+            $attributes['grade_scheme'] = $this->normalizeGradeScheme($data['grade_scheme'] ?? null);
+        }
+
         if ($isCreate) {
             $attributes['username'] = $this->staffUsername();
             $attributes['approv'] = 0;
@@ -304,6 +310,29 @@ class GradeReportController extends Controller
         }
 
         return $attributes;
+    }
+
+    private function normalizeGradeScheme(mixed $value): string
+    {
+        $scheme = is_string($value) ? strtolower(trim($value)) : '';
+
+        return in_array($scheme, ['credit', 'audit', 'both'], true) ? $scheme : 'credit';
+    }
+
+    private function gradeReportHasSchemeColumns(): bool
+    {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+
+        try {
+            $has = \Illuminate\Support\Facades\Schema::connection('scigrad')->hasColumn('grade_report', 'grade_scheme');
+        } catch (\Throwable) {
+            $has = false;
+        }
+
+        return $has;
     }
 
     private function validateReport(Request $request, bool $updating = false): array
@@ -359,6 +388,9 @@ class GradeReportController extends Controller
             'score_dd' => ['nullable', 'string', 'max:20'],
             'score_d' => ['nullable', 'string', 'max:20'],
             'score_f' => ['nullable', 'string', 'max:20'],
+            'score_s' => ['nullable', 'string', 'max:20'],
+            'score_u' => ['nullable', 'string', 'max:20'],
+            'grade_scheme' => ['nullable', 'string', 'in:credit,audit,both'],
             'grade_stds' => [$updating ? 'sometimes' : 'required', 'array', 'min:1'],
             ...$this->gradeStdItemRules('grade_stds.*'),
         ], [
@@ -549,6 +581,11 @@ class GradeReportController extends Controller
             'score_dd' => $report->score_dd,
             'score_d' => $report->score_d,
             'score_f' => $report->score_f,
+            'score_s' => $this->gradeReportHasSchemeColumns() ? $report->score_s : null,
+            'score_u' => $this->gradeReportHasSchemeColumns() ? $report->score_u : null,
+            'grade_scheme' => $this->gradeReportHasSchemeColumns()
+                ? $this->normalizeGradeScheme($report->grade_scheme)
+                : 'credit',
             'approv' => (int) $report->approv,
             'status' => $report->statusLabel(),
             'rejection_reason' => (int) $report->approv === -1 ? $report->reason : null,

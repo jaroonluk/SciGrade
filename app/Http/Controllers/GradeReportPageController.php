@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\FacultyAdmin\FacultyReportController;
 use App\Http\Controllers\GradeReportController;
 use App\Models\GradeReport;
+use App\Models\GradeReportFile;
 use App\Models\GradeType;
 use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\Instructor\InstructorPendingRegistrarService;
@@ -31,8 +32,14 @@ class GradeReportPageController extends Controller
         private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
 
-    private function formView(?int $reportId, array $nav = [], ?array $uploadParsed = null, ?array $prefillReport = null): View
-    {
+    private function formView(
+        ?int $reportId,
+        array $nav = [],
+        ?array $uploadParsed = null,
+        ?array $prefillReport = null,
+        bool $hasRegistrarFile = false,
+        bool $hasExamReportFile = false,
+    ): View {
         $teacherHelpImageUrl = file_exists(public_path('images/teacher2.png'))
             ? asset('images/teacher2.png')
             : (Storage::disk('public')->exists('teacher2.png')
@@ -45,6 +52,9 @@ class GradeReportPageController extends Controller
         $prefillYear = $reportId === null
             ? ($nav['returnYear'] ?? session('grade_upload_year'))
             : null;
+
+        $term = (int) ($nav['returnTerm'] ?? AcademicTerm::defaultTerm());
+        $year = (int) ($nav['returnYear'] ?? AcademicTerm::defaultYear());
 
         return view('templade', [
             'reportId' => $reportId,
@@ -62,8 +72,13 @@ class GradeReportPageController extends Controller
             'prefillYear' => $prefillYear,
             'returnUrl' => $nav['returnUrl'] ?? route('grade-reports.my'),
             'dashboardUrl' => route('dashboard'),
+            'trackUrl' => route('grade-reports.my', ['term' => $term, 'year' => $year]),
             'uploadParsed' => $uploadParsed,
             'prefillReport' => $prefillReport,
+            'cameFromUpload' => is_array($uploadParsed),
+            'hasPendingRegistrar' => $this->pendingRegistrar->hasPending(),
+            'hasRegistrarFile' => $hasRegistrarFile,
+            'hasExamReportFile' => $hasExamReportFile,
         ]);
     }
 
@@ -119,13 +134,22 @@ class GradeReportPageController extends Controller
         abort_unless($username && $gradeReport->username === $username, 403);
         abort_unless($gradeReport->canEdit(), 403, 'ไม่สามารถแก้ไขรายการนี้ได้');
 
-        $gradeReport->load('gradeStds');
+        $gradeReport->load(['gradeStds', 'files']);
+
+        $hasRegistrarFile = $gradeReport->files->contains(
+            fn ($file) => $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR
+        );
+        $hasExamReportFile = $gradeReport->files->contains(
+            fn ($file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
+        );
 
         return $this->formView(
             $gradeReport->grade_id,
             $this->buildReturnContext($request, $gradeReport),
             null,
             $gradeReports->formPayload($gradeReport),
+            $hasRegistrarFile,
+            $hasExamReportFile,
         );
     }
 

@@ -161,6 +161,7 @@ Route::middleware('auth')->group(function () {
     Route::redirect('/templade', '/grade-reports/create')->name('templade');
 
     Route::get('/api/subjects/search', [SubjectController::class, 'search']);
+    Route::get('/api/grad-report2/peers', [SubjectController::class, 'jointPeers']);
 
     Route::get('/dept-submissions/files/{file}', [DeptSubmissionFileController::class, 'show'])->name('dept-submissions.files.show');
 
