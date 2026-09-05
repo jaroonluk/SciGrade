@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
 use App\Models\GradeStd;
+use App\Models\GradReport2;
+use App\Models\TblUser;
 use App\Services\AuditLogService;
 use App\Services\GradReport2Service;
 use App\Services\Instructor\InstructorPendingRegistrarService;
@@ -44,6 +46,72 @@ class GradeReportController extends Controller
         }
 
         return response()->json($this->formatReport($gradeReport->load('gradeStds')));
+    }
+
+    public function courseContext(Request $request): JsonResponse
+    {
+        $code = GradReport2::normalizeCode((string) $request->query('subject_code', ''));
+        $term = (int) $request->query('term', 0);
+        $year = (int) $request->query('year', 0);
+        $exclude = (int) $request->query('exclude', 0);
+
+        $members = $code !== '' ? $this->gradReport2->groupMembersForSubject($code) : [];
+
+        $prior = null;
+        $reportedSections = [];
+
+        if ($code !== '' && $term > 0 && $year > 0) {
+            $reports = GradeReport::query()
+                ->with('gradeStds')
+                ->whereRaw(GradReport2::normalizedCodeSql('subject_code').' = ?', [$code])
+                ->where('term', (string) $term)
+                ->where('year', (string) $year)
+                ->when($exclude > 0, fn ($q) => $q->where('grade_id', '!=', $exclude))
+                ->orderBy('created_stamp')
+                ->orderBy('grade_id')
+                ->get();
+
+            foreach ($reports as $report) {
+                foreach ($report->gradeStds as $std) {
+                    $sec = (int) $std->sec;
+                    if ($sec > 0) {
+                        $reportedSections[$sec] = true;
+                    }
+                }
+            }
+
+            $first = $reports->first();
+            if ($first) {
+                $filledBy = trim((string) $first->teacher) ?: (string) $first->username;
+                try {
+                    $staff = TblUser::query()->with('titleRelation')->find($first->username);
+                    if ($staff?->displayName()) {
+                        $filledBy = $staff->displayName();
+                    }
+                } catch (\Throwable) {
+                    // ใช้ชื่ออาจารย์จากรายงาน หากดึงข้อมูลบุคลากรไม่ได้
+                }
+                $prior = [
+                    'exists' => true,
+                    'grade_id' => $first->grade_id,
+                    'teacher' => $first->teacher,
+                    'filled_by' => $filledBy,
+                    'username' => $first->username,
+                    'term' => (int) $first->term,
+                    'year' => (int) $first->year,
+                    'term_label' => $first->termLabel(),
+                    'statuseva' => (int) $first->statuseva,
+                    'payload' => $this->formPayload($first),
+                ];
+            }
+        }
+
+        return response()->json([
+            'grouped' => $members !== [],
+            'members' => $members,
+            'prior' => $prior,
+            'reported_sections' => array_values(array_map('intval', array_keys($reportedSections))),
+        ]);
     }
 
     /**

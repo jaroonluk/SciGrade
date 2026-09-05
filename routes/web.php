@@ -172,6 +172,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/faculty-admin/dept-submissions/{submission}/receive', [FacultyDeptSubmissionController::class, 'receive']);
 
     Route::get('/api/grade-reports', [GradeReportController::class, 'index']);
+    Route::get('/api/grade-reports/course-context', [GradeReportController::class, 'courseContext']);
     Route::get('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'show']);
     Route::post('/api/grade-reports', [GradeReportController::class, 'store']);
     Route::put('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'update']);

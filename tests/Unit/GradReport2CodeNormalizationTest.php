@@ -35,5 +35,7 @@ class GradReport2CodeNormalizationTest extends TestCase
 
         $this->assertSame([], $service->peersForSubject(''));
         $this->assertSame([], $service->peersForSubject('   '));
+        $this->assertSame([], $service->groupMembersForSubject(''));
+        $this->assertSame([], $service->groupMembersForSubject('   '));
     }
 }

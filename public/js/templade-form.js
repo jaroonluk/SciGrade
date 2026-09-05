@@ -61,6 +61,7 @@ function setupSubjectAutocomplete() {
         input.value = code;
         nameInput.value = name;
         hideList();
+        refreshCourseContext();
     };
 
     const render = (items) => {
@@ -218,11 +219,12 @@ function renderJointGradeTags() {
         return;
     }
 
+    const canRemove = !window.courseGroupLocked && !window.sharedFieldsLocked;
     tagsEl.innerHTML = jointGradeSubjects.map((s) => `
         <span class="joint-subject-tag inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs max-w-full">
             <span class="font-semibold shrink-0">${s.code}</span>
             ${s.name ? `<span class="text-gray-600 truncate">— ${s.name}</span>` : ''}
-            <button type="button" class="joint-subject-remove text-gray-400 hover:text-red-600 shrink-0" data-code="${s.code}" title="ลบ">×</button>
+            ${canRemove ? `<button type="button" class="joint-subject-remove text-gray-400 hover:text-red-600 shrink-0" data-code="${s.code}" title="ลบ">×</button>` : ''}
         </span>
     `).join('');
 
@@ -236,10 +238,34 @@ function renderJointGradeTags() {
 
 function updateReasonFieldsState() {
     const isJoint = document.querySelector('input[name="reasonid"]:checked')?.value === '1';
+    const remarksLocked = Boolean(window.courseGroupLocked || window.sharedFieldsLocked);
     const search = document.getElementById('joint-subject-search');
     const panel = document.getElementById('joint-grade-panel');
-    if (search) search.disabled = !isJoint;
-    if (panel) panel.classList.toggle('opacity-50', !isJoint);
+    const help = document.getElementById('remark-help-text');
+    const searchHint = document.getElementById('joint-search-hint');
+    if (search) {
+        search.disabled = !isJoint || remarksLocked;
+        search.classList.toggle('field-locked', remarksLocked);
+        search.classList.toggle('hidden', Boolean(window.courseGroupLocked));
+    }
+    if (searchHint) searchHint.classList.toggle('hidden', Boolean(window.courseGroupLocked));
+    if (panel) panel.classList.toggle('opacity-50', !isJoint && !window.courseGroupLocked);
+    document.querySelectorAll('input[name="reasonid"]').forEach((el) => {
+        el.disabled = remarksLocked;
+    });
+    ['std-i2', 'std-i3'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.readOnly = Boolean(window.sharedFieldsLocked);
+        el.classList.toggle('field-locked', Boolean(window.sharedFieldsLocked));
+    });
+    if (help) {
+        help.textContent = window.courseGroupLocked
+            ? 'รายวิชานี้มีกลุ่มตัดเกรดร่วมอยู่แล้ว — ไม่ต้องกรอกรหัสซ้ำ'
+            : (window.sharedFieldsLocked
+                ? 'หมายเหตุถูกดึงจากผู้กรอกก่อน และไม่สามารถแก้ไขได้'
+                : 'ข้ามขั้นตอนนี้ได้หากไม่มีหมายเหตุ');
+    }
 }
 
 function setupJointGradeSubjectSearch() {
@@ -354,13 +380,7 @@ function setupReasonIdFields() {
     document.querySelectorAll('input[name="reasonid"]').forEach((radio) => {
         radio.addEventListener('change', () => {
             updateReasonFieldsState();
-            loadJointPeers();
         });
-    });
-    document.getElementById('subject-code')?.addEventListener('blur', () => {
-        if (document.querySelector('input[name="reasonid"]:checked')?.value === '1') {
-            loadJointPeers();
-        }
     });
     updateReasonFieldsState();
 }
@@ -667,11 +687,17 @@ function getCurrentFacString() {
     return Array.from(document.querySelectorAll('.fac-checkbox:checked')).map((c) => c.value).join(',');
 }
 
+function isPriorReportedSection(sec) {
+    return Array.isArray(window.priorReportedSections)
+        && window.priorReportedSections.includes(Number(sec));
+}
+
 function isSectionOptionUsed(sec, excludeIndex = null) {
+    if (isPriorReportedSection(sec)) return true;
     const fac = getCurrentFacString();
     return sectionStdRows.some((row, idx) => {
         if (excludeIndex !== null && idx === excludeIndex) return false;
-        if (row.sec !== sec) return false;
+        if (Number(row.sec) !== Number(sec)) return false;
         if (!fac) return true;
         return row.fac === fac;
     });
@@ -747,8 +773,12 @@ function loadGradeStdToForm(row) {
 function updateSectionFormHint() {
     const hint = document.getElementById('section-form-hint');
     if (!hint) return;
-    hint.textContent = editingSectionIndex !== null
-        ? `กำลังแก้ไข Section ${sectionStdRows[editingSectionIndex]?.sec ?? ''} — กด «บันทึก Section นี้» เพื่อยืนยัน`
+    if (editingSectionIndex !== null) {
+        hint.textContent = `กำลังแก้ไข Section ${sectionStdRows[editingSectionIndex]?.sec ?? ''} — กด «บันทึก Section นี้» เพื่อยืนยัน`;
+        return;
+    }
+    hint.textContent = window.priorReportedSections?.length
+        ? 'กรอก Section ที่ยังไม่มีในภาคนี้ แล้วกด «บันทึก Section นี้» — Section ที่รายงานไปแล้วจะไม่แสดงในรายการ'
         : 'กรอกข้อมูล Section แล้วกด «บันทึก Section นี้» — Section ที่บันทึกแล้วจะไม่แสดงในรายการ';
 }
 
@@ -768,18 +798,19 @@ function cancelSectionEdit() {
 function applyParsedSectionFromPdf(parsed) {
     if (!parsed) return;
 
-    if (parsed.intflag != null) setRadio('intflag', parsed.intflag);
+    if (!window.sharedFieldsLocked) {
+        if (parsed.intflag != null) setRadio('intflag', parsed.intflag);
+        parseScoreRange(parsed.score_a, 'range-a-max', 'range-a-min');
+        parseScoreRange(parsed.score_bb, 'range-bp-max', 'range-bp-min');
+        parseScoreRange(parsed.score_b, 'range-b-max', 'range-b-min');
+        parseScoreRange(parsed.score_cc, 'range-cp-max', 'range-cp-min');
+        parseScoreRange(parsed.score_c, 'range-c-max', 'range-c-min');
+        parseScoreRange(parsed.score_dd, 'range-dp-max', 'range-dp-min');
+        parseScoreRange(parsed.score_d, 'range-d-max', 'range-d-min');
+        parseScoreRange(parsed.score_f, 'range-f-max', 'range-f-min');
+        recalcAllGradeChains();
+    }
     if (parsed.type_course != null) setRadio('type_course', parsed.type_course);
-
-    parseScoreRange(parsed.score_a, 'range-a-max', 'range-a-min');
-    parseScoreRange(parsed.score_bb, 'range-bp-max', 'range-bp-min');
-    parseScoreRange(parsed.score_b, 'range-b-max', 'range-b-min');
-    parseScoreRange(parsed.score_cc, 'range-cp-max', 'range-cp-min');
-    parseScoreRange(parsed.score_c, 'range-c-max', 'range-c-min');
-    parseScoreRange(parsed.score_dd, 'range-dp-max', 'range-dp-min');
-    parseScoreRange(parsed.score_d, 'range-d-max', 'range-d-min');
-    parseScoreRange(parsed.score_f, 'range-f-max', 'range-f-min');
-    recalcAllGradeChains();
 
     const std = Array.isArray(parsed.grade_stds) && parsed.grade_stds.length
         ? parsed.grade_stds[0]
@@ -908,6 +939,9 @@ function addOrUpdateSectionFromForm() {
     if (error) return { ok: false, error };
 
     const row = normalizeSectionRow(collectGradeStd());
+    if (isPriorReportedSection(row.sec)) {
+        return { ok: false, error: `Section ${row.sec} มีผู้รายงานไปแล้วในภาคการศึกษานี้ — กรุณาเลือก Section อื่น` };
+    }
     const duplicateIndex = sectionStdRows.findIndex((item, idx) => (
         idx !== editingSectionIndex
         && item.sec === row.sec
@@ -1465,6 +1499,7 @@ function populateFormFromRecord(record) {
     toggleEvaFields();
     updateGradeBoundaryHint();
     updateGradeRangeColumnHeaders();
+    refreshCourseContext();
 }
 
 let templadeFormBootstrapped = false;
@@ -1483,6 +1518,7 @@ function initTempladeForm(options = {}) {
         setupFacMultiSelect();
         setupSectionPdfUpload();
         setupWizardRegUpload();
+        setupCourseContextWatchers();
         document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
             el.addEventListener('change', toggleEvaFields);
         });
@@ -1500,50 +1536,296 @@ function initTempladeForm(options = {}) {
     refreshSectionSelectOptions();
 }
 
-async function loadJointPeers() {
-    const box = document.getElementById('joint-peer-box');
-    const list = document.getElementById('joint-peer-list');
-    const empty = document.getElementById('joint-peer-empty');
-    if (!box || !list) return;
+window.courseContext = null;
+window.priorReportedSections = [];
+window.sharedFieldsLocked = false;
+window.courseGroupLocked = false;
+window.priorSectionEvaEditable = false;
 
-    const isJoint = document.querySelector('input[name="reasonid"]:checked')?.value === '1';
-    if (!isJoint) {
-        box.classList.add('hidden');
-        return;
-    }
+let courseContextSeq = 0;
+let priorCriteriaApplied = false;
+let groupMembersApplied = false;
 
-    const code = document.getElementById('subject-code')?.value?.trim().replace(/\s+/g, '');
-    box.classList.remove('hidden');
+function currentWizardReportId() {
+    return window.wizardConfig?.currentReportId || null;
+}
+
+function setupCourseContextWatchers() {
+    let timer = null;
+    const schedule = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => refreshCourseContext(), 280);
+    };
+    document.getElementById('subject-code')?.addEventListener('blur', schedule);
+    document.getElementById('year-input')?.addEventListener('change', schedule);
+    document.querySelectorAll('input[name="term"]').forEach((el) => {
+        el.addEventListener('change', schedule);
+    });
+}
+
+async function refreshCourseContext() {
+    const code = document.getElementById('subject-code')?.value?.trim().replace(/\s+/g, '') || '';
+    const term = document.querySelector('input[name="term"]:checked')?.value || '';
+    const year = document.getElementById('year-input')?.value || '';
+    const exclude = currentWizardReportId() || '';
+    const seq = ++courseContextSeq;
+
     if (!code) {
-        list.innerHTML = '';
-        empty?.classList.remove('hidden');
+        applyCourseContext({ grouped: false, members: [], prior: null, reported_sections: [] });
         return;
     }
+
+    const params = new URLSearchParams({ subject_code: code });
+    if (term) params.set('term', term);
+    if (year) params.set('year', year);
+    if (exclude) params.set('exclude', String(exclude));
 
     try {
-        const res = await fetch(`/api/grad-report2/peers?subject_code=${encodeURIComponent(code)}`, {
+        const res = await fetch(`/api/grade-reports/course-context?${params}`, {
             headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         });
-        const peers = await res.json();
-        if (!Array.isArray(peers) || !peers.length) {
-            list.innerHTML = '';
-            empty?.classList.remove('hidden');
-            return;
-        }
-
-        empty?.classList.add('hidden');
-        list.innerHTML = peers.map((peer) => `
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-white border border-sky-200 text-[#0c4a6e]">
-                <span class="font-semibold">${peer.subject_code}</span>
-                ${peer.subject ? `<span class="truncate">— ${peer.subject}</span>` : ''}
-            </span>
-        `).join('');
-
-        peers.forEach((peer) => addJointGradeSubject(peer.subject_code, peer.subject || ''));
+        const data = await res.json().catch(() => ({}));
+        if (seq !== courseContextSeq) return;
+        applyCourseContext(res.ok ? data : { grouped: false, members: [], prior: null, reported_sections: [] });
     } catch {
-        list.innerHTML = '';
-        empty?.classList.remove('hidden');
+        if (seq !== courseContextSeq) return;
+        applyCourseContext({ grouped: false, members: [], prior: null, reported_sections: [] });
     }
+}
+
+function applyCourseContext(data) {
+    window.courseContext = data || {};
+    const members = Array.isArray(data?.members) ? data.members : [];
+    const grouped = Boolean(data?.grouped && members.length);
+    const prior = data?.prior && data.prior.exists ? data.prior : null;
+
+    window.priorReportedSections = Array.isArray(data?.reported_sections)
+        ? data.reported_sections.map((n) => Number(n)).filter((n) => n > 0)
+        : [];
+    window.courseGroupLocked = grouped;
+    window.sharedFieldsLocked = Boolean(prior);
+    window.priorSectionEvaEditable = Boolean(prior && Number(prior.statuseva) === 1);
+
+    renderCourseGroupBanner(members, grouped);
+    renderCoursePriorBanner(prior);
+    renderPriorSectionsBox(window.priorReportedSections);
+
+    if (grouped) {
+        const radio = document.querySelector('input[name="reasonid"][value="1"]');
+        if (radio) radio.checked = true;
+        setJointGradeSubjects(members
+            .filter((m) => !m.is_current)
+            .map((m) => ({ code: m.subject_code, name: m.subject || '' })));
+        groupMembersApplied = true;
+    } else if (groupMembersApplied && !window.sharedFieldsLocked) {
+        resetJointGradeSubjects();
+        groupMembersApplied = false;
+    }
+
+    if (prior?.payload) {
+        applyPriorSharedFields(prior.payload);
+        priorCriteriaApplied = true;
+    } else if (priorCriteriaApplied) {
+        clearInheritedPriorCriteria();
+        priorCriteriaApplied = false;
+    }
+
+    setSharedFieldsLocked(window.sharedFieldsLocked, {
+        sectionEvaEditable: window.priorSectionEvaEditable,
+        groupLocked: window.courseGroupLocked,
+    });
+    updateReasonFieldsState();
+    updateSectionFormHint();
+    refreshSectionSelectOptions();
+}
+
+function renderCourseGroupBanner(members, grouped) {
+    const banner = document.getElementById('course-group-banner');
+    const list = document.getElementById('course-group-list');
+    const peerBox = document.getElementById('joint-peer-box');
+    if (!banner || !list) return;
+
+    if (!grouped) {
+        banner.classList.add('hidden');
+        peerBox?.classList.add('hidden');
+        return;
+    }
+
+    banner.classList.remove('hidden');
+    list.innerHTML = members.map((m) => `
+        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-white border ${m.is_current ? 'border-sky-500 text-sky-950' : 'border-sky-200 text-[#0c4a6e]'}">
+            <span class="font-semibold">${m.subject_code}</span>
+            ${m.subject ? `<span class="truncate max-w-[12rem]">— ${m.subject}</span>` : ''}
+            ${m.is_current ? '<span class="text-[10px] font-medium">(รายวิชาที่กำลังกรอก)</span>' : ''}
+        </span>
+    `).join('');
+
+    if (peerBox) {
+        peerBox.classList.remove('hidden');
+        const peerList = document.getElementById('joint-peer-list');
+        const empty = document.getElementById('joint-peer-empty');
+        if (peerList) peerList.innerHTML = list.innerHTML;
+        empty?.classList.toggle('hidden', members.length > 0);
+    }
+}
+
+function renderCoursePriorBanner(prior) {
+    const banner = document.getElementById('course-prior-banner');
+    const body = document.getElementById('course-prior-body');
+    if (!banner || !body) return;
+
+    if (!prior) {
+        banner.classList.add('hidden');
+        body.textContent = '';
+        return;
+    }
+
+    const name = prior.filled_by || prior.teacher || 'ผู้กรอกก่อน';
+    const termLabel = prior.term_label || 'ภาคการศึกษานี้';
+    const year = prior.year || '';
+    const sectionNote = Number(prior.statuseva) === 1
+        ? ' ผู้กรอกก่อนเลือกให้กรอกคะแนนประเมินตาม Section — ท่านกรอกคะแนนประเมินของ Section ตนเองได้'
+        : ' คะแนนประเมินรายวิชาแบบรวมถูกดึงมาให้แล้ว';
+
+    banner.classList.remove('hidden');
+    body.textContent = `${termLabel} ปีการศึกษา ${year} กรอกโดย ${name} `
+        + 'ระบบดึงช่วงคะแนน ค่าเฉลี่ย ส่วนเบี่ยงเบนมาตรฐาน และรายละเอียดเกณฑ์มาให้แล้ว และไม่สามารถแก้ไขได้ '
+        + `หากต้องการเปลี่ยนแปลงเกณฑ์ กรุณาติดต่อ ${name}${sectionNote}`;
+}
+
+function renderPriorSectionsBox(sections) {
+    const box = document.getElementById('prior-sections-box');
+    const list = document.getElementById('prior-sections-list');
+    if (!box || !list) return;
+
+    if (!sections.length) {
+        box.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+    }
+
+    box.classList.remove('hidden');
+    list.innerHTML = sections.map((sec) => (
+        `<span class="prior-sec-chip inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold">Section ${sec}</span>`
+    )).join('');
+}
+
+function applyRemarksFromRecord(record) {
+    if (!record?.reasonid) return;
+    setRadio('reasonid', record.reasonid);
+    if (Number(record.reasonid) === 1 && record.reason) {
+        const subjects = parseJointGradeReason(record.reason);
+        setJointGradeSubjects(subjects);
+        enrichJointGradeSubjectNames(subjects).then(setJointGradeSubjects);
+    } else if (Number(record.reasonid) === 2 && record.reason) {
+        const match = String(record.reason).match(/ได้ I เนื่องจาก\s*:?\s*(.*)/);
+        const el = document.getElementById('std-i2');
+        if (el) el.value = match?.[1]?.trim() || record.reason;
+    } else if (Number(record.reasonid) === 3 && record.reason) {
+        const el = document.getElementById('std-i3');
+        if (el) el.value = record.reason;
+    }
+}
+
+function applyPriorSharedFields(record) {
+    if (!record) return;
+
+    setRadio('intflag', record.intflag ?? 0);
+    setRadio('statuseva', record.statuseva ?? 2);
+
+    parseScoreRange(record.score_a, 'range-a-max', 'range-a-min');
+    parseScoreRange(record.score_bb, 'range-bp-max', 'range-bp-min');
+    parseScoreRange(record.score_b, 'range-b-max', 'range-b-min');
+    parseScoreRange(record.score_cc, 'range-cp-max', 'range-cp-min');
+    parseScoreRange(record.score_c, 'range-c-max', 'range-c-min');
+    parseScoreRange(record.score_dd, 'range-dp-max', 'range-dp-min');
+    parseScoreRange(record.score_d, 'range-d-max', 'range-d-min');
+    parseScoreRange(record.score_f, 'range-f-max', 'range-f-min');
+    parseScoreRange(record.score_s, 'range-s-max', 'range-s-min');
+    parseScoreRange(record.score_u, 'range-u-max', 'range-u-min');
+    setGradeScheme(record.grade_scheme || (record.score_s || record.score_u ? 'both' : 'credit'));
+    recalcAllGradeChains();
+
+    if (record.mean != null) document.getElementById('mean-score').value = formatDecimal2(record.mean);
+    if (record.sd != null) document.getElementById('sd-score').value = formatDecimal2(record.sd);
+    if (record.totalnumstdevz != null) document.getElementById('totalnumstdevz').value = record.totalnumstdevz;
+    if (record.totalevaluationscore != null) document.getElementById('totalevaluationscore').value = record.totalevaluationscore;
+
+    applyRemarksFromRecord(record);
+    toggleEvaFields();
+    updateGradeBoundaryHint();
+    updateGradeRangeColumnHeaders();
+}
+
+function clearInheritedPriorCriteria() {
+    ['mean-score', 'sd-score', 'totalnumstdevz', 'totalevaluationscore', 'std-i2', 'std-i3'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    ['a', 'bp', 'b', 'cp', 'c', 'dp', 'd', 'f', 's', 'u'].forEach((key) => {
+        const min = document.getElementById(`range-${key}-min`);
+        const max = document.getElementById(`range-${key}-max`);
+        if (min) min.value = '';
+        if (max) max.value = (key === 'a' || key === 's') ? '100' : '';
+    });
+    setGradeScheme('credit');
+    setRadio('intflag', 0);
+    setRadio('statuseva', 2);
+    document.querySelectorAll('input[name="reasonid"]').forEach((el) => { el.checked = false; });
+    recalcAllGradeChains();
+    toggleEvaFields();
+    updateGradeBoundaryHint();
+    updateGradeRangeColumnHeaders();
+}
+
+const SHARED_LOCK_FIELD_IDS = [
+    'mean-score', 'sd-score',
+    'totalnumstdevz', 'totalevaluationscore',
+    'range-a-min', 'range-bp-min', 'range-b-min', 'range-cp-min',
+    'range-c-min', 'range-dp-min', 'range-d-min', 'range-f-min',
+    'range-s-min', 'range-u-min',
+];
+
+function setSharedFieldsLocked(locked, opts = {}) {
+    const sectionEvaEditable = Boolean(opts.sectionEvaEditable);
+    SHARED_LOCK_FIELD_IDS.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const isAggregateEva = id === 'totalnumstdevz' || id === 'totalevaluationscore';
+        const shouldLock = locked && !(isAggregateEva && sectionEvaEditable);
+        el.readOnly = shouldLock;
+        el.classList.toggle('field-locked', shouldLock);
+    });
+
+    ['scheme-credit', 'scheme-audit', 'scheme-both'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = locked;
+        el.classList.toggle('field-locked', locked);
+    });
+
+    document.querySelectorAll('input[name="intflag"]').forEach((el) => {
+        el.disabled = locked;
+    });
+    document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
+        el.disabled = locked;
+    });
+    document.querySelectorAll('.grade-range-clear').forEach((el) => {
+        el.classList.toggle('hidden', locked);
+        el.disabled = locked;
+    });
+
+    ['numstdevz', 'evaluationscore'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const shouldLock = locked && !sectionEvaEditable;
+        el.readOnly = shouldLock;
+        el.classList.toggle('field-locked', shouldLock);
+    });
+}
+
+async function loadJointPeers() {
+    await refreshCourseContext();
 }
 
 function setupWizardRegUpload() {
@@ -1584,7 +1866,7 @@ function validateWizardStep(step) {
     }
     if (step === 2) {
         const reasonid = document.querySelector('input[name="reasonid"]:checked')?.value;
-        if (reasonid === '1' && !jointGradeSubjects.length) {
+        if (reasonid === '1' && !jointGradeSubjects.length && !window.courseGroupLocked) {
             return 'กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
         }
         return null;
@@ -1611,25 +1893,31 @@ function showWizardStep(step, config) {
     });
     document.querySelectorAll('[data-wizard-dot]').forEach((el) => {
         const n = Number(el.dataset.wizardDot);
-        const dot = el.querySelector('.wizard-dot');
-        if (!dot) return;
-        dot.classList.toggle('is-current', n === step);
-        dot.classList.toggle('is-done', n < step);
+        el.classList.toggle('is-current', n === step);
+        el.classList.toggle('is-done', n < step);
     });
+    document.getElementById('wizard-stepper')?.classList.remove('is-complete');
 
     const back = document.getElementById('wizard-back');
     const next = document.getElementById('wizard-next');
     if (back) back.classList.toggle('hidden', step <= 1);
     if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
 
-    if (step === 2) loadJointPeers();
+    if (step === 2) refreshCourseContext();
 }
 
 function showWizardDone() {
     clearWizardState();
     document.getElementById('grade-form')?.classList.add('hidden');
-    document.getElementById('wizard-stepper')?.classList.add('hidden');
     document.getElementById('wizard-nav')?.classList.add('hidden');
+    const stepper = document.getElementById('wizard-stepper');
+    stepper?.classList.remove('hidden');
+    stepper?.classList.add('is-complete');
+    document.querySelectorAll('[data-wizard-dot]').forEach((el) => {
+        el.classList.remove('is-current');
+        el.classList.add('is-done');
+    });
+    document.getElementById('course-context-banners')?.classList.add('hidden');
     document.getElementById('wizard-done')?.classList.remove('hidden');
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -1679,6 +1967,7 @@ async function saveWizardReport(config) {
     overlay?.classList.add('hidden');
     document.body.style.overflow = '';
     persistWizardState(config, 7);
+    refreshCourseContext();
     return { ok: true };
 }
 
@@ -1764,6 +2053,7 @@ function printReportUrl(reportId) {
 }
 
 function initGradeReportWizard(config) {
+    window.wizardConfig = config;
     window.wizardHasPendingReg = Boolean(config.hasPendingRegistrar || config.cameFromUpload);
     let step = restoreWizardState(config);
 

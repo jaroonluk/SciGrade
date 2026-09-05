@@ -95,16 +95,53 @@
     }
     .wizard-step { display: none; }
     .wizard-step.is-active { display: block; }
-    .wizard-dot {
-        width: 1.75rem; height: 1.75rem; border-radius: 9999px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: .7rem; font-weight: 700; border: 2px solid #E8C4B8;
-        background: #fff; color: #9ca3af;
+    .wizard-trail { display: flex; flex-wrap: wrap; gap: 0.45rem 0.2rem; list-style: none; padding: 0; margin: 0 0 1.25rem; }
+    .wizard-step-item {
+        flex: 1 1 calc(25% - 0.2rem);
+        display: flex; flex-direction: column; align-items: center; gap: 0.28rem;
+        min-width: 4.4rem;
     }
-    .wizard-dot.is-done { background: #166534; border-color: #166534; color: #fff; }
-    .wizard-dot.is-current { background: #8B4513; border-color: #8B4513; color: #fff; }
-    .wizard-label { font-size: .65rem; line-height: 1.2; color: #7A4A3A; max-width: 5.5rem; }
-    @@media (min-width: 768px) { .wizard-label { font-size: .75rem; max-width: 7rem; } }
+    .wizard-arrow {
+        --arrow: #f3f4f6;
+        --ink: #6b7280;
+        width: 2.65rem; height: 1.72rem;
+        display: grid; place-items: center;
+        background: var(--arrow); color: var(--ink);
+        font-size: 0.72rem; font-weight: 800; letter-spacing: .01em;
+        clip-path: polygon(0 18%, 68% 18%, 68% 0, 100% 50%, 68% 100%, 68% 82%, 0 82%);
+        transition: background .2s ease, color .2s ease, transform .2s ease, filter .2s ease;
+    }
+    .wizard-step-item[data-tone="1"]:not(.is-current):not(.is-done) { --arrow: #fecaca; --ink: #991b1b; }
+    .wizard-step-item[data-tone="2"]:not(.is-current):not(.is-done) { --arrow: #fed7aa; --ink: #9a3412; }
+    .wizard-step-item[data-tone="3"]:not(.is-current):not(.is-done) { --arrow: #fdba74; --ink: #9a3412; }
+    .wizard-step-item[data-tone="4"]:not(.is-current):not(.is-done) { --arrow: #fcd34d; --ink: #92400e; }
+    .wizard-step-item[data-tone="5"]:not(.is-current):not(.is-done) { --arrow: #fde68a; --ink: #854d0e; }
+    .wizard-step-item[data-tone="6"]:not(.is-current):not(.is-done) { --arrow: #d9f99d; --ink: #3f6212; }
+    .wizard-step-item[data-tone="7"]:not(.is-current):not(.is-done) { --arrow: #bbf7d0; --ink: #166534; }
+    .wizard-step-item[data-tone="8"]:not(.is-current):not(.is-done) { --arrow: #86efac; --ink: #14532d; }
+    .wizard-step-item[data-tone="1"].is-current { --arrow: #dc2626; --ink: #fff; }
+    .wizard-step-item[data-tone="2"].is-current { --arrow: #ea580c; --ink: #fff; }
+    .wizard-step-item[data-tone="3"].is-current { --arrow: #f97316; --ink: #fff; }
+    .wizard-step-item[data-tone="4"].is-current { --arrow: #f59e0b; --ink: #fff; }
+    .wizard-step-item[data-tone="5"].is-current { --arrow: #d97706; --ink: #fff; }
+    .wizard-step-item[data-tone="6"].is-current { --arrow: #ca8a04; --ink: #fff; }
+    .wizard-step-item[data-tone="7"].is-current { --arrow: #65a30d; --ink: #fff; }
+    .wizard-step-item[data-tone="8"].is-current { --arrow: #16a34a; --ink: #fff; }
+    .wizard-step-item.is-current .wizard-arrow { transform: scale(1.14); filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }
+    .wizard-step-item.is-current .wizard-label { font-weight: 700; color: #5C2E1F; }
+    .wizard-step-item.is-done { --arrow: #16a34a; --ink: #fff; }
+    .wizard-step-item.is-done .wizard-label { color: #166534; }
+    .wizard-trail.is-complete .wizard-step-item { --arrow: #16a34a; --ink: #fff; }
+    .wizard-trail.is-complete .wizard-step-item .wizard-label { color: #166534; font-weight: 600; }
+    .wizard-label { font-size: .65rem; line-height: 1.2; color: #7A4A3A; max-width: 5.6rem; text-align: center; }
+    .field-locked, .field-locked:disabled { background: #f3f4f6 !important; color: #4b5563; cursor: not-allowed; }
+    .lock-note { border: 1px solid #bbf7d0; background: #f0fdf4; }
+    .group-note { border: 1px solid #93c5fd; background: #eff6ff; }
+    .prior-sec-chip { background: #fff; border: 1px solid #fdba74; color: #9a3412; }
+    @@media (min-width: 768px) {
+        .wizard-step-item { flex: 1 1 0; min-width: 0; }
+        .wizard-label { font-size: .72rem; max-width: 7.2rem; }
+    }
     .scheme-box { border: 1px solid #f0e0d0; background: #fff; }
     .scheme-box input:checked + span { color: #5C2E1F; font-weight: 600; }
 </style>
@@ -123,7 +160,7 @@
                     <i data-lucide="file-text" class="w-5 h-5 text-[#8B4513]"></i>
                     {{ isset($reportId) ? 'แก้ไขแบบรายงานผลการสอบไล่' : 'สร้างแบบรายงานผลการสอบไล่' }}
                 </h2>
-                <ol id="wizard-stepper" class="grid grid-cols-4 md:grid-cols-8 gap-2 mb-6">
+                <ol id="wizard-stepper" class="wizard-trail" aria-label="ขั้นตอนการกรอกรายงาน">
                     @foreach ([
                         1 => 'ข้อมูลรายวิชา',
                         2 => 'หมายเหตุ',
@@ -134,12 +171,23 @@
                         7 => 'พิมพ์ใบขวาง',
                         8 => 'อัปโหลดใบขวาง',
                     ] as $n => $label)
-                        <li class="flex flex-col items-center text-center gap-1" data-wizard-dot="{{ $n }}">
-                            <span class="wizard-dot {{ $n === 1 ? 'is-current' : '' }}">{{ $n }}</span>
+                        <li class="wizard-step-item {{ $n === 1 ? 'is-current' : '' }}" data-wizard-dot="{{ $n }}" data-tone="{{ $n }}">
+                            <span class="wizard-arrow" aria-hidden="true"><span class="wizard-arrow-num">{{ $n }}</span></span>
                             <span class="wizard-label">{{ $label }}</span>
                         </li>
                     @endforeach
                 </ol>
+                <div id="course-context-banners" class="space-y-2 mb-5">
+                    <div id="course-group-banner" class="group-note hidden rounded-lg px-3 py-2.5">
+                        <p class="text-sm font-semibold text-sky-900">รายวิชานี้จัดกลุ่มตัดเกรดร่วมไว้แล้ว — ไม่ต้องกรอกรหัสซ้ำ</p>
+                        <p class="text-xs text-sky-800/90 mt-0.5">ระบบแสดงรหัสวิชาที่อยู่ในกลุ่มเดียวกันให้แล้ว หากต้องการเปลี่ยนกลุ่ม กรุณาติดต่อผู้ดูแล</p>
+                        <div id="course-group-list" class="flex flex-wrap gap-1.5 mt-2"></div>
+                    </div>
+                    <div id="course-prior-banner" class="lock-note hidden rounded-lg px-3 py-2.5">
+                        <p id="course-prior-title" class="text-sm font-semibold text-green-900">มีข้อมูลเกณฑ์รายวิชานี้ในระบบแล้ว</p>
+                        <p id="course-prior-body" class="text-xs text-green-800/90 mt-0.5 leading-relaxed"></p>
+                    </div>
+                </div>
                 <form id="grade-form" class="space-y-5">
                     <div class="wizard-step is-active space-y-5" data-wizard-step="1">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -210,7 +258,7 @@
                     <div class="wizard-step space-y-5" data-wizard-step="2">
                     <div class="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
                         <p class="text-sm font-semibold text-[#5C2E1F]">หมายเหตุ</p>
-                        <p class="text-xs text-[#7A4A3A]/80">ข้ามขั้นตอนนี้ได้หากไม่มีหมายเหตุ</p>
+                        <p id="remark-help-text" class="text-xs text-[#7A4A3A]/80">ข้ามขั้นตอนนี้ได้หากไม่มีหมายเหตุ</p>
                         <label class="flex items-start gap-2 text-sm">
                             <input type="radio" name="reasonid" value="1" class="accent-amber-700 mt-1 shrink-0">
                             <div class="flex-1 min-w-0">
@@ -227,7 +275,7 @@
                                         <div id="joint-peer-list" class="flex flex-wrap gap-1.5"></div>
                                         <p id="joint-peer-empty" class="hidden text-xs text-[#0c4a6e]/70">ยังไม่พบรายวิชาอื่นในกลุ่มเดียวกับรหัสที่กำลังกรอก</p>
                                     </div>
-                                    <p class="text-xs text-[#7A4A3A]/70 mt-1">เลือกจากรายการเพื่อแสดงชื่อวิชา — หากไม่มีในฐานข้อมูล กด Enter หรือเลือก «กรอกเอง» เพื่อเพิ่มรหัสวิชา</p>
+                                    <p id="joint-search-hint" class="text-xs text-[#7A4A3A]/70 mt-1">เลือกจากรายการเพื่อแสดงชื่อวิชา — หากไม่มีในฐานข้อมูล กด Enter หรือเลือก «กรอกเอง» เพื่อเพิ่มรหัสวิชา</p>
                                 </div>
                             </div>
                         </label>
@@ -358,6 +406,11 @@
                                 กรอกจำนวนนักศึกษา
                             </h3>
                             <p id="section-form-hint" class="text-xs text-[#7A4A3A]/80"></p>
+                        </div>
+                        <div id="prior-sections-box" class="hidden rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5">
+                            <p class="text-sm font-semibold text-orange-950">Section ที่รายงานไปแล้วในภาคนี้</p>
+                            <p class="text-xs text-orange-900/80 mt-0.5">กรอกได้เฉพาะ Section ที่ยังไม่มีในระบบ — Section ที่รายงานแล้วจะไม่แสดงในรายการเลือก</p>
+                            <div id="prior-sections-list" class="flex flex-wrap gap-1.5 mt-2"></div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -639,6 +692,7 @@
         const hasRegistrarFile = @json($hasRegistrarFile ?? false);
         const hasExamReportFile = @json($hasExamReportFile ?? false);
 
+        window.wizardConfig = { currentReportId: reportId };
         initTempladeForm({ teacherHelpImageUrl });
 
         if (prefillReport) {
