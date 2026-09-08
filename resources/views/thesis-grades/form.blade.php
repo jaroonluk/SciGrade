@@ -159,13 +159,13 @@
                 @if ($editable && ! $report)
                     <div>
                         <label class="block text-sm font-medium text-[#5C2E1F] mb-1">อัปโหลดใบ มข.11 / TS (แนะนำ)</label>
-                        <p class="text-xs text-[#7A4A3A]/80 mb-2">อัปโหลด PDF ครั้งเดียว — ระบบอ่านรหัสวิชา ชื่อวิชา ภาค/ปี กลุ่ม และรายชื่อนักศึกษา แล้วเก็บไฟล์บน S3</p>
+                        <p class="text-xs text-[#7A4A3A]/80 mb-2">ตั้งชื่อไฟล์อย่างไรก็ได้ — ระบบอ่านข้อความจากเนื้อหาใน PDF (รหัสวิชา ชื่อวิชา ภาค/ปี กลุ่ม และรายชื่อนักศึกษา) แล้วเก็บไฟล์ให้อัตโนมัติ</p>
                         <label class="file-drop block" id="quick-drop">
                             <input type="file" accept="application/pdf" class="hidden" id="quick-input">
                             <p class="font-medium text-[#854d0e]" id="quick-drop-label">ลากวางหรือคลิกเพื่อเลือก PDF</p>
                             <p class="text-xs text-[#7A4A3A]/70 mt-1">เฉพาะ .pdf ไม่เกิน 15 MB</p>
                         </label>
-                        <p id="quick-upload-status" class="hidden mt-2 text-sm text-[#854d0e]"></p>
+                        <div id="quick-upload-status" class="hidden mt-2 rounded-lg border px-3 py-2 text-sm leading-relaxed"></div>
                     </div>
                     <div class="flex items-center gap-3 text-xs text-[#7A4A3A]/70">
                         <span class="flex-1 border-t border-amber-200"></span>
@@ -363,5 +363,5 @@
         oldStudents: @json(old('students', [])),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=2"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=3"></script>
 @endpush

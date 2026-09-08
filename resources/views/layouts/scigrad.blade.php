@@ -99,6 +99,9 @@
         @endif
         @if (session('error'))
             <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm no-print whitespace-pre-line">{{ session('error') }}</div>
+            @if (session('error_hint'))
+                <div class="mb-4 -mt-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 px-4 py-3 text-sm no-print">{{ session('error_hint') }}</div>
+            @endif
         @endif
         @yield('content')
     </main>

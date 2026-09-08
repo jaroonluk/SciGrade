@@ -79,8 +79,9 @@ class ThesisGradePageController extends Controller
             'term' => ['nullable', 'integer', 'in:1,2,3'],
             'year' => ['nullable', 'integer', 'min:2500', 'max:2700'],
         ], [
-            'file.mimes' => 'อัปโหลดได้เฉพาะไฟล์ PDF',
-            'file.max' => 'ขนาดไฟล์ต้องไม่เกิน 15 MB',
+            'file.required' => 'กรุณาเลือกไฟล์ PDF ก่อนอัปโหลด',
+            'file.mimes' => 'อัปโหลดไม่ได้ เพราะรองรับเฉพาะไฟล์ PDF เท่านั้น',
+            'file.max' => 'อัปโหลดไม่ได้ เพราะขนาดไฟล์เกิน 15 MB',
         ]);
 
         /** @var UploadedFile $uploaded */
@@ -96,19 +97,30 @@ class ThesisGradePageController extends Controller
                 $yearFallback,
             );
         } catch (ThesisGradePdfParseException $e) {
+            $payload = $e->toUserPayload();
             if ($request->expectsJson()) {
-                return response()->json(['message' => $e->getMessage()], 422);
+                return response()->json($payload, 422);
             }
 
-            return back()->with('error', $e->getMessage());
+            return back()
+                ->with('error', $payload['message'])
+                ->with('error_hint', $payload['hint']);
         } catch (Throwable $e) {
             report($e);
-            $message = 'อ่านไฟล์ PDF ไม่สำเร็จ';
+            $payload = [
+                'ok' => false,
+                'message' => 'อัปโหลดไม่สำเร็จ เพราะระบบประมวลผลไฟล์ PDF ไม่ได้ในขณะนี้',
+                'reason' => 'unexpected_error',
+                'hint' => 'กรุณาลองใหม่อีกครั้ง หรือกรอกข้อมูลด้วยตนเองในแบบฟอร์มด้านล่างแทน',
+                'can_manual' => true,
+            ];
             if ($request->expectsJson()) {
-                return response()->json(['message' => $message], 422);
+                return response()->json($payload, 422);
             }
 
-            return back()->with('error', $message);
+            return back()
+                ->with('error', $payload['message'])
+                ->with('error_hint', $payload['hint']);
         }
 
         $signature = $this->signatures->inspectUploaded($uploaded);
@@ -148,9 +160,16 @@ class ThesisGradePageController extends Controller
             );
         } catch (Throwable $e) {
             report($e);
-            $message = 'อัปโหลดไฟล์ไปยัง S3 ไม่สำเร็จ — ตรวจค่า MINIO_* ใน .env';
+            $message = 'อ่านข้อมูลจากไฟล์สำเร็จแล้ว แต่เก็บไฟล์บนระบบจัดเก็บไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หรือบันทึกร่างแล้วอัปโหลดไฟล์ในขั้นที่ 3';
             if ($request->expectsJson()) {
-                return response()->json(['message' => $message], 500);
+                return response()->json([
+                    'ok' => false,
+                    'message' => $message,
+                    'reason' => 'storage_failed',
+                    'hint' => 'ข้อมูลที่อ่านได้ยังอยู่ในร่างแล้ว — สามารถกรอก/แก้ไขต่อได้ แล้วลองอัปโหลดไฟล์อีกครั้งในขั้นที่ 3',
+                    'can_manual' => true,
+                    'edit_url' => route('thesis-grades.edit', ['thesisGrade' => $report, 'step' => 1]),
+                ], 500);
             }
 
             return redirect()

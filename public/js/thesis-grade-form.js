@@ -457,10 +457,20 @@
 
         const status = document.getElementById('quick-upload-status');
         const label = document.getElementById('quick-drop-label');
-        if (status) {
-            status.classList.remove('hidden');
-            status.textContent = 'กำลังอัปโหลดและอ่าน PDF...';
-        }
+        const showStatus = (kind, title, hint) => {
+            if (!status) return;
+            status.classList.remove('hidden', 'border-amber-300', 'bg-amber-50', 'text-amber-950', 'border-red-200', 'bg-red-50', 'text-red-800', 'border-emerald-300', 'bg-emerald-50', 'text-emerald-900');
+            if (kind === 'error') {
+                status.classList.add('border-red-200', 'bg-red-50', 'text-red-800');
+            } else if (kind === 'ok') {
+                status.classList.add('border-emerald-300', 'bg-emerald-50', 'text-emerald-900');
+            } else {
+                status.classList.add('border-amber-300', 'bg-amber-50', 'text-amber-950');
+            }
+            status.innerHTML = `<p class="font-semibold">${escapeHtml(title)}</p>${hint ? `<p class="mt-1">${escapeHtml(hint)}</p>` : ''}`;
+        };
+
+        showStatus('info', 'กำลังอัปโหลดและอ่านข้อความจาก PDF...', 'กรุณารอสักครู่');
         if (label) label.textContent = 'กำลังประมวลผล...';
 
         const body = new FormData();
@@ -476,17 +486,21 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                if (status) status.textContent = data.message || 'อัปโหลดไม่สำเร็จ';
+                const title = data.message || 'อัปโหลดหรืออ่านไฟล์ไม่สำเร็จ';
+                const hint = data.hint || 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน';
+                showStatus('error', title, hint);
                 if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
-                alert(data.message || 'อัปโหลดไม่สำเร็จ');
                 return;
             }
-            if (status) status.textContent = 'สำเร็จ — กำลังเปิดร่าง...';
+            showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
             window.location.href = data.edit_url;
         } catch (err) {
-            if (status) status.textContent = 'อัปโหลดไม่สำเร็จ';
+            showStatus(
+                'error',
+                'อัปโหลดไม่สำเร็จ เพราะเชื่อมต่อกับเซิร์ฟเวอร์ไม่ได้',
+                'กรุณาลองใหม่อีกครั้ง หรือกรอกข้อมูลด้วยตนเองในแบบฟอร์มด้านล่างแทน',
+            );
             if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
-            alert('อัปโหลดไม่สำเร็จ');
         }
     }
 
