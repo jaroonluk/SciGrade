@@ -286,9 +286,9 @@
 @endsection
 
 @push('scripts')
-<script>
-    window.THESIS_FORM = {
-        students: @json($report?->students->map(fn ($s) => [
+@php
+    $thesisFormStudents = ($report?->students ?? collect())->map(function ($s) {
+        return [
             'id' => $s->student_id,
             'student_code' => $s->student_code,
             'student_name' => $s->student_name,
@@ -300,14 +300,23 @@
             'completed' => (bool) $s->completed,
             'defense_date' => $s->defense_date?->toDateString(),
             'note' => $s->note,
-        ]) ?? []),
-        files: @json($report?->files->map(fn ($f) => [
+        ];
+    })->values();
+
+    $thesisFormFiles = ($report?->files ?? collect())->map(function ($f) use ($report) {
+        return [
             'file_id' => $f->file_id,
             'file_type' => $f->resolvedType(),
             'original_name' => $f->original_name,
             'student_id' => $f->student_id,
             'url' => route('thesis-grades.files.show', [$report, $f]),
-        ]) ?? []),
+        ];
+    })->values();
+@endphp
+<script>
+    window.THESIS_FORM = {
+        students: @json($thesisFormStudents),
+        files: @json($thesisFormFiles),
         oldStudents: @json(old('students', [])),
     };
 </script>
