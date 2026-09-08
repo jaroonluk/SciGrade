@@ -2,6 +2,7 @@
 
 namespace App\Services\ThesisGrade;
 
+use App\Models\PdCourse;
 use App\Support\ThesisCourse;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -105,7 +106,9 @@ class ThesisGradePdfParser
      *     section: string,
      *     teacher: ?string,
      *     students: list<array<string, mixed>>,
-     *     warnings: list<string>
+     *     warnings: list<string>,
+     *     subject_in_catalog: bool,
+     *     requires_manual_code: bool
      * }
      */
     public function parseText(string $rawText, string $originalFilename, int $termFallback, int $yearFallback): array
@@ -131,40 +134,54 @@ class ThesisGradePdfParser
             $subjectRaw = trim($m[2]);
         } elseif (preg_match('/\b([A-Z]{2}\d{5,8})\b/iu', $text, $m)) {
             $subjectCode = strtoupper(trim($m[1]));
-        }
-
-        if ($subjectCode === '') {
-            throw new ThesisGradePdfParseException(
-                'ระบบอ่านข้อความจากไฟล์ได้ แต่ไม่พบรหัสวิชาในใบส่งผลการเรียน กรุณาตรวจสอบว่าเป็นใบ มข.11 / TS จากระบบ REG',
-                'missing_subject_code',
-                self::MANUAL_HINT,
-            );
-        }
-
-        if (! preg_match('/ใบส่งผล|THESIS|DISSERTATION|INDEPENDENT\s+STUDY|วิทยานิพนธ์|การศึกษาอิสระ/iu', $text)
-            && $subjectRaw === ''
-            && empty($fromName['subject_code'])
-        ) {
-            $warnings[] = 'ไฟล์อาจไม่ใช่ใบส่งผลการเรียนวิทยานิพนธ์มาตรฐาน — กรุณาตรวจข้อมูลที่ระบบกรอกให้อีกครั้ง';
+        } elseif (! empty($fromName['subject_code'])) {
+            $subjectCode = $fromName['subject_code'];
+            $warnings[] = 'ใช้รหัสวิชาจากชื่อไฟล์ เพราะไม่พบรูปแบบรหัสในเนื้อหา PDF — กรุณาตรวจสอบอีกครั้ง';
         }
 
         $subject = $this->normalizeSubjectChoice($subjectRaw !== '' ? $subjectRaw : null);
         if ($subject === null) {
-            // ลองหาชนิดวิชาจากเนื้อหาทั้งไฟล์
             $subject = $this->normalizeSubjectChoice($text);
         }
+
+        $requiresManualCode = false;
+        if ($subjectCode === '') {
+            // ถ้าอย่างน้อยจับชนิดวิชา THESIS / IS / DISSERTATION ได้ ให้ไปกรอกรหัสเองได้ ไม่บล็อกทั้งหมด
+            if ($subject !== null) {
+                $requiresManualCode = true;
+                $warnings[] = 'อ่านชื่อวิชาเป็น '.$subject.' ได้แล้ว แต่ไม่พบรหัสวิชาในไฟล์ — กรุณากรอกรหัสวิชาเองด้านล่าง';
+            } else {
+                throw new ThesisGradePdfParseException(
+                    'ระบบอ่านข้อความจากไฟล์ได้ แต่ไม่พบรหัสวิชาและชนิดวิชาในใบส่งผลการเรียน กรุณาตรวจสอบว่าเป็นใบ มข.11 / TS จากระบบ REG',
+                    'missing_subject_code',
+                    self::MANUAL_HINT,
+                );
+            }
+        }
+
         if ($subject === null) {
             $subject = 'THESIS';
             $warnings[] = 'ระบบจับชนิดวิชาจากไฟล์ไม่ได้ จึงตั้งเป็น THESIS ชั่วคราว — กรุณาเลือกชื่อวิชาให้ถูกต้อง';
         }
 
+        $subjectInCatalog = false;
+        if ($subjectCode !== '') {
+            $catalog = $this->lookupCatalog($subjectCode);
+            if ($catalog !== null) {
+                $subjectInCatalog = true;
+                if ($catalog['subject_choice'] !== null) {
+                    $subject = $catalog['subject_choice'];
+                }
+            } else {
+                $warnings[] = 'ไม่พบรหัสวิชา '.$subjectCode.' ในฐานข้อมูลรายวิชา — ใช้ค่าที่อ่านจาก PDF แล้ว คุณสามารถแก้ไขรหัสหรือชื่อวิชาได้เอง';
+            }
+        }
+
         $term = $termFallback;
         $year = $yearFallback;
-        $termFromText = false;
         if (preg_match('/ภาคการศึกษาที่\s*(\d+)\s*\/\s*(\d{4})/u', $text, $tm)) {
             $term = (int) $tm[1];
             $year = (int) $tm[2];
-            $termFromText = true;
         } elseif (! empty($fromName['term']) && ! empty($fromName['year'])) {
             $term = (int) $fromName['term'];
             $year = (int) $fromName['year'];
@@ -194,7 +211,6 @@ class ThesisGradePdfParser
         if (preg_match('/(?:รศ\.|ผศ\.|ศ\.|อ\.|ดร\.|Asst\.|Assoc\.|Prof\.)[^\n\t]+/u', $text, $teach)) {
             $teacher = trim(preg_replace('/\s+/', ' ', $teach[0]) ?? '');
             $teacher = trim(preg_replace('/\s*กลุ่ม\s*\d+.*$/u', '', $teacher) ?? '');
-            // ตัดส่วนลายเซ็นท้ายใบ
             if (str_contains($teacher, '(')) {
                 $teacher = trim(explode('(', $teacher, 2)[0]);
             }
@@ -203,10 +219,6 @@ class ThesisGradePdfParser
         $students = $this->parseStudents($text);
         if ($students === []) {
             $warnings[] = 'ไม่พบรายชื่อนักศึกษาในไฟล์ — กรุณาเพิ่มรายชื่อในขั้นตอนถัดไปด้วยตนเอง';
-        }
-
-        if (! $termFromText && $termFallback > 0) {
-            // already warned above
         }
 
         return [
@@ -218,6 +230,36 @@ class ThesisGradePdfParser
             'teacher' => $teacher !== '' ? $teacher : null,
             'students' => $students,
             'warnings' => array_values(array_unique($warnings)),
+            'subject_in_catalog' => $subjectInCatalog,
+            'requires_manual_code' => $requiresManualCode,
+        ];
+    }
+
+    /**
+     * @return array{subject_code: string, subject: string, subject_choice: ?string}|null
+     */
+    public function lookupCatalog(string $subjectCode): ?array
+    {
+        $code = strtoupper(preg_replace('/\s+/', '', $subjectCode) ?? '');
+        if ($code === '') {
+            return null;
+        }
+
+        $row = PdCourse::query()
+            ->whereRaw('UPPER(TRIM(subjcode)) = ?', [$code])
+            ->orderBy('subjcode')
+            ->first(['subjcode', 'subjname']);
+
+        if ($row === null) {
+            return null;
+        }
+
+        $name = trim((string) ($row->subjname ?? ''));
+
+        return [
+            'subject_code' => trim((string) $row->subjcode),
+            'subject' => $name,
+            'subject_choice' => $this->normalizeSubjectChoice($name),
         ];
     }
 

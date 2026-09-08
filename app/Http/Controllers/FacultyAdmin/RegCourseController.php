@@ -39,11 +39,12 @@ class RegCourseController extends Controller
         }
 
         $status = sprintf(
-            'ดึงรายวิชาปีการศึกษา %d เรียบร้อย — พบ %d รายการ เพิ่มใหม่ %d รายการ (มีอยู่แล้ว %d รายการ)',
+            'ดึงรายวิชาปีการศึกษา %d เรียบร้อย — พบ %d รายการ เพิ่มใหม่ %d รายการ (มีอยู่แล้ว %d รายการ%s)',
             $year,
             $result['fetched'],
             $result['inserted'],
             $result['skipped'],
+            ($result['failed'] ?? 0) > 0 ? ', ไม่สำเร็จ '.((int) $result['failed']).' รายการ' : '',
         );
 
         return redirect()

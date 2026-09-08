@@ -128,6 +128,43 @@ class ThesisGradePageController extends Controller
         $teacher = $parsed['teacher']
             ?: $this->staffAuth->teacherNameFor(auth()->user()->email, auth()->user()->name);
 
+        // อ่านชนิดวิชาได้แล้ว แต่ยังไม่มีรหัส — ไม่สร้างร่าง ให้ผู้ใช้กรอกรหัสเองในฟอร์ม
+        if (! empty($parsed['requires_manual_code']) || trim((string) $parsed['subject_code']) === '') {
+            $payload = [
+                'ok' => true,
+                'draft_created' => false,
+                'message' => 'อ่านชื่อวิชาเป็น '.$parsed['subject'].' จาก PDF แล้ว — กรุณากรอกรหัสวิชาเองแล้วบันทึกร่าง',
+                'warnings' => $parsed['warnings'],
+                'prefill' => [
+                    'subject_code' => $parsed['subject_code'],
+                    'subject' => $parsed['subject'],
+                    'term' => $parsed['term'],
+                    'year' => $parsed['year'],
+                    'section' => $parsed['section'],
+                    'students' => $parsed['students'],
+                ],
+                'subject_in_catalog' => (bool) ($parsed['subject_in_catalog'] ?? false),
+                'signature_signed' => $signature['signed'],
+                'signature_message' => $signature['message'],
+            ];
+
+            if ($request->expectsJson()) {
+                return response()->json($payload);
+            }
+
+            return back()
+                ->withInput([
+                    'term' => $parsed['term'],
+                    'year' => $parsed['year'],
+                    'subject_code' => $parsed['subject_code'],
+                    'subject' => $parsed['subject'],
+                    'section' => $parsed['section'],
+                    'students' => $parsed['students'],
+                ])
+                ->with('status', $payload['message'])
+                ->with('pdf_warnings', $parsed['warnings']);
+        }
+
         try {
             $report = $this->thesisGrades->save(
                 [
@@ -146,7 +183,20 @@ class ThesisGradePageController extends Controller
             );
         } catch (InvalidArgumentException $e) {
             if ($request->expectsJson()) {
-                return response()->json(['message' => $e->getMessage()], 422);
+                return response()->json([
+                    'ok' => false,
+                    'message' => $e->getMessage(),
+                    'hint' => 'กรุณาตรวจสอบรหัสวิชา ชื่อวิชา และข้อมูลอื่น แล้วกรอกเองในแบบฟอร์มด้านล่าง',
+                    'can_manual' => true,
+                    'prefill' => [
+                        'subject_code' => $parsed['subject_code'],
+                        'subject' => $parsed['subject'],
+                        'term' => $parsed['term'],
+                        'year' => $parsed['year'],
+                        'section' => $parsed['section'],
+                        'students' => $parsed['students'],
+                    ],
+                ], 422);
             }
 
             return back()->with('error', $e->getMessage());
@@ -194,7 +244,10 @@ class ThesisGradePageController extends Controller
 
         $payload = [
             'ok' => true,
-            'message' => 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว',
+            'draft_created' => true,
+            'message' => ($parsed['subject_in_catalog'] ?? false)
+                ? 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (พบรหัสวิชาในฐานข้อมูล)'
+                : 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (ไม่พบรหัสวิชาในฐานข้อมูล — ใช้ค่าจากไฟล์ คุณแก้ไขได้)',
             'edit_url' => $editUrl,
             'report_id' => $report->thesis_grade_id,
             'parsed' => [
@@ -206,6 +259,7 @@ class ThesisGradePageController extends Controller
                 'student_count' => count($parsed['students']),
             ],
             'warnings' => $parsed['warnings'],
+            'subject_in_catalog' => (bool) ($parsed['subject_in_catalog'] ?? false),
             'signature_signed' => $signature['signed'],
             'signature_message' => $signature['message'],
             'stored_name' => basename($storedPath),

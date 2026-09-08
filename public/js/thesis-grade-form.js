@@ -408,7 +408,53 @@
     const codeInput = document.getElementById('subject_code');
     const subjectSelect = document.getElementById('subject');
     const suggest = document.getElementById('subject-suggest');
+    const catalogHint = document.getElementById('subject-catalog-hint');
     let timer = null;
+
+    function setCatalogHint(text, isWarn) {
+        if (!catalogHint) return;
+        catalogHint.textContent = text;
+        catalogHint.classList.toggle('text-amber-800', !!isWarn);
+        catalogHint.classList.toggle('text-[#7A4A3A]/70', !isWarn);
+    }
+
+    function applySubjectChoice(choice) {
+        if (!subjectSelect || !choice) return;
+        subjectSelect.value = choice;
+    }
+
+    function applyPrefill(prefill, studentsFromPdf) {
+        if (!prefill) return;
+        if (prefill.term != null) {
+            const termEl = document.querySelector('[name="term"]');
+            if (termEl) termEl.value = String(prefill.term);
+        }
+        if (prefill.year != null) {
+            const yearEl = document.querySelector('[name="year"]');
+            if (yearEl) yearEl.value = String(prefill.year);
+        }
+        if (prefill.section != null) {
+            const sectionEl = document.querySelector('[name="section"]');
+            if (sectionEl) sectionEl.value = String(prefill.section);
+        }
+        if (prefill.subject_code != null && codeInput) {
+            codeInput.value = prefill.subject_code;
+        }
+        if (prefill.subject) {
+            applySubjectChoice(prefill.subject);
+        }
+        if (Array.isArray(studentsFromPdf) && studentsFromPdf.length) {
+            students = studentsFromPdf.map(normalizeStudent);
+            renderStudents();
+        }
+        renderTsName();
+        codeInput?.focus();
+    }
+
+    async function searchSubjects(q) {
+        const res = await fetch(`${root.dataset.searchUrl}?q=${encodeURIComponent(q)}`);
+        return res.json();
+    }
 
     codeInput?.addEventListener('input', () => {
         const q = codeInput.value.trim();
@@ -416,27 +462,41 @@
         renderTsName();
         if (q.length < 1) {
             suggest?.classList.add('hidden');
+            setCatalogHint('มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)', false);
             return;
         }
         timer = setTimeout(async () => {
-            const res = await fetch(`${root.dataset.searchUrl}?q=${encodeURIComponent(q)}`);
-            const rows = await res.json();
+            const rows = await searchSubjects(q);
             if (!suggest) return;
             if (!Array.isArray(rows) || !rows.length) {
-                suggest.innerHTML = '<div class="suggest-item text-[#7A4A3A]">ไม่พบในฐานข้อมูล — กรอกรหัสและเลือกชื่อวิชาเองได้</div>';
+                suggest.innerHTML = '<div class="suggest-item text-[#7A4A3A]">ไม่พบรหัสในฐานข้อมูล — กรอกรหัสเองได้ และเลือกชื่อวิชาทางขวา</div>';
                 suggest.classList.remove('hidden');
+                setCatalogHint('ไม่พบในฐานข้อมูล — ใช้รหัสที่พิมพ์และเลือกชื่อวิชาเองได้', true);
                 return;
             }
+
+            const exact = rows.find((r) => String(r.subject_code || '').toUpperCase() === q.toUpperCase());
+            if (exact && exact.subject_choice) {
+                codeInput.value = exact.subject_code;
+                applySubjectChoice(exact.subject_choice);
+                setCatalogHint(`พบในฐานข้อมูล: ${exact.subject_code} · ${exact.subject_choice}`, false);
+            } else {
+                setCatalogHint('พบรายการใกล้เคียง — คลิกเพื่อเลือก หรือกรอกเองได้', false);
+            }
+
             suggest.innerHTML = rows.map((r) => {
-                const choice = r.subject_choice || r.subject || '';
-                return `<div class="suggest-item" data-code="${escapeHtml(r.subject_code)}" data-choice="${escapeHtml(choice)}"><span class="font-semibold">${escapeHtml(r.subject_code)}</span> · ${escapeHtml(r.subject || choice)}</div>`;
+                const choice = r.subject_choice || '';
+                return `<div class="suggest-item" data-code="${escapeHtml(r.subject_code)}" data-choice="${escapeHtml(choice)}"><span class="font-semibold">${escapeHtml(r.subject_code)}</span> · ${escapeHtml(r.subject || choice || '—')}</div>`;
             }).join('');
             suggest.classList.remove('hidden');
             suggest.querySelectorAll('.suggest-item[data-code]').forEach((item) => {
                 item.addEventListener('click', () => {
                     codeInput.value = item.dataset.code || '';
-                    if (subjectSelect && item.dataset.choice) {
-                        subjectSelect.value = item.dataset.choice;
+                    if (item.dataset.choice) {
+                        applySubjectChoice(item.dataset.choice);
+                        setCatalogHint(`เลือกจากฐานข้อมูล: ${item.dataset.code} · ${item.dataset.choice}`, false);
+                    } else {
+                        setCatalogHint('พบรหัสแล้ว — กรุณาเลือกชื่อวิชาทางขวาเอง', true);
                     }
                     suggest.classList.add('hidden');
                     renderTsName();
@@ -467,7 +527,10 @@
             } else {
                 status.classList.add('border-amber-300', 'bg-amber-50', 'text-amber-950');
             }
-            status.innerHTML = `<p class="font-semibold">${escapeHtml(title)}</p>${hint ? `<p class="mt-1">${escapeHtml(hint)}</p>` : ''}`;
+            const warnHtml = Array.isArray(hint) 
+                ? hint.map((w) => `<p class="mt-1">${escapeHtml(w)}</p>`).join('')
+                : (hint ? `<p class="mt-1">${escapeHtml(hint)}</p>` : '');
+            status.innerHTML = `<p class="font-semibold">${escapeHtml(title)}</p>${warnHtml}`;
         };
 
         showStatus('info', 'กำลังอัปโหลดและอ่านข้อความจาก PDF...', 'กรุณารอสักครู่');
@@ -489,9 +552,25 @@
                 const title = data.message || 'อัปโหลดหรืออ่านไฟล์ไม่สำเร็จ';
                 const hint = data.hint || 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน';
                 showStatus('error', title, hint);
+                if (data.prefill) {
+                    applyPrefill(data.prefill, data.prefill.students);
+                }
                 if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
                 return;
             }
+
+            // อ่านชนิดวิชาได้แล้ว แต่ยังต้องกรอกรหัสเอง
+            if (data.draft_created === false && data.prefill) {
+                applyPrefill(data.prefill, data.prefill.students);
+                const hints = [
+                    data.message || 'อ่านข้อมูลจาก PDF แล้ว',
+                    ...(Array.isArray(data.warnings) ? data.warnings : []),
+                ];
+                showStatus('info', 'อ่านจาก PDF แล้ว — กรุณากรอกรหัสวิชาแล้วบันทึกร่าง', hints.slice(1).join(' ') || hints[0]);
+                if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
+                return;
+            }
+
             showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
             window.location.href = data.edit_url;
         } catch (err) {

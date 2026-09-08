@@ -66,6 +66,9 @@
                 ผลลัพธ์ — พบ {{ $result['fetched'] }} รายการ ·
                 เพิ่มใหม่ {{ $result['inserted'] }} ·
                 มีอยู่แล้ว {{ $result['skipped'] }}
+                @if (($result['failed'] ?? 0) > 0)
+                    · <span class="text-red-700">ไม่สำเร็จ {{ $result['failed'] }}</span>
+                @endif
             </div>
             <table class="w-full text-sm min-w-[640px]">
                 <thead class="bg-amber-50/60">
@@ -82,11 +85,18 @@
                         <tr class="border-t border-amber-100">
                             <td class="px-3 py-2 text-gray-500">{{ $index + 1 }}</td>
                             <td class="px-3 py-2 font-medium">{{ $row['subjcode'] }}</td>
-                            <td class="px-3 py-2">{{ $row['subjname'] }}</td>
+                            <td class="px-3 py-2">
+                                {{ $row['subjname'] }}
+                                @if (($row['status'] ?? '') === 'failed' && ! empty($row['error']))
+                                    <p class="text-xs text-red-600 mt-0.5">{{ $row['error'] }}</p>
+                                @endif
+                            </td>
                             <td class="px-3 py-2">{{ $row['courseint'] ?: '-' }}</td>
                             <td class="px-3 py-2 text-center">
                                 @if ($row['status'] === 'inserted')
                                     <span class="inline-block px-2 py-0.5 rounded text-xs bg-green-100 text-green-800">เพิ่มใหม่</span>
+                                @elseif ($row['status'] === 'failed')
+                                    <span class="inline-block px-2 py-0.5 rounded text-xs bg-red-100 text-red-800">ไม่สำเร็จ</span>
                                 @else
                                     <span class="inline-block px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">มีอยู่แล้ว</span>
                                 @endif

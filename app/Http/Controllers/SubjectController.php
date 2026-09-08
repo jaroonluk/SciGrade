@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PdCourse;
 use App\Services\GradReport2Service;
+use App\Services\ThesisGrade\ThesisGradePdfParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -40,7 +41,7 @@ class SubjectController extends Controller
         return response()->json($rows);
     }
 
-    public function searchThesis(Request $request): JsonResponse
+    public function searchThesis(Request $request, ThesisGradePdfParser $pdfParser): JsonResponse
     {
         $q = trim($request->get('q', ''));
 
@@ -49,13 +50,18 @@ class SubjectController extends Controller
         }
 
         $like = '%'.$q.'%';
+        $exact = strtoupper(preg_replace('/\s+/', '', $q) ?? '');
 
         $rows = PdCourse::query()
-            ->thesisOnly()
             ->select('subjcode', 'subjname')
-            ->where(function ($query) use ($like) {
-                $query->where('subjcode', 'like', $like)
-                    ->orWhere('subjname', 'like', $like);
+            ->where(function ($query) use ($like, $exact) {
+                $query->where(function ($thesisQuery) use ($like) {
+                    $thesisQuery->thesisOnly()
+                        ->where(function ($match) use ($like) {
+                            $match->where('subjcode', 'like', $like)
+                                ->orWhere('subjname', 'like', $like);
+                        });
+                })->orWhereRaw('UPPER(TRIM(subjcode)) = ?', [$exact]);
             })
             ->orderBy('subjcode')
             ->limit(50)
@@ -63,22 +69,19 @@ class SubjectController extends Controller
             ->unique(fn ($row) => strtoupper(trim($row->subjcode)))
             ->take(15)
             ->values()
-            ->map(function ($row) {
+            ->map(function ($row) use ($pdfParser) {
                 $name = trim($row->subjname ?? '');
-                $upper = strtoupper($name);
-                $choice = 'THESIS';
-                if (str_contains($upper, 'INDEPENDENT STUDY') || str_contains($upper, 'INDEPENDENT')) {
-                    $choice = 'INDEPENDENT STUDY';
-                } elseif (str_contains($upper, 'DISSERTATION')) {
-                    $choice = 'DISSERTATION';
-                }
+                $choice = $pdfParser->normalizeSubjectChoice($name);
 
                 return [
                     'subject_code' => trim($row->subjcode),
                     'subject' => $name,
-                    'subject_choice' => $choice,
+                    'subject_choice' => $choice ?? '',
                 ];
-            });
+            })
+            // คงรายการวิทยานิพนธ์ฯ หรือรหัสที่ตรงเป๊ะ (ให้ผู้ใช้เลือกได้ แม้ชื่อในฐานจะว่าง/ไม่มาตรฐาน)
+            ->filter(fn (array $row) => $row['subject_choice'] !== '' || strtoupper($row['subject_code']) === $exact)
+            ->values();
 
         return response()->json($rows);
     }

@@ -159,7 +159,7 @@
                 @if ($editable && ! $report)
                     <div>
                         <label class="block text-sm font-medium text-[#5C2E1F] mb-1">อัปโหลดใบ มข.11 / TS (แนะนำ)</label>
-                        <p class="text-xs text-[#7A4A3A]/80 mb-2">ตั้งชื่อไฟล์อย่างไรก็ได้ — ระบบอ่านข้อความจากเนื้อหาใน PDF (รหัสวิชา ชื่อวิชา ภาค/ปี กลุ่ม และรายชื่อนักศึกษา) แล้วเก็บไฟล์ให้อัตโนมัติ</p>
+                        <p class="text-xs text-[#7A4A3A]/80 mb-2">ตั้งชื่อไฟล์อย่างไรก็ได้ — ระบบอ่านข้อความจาก PDF (THESIS / INDEPENDENT STUDY / DISSERTATION) แล้วกรอกให้อัตโนมัติ หากรหัสวิชาไม่พบในฐานข้อมูล ยังใช้ค่าจากไฟล์ได้หรือแก้เอง</p>
                         <label class="file-drop block" id="quick-drop">
                             <input type="file" accept="application/pdf" class="hidden" id="quick-input">
                             <p class="font-medium text-[#854d0e]" id="quick-drop-label">ลากวางหรือคลิกเพื่อเลือก PDF</p>
@@ -202,7 +202,7 @@
                                placeholder="พิมพ์บางส่วน เช่น SC05"
                                class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                         <div id="subject-suggest" class="suggest-list hidden"></div>
-                        <p class="text-xs text-[#7A4A3A]/70 mt-1">มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้</p>
+                        <p id="subject-catalog-hint" class="text-xs text-[#7A4A3A]/70 mt-1">มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ชื่อวิชา</label>
@@ -363,5 +363,5 @@
         oldStudents: @json(old('students', [])),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=3"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=4"></script>
 @endpush
