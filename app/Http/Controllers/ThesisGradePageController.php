@@ -4,16 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ThesisGrade\SaveThesisGradeRequest;
 use App\Models\ThesisGrade;
+use App\Models\ThesisGradeFile;
 use App\Services\StaffAuthService;
+use App\Services\ThesisGrade\PdfSignatureInspector;
+use App\Services\ThesisGrade\ThesisGradeAttachmentNameService;
+use App\Services\ThesisGrade\ThesisGradePdfParseException;
+use App\Services\ThesisGrade\ThesisGradePdfParser;
 use App\Services\ThesisGrade\ThesisGradeService;
 use App\Services\ThesisGrade\ThesisGradeZipService;
 use App\Support\AcademicTerm;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class ThesisGradePageController extends Controller
 {
@@ -21,6 +29,9 @@ class ThesisGradePageController extends Controller
         private readonly StaffAuthService $staffAuth,
         private readonly ThesisGradeService $thesisGrades,
         private readonly ThesisGradeZipService $zipService,
+        private readonly ThesisGradePdfParser $pdfParser,
+        private readonly ThesisGradeAttachmentNameService $names,
+        private readonly PdfSignatureInspector $signatures,
     ) {}
 
     public function index(Request $request): View
@@ -56,6 +67,140 @@ class ThesisGradePageController extends Controller
             'term' => (int) $request->input('term', AcademicTerm::defaultTerm()),
             'year' => (int) $request->input('year', AcademicTerm::defaultYear()),
         ]);
+    }
+
+    /**
+     * อัปโหลดใบ TS แล้วอ่าน PDF → สร้างร่าง + เก็บไฟล์บน MinIO/S3
+     */
+    public function quickUpload(Request $request): JsonResponse|RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:pdf', 'max:15360'],
+            'term' => ['nullable', 'integer', 'in:1,2,3'],
+            'year' => ['nullable', 'integer', 'min:2500', 'max:2700'],
+        ], [
+            'file.mimes' => 'อัปโหลดได้เฉพาะไฟล์ PDF',
+            'file.max' => 'ขนาดไฟล์ต้องไม่เกิน 15 MB',
+        ]);
+
+        /** @var UploadedFile $uploaded */
+        $uploaded = $validated['file'];
+        $termFallback = (int) ($validated['term'] ?? AcademicTerm::defaultTerm());
+        $yearFallback = (int) ($validated['year'] ?? AcademicTerm::defaultYear());
+
+        try {
+            $parsed = $this->pdfParser->parse(
+                $uploaded->getRealPath() ?: $uploaded->getPathname(),
+                $uploaded->getClientOriginalName(),
+                $termFallback,
+                $yearFallback,
+            );
+        } catch (ThesisGradePdfParseException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            report($e);
+            $message = 'อ่านไฟล์ PDF ไม่สำเร็จ';
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return back()->with('error', $message);
+        }
+
+        $signature = $this->signatures->inspectUploaded($uploaded);
+        $username = $this->staffUsername();
+        $teacher = $parsed['teacher']
+            ?: $this->staffAuth->teacherNameFor(auth()->user()->email, auth()->user()->name);
+
+        try {
+            $report = $this->thesisGrades->save(
+                [
+                    'term' => $parsed['term'],
+                    'year' => $parsed['year'],
+                    'subject_code' => $parsed['subject_code'],
+                    'subject' => $parsed['subject'],
+                    'section' => $parsed['section'],
+                    'students' => $parsed['students'],
+                    'checked_proposal' => false,
+                    'checked_signed' => $signature['signed'],
+                    'intent' => 'draft',
+                ],
+                $username,
+                $teacher,
+            );
+        } catch (InvalidArgumentException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->with('error', $e->getMessage());
+        }
+
+        try {
+            $storedPath = $this->names->storeUploadedFile(
+                $report,
+                $uploaded,
+                ThesisGradeFile::TYPE_TS_REPORT,
+            );
+        } catch (Throwable $e) {
+            report($e);
+            $message = 'อัปโหลดไฟล์ไปยัง S3 ไม่สำเร็จ — ตรวจค่า MINIO_* ใน .env';
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 500);
+            }
+
+            return redirect()
+                ->route('thesis-grades.edit', ['thesisGrade' => $report, 'step' => 1])
+                ->with('error', $message);
+        }
+
+        ThesisGradeFile::query()->create([
+            'thesis_grade_id' => $report->thesis_grade_id,
+            'student_id' => null,
+            'file_type' => ThesisGradeFile::TYPE_TS_REPORT,
+            'original_name' => basename($storedPath),
+            'stored_path' => $storedPath,
+            'uploaded_at' => now(),
+            'username' => $username,
+        ]);
+
+        $editUrl = route('thesis-grades.edit', [
+            'thesisGrade' => $report,
+            'step' => 2,
+        ]);
+
+        $payload = [
+            'ok' => true,
+            'message' => 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว',
+            'edit_url' => $editUrl,
+            'report_id' => $report->thesis_grade_id,
+            'parsed' => [
+                'subject_code' => $parsed['subject_code'],
+                'subject' => $parsed['subject'],
+                'term' => $parsed['term'],
+                'year' => $parsed['year'],
+                'section' => $parsed['section'],
+                'student_count' => count($parsed['students']),
+            ],
+            'warnings' => $parsed['warnings'],
+            'signature_signed' => $signature['signed'],
+            'signature_message' => $signature['message'],
+            'stored_name' => basename($storedPath),
+            'disk' => \App\Support\UploadStorage::diskName(),
+        ];
+
+        if ($request->expectsJson()) {
+            return response()->json($payload);
+        }
+
+        return redirect($editUrl)
+            ->with('status', $payload['message'])
+            ->with('pdf_warnings', $parsed['warnings'])
+            ->with('signature_message', $signature['message']);
     }
 
     public function store(SaveThesisGradeRequest $request): RedirectResponse
@@ -177,13 +322,15 @@ class ThesisGradePageController extends Controller
             'term' => $term,
             'year' => $year,
             'years' => AcademicTerm::yearOptions(),
+            'subjectChoices' => ThesisGradePdfParser::SUBJECT_CHOICES,
             'staffDisplayName' => $this->staffAuth->displayNameFor(
                 auth()->user()->email,
                 auth()->user()->name,
             ),
             'regUrl' => (string) config('scigrade.reg_url'),
             's0FormUrl' => (string) config('scigrade.s0_letter_form_url'),
-            'step' => max(1, min(3, (int) request('step', 1))),
+            'step' => max(1, min(3, (int) request('step', $defaults['step'] ?? 1))),
+            'editable' => $report === null || $report->isEditable(),
         ]);
     }
 

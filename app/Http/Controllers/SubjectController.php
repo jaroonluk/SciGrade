@@ -63,10 +63,22 @@ class SubjectController extends Controller
             ->unique(fn ($row) => strtoupper(trim($row->subjcode)))
             ->take(15)
             ->values()
-            ->map(fn ($row) => [
-                'subject_code' => trim($row->subjcode),
-                'subject' => trim($row->subjname ?? ''),
-            ]);
+            ->map(function ($row) {
+                $name = trim($row->subjname ?? '');
+                $upper = strtoupper($name);
+                $choice = 'THESIS';
+                if (str_contains($upper, 'INDEPENDENT STUDY') || str_contains($upper, 'INDEPENDENT')) {
+                    $choice = 'INDEPENDENT STUDY';
+                } elseif (str_contains($upper, 'DISSERTATION')) {
+                    $choice = 'DISSERTATION';
+                }
+
+                return [
+                    'subject_code' => trim($row->subjcode),
+                    'subject' => $name,
+                    'subject_choice' => $choice,
+                ];
+            });
 
         return response()->json($rows);
     }

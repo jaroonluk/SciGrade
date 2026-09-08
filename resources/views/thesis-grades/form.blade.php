@@ -3,6 +3,10 @@
 @php
     $editable = $report === null || $report->isEditable();
     $title = $report ? $report->displayCode().' กลุ่ม '.$report->paddedSection() : 'ส่งผลวิชาใหม่';
+    $subjectChoices = $subjectChoices ?? ['THESIS', 'INDEPENDENT STUDY', 'DISSERTATION'];
+    $rawSubject = (string) old('subject', $report?->subject ?? '');
+    $selectedSubject = app(\App\Services\ThesisGrade\ThesisGradePdfParser::class)->normalizeSubjectChoice($rawSubject)
+        ?? (in_array($rawSubject, $subjectChoices, true) ? $rawSubject : '');
 @endphp
 
 @section('title', $title.' — วิทยานิพนธ์ / การศึกษาอิสระ')
@@ -52,6 +56,7 @@
     data-editable="{{ $editable ? '1' : '0' }}"
     data-report-id="{{ $report?->thesis_grade_id }}"
     data-search-url="{{ url('/api/subjects/search-thesis') }}"
+    data-quick-upload-url="{{ route('thesis-grades.quick-upload') }}"
     data-upload-url="{{ $report ? route('thesis-grades.files.store', $report) : '' }}"
     data-file-base="{{ $report ? url('/thesis-grades/'.$report->thesis_grade_id.'/files') : '' }}"
     data-initial-step="{{ $step }}"
@@ -63,7 +68,7 @@
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
                 ให้เกรดที่
                 <a href="{{ $regUrl }}" target="_blank" rel="noopener" class="underline text-[#a16207]">REG</a>
-                ก่อน แล้วส่งเอกสารในระบบนี้
+                ก่อน แล้วอัปโหลดใบ มข.11 — ระบบอ่านข้อมูลและเก็บไฟล์บน S3 ให้เอง
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -85,6 +90,23 @@
         <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             <p class="font-semibold">สาขาส่งกลับให้แก้ไข</p>
             <p class="mt-1">{{ $report->return_reason }}</p>
+        </div>
+    @endif
+
+    @if (session('pdf_warnings'))
+        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <p class="font-semibold">อ่านจาก PDF แล้ว — โปรดตรวจข้อมูล</p>
+            <ul class="list-disc pl-5 mt-1 space-y-0.5">
+                @foreach ((array) session('pdf_warnings') as $message)
+                    <li>{{ $message }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    @if (session('signature_message'))
+        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            {{ session('signature_message') }}
         </div>
     @endif
 
@@ -134,6 +156,24 @@
 
         <div class="thesis-panel" data-step="1">
             <div class="form-section rounded-xl p-5 space-y-4">
+                @if ($editable && ! $report)
+                    <div>
+                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">อัปโหลดใบ มข.11 / TS (แนะนำ)</label>
+                        <p class="text-xs text-[#7A4A3A]/80 mb-2">อัปโหลด PDF ครั้งเดียว — ระบบอ่านรหัสวิชา ชื่อวิชา ภาค/ปี กลุ่ม และรายชื่อนักศึกษา แล้วเก็บไฟล์บน S3</p>
+                        <label class="file-drop block" id="quick-drop">
+                            <input type="file" accept="application/pdf" class="hidden" id="quick-input">
+                            <p class="font-medium text-[#854d0e]" id="quick-drop-label">ลากวางหรือคลิกเพื่อเลือก PDF</p>
+                            <p class="text-xs text-[#7A4A3A]/70 mt-1">เฉพาะ .pdf ไม่เกิน 15 MB</p>
+                        </label>
+                        <p id="quick-upload-status" class="hidden mt-2 text-sm text-[#854d0e]"></p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-[#7A4A3A]/70">
+                        <span class="flex-1 border-t border-amber-200"></span>
+                        <span>หรือกรอกเอง</span>
+                        <span class="flex-1 border-t border-amber-200"></span>
+                    </div>
+                @endif
+
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
@@ -153,24 +193,27 @@
                     </div>
                 </div>
 
-                <div class="relative">
-                    <label class="block text-sm font-medium text-[#5C2E1F] mb-1">รหัส / ชื่อวิชา</label>
-                    <input type="text" id="subject-search" value="{{ old('subject_code', $report?->subject_code ?? '') }}{{ old('subject', $report?->subject ?? '') ? ' — '.old('subject', $report?->subject ?? '') : '' }}"
-                           autocomplete="off" @disabled(! $editable)
-                           placeholder="พิมพ์ THESIS, DISSERTATION, INDEPENDENT STUDY หรือรหัสวิชา"
-                           class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                    <input type="hidden" name="subject_code" id="subject_code" value="{{ old('subject_code', $report?->subject_code ?? '') }}">
-                    <input type="hidden" name="subject" id="subject" value="{{ old('subject', $report?->subject ?? '') }}">
-                    <div id="subject-suggest" class="suggest-list hidden"></div>
-                    <p class="text-xs text-[#7A4A3A]/70 mt-1">ค้นได้เฉพาะวิชาวิทยานิพนธ์ / ดุษฎีนิพนธ์ / การศึกษาอิสระ</p>
-                    <button type="button" id="toggle-manual-subject" class="mt-2 text-xs text-[#a16207] underline">กรอกรหัสและชื่อวิชาเอง</button>
-                    <div id="manual-subject" class="hidden grid sm:grid-cols-2 gap-3 mt-2">
-                        <label class="text-xs text-[#7A4A3A]">รหัสวิชา
-                            <input type="text" id="manual_subject_code" @disabled(! $editable) value="{{ old('subject_code', $report?->subject_code ?? '') }}" class="mt-1 w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="SC123999">
-                        </label>
-                        <label class="text-xs text-[#7A4A3A]">ชื่อวิชา (ต้องมีคำว่า THESIS / DISSERTATION / INDEPENDENT STUDY)
-                            <input type="text" id="manual_subject_name" @disabled(! $editable) value="{{ old('subject', $report?->subject ?? '') }}" class="mt-1 w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="THESIS">
-                        </label>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">รหัสวิชา</label>
+                        <input type="text" name="subject_code" id="subject_code"
+                               value="{{ old('subject_code', $report?->subject_code ?? '') }}"
+                               autocomplete="off" @disabled(! $editable)
+                               placeholder="พิมพ์บางส่วน เช่น SC05"
+                               class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                        <div id="subject-suggest" class="suggest-list hidden"></div>
+                        <p class="text-xs text-[#7A4A3A]/70 mt-1">มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ชื่อวิชา</label>
+                        <select name="subject" id="subject" @disabled(! $editable)
+                                class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                            <option value="">— เลือกชนิดวิชา —</option>
+                            @foreach ($subjectChoices as $choice)
+                                <option value="{{ $choice }}" @selected($selectedSubject === $choice)>{{ $choice }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-[#7A4A3A]/70 mt-1">เลือกได้เฉพาะ THESIS / INDEPENDENT STUDY / DISSERTATION</p>
                     </div>
                 </div>
 
@@ -217,7 +260,7 @@
                         <p class="text-xs text-[#7A4A3A]/70 mt-1">เฉพาะ .pdf ไม่เกิน 15 MB</p>
                     </label>
                 @elseif ($editable)
-                    <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">บันทึกร่างก่อน จึงอัปโหลดไฟล์ได้</p>
+                    <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">ใช้ช่องอัปโหลดในขั้นที่ 1 หรือบันทึกร่างก่อน จึงอัปโหลดไฟล์เพิ่มได้</p>
                 @endif
                 <div id="ts-files" class="mt-3 space-y-2"></div>
             </div>
@@ -320,5 +363,5 @@
         oldStudents: @json(old('students', [])),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=2"></script>
 @endpush

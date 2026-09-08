@@ -188,6 +188,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('thesis-grades')->name('thesis-grades.')->group(function () {
         Route::get('/', [ThesisGradePageController::class, 'index'])->name('index');
         Route::get('/create', [ThesisGradePageController::class, 'create'])->name('create');
+        Route::post('/quick-upload', [ThesisGradePageController::class, 'quickUpload'])->name('quick-upload');
         Route::post('/', [ThesisGradePageController::class, 'store'])->name('store');
         Route::get('/{thesisGrade}', [ThesisGradePageController::class, 'edit'])->name('edit');
         Route::put('/{thesisGrade}', [ThesisGradePageController::class, 'update'])->name('update');

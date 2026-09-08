@@ -403,75 +403,114 @@
     });
     form?.addEventListener('submit', () => {
         collectFromDom();
-        syncSubjectFromSearch();
     });
 
-    function syncSubjectFromSearch() {
-        const codeEl = document.getElementById('subject_code');
-        const nameEl = document.getElementById('subject');
-        const manualCode = document.getElementById('manual_subject_code')?.value.trim();
-        const manualName = document.getElementById('manual_subject_name')?.value.trim();
-        if (manualCode && manualName) {
-            codeEl.value = manualCode;
-            nameEl.value = manualName;
-            return;
-        }
-        if (!codeEl || (codeEl.value && nameEl.value)) return;
-        const raw = (searchInput?.value || '').trim();
-        const parts = raw.split(/\s+[—\-]\s+/);
-        if (parts.length >= 2) {
-            codeEl.value = parts[0].trim();
-            nameEl.value = parts.slice(1).join(' - ').trim();
-        }
-    }
-
-    document.getElementById('toggle-manual-subject')?.addEventListener('click', () => {
-        document.getElementById('manual-subject')?.classList.toggle('hidden');
-    });
-    ['manual_subject_code', 'manual_subject_name'].forEach((id) => {
-        document.getElementById(id)?.addEventListener('input', () => {
-            const code = document.getElementById('manual_subject_code')?.value.trim() || '';
-            const name = document.getElementById('manual_subject_name')?.value.trim() || '';
-            document.getElementById('subject_code').value = code;
-            document.getElementById('subject').value = name;
-            if (searchInput) searchInput.value = code && name ? `${code} — ${name}` : code;
-            renderTsName();
-        });
-    });
-
-    const searchInput = document.getElementById('subject-search');
+    const codeInput = document.getElementById('subject_code');
+    const subjectSelect = document.getElementById('subject');
     const suggest = document.getElementById('subject-suggest');
     let timer = null;
-    searchInput?.addEventListener('input', () => {
-        const q = searchInput.value.trim();
+
+    codeInput?.addEventListener('input', () => {
+        const q = codeInput.value.trim();
         clearTimeout(timer);
+        renderTsName();
         if (q.length < 1) {
-            suggest.classList.add('hidden');
+            suggest?.classList.add('hidden');
             return;
         }
         timer = setTimeout(async () => {
             const res = await fetch(`${root.dataset.searchUrl}?q=${encodeURIComponent(q)}`);
             const rows = await res.json();
+            if (!suggest) return;
             if (!Array.isArray(rows) || !rows.length) {
-                suggest.innerHTML = '<div class="suggest-item text-[#7A4A3A]">ไม่พบวิชาวิทยานิพนธ์ที่ตรงกัน</div>';
+                suggest.innerHTML = '<div class="suggest-item text-[#7A4A3A]">ไม่พบในฐานข้อมูล — กรอกรหัสและเลือกชื่อวิชาเองได้</div>';
                 suggest.classList.remove('hidden');
                 return;
             }
-            suggest.innerHTML = rows.map((r) => `<div class="suggest-item" data-code="${escapeHtml(r.subject_code)}" data-name="${escapeHtml(r.subject)}"><span class="font-semibold">${escapeHtml(r.subject_code)}</span> · ${escapeHtml(r.subject)}</div>`).join('');
+            suggest.innerHTML = rows.map((r) => {
+                const choice = r.subject_choice || r.subject || '';
+                return `<div class="suggest-item" data-code="${escapeHtml(r.subject_code)}" data-choice="${escapeHtml(choice)}"><span class="font-semibold">${escapeHtml(r.subject_code)}</span> · ${escapeHtml(r.subject || choice)}</div>`;
+            }).join('');
             suggest.classList.remove('hidden');
-            suggest.querySelectorAll('.suggest-item').forEach((item) => {
+            suggest.querySelectorAll('.suggest-item[data-code]').forEach((item) => {
                 item.addEventListener('click', () => {
-                    document.getElementById('subject_code').value = item.dataset.code;
-                    document.getElementById('subject').value = item.dataset.name;
-                    searchInput.value = `${item.dataset.code} — ${item.dataset.name}`;
+                    codeInput.value = item.dataset.code || '';
+                    if (subjectSelect && item.dataset.choice) {
+                        subjectSelect.value = item.dataset.choice;
+                    }
                     suggest.classList.add('hidden');
                     renderTsName();
                 });
             });
         }, 200);
     });
+
+    subjectSelect?.addEventListener('change', renderTsName);
+
     document.addEventListener('click', (e) => {
-        if (!suggest?.contains(e.target) && e.target !== searchInput) suggest?.classList.add('hidden');
+        if (!suggest?.contains(e.target) && e.target !== codeInput) suggest?.classList.add('hidden');
+    });
+
+    async function quickUpload(file) {
+        const url = root.dataset.quickUploadUrl;
+        if (!url || !file) return;
+
+        const status = document.getElementById('quick-upload-status');
+        const label = document.getElementById('quick-drop-label');
+        if (status) {
+            status.classList.remove('hidden');
+            status.textContent = 'กำลังอัปโหลดและอ่าน PDF...';
+        }
+        if (label) label.textContent = 'กำลังประมวลผล...';
+
+        const body = new FormData();
+        body.append('file', file);
+        body.append('term', document.querySelector('[name="term"]')?.value || '');
+        body.append('year', document.querySelector('[name="year"]')?.value || '');
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+                body,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                if (status) status.textContent = data.message || 'อัปโหลดไม่สำเร็จ';
+                if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
+                alert(data.message || 'อัปโหลดไม่สำเร็จ');
+                return;
+            }
+            if (status) status.textContent = 'สำเร็จ — กำลังเปิดร่าง...';
+            window.location.href = data.edit_url;
+        } catch (err) {
+            if (status) status.textContent = 'อัปโหลดไม่สำเร็จ';
+            if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
+            alert('อัปโหลดไม่สำเร็จ');
+        }
+    }
+
+    const quickInput = document.getElementById('quick-input');
+    const quickDrop = document.getElementById('quick-drop');
+    quickInput?.addEventListener('change', () => {
+        if (quickInput.files[0]) quickUpload(quickInput.files[0]);
+        quickInput.value = '';
+    });
+    ['dragenter', 'dragover'].forEach((ev) => {
+        quickDrop?.addEventListener(ev, (e) => {
+            e.preventDefault();
+            quickDrop.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach((ev) => {
+        quickDrop?.addEventListener(ev, (e) => {
+            e.preventDefault();
+            quickDrop.classList.remove('dragover');
+        });
+    });
+    quickDrop?.addEventListener('drop', (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file) quickUpload(file);
     });
 
     const tsInput = document.getElementById('ts-input');
