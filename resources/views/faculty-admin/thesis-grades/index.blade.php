@@ -13,8 +13,10 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">งานบริการ ป.บัณฑิต</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">รับผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ดูและดาวน์โหลดไฟล์ทุกสาขา แล้วรับเรื่องเป็นขั้นที่สองหลังสาขารับแล้ว</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">ดูและดาวน์โหลดไฟล์ทุกสาขา แล้วกดผ่านที่ประชุมกรรมการคณะฯ หลังสาขาผ่านแล้ว</p>
         </div>
+        <a href="{{ route('faculty-admin.thesis-grades.summary', ['term' => $filters['term'] ?? null, 'year' => $filters['year'] ?? null]) }}"
+           class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">สรุปผลตาราง 3.1</a>
     </div>
 
     <div class="form-section rounded-xl p-5 mb-5">
@@ -50,10 +52,10 @@
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สถานะ</label>
                 <select name="status" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">ทุกสถานะ (ยกเว้นร่าง)</option>
-                    <option value="submitted" @selected(($filters['status'] ?? '') === 'submitted')>รอสาขา</option>
+                    <option value="submitted" @selected(($filters['status'] ?? '') === 'submitted')>อาจารย์ส่ง</option>
                     <option value="returned" @selected(($filters['status'] ?? '') === 'returned')>ส่งกลับแก้ไข</option>
-                    <option value="received" @selected(($filters['status'] ?? '') === 'received')>สาขารับแล้ว — รอคณะ</option>
-                    <option value="approved" @selected(($filters['status'] ?? '') === 'approved')>คณะรับแล้ว</option>
+                    <option value="received" @selected(($filters['status'] ?? '') === 'received')>ผ่านที่ประชุมสาขาฯ</option>
+                    <option value="approved" @selected(($filters['status'] ?? '') === 'approved')>ผ่านที่ประชุมกรรมการคณะฯ</option>
                 </select>
             </div>
             <div>
@@ -70,7 +72,14 @@
 
     <form method="POST" action="{{ route('faculty-admin.thesis-grades.download') }}" id="bulk-zip">
         @csrf
-        <div class="flex justify-end mb-3">
+        <input type="hidden" name="term" value="{{ $filters['term'] ?? '' }}">
+        <input type="hidden" name="year" value="{{ $filters['year'] ?? '' }}">
+        <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
+        <input type="hidden" name="department_id" value="{{ $filters['department_id'] ?? '' }}">
+        <input type="hidden" name="subject_code" value="{{ $filters['subject_code'] ?? '' }}">
+        <input type="hidden" name="q" value="{{ $filters['q'] ?? '' }}">
+        <div class="flex flex-wrap justify-end gap-2 mb-3">
+            <button type="submit" name="all_filtered" value="1" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดทั้งหมดตามเงื่อนไข</button>
             <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดไฟล์ที่เลือก</button>
         </div>
 

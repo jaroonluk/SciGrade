@@ -73,10 +73,10 @@ CREATE TABLE IF NOT EXISTS thesis_grade_file (
 | Value | Meaning |
 |-------|---------|
 | `draft` | ร่าง |
-| `submitted` | รอสาขา |
+| `submitted` | อาจารย์ส่ง |
 | `returned` | ส่งกลับแก้ไข |
-| `received` | สาขารับแล้ว — รอคณะ |
-| `approved` | คณะรับแล้ว |
+| `received` | ผ่านที่ประชุมสาขาฯ |
+| `approved` | ผ่านที่ประชุมกรรมการคณะฯ |
 
 If `thesis_grade` already exists, add faculty columns:
 
@@ -89,5 +89,6 @@ ALTER TABLE thesis_grade
 ### `thesis_grade_file.file_type`
 | Value | Meaning |
 |-------|---------|
-| `ts_report` | ใบส่งเกรด TS-รหัสวิชา-กลุ่ม-ภาค-ปี.pdf |
+| `ts_report` | ใบส่งเกรด TS-รหัสวิชา-กลุ่ม-ภาค-ปี.pdf (อาจารย์) |
 | `s0_letter` | หนังสือชี้แจง S=0 (ผูก `student_id`) |
+| `chair_signed` | ใบส่งเกรดที่ประธานหลักสูตรลงนามแล้ว (Admin สาขาอัปโหลด) |

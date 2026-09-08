@@ -5,16 +5,21 @@ namespace App\Http\Controllers\DeptAdmin;
 use App\Http\Controllers\Controller;
 use App\Models\ThesisGrade;
 use App\Models\ThesisGradeFile;
+use App\Models\ThesisGradeStudent;
 use App\Services\AuditLogService;
 use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\StaffAuthService;
 use App\Services\ThesisGrade\ThesisGradeApprovalService;
+use App\Services\ThesisGrade\ThesisGradeAttachmentNameService;
+use App\Services\ThesisGrade\ThesisGradeDocxExportService;
 use App\Services\ThesisGrade\ThesisGradeQueryService;
 use App\Services\ThesisGrade\ThesisGradeZipService;
 use App\Support\AcademicTerm;
 use App\Support\UploadStorage;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use RuntimeException;
@@ -29,6 +34,8 @@ class ThesisGradeReviewController extends Controller
         private readonly ThesisGradeQueryService $queryService,
         private readonly ThesisGradeApprovalService $approval,
         private readonly ThesisGradeZipService $zipService,
+        private readonly ThesisGradeAttachmentNameService $names,
+        private readonly ThesisGradeDocxExportService $docxExport,
         private readonly AuditLogService $auditLog,
     ) {}
 
@@ -90,7 +97,7 @@ class ThesisGradeReviewController extends Controller
             'section' => $thesisGrade->section,
         ], actorRole: 'dept_admin');
 
-        return back()->with('status', 'รับเรื่องเรียบร้อย');
+        return back()->with('status', 'ผ่านที่ประชุมสาขาฯ เรียบร้อย');
     }
 
     public function sendBack(Request $request, ThesisGrade $thesisGrade): RedirectResponse
@@ -142,15 +149,30 @@ class ThesisGradeReviewController extends Controller
         $departmentIds = $this->departmentAccess->allowedDepartmentIds($staff);
         $ids = array_values(array_filter(array_map('intval', (array) $request->input('ids', []))));
 
-        if ($ids === []) {
-            return back()->with('error', 'เลือกอย่างน้อย 1 รายการ');
-        }
+        if ($ids === [] && $request->boolean('all_filtered')) {
+            $filters = [
+                'term' => $request->filled('term') ? (int) $request->input('term') : null,
+                'year' => $request->filled('year') ? (int) $request->input('year') : null,
+                'status' => (string) $request->input('status', ''),
+                'department_id' => $request->filled('department_id') ? (int) $request->input('department_id') : null,
+                'subject_code' => trim((string) $request->input('subject_code', '')),
+                'q' => trim((string) $request->input('q', '')),
+            ];
+            $reports = $this->queryService
+                ->deptQuery($departmentIds, $filters)
+                ->with('files')
+                ->get();
+        } else {
+            if ($ids === []) {
+                return back()->with('error', 'เลือกอย่างน้อย 1 รายการ หรือดาวน์โหลดทั้งหมดตามเงื่อนไข');
+            }
 
-        $reports = $this->queryService
-            ->deptQuery($departmentIds, [])
-            ->whereIn('thesis_grade_id', $ids)
-            ->with('files')
-            ->get();
+            $reports = $this->queryService
+                ->deptQuery($departmentIds, [])
+                ->whereIn('thesis_grade_id', $ids)
+                ->with('files')
+                ->get();
+        }
 
         if ($reports->isEmpty()) {
             return back()->with('error', 'ไม่พบรายการที่เลือก');
@@ -164,6 +186,71 @@ class ThesisGradeReviewController extends Controller
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    public function storeChairFiles(Request $request, ThesisGrade $thesisGrade): JsonResponse|RedirectResponse
+    {
+        $this->authorize('reviewDept', $thesisGrade);
+        abort_unless(in_array($thesisGrade->status, [ThesisGrade::STATUS_SUBMITTED, ThesisGrade::STATUS_RECEIVED], true), 403);
+
+        $validated = $request->validate([
+            'files' => ['required', 'array', 'min:1'],
+            'files.*' => ['file', 'mimes:pdf', 'max:15360'],
+        ], [
+            'files.*.mimes' => 'อัปโหลดได้เฉพาะไฟล์ PDF',
+            'files.*.max' => 'ขนาดไฟล์ต้องไม่เกิน 15 MB',
+        ]);
+
+        $saved = [];
+        /** @var list<UploadedFile> $uploads */
+        $uploads = $validated['files'];
+        foreach ($uploads as $uploaded) {
+            $storedPath = $this->names->storeUploadedFile(
+                $thesisGrade,
+                $uploaded,
+                ThesisGradeFile::TYPE_CHAIR_SIGNED,
+            );
+            $file = ThesisGradeFile::query()->create([
+                'thesis_grade_id' => $thesisGrade->thesis_grade_id,
+                'student_id' => null,
+                'file_type' => ThesisGradeFile::TYPE_CHAIR_SIGNED,
+                'original_name' => basename($storedPath),
+                'stored_path' => $storedPath,
+                'uploaded_at' => now(),
+                'username' => $this->staffUsername(),
+            ]);
+            $saved[] = [
+                'file_id' => $file->file_id,
+                'original_name' => $file->original_name,
+                'url' => route('dept-admin.thesis-grades.files.show', [$thesisGrade, $file]),
+            ];
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['files' => $saved]);
+        }
+
+        return back()->with('status', 'อัปโหลดไฟล์ประธานหลักสูตรแล้ว '.count($saved).' ไฟล์');
+    }
+
+    public function destroyChairFile(ThesisGrade $thesisGrade, ThesisGradeFile $file): RedirectResponse
+    {
+        $this->authorize('reviewDept', $thesisGrade);
+        abort_unless((int) $file->thesis_grade_id === (int) $thesisGrade->thesis_grade_id, 404);
+        abort_unless($file->isChairSigned(), 404);
+        abort_unless(in_array($thesisGrade->status, [ThesisGrade::STATUS_SUBMITTED, ThesisGrade::STATUS_RECEIVED], true), 403);
+
+        $file->delete();
+
+        return back()->with('status', 'ลบไฟล์ประธานหลักสูตรแล้ว');
+    }
+
+    public function exportS0(ThesisGrade $thesisGrade, ThesisGradeStudent $student): BinaryFileResponse
+    {
+        $this->authorize('reviewDept', $thesisGrade);
+        abort_unless((int) $student->thesis_grade_id === (int) $thesisGrade->thesis_grade_id, 404);
+
+        return $this->docxExport->downloadS0Letter($thesisGrade, $student);
     }
 
     private function requireStaff()

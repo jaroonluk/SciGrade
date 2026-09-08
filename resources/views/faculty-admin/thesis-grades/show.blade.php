@@ -23,10 +23,10 @@
                 · ชื่อไฟล์มาตรฐาน {{ $report->tsFilename() }}
             </p>
             @if ($report->received_by)
-                <p class="text-xs text-[#7A4A3A]/70 mt-1">สาขารับเรื่องโดย {{ $report->received_by }}@if ($report->received_at) · {{ $report->received_at->format('d/m/Y H:i') }}@endif</p>
+                <p class="text-xs text-[#7A4A3A]/70 mt-1">ผ่านที่ประชุมสาขาฯ โดย {{ $report->received_by }}@if ($report->received_at) · {{ $report->received_at->format('d/m/Y H:i') }}@endif</p>
             @endif
             @if ($report->faculty_received_by)
-                <p class="text-xs text-emerald-800 mt-1">คณะรับเรื่องโดย {{ $report->faculty_received_by }}@if ($report->faculty_received_at) · {{ $report->faculty_received_at->format('d/m/Y H:i') }}@endif</p>
+                <p class="text-xs text-emerald-800 mt-1">ผ่านที่ประชุมกรรมการคณะฯ โดย {{ $report->faculty_received_by }}@if ($report->faculty_received_at) · {{ $report->faculty_received_at->format('d/m/Y H:i') }}@endif</p>
             @endif
         </div>
         <div class="flex flex-wrap gap-2">
@@ -120,7 +120,7 @@
                 @if ($report->status === 'received')
                     <form method="POST" action="{{ route('faculty-admin.thesis-grades.receive', $report) }}">
                         @csrf
-                        <button type="submit" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">รับเรื่องระดับคณะ</button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">ผ่านที่ประชุมกรรมการคณะฯ</button>
                     </form>
                 @endif
                 <form method="POST" action="{{ route('faculty-admin.thesis-grades.send-back', $report) }}" class="flex-1 min-w-[16rem]">

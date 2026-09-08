@@ -12,6 +12,7 @@ class ThesisGradeService
 {
     public function __construct(
         private readonly ThesisGradeComplianceService $compliance,
+        private readonly ThesisGradeNotificationService $notifications,
     ) {}
 
     /**
@@ -75,6 +76,8 @@ class ThesisGradeService
             'submitted_at' => now(),
             'return_reason' => null,
         ]);
+
+        $this->notifications->notifyDeptAdminsOfSubmit($report->fresh(['students', 'files']) ?? $report);
 
         return [];
     }

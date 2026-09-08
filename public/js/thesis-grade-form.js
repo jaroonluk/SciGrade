@@ -263,7 +263,51 @@
         files.unshift(data.file);
         renderFiles();
         renderSummary();
+
+        if (fileType === 'ts_report') {
+            showSignatureBanner(data);
+            if (data.show_next_actions) {
+                showPostUploadModal(data);
+            }
+        }
     }
+
+    function showSignatureBanner(data) {
+        const box = document.getElementById('ts-signature-banner');
+        if (!box) return;
+        const signed = !!data.signature_signed;
+        box.classList.remove('hidden', 'border-amber-300', 'bg-amber-50', 'text-amber-950', 'border-emerald-300', 'bg-emerald-50', 'text-emerald-900');
+        if (signed) {
+            box.classList.add('border-emerald-300', 'bg-emerald-50', 'text-emerald-900');
+            box.textContent = data.signature_message || 'พบลายเซ็นดิจิทัลในไฟล์';
+        } else {
+            box.classList.add('border-amber-300', 'bg-amber-50', 'text-amber-950');
+            box.textContent = data.signature_message || 'ยังไม่ลงนามดิจิทัล — อัปโหลดแล้ว แต่แนะนำให้ลงนามก่อนส่งเข้าสาขา';
+        }
+    }
+
+    function showPostUploadModal(data) {
+        const modal = document.getElementById('ts-upload-modal');
+        if (!modal) return;
+        const createBtn = document.getElementById('ts-modal-create');
+        const indexBtn = document.getElementById('ts-modal-index');
+        if (createBtn && data.create_url) createBtn.href = data.create_url;
+        if (indexBtn && data.index_url) indexBtn.href = data.index_url;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    document.getElementById('ts-modal-close')?.addEventListener('click', () => {
+        const modal = document.getElementById('ts-upload-modal');
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+    });
+    document.getElementById('ts-upload-modal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+            e.currentTarget.classList.add('hidden');
+            e.currentTarget.classList.remove('flex');
+        }
+    });
 
     async function deleteFile(id) {
         if (!root.dataset.fileBase) return;

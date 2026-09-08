@@ -112,10 +112,10 @@ class ThesisGrade extends Model
     public function statusLabel(): string
     {
         return match ($this->status) {
-            self::STATUS_SUBMITTED => 'รอสาขา',
+            self::STATUS_SUBMITTED => 'อาจารย์ส่ง',
             self::STATUS_RETURNED => 'ส่งกลับแก้ไข',
-            self::STATUS_RECEIVED => 'สาขารับแล้ว — รอคณะ',
-            self::STATUS_APPROVED => 'คณะรับแล้ว',
+            self::STATUS_RECEIVED => 'ผ่านที่ประชุมสาขาฯ',
+            self::STATUS_APPROVED => 'ผ่านที่ประชุมกรรมการคณะฯ',
             default => 'ร่าง',
         };
     }

@@ -13,6 +13,8 @@ class ThesisGradeFile extends Model
 
     public const TYPE_S0_LETTER = 's0_letter';
 
+    public const TYPE_CHAIR_SIGNED = 'chair_signed';
+
     public $timestamps = false;
 
     protected $connection = 'scigrad';
@@ -70,6 +72,11 @@ class ThesisGradeFile extends Model
         return $this->resolvedType() === self::TYPE_S0_LETTER;
     }
 
+    public function isChairSigned(): bool
+    {
+        return $this->resolvedType() === self::TYPE_CHAIR_SIGNED;
+    }
+
     public function resolvedType(): string
     {
         $type = (string) ($this->file_type ?? '');
@@ -81,6 +88,7 @@ class ThesisGradeFile extends Model
     {
         return match ($this->resolvedType()) {
             self::TYPE_S0_LETTER => 'หนังสือชี้แจง S=0',
+            self::TYPE_CHAIR_SIGNED => 'ใบส่งเกรดที่ประธานหลักสูตรลงนามแล้ว',
             default => 'ใบส่งเกรดวิทยานิพนธ์ (TS)',
         };
     }
@@ -89,6 +97,14 @@ class ThesisGradeFile extends Model
      * @return list<string>
      */
     public static function allowedTypes(): array
+    {
+        return [self::TYPE_TS_REPORT, self::TYPE_S0_LETTER, self::TYPE_CHAIR_SIGNED];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function instructorUploadTypes(): array
     {
         return [self::TYPE_TS_REPORT, self::TYPE_S0_LETTER];
     }

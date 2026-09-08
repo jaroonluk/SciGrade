@@ -205,9 +205,10 @@
 
         <div class="thesis-panel" data-step="3">
             <div class="form-section rounded-xl p-5 mb-4">
-                <h3 class="font-semibold text-[#5C2E1F] mb-1">ใบส่งเกรดวิทยานิพนธ์ (TS)</h3>
+                <h3 class="font-semibold text-[#5C2E1F] mb-1">ใบส่งเกรดวิทยานิพนธ์ (มข.11 / TS)</h3>
                 <p class="text-sm text-[#7A4A3A]/80 mb-3">อัปโหลด PDF ที่พิมพ์จาก REG มี barcode และลงนามดิจิทัลแล้ว ระบบจะตั้งชื่อให้เอง</p>
                 <p class="text-xs font-semibold text-[#854d0e] mb-3" id="ts-name-preview">TS-รหัสวิชา-กลุ่ม-ภาค-ปี.pdf</p>
+                <div id="ts-signature-banner" class="hidden mb-3 rounded-lg border px-3 py-2 text-sm leading-relaxed"></div>
 
                 @if ($editable && $report)
                     <label class="file-drop block" id="ts-drop">
@@ -263,6 +264,24 @@
             @method('DELETE')
         </form>
     @endif
+</div>
+
+<div id="ts-upload-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-md rounded-2xl bg-white border border-amber-200 shadow-xl p-5">
+        <h3 class="text-lg font-bold text-[#854d0e]">อัปโหลดใบส่งเกรดเรียบร้อย</h3>
+        <p class="text-sm text-[#7A4A3A] mt-2 leading-relaxed">ต้องการส่งเกรดวิชาต่อไป หรือไปหน้าติดตามผลการส่งผลการเรียนวิทยานิพนธ์/การศึกษาอิสระ?</p>
+        <div class="mt-5 flex flex-col gap-2">
+            <a id="ts-modal-create" href="{{ route('thesis-grades.create', ['term' => $term ?? request('term'), 'year' => $year ?? request('year')]) }}"
+               class="px-4 py-2.5 bg-[#a16207] text-white rounded-lg text-sm font-semibold text-center hover:bg-[#854d0e]">
+                ส่งเกรดวิชาต่อไป
+            </a>
+            <a id="ts-modal-index" href="{{ route('thesis-grades.index', ['term' => $term ?? request('term'), 'year' => $year ?? request('year')]) }}"
+               class="px-4 py-2.5 border border-amber-300 text-[#5C2E1F] rounded-lg text-sm font-semibold text-center hover:bg-amber-50">
+                ไปหน้าติดตามผลการส่ง
+            </a>
+            <button type="button" id="ts-modal-close" class="px-4 py-2 text-sm text-[#7A4A3A] hover:underline">อยู่ในหน้านี้อีกสักครู่</button>
+        </div>
+    </div>
 </div>
 @endsection
 

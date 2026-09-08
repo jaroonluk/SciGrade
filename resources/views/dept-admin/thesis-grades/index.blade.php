@@ -13,7 +13,7 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">THESIS · DISSERTATION · INDEPENDENT STUDY</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">รับผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจไฟล์ TS หนังสือ S=0 และวันที่สอบ แล้วรับเรื่องหรือส่งกลับ</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจไฟล์ TS หนังสือ S=0 แล้วกดผ่านที่ประชุมสาขาฯ หรือส่งกลับ</p>
         </div>
     </div>
 
@@ -52,10 +52,10 @@
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สถานะ</label>
                 <select name="status" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">ทุกสถานะ (ยกเว้นร่าง)</option>
-                    <option value="submitted" @selected(($filters['status'] ?? '') === 'submitted')>รอสาขา</option>
+                    <option value="submitted" @selected(($filters['status'] ?? '') === 'submitted')>อาจารย์ส่ง</option>
                     <option value="returned" @selected(($filters['status'] ?? '') === 'returned')>ส่งกลับแก้ไข</option>
-                    <option value="received" @selected(($filters['status'] ?? '') === 'received')>สาขารับแล้ว — รอคณะ</option>
-                    <option value="approved" @selected(($filters['status'] ?? '') === 'approved')>คณะรับแล้ว</option>
+                    <option value="received" @selected(($filters['status'] ?? '') === 'received')>ผ่านที่ประชุมสาขาฯ</option>
+                    <option value="approved" @selected(($filters['status'] ?? '') === 'approved')>ผ่านที่ประชุมกรรมการคณะฯ</option>
                 </select>
             </div>
             <div>
@@ -72,7 +72,14 @@
 
     <form method="POST" action="{{ route('dept-admin.thesis-grades.download') }}" id="bulk-zip">
         @csrf
-        <div class="flex justify-end mb-3">
+        <input type="hidden" name="term" value="{{ $filters['term'] ?? '' }}">
+        <input type="hidden" name="year" value="{{ $filters['year'] ?? '' }}">
+        <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
+        <input type="hidden" name="department_id" value="{{ $filters['department_id'] ?? '' }}">
+        <input type="hidden" name="subject_code" value="{{ $filters['subject_code'] ?? '' }}">
+        <input type="hidden" name="q" value="{{ $filters['q'] ?? '' }}">
+        <div class="flex flex-wrap justify-end gap-2 mb-3">
+            <button type="submit" name="all_filtered" value="1" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดทั้งหมดตามเงื่อนไข</button>
             <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดไฟล์ที่เลือก</button>
         </div>
 

@@ -149,6 +149,42 @@ class DepartmentSubjectFilter
         return false;
     }
 
+    /**
+     * @return list<int>
+     */
+    public function departmentIdsMatchingSubject(string $subjectCode): array
+    {
+        $code = strtoupper(trim($subjectCode));
+        if ($code === '') {
+            return [];
+        }
+
+        $ids = array_keys(self::defaultPatternsMap());
+
+        try {
+            if (Schema::connection('scigrad')->hasTable('department_subject_pattern')) {
+                $fromDb = DepartmentSubjectPattern::query()
+                    ->distinct()
+                    ->pluck('department_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->all();
+                $ids = array_values(array_unique(array_merge($ids, $fromDb)));
+            }
+        } catch (\Throwable) {
+            // keep defaults
+        }
+
+        $matched = [];
+        foreach ($ids as $departmentId) {
+            if ($this->courseMatchesDepartment($code, (int) $departmentId)) {
+                $matched[] = (int) $departmentId;
+            }
+        }
+
+        return array_values(array_unique($matched));
+    }
+
     public function describePattern(string $pattern): string
     {
         if (! str_contains($pattern, '%')) {

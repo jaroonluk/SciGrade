@@ -6,6 +6,7 @@ use App\Models\ThesisGrade;
 use App\Models\ThesisGradeFile;
 use App\Models\ThesisGradeStudent;
 use App\Services\StaffAuthService;
+use App\Services\ThesisGrade\PdfSignatureInspector;
 use App\Services\ThesisGrade\ThesisGradeAttachmentNameService;
 use App\Support\UploadStorage;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,7 @@ class ThesisGradeFileController extends Controller
     public function __construct(
         private readonly StaffAuthService $staffAuth,
         private readonly ThesisGradeAttachmentNameService $names,
+        private readonly PdfSignatureInspector $signatures,
     ) {}
 
     public function store(Request $request, ThesisGrade $thesisGrade): JsonResponse
@@ -27,7 +29,7 @@ class ThesisGradeFileController extends Controller
 
         $validated = $request->validate([
             'file' => ['required', 'file', 'mimes:pdf', 'max:15360'],
-            'file_type' => ['required', 'string', Rule::in(ThesisGradeFile::allowedTypes())],
+            'file_type' => ['required', 'string', Rule::in(ThesisGradeFile::instructorUploadTypes())],
             'student_id' => ['nullable', 'integer'],
         ], [
             'file.mimes' => 'อัปโหลดได้เฉพาะไฟล์ PDF',
@@ -45,6 +47,12 @@ class ThesisGradeFileController extends Controller
 
         /** @var UploadedFile $uploaded */
         $uploaded = $validated['file'];
+
+        $signature = ['signed' => true, 'status' => 'signed', 'message' => ''];
+        if ($validated['file_type'] === ThesisGradeFile::TYPE_TS_REPORT) {
+            $signature = $this->signatures->inspectUploaded($uploaded);
+        }
+
         $storedPath = $this->names->storeUploadedFile(
             $thesisGrade,
             $uploaded,
@@ -65,6 +73,18 @@ class ThesisGradeFileController extends Controller
         return response()->json([
             'file' => $this->formatFile($file, $student),
             'preview_name' => $file->original_name,
+            'signature_status' => $signature['status'],
+            'signature_signed' => $signature['signed'],
+            'signature_message' => $signature['message'],
+            'show_next_actions' => $validated['file_type'] === ThesisGradeFile::TYPE_TS_REPORT,
+            'create_url' => route('thesis-grades.create', [
+                'term' => $thesisGrade->term,
+                'year' => $thesisGrade->year,
+            ]),
+            'index_url' => route('thesis-grades.index', [
+                'term' => $thesisGrade->term,
+                'year' => $thesisGrade->year,
+            ]),
         ]);
     }
 

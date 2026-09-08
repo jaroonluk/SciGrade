@@ -94,6 +94,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/thesis-grades/{thesisGrade}', [ThesisGradeReviewController::class, 'show'])->name('thesis-grades.show');
         Route::post('/thesis-grades/{thesisGrade}/receive', [ThesisGradeReviewController::class, 'receive'])->name('thesis-grades.receive');
         Route::post('/thesis-grades/{thesisGrade}/send-back', [ThesisGradeReviewController::class, 'sendBack'])->name('thesis-grades.send-back');
+        Route::post('/thesis-grades/{thesisGrade}/chair-files', [ThesisGradeReviewController::class, 'storeChairFiles'])->name('thesis-grades.chair-files.store');
+        Route::delete('/thesis-grades/{thesisGrade}/chair-files/{file}', [ThesisGradeReviewController::class, 'destroyChairFile'])->name('thesis-grades.chair-files.destroy');
+        Route::get('/thesis-grades/{thesisGrade}/students/{student}/s0.docx', [ThesisGradeReviewController::class, 'exportS0'])->name('thesis-grades.s0.docx');
         Route::get('/thesis-grades/{thesisGrade}/files-zip', [ThesisGradeReviewController::class, 'downloadReport'])->name('thesis-grades.files.zip');
         Route::get('/thesis-grades/{thesisGrade}/files/{file}', [ThesisGradeReviewController::class, 'showFile'])->name('thesis-grades.files.show');
 
@@ -112,6 +115,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/{gradeReport}/send-back', [FacultyGradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
 
         Route::get('/thesis-grades', [FacultyThesisGradeReviewController::class, 'index'])->name('thesis-grades.index');
+        Route::get('/thesis-grades/summary', [FacultyThesisGradeReviewController::class, 'summary'])->name('thesis-grades.summary');
+        Route::get('/thesis-grades/summary.docx', [FacultyThesisGradeReviewController::class, 'exportSummary'])->name('thesis-grades.summary.docx');
         Route::post('/thesis-grades/download', [FacultyThesisGradeReviewController::class, 'downloadSelected'])->name('thesis-grades.download');
         Route::get('/thesis-grades/{thesisGrade}', [FacultyThesisGradeReviewController::class, 'show'])->name('thesis-grades.show');
         Route::post('/thesis-grades/{thesisGrade}/receive', [FacultyThesisGradeReviewController::class, 'receive'])->name('thesis-grades.receive');

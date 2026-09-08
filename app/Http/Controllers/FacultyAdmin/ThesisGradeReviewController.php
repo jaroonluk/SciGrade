@@ -9,6 +9,7 @@ use App\Services\AuditLogService;
 use App\Services\FacultyAdmin\FacultyReportQueryService;
 use App\Services\StaffAuthService;
 use App\Services\ThesisGrade\ThesisGradeApprovalService;
+use App\Services\ThesisGrade\ThesisGradeDocxExportService;
 use App\Services\ThesisGrade\ThesisGradeQueryService;
 use App\Services\ThesisGrade\ThesisGradeZipService;
 use App\Support\AcademicTerm;
@@ -30,6 +31,7 @@ class ThesisGradeReviewController extends Controller
         private readonly ThesisGradeQueryService $queryService,
         private readonly ThesisGradeApprovalService $approval,
         private readonly ThesisGradeZipService $zipService,
+        private readonly ThesisGradeDocxExportService $docxExport,
         private readonly AuditLogService $auditLog,
     ) {}
 
@@ -87,7 +89,7 @@ class ThesisGradeReviewController extends Controller
             'section' => $thesisGrade->section,
         ], actorRole: SciGradeRole::current());
 
-        return back()->with('status', 'คณะรับเรื่องเรียบร้อย');
+        return back()->with('status', 'ผ่านที่ประชุมกรรมการคณะฯ เรียบร้อย');
     }
 
     public function sendBack(Request $request, ThesisGrade $thesisGrade): RedirectResponse
@@ -141,15 +143,30 @@ class ThesisGradeReviewController extends Controller
         $this->requireReviewer();
         $ids = array_values(array_filter(array_map('intval', (array) $request->input('ids', []))));
 
-        if ($ids === []) {
-            return back()->with('error', 'เลือกอย่างน้อย 1 รายการ');
-        }
+        if ($ids === [] && $request->boolean('all_filtered')) {
+            $filters = [
+                'term' => $request->filled('term') ? (int) $request->input('term') : null,
+                'year' => $request->filled('year') ? (int) $request->input('year') : null,
+                'status' => (string) $request->input('status', ''),
+                'department_id' => $request->filled('department_id') ? (int) $request->input('department_id') : null,
+                'subject_code' => trim((string) $request->input('subject_code', '')),
+                'q' => trim((string) $request->input('q', '')),
+            ];
+            $reports = $this->queryService
+                ->facultyQuery($filters)
+                ->with('files')
+                ->get();
+        } else {
+            if ($ids === []) {
+                return back()->with('error', 'เลือกอย่างน้อย 1 รายการ หรือดาวน์โหลดทั้งหมดตามเงื่อนไข');
+            }
 
-        $reports = $this->queryService
-            ->facultyQuery([])
-            ->whereIn('thesis_grade_id', $ids)
-            ->with('files')
-            ->get();
+            $reports = $this->queryService
+                ->facultyQuery([])
+                ->whereIn('thesis_grade_id', $ids)
+                ->with('files')
+                ->get();
+        }
 
         if ($reports->isEmpty()) {
             return back()->with('error', 'ไม่พบรายการที่เลือก');
@@ -163,6 +180,61 @@ class ThesisGradeReviewController extends Controller
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    public function summary(Request $request): View
+    {
+        $this->requireReviewer();
+
+        $filters = [
+            'term' => (int) $request->input('term', AcademicTerm::defaultTerm()),
+            'year' => (int) $request->input('year', AcademicTerm::defaultYear()),
+            'status' => (string) $request->input('status', ''),
+            'department_id' => $request->filled('department_id') ? (int) $request->input('department_id') : null,
+            'subject_code' => trim((string) $request->input('subject_code', '')),
+            'q' => trim((string) $request->input('q', '')),
+        ];
+
+        $reports = $this->queryService
+            ->facultyQuery($filters)
+            ->with('students')
+            ->reorder()
+            ->orderBy('subject_code')
+            ->orderBy('section')
+            ->get();
+
+        return view('faculty-admin.thesis-grades.summary', [
+            'reports' => $reports,
+            'departments' => $this->facultyReports->filterDepartments(),
+            'filters' => $filters,
+            'years' => AcademicTerm::yearOptions(),
+        ]);
+    }
+
+    public function exportSummary(Request $request): BinaryFileResponse
+    {
+        $this->requireReviewer();
+
+        $term = (int) $request->input('term', AcademicTerm::defaultTerm());
+        $year = (int) $request->input('year', AcademicTerm::defaultYear());
+        $filters = [
+            'term' => $term,
+            'year' => $year,
+            'status' => (string) $request->input('status', ''),
+            'department_id' => $request->filled('department_id') ? (int) $request->input('department_id') : null,
+            'subject_code' => trim((string) $request->input('subject_code', '')),
+            'q' => trim((string) $request->input('q', '')),
+        ];
+
+        $reports = $this->queryService
+            ->facultyQuery($filters)
+            ->with('students')
+            ->reorder()
+            ->orderBy('subject_code')
+            ->orderBy('section')
+            ->get();
+
+        return $this->docxExport->downloadSummary($reports, $term, $year);
     }
 
     private function requireReviewer(): void

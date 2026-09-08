@@ -41,4 +41,11 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'kku_api' => [
+        'client_id' => env('KKU_API_CLIENT_ID'),
+        'secret_key' => env('KKU_API_SECRET_KEY'),
+        'from_address' => env('KKU_API_FROM_ADDRESS', 'noreply@kku.ac.th'),
+        'from_name' => env('KKU_API_FROM_NAME', 'SciGrade'),
+    ],
+
 ];

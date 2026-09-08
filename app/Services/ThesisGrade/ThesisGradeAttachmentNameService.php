@@ -52,6 +52,25 @@ class ThesisGradeAttachmentNameService
         );
     }
 
+    public function chairSignedName(ThesisGrade $report, int $sequence = 1): string
+    {
+        $base = $this->tsBase($report).'-CHAIR';
+
+        if ($sequence <= 1) {
+            return $base.'.pdf';
+        }
+
+        return $base.'_'.str_pad((string) $sequence, 2, '0', STR_PAD_LEFT).'.pdf';
+    }
+
+    public function nextChairSignedName(ThesisGrade $report): string
+    {
+        return $this->chairSignedName(
+            $report,
+            $this->nextSequence($report, ThesisGradeFile::TYPE_CHAIR_SIGNED, $this->tsBase($report).'-CHAIR'),
+        );
+    }
+
     public function storeUploadedFile(
         ThesisGrade $report,
         UploadedFile $uploaded,
@@ -61,11 +80,15 @@ class ThesisGradeAttachmentNameService
         $directory = 'thesis-grade-files/'.$report->thesis_grade_id;
         if ($fileType === ThesisGradeFile::TYPE_S0_LETTER) {
             $directory .= '/s0';
+        } elseif ($fileType === ThesisGradeFile::TYPE_CHAIR_SIGNED) {
+            $directory .= '/chair';
         }
 
-        $filename = $fileType === ThesisGradeFile::TYPE_S0_LETTER
-            ? $this->nextS0LetterName($report, $student)
-            : $this->nextTsReportName($report);
+        $filename = match ($fileType) {
+            ThesisGradeFile::TYPE_S0_LETTER => $this->nextS0LetterName($report, $student),
+            ThesisGradeFile::TYPE_CHAIR_SIGNED => $this->nextChairSignedName($report),
+            default => $this->nextTsReportName($report),
+        };
 
         $disk = UploadStorage::disk();
         while ($disk->exists($directory.'/'.$filename)) {

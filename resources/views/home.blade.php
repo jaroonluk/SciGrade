@@ -682,7 +682,7 @@
             <div class="role-panel-head">
                 <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ</p>
                 <h4 class="role-title" style="color:#854d0e;">รับผลการเรียนจากอาจารย์</h4>
-                <p class="role-desc">ตรวจไฟล์ TS หนังสือชี้แจง S=0 และวันที่สอบ แล้วรับเรื่องหรือส่งกลับ — แยกจากคิวสอบไล่</p>
+                <p class="role-desc">ตรวจไฟล์ TS หนังสือชี้แจง S=0 แล้วกดผ่านที่ประชุมสาขาฯ หรือส่งกลับ — แยกจากคิวสอบไล่</p>
             </div>
             <div class="role-panel-body">
                 <a href="{{ route('dept-admin.thesis-grades.index') }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
@@ -695,7 +695,7 @@
                             <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
                                 ดูรายการที่อาจารย์ส่งมา เปิดไฟล์ และดาวน์โหลดรวมชื่อมาตรฐาน TS
                             </p>
-                            <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปรับเรื่อง →</span>
+                            <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปตรวจสอบ →</span>
                         </div>
                     </div>
                 </a>
@@ -985,7 +985,7 @@
                     <div class="role-panel-head">
                         <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ · งานบริการ ป.บัณฑิต</p>
                         <h4 class="role-title" style="color:#854d0e;">รับผลการเรียนระดับคณะ</h4>
-                        <p class="role-desc">ดูและดาวน์โหลดไฟล์ TS ทุกสาขา แล้วรับเรื่องเป็นขั้นที่สองหลังสาขารับแล้ว</p>
+                        <p class="role-desc">ดูและดาวน์โหลดไฟล์ TS ทุกสาขา แล้วกดผ่านที่ประชุมกรรมการคณะฯ หลังสาขาผ่านแล้ว</p>
                     </div>
                     <div class="role-panel-body">
                         <a href="{{ route('faculty-admin.thesis-grades.index', ['term' => $term, 'year' => $year]) }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
@@ -996,9 +996,9 @@
                                 <div>
                                     <p class="text-base font-bold text-[#854d0e]">รับผลการเรียนวิทยานิพนธ์</p>
                                     <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
-                                        ดูรายการที่สาขารับแล้ว เปิดไฟล์ ดาวน์โหลดรวม และอนุมัติ/รับเรื่องระดับคณะ
+                                        ดูรายการที่ผ่านที่ประชุมสาขาฯ เปิดไฟล์ ดาวน์โหลดรวม สรุปผล และผ่านที่ประชุมกรรมการคณะฯ
                                     </p>
-                                    <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปรับเรื่อง →</span>
+                                    <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปตรวจสอบ →</span>
                                 </div>
                             </div>
                         </a>

@@ -66,6 +66,7 @@
                         <th class="pb-2">เกรด / หน่วยกิต</th>
                         <th class="pb-2">สอบวิทยานิพนธ์</th>
                         <th class="pb-2">S=0</th>
+                        <th class="pb-2"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -99,6 +100,12 @@
                                     —
                                 @endif
                             </td>
+                            <td class="py-2 whitespace-nowrap">
+                                @if ($student->requiresS0Letter() || strtoupper((string) $student->grade) === 'S')
+                                    <a href="{{ route('dept-admin.thesis-grades.s0.docx', [$report, $student]) }}"
+                                       class="text-xs font-semibold text-[#a16207] underline">พิมพ์ S=0</a>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -108,13 +115,56 @@
     </section>
 
     @if (in_array($report->status, ['submitted', 'received'], true))
+        <section class="form-section rounded-xl p-5">
+            <h3 class="font-semibold text-[#5C2E1F] mb-1">ไฟล์ที่ประธานหลักสูตรลงนามแล้ว</h3>
+            <p class="text-sm text-[#7A4A3A]/80 mb-3">อัปโหลดได้ทีละไฟล์หรือหลายไฟล์ (PDF)</p>
+            <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.store', $report) }}" enctype="multipart/form-data" class="space-y-3">
+                @csrf
+                <input type="file" name="files[]" accept="application/pdf" multiple required
+                       class="block w-full text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-100 file:text-[#854d0e]">
+                <button type="submit" class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">อัปโหลดไฟล์ประธานหลักสูตร</button>
+            </form>
+            <div class="mt-3 space-y-2">
+                @forelse ($report->files->filter->isChairSigned() as $file)
+                    <div class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm">
+                        <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank" class="text-[#a16207] underline truncate">{{ $file->original_name }}</a>
+                        <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.destroy', [$report, $file]) }}" onsubmit="return confirm('ลบไฟล์นี้หรือไม่?')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-xs text-red-700">ลบ</button>
+                        </form>
+                    </div>
+                @empty
+                    <p class="text-xs text-[#7A4A3A]/70">ยังไม่มีไฟล์ประธานหลักสูตร</p>
+                @endforelse
+            </div>
+        </section>
+    @else
+        @php $chairFiles = $report->files->filter->isChairSigned(); @endphp
+        @if ($chairFiles->isNotEmpty())
+            <section class="form-section rounded-xl p-5">
+                <h3 class="font-semibold text-[#5C2E1F] mb-3">ไฟล์ที่ประธานหลักสูตรลงนามแล้ว</h3>
+                <div class="space-y-2">
+                    @foreach ($chairFiles as $file)
+                        <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank"
+                           class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm hover:bg-amber-50">
+                            <span>{{ $file->original_name }}</span>
+                            <span class="text-[#a16207] font-semibold">เปิด</span>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+    @endif
+
+    @if (in_array($report->status, ['submitted', 'received'], true))
         <section class="rounded-xl border border-amber-200 bg-white p-5">
             <h3 class="font-semibold text-[#5C2E1F] mb-3">การดำเนินการของสาขา</h3>
             <div class="flex flex-wrap gap-3">
                 @if ($report->status === 'submitted')
                     <form method="POST" action="{{ route('dept-admin.thesis-grades.receive', $report) }}">
                         @csrf
-                        <button type="submit" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">รับเรื่อง</button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">ผ่านที่ประชุมสาขาฯ</button>
                     </form>
                 @endif
                 <form method="POST" action="{{ route('dept-admin.thesis-grades.send-back', $report) }}" class="flex-1 min-w-[16rem]">
