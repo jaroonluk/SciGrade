@@ -526,7 +526,7 @@
                             <div>
                                 <p class="text-base font-bold text-[#854d0e]">ส่งผลการเรียนวิทยานิพนธ์/การศึกษาอิสระ</p>
                                 <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
-                                    อัปโหลดใบ TS ตรวจเค้าโครง และส่งเข้าสาขา — ส่งได้ตลอด
+                                    อัปโหลดใบ มข.11 และส่งเข้าสาขา — ส่งได้ตลอด
                                 </p>
                                 <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปส่งผล →</span>
                             </div>
@@ -539,11 +539,11 @@
                                 <i data-lucide="clipboard-list" class="w-7 h-7"></i>
                             </div>
                             <div>
-                                <p class="text-base font-bold text-[#0c4a6e]">ติดตามผลการสอบ</p>
+                                <p class="text-base font-bold text-[#0c4a6e]">ติดตามผลการส่งเกรด</p>
                                 <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
-                                    ดูรายวิชาที่กรอกแล้ว สถานะการอนุมัติ และวันที่กรอก
+                                    ติดตามรายงานผลการส่งเกรด
                                 </p>
-                                <span class="entry-cta inline-block mt-3 text-sm font-semibold">ติดตามรายงานผลการสอบ →</span>
+                                <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปติดตาม →</span>
                             </div>
                         </div>
                     </a>
