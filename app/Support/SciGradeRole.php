@@ -130,11 +130,16 @@ class SciGradeRole
             return $cache[$username] = true;
         }
 
-        return $cache[$username] = TblPrivilege::query()
-            ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
-            ->where('username', $username)
-            ->where('level', TblPrivilege::LEVEL_SUPER)
-            ->exists();
+        try {
+            return $cache[$username] = TblPrivilege::query()
+                ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
+                ->where('username', $username)
+                ->where('level', TblPrivilege::LEVEL_SUPER)
+                ->exists();
+        } catch (\Illuminate\Database\QueryException $e) {
+            // อย่าโยนต่อจนเกิด redirect loop — ถือว่ายังไม่ใช่ super ชั่วคราว
+            return $cache[$username] = false;
+        }
     }
 
     /**
@@ -190,10 +195,14 @@ class SciGradeRole
             return $cache[$username];
         }
 
-        $level = TblPrivilege::query()
-            ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
-            ->where('username', $username)
-            ->value('level');
+        try {
+            $level = TblPrivilege::query()
+                ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
+                ->where('username', $username)
+                ->value('level');
+        } catch (\Illuminate\Database\QueryException $e) {
+            return $cache[$username] = null;
+        }
 
         return $cache[$username] = $level === null ? null : (int) $level;
     }
