@@ -49,6 +49,7 @@ class ThesisGradePdfParser
 
     public function __construct(
         private readonly Parser $parser = new Parser,
+        private readonly ?RegStudentDirectory $students = null,
     ) {}
 
     /**
@@ -128,29 +129,36 @@ class ThesisGradePdfParser
 
         // อ่านจากเนื้อหาในไฟล์เป็นหลัก ชื่อไฟล์เป็นเพียงข้อมูลเสริม (ตั้งชื่ออะไรก็ได้)
         $fromName = $this->parseFilename($originalFilename);
+        $uncertain = [];
 
         $subjectCode = '';
         $subjectRaw = '';
+        $subjectCodeFromContent = false;
         if (preg_match('/\b([A-Z]{2}\d{5,8})\s*:\s*([^\n\r]+)/iu', $text, $m)) {
             $subjectCode = strtoupper(trim($m[1]));
             $subjectRaw = trim($m[2]);
+            $subjectCodeFromContent = true;
         } elseif (preg_match('/\b([A-Z]{2}\d{5,8})\b/iu', $text, $m)) {
             $subjectCode = strtoupper(trim($m[1]));
+            $subjectCodeFromContent = true;
         } elseif (! empty($fromName['subject_code'])) {
             $subjectCode = $fromName['subject_code'];
+            $uncertain['subject_code'] = 'ใช้รหัสจากชื่อไฟล์ — กรุณาตรวจสอบหรือกรอกเอง';
             $warnings[] = 'ใช้รหัสวิชาจากชื่อไฟล์ เพราะไม่พบรูปแบบรหัสในเนื้อหา PDF — กรุณาตรวจสอบอีกครั้ง';
         }
 
         $subject = $this->normalizeSubjectChoice($subjectRaw !== '' ? $subjectRaw : null);
+        $subjectFromContent = $subject !== null;
         if ($subject === null) {
             $subject = $this->normalizeSubjectChoice($text);
+            $subjectFromContent = $subject !== null;
         }
 
         $requiresManualCode = false;
         if ($subjectCode === '') {
-            // ถ้าอย่างน้อยจับชนิดวิชา THESIS / IS / DISSERTATION ได้ ให้ไปกรอกรหัสเองได้ ไม่บล็อกทั้งหมด
             if ($subject !== null) {
                 $requiresManualCode = true;
+                $uncertain['subject_code'] = 'ไม่พบรหัสวิชาในไฟล์ — กรุณากรอกเอง';
                 $warnings[] = 'อ่านชื่อวิชาเป็น '.$subject.' ได้แล้ว แต่ไม่พบรหัสวิชาในไฟล์ — กรุณากรอกรหัสวิชาเองด้านล่าง';
             } else {
                 throw new ThesisGradePdfParseException(
@@ -168,15 +176,21 @@ class ThesisGradePdfParser
                 $subjectInCatalog = true;
                 if ($catalog['subject_choice'] !== null) {
                     $subject = $catalog['subject_choice'];
+                    $subjectFromContent = true;
                 }
             } else {
+                $uncertain['subject_code'] = $uncertain['subject_code']
+                    ?? 'ไม่พบรหัสวิชานี้ในฐานข้อมูล — กรุณาตรวจสอบ';
                 $warnings[] = 'ไม่พบรหัสวิชา '.$subjectCode.' ในฐานข้อมูลรายวิชา — ใช้ค่าที่อ่านจาก PDF แล้ว คุณสามารถแก้ไขรหัสหรือชื่อวิชาได้เอง';
             }
         }
 
         if ($subject === null) {
             $subject = 'THESIS';
+            $uncertain['subject'] = 'ระบบเดาชื่อวิชาเป็น THESIS — กรุณาเลือกเองให้ถูกต้อง';
             $warnings[] = 'ระบบจับชนิดวิชาจากไฟล์ไม่ได้ จึงตั้งเป็น THESIS ชั่วคราว — กรุณาเลือกชื่อวิชาให้ถูกต้อง';
+        } elseif (! $subjectFromContent && ! $subjectInCatalog) {
+            $uncertain['subject'] = 'ชื่อวิชาอาจไม่ถูกต้อง — กรุณาตรวจสอบ';
         }
 
         $term = $termFallback;
@@ -187,26 +201,38 @@ class ThesisGradePdfParser
         } elseif (! empty($fromName['term']) && ! empty($fromName['year'])) {
             $term = (int) $fromName['term'];
             $year = (int) $fromName['year'];
+            $uncertain['term'] = 'ใช้ภาค/ปีจากชื่อไฟล์ — กรุณาตรวจสอบ';
+            $uncertain['year'] = 'ใช้ภาค/ปีจากชื่อไฟล์ — กรุณาตรวจสอบ';
             $warnings[] = 'ใช้ภาค/ปีจากชื่อไฟล์ เพราะไม่พบในเนื้อหา PDF — กรุณาตรวจสอบอีกครั้ง';
         } else {
+            $uncertain['term'] = 'ไม่พบภาคในไฟล์ — กรุณาเลือกเอง';
+            $uncertain['year'] = 'ไม่พบปีการศึกษาในไฟล์ — กรุณาเลือกเอง';
             $warnings[] = 'ไม่พบภาคการศึกษา/ปีการศึกษาในไฟล์ จึงใช้ค่าที่เลือกไว้ในแบบฟอร์ม — กรุณาตรวจสอบอีกครั้ง';
         }
 
         $section = null;
+        $sectionFromContent = false;
         if (preg_match('/กลุ่ม(?:เรียน)?\s*[:：]?\s*(\d{1,2})/u', $text, $sm)) {
             $section = str_pad((string) ((int) $sm[1]), 2, '0', STR_PAD_LEFT);
+            $sectionFromContent = true;
         } elseif (preg_match('/Sec(?:tion)?\s*[:：]?\s*(\d{1,2})/iu', $text, $sm)) {
             $section = str_pad((string) ((int) $sm[1]), 2, '0', STR_PAD_LEFT);
+            $sectionFromContent = true;
         } elseif (! empty($fromName['section'])) {
             $section = $fromName['section'];
+            $uncertain['section'] = 'ใช้กลุ่มจากชื่อไฟล์ — กรุณาตรวจสอบ';
             $warnings[] = 'ใช้กลุ่มเรียนจากชื่อไฟล์ เพราะไม่พบในเนื้อหา PDF — กรุณาตรวจสอบอีกครั้ง';
         }
 
         if ($section === null) {
             $section = '01';
+            $uncertain['section'] = 'ไม่พบกลุ่มเรียน — กรุณากรอกเอง';
             $warnings[] = 'ไม่พบกลุ่มเรียนในไฟล์ จึงตั้งเป็น 01 ชั่วคราว — กรุณาแก้ไขหากไม่ถูกต้อง';
         } else {
             $section = str_pad((string) ((int) preg_replace('/\D/', '', (string) $section) ?: 1), 2, '0', STR_PAD_LEFT);
+            if (! $sectionFromContent && empty($uncertain['section'])) {
+                $uncertain['section'] = 'กลุ่มเรียนอาจไม่ถูกต้อง — กรุณาตรวจสอบ';
+            }
         }
 
         $teacher = null;
@@ -233,6 +259,23 @@ class ThesisGradePdfParser
             unset($student);
         }
 
+        // หน่วยกิตที่ยังอ่านจาก PDF ไม่ได้ — ให้ผู้ใช้กรอก
+        foreach ($students as &$student) {
+            $studentUncertain = is_array($student['uncertain_fields'] ?? null) ? $student['uncertain_fields'] : [];
+            if ($student['credits_registered'] === null || $student['credits_registered'] === '') {
+                $studentUncertain['credits_registered'] = 'ไม่พบหน่วยกิตที่ลงในไฟล์ — กรุณากรอกเอง';
+            }
+            if ($student['credits_passed'] === null || $student['credits_passed'] === '') {
+                $studentUncertain['credits_passed'] = 'ไม่พบหน่วยกิตที่ผ่านในไฟล์ — กรุณากรอกเอง';
+            }
+            $student['uncertain_fields'] = $studentUncertain;
+        }
+        unset($student);
+
+        if (! $subjectCodeFromContent && $subjectCode !== '' && empty($uncertain['subject_code'])) {
+            $uncertain['subject_code'] = 'รหัสวิชาไม่ได้มาจากเนื้อหา PDF โดยตรง — กรุณาตรวจสอบ';
+        }
+
         return [
             'subject_code' => $subjectCode,
             'subject' => $subject,
@@ -244,6 +287,7 @@ class ThesisGradePdfParser
             'warnings' => array_values(array_unique($warnings)),
             'subject_in_catalog' => $subjectInCatalog,
             'requires_manual_code' => $requiresManualCode,
+            'uncertain_fields' => $uncertain,
         ];
     }
 
@@ -417,7 +461,7 @@ class ThesisGradePdfParser
         if (preg_match_all('/([SUIW])(\d{9,14})-(\d{1,2})(?!\d)/u', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
             foreach ($matches as $m) {
                 $grade = strtoupper($m[1][0]);
-                $code = $this->normalizeStudentCode($m[2][0]);
+                $code = $this->normalizeStudentCode($m[2][0], $m[3][0]);
                 if ($code === null || isset($students[$code])) {
                     continue;
                 }
@@ -434,7 +478,7 @@ class ThesisGradePdfParser
         }
 
         // PDF ที่ข้อความสมบูรณ์: ชื่อ + เกรด + รหัส
-        if ($students === [] && preg_match_all('/([ก-๙A-Za-z][ก-๙A-Za-z. \t\'-]{1,80}?)\s*([SUIW])\s*(\d{9,11})(?:-\d{1,2})?/u', $text, $matches, PREG_SET_ORDER)) {
+        if ($students === [] && preg_match_all('/([ก-๙A-Za-z][ก-๙A-Za-z. \t\'-]{1,80}?)\s*([SUIW])\s*(\d{9,14})(?:-(\d{1,2}))?/u', $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $m) {
                 $name = trim(preg_replace('/[ \t]+/', ' ', $m[1]) ?? '');
                 $name = preg_replace('/^(?:<>|%|#)+/', '', $name) ?? $name;
@@ -446,7 +490,7 @@ class ThesisGradePdfParser
                     continue;
                 }
 
-                $code = $this->normalizeStudentCode($m[3]) ?? $m[3];
+                $code = $this->normalizeStudentCode($m[3], $m[4] ?? '0') ?? $m[3];
                 if (isset($students[$code])) {
                     continue;
                 }
@@ -469,29 +513,38 @@ class ThesisGradePdfParser
             if (! $this->isGarbledName($current) && ! str_starts_with($current, 'นักศึกษา ')) {
                 continue;
             }
+            $students[$code]['first_name'] = $fromFile;
             $students[$code]['student_name'] = $fromFile;
+        }
+
+        // เติมคำนำหน้า/ชื่อ/สกุล จาก REG ตามรหัสนักศึกษา
+        foreach ($ordered as $code) {
+            $students[$code] = $this->enrichStudentFromReg($students[$code]);
         }
 
         return array_values($students);
     }
 
-    private function normalizeStudentCode(string $digits): ?string
+    private function studentDirectory(): RegStudentDirectory
+    {
+        return $this->students ?? app(RegStudentDirectory::class);
+    }
+
+    private function normalizeStudentCode(string $digits, string $suffix = '0'): ?string
     {
         $digits = preg_replace('/\D/', '', $digits) ?? '';
+        $suffix = preg_replace('/\D/', '', $suffix) ?? '0';
         if ($digits === '') {
             return null;
         }
 
-        // Foxit มักแทรกตัวเลขเกิน — รหัส มข. ทั่วไป 10–11 หลัก ใช้ท้ายสุด
         if (strlen($digits) > 11) {
             $digits = substr($digits, -11);
         }
 
-        if (strlen($digits) < 9 || strlen($digits) > 11) {
-            return null;
-        }
+        $normalized = $this->studentDirectory()->normalizeCode($digits.'-'.($suffix !== '' ? $suffix : '0'));
 
-        return $digits;
+        return preg_match('/^\d{9,10}-\d$/', $normalized) ? $normalized : null;
     }
 
     private function extractNameNearCode(string $before): string
@@ -545,26 +598,116 @@ class ThesisGradePdfParser
     }
 
     /**
+     * @param  array<string, mixed>  $student
+     * @return array<string, mixed>
+     */
+    private function enrichStudentFromReg(array $student): array
+    {
+        $uncertain = is_array($student['uncertain_fields'] ?? null) ? $student['uncertain_fields'] : [];
+        $code = (string) ($student['student_code'] ?? '');
+        $reg = $this->studentDirectory()->findByStudentCode($code);
+
+        if ($reg === null) {
+            $parsed = $this->splitDisplayName((string) ($student['student_name'] ?? ''));
+            $student['name_prefix'] = $student['name_prefix'] ?: $parsed['name_prefix'];
+            $student['first_name'] = $student['first_name'] ?: $parsed['first_name'];
+            $student['last_name'] = $student['last_name'] ?: $parsed['last_name'];
+            $student['student_name'] = $this->composeDisplayName(
+                (string) $student['name_prefix'],
+                (string) $student['first_name'],
+                (string) $student['last_name'],
+            ) ?: ($student['student_name'] ?? '');
+
+            if ($student['name_prefix'] === '' || $student['name_prefix'] === null) {
+                $uncertain['name_prefix'] = 'ไม่พบคำนำหน้าในฐานข้อมูล REG — กรุณากรอกเอง';
+            }
+            if ($student['first_name'] === '' || $student['first_name'] === null || str_starts_with((string) $student['student_name'], 'นักศึกษา ')) {
+                $uncertain['first_name'] = 'ชื่ออาจไม่ถูกต้อง — กรุณากรอกเอง';
+            }
+            if ($student['last_name'] === '' || $student['last_name'] === null) {
+                $uncertain['last_name'] = 'นามสกุลอาจไม่ถูกต้อง — กรุณากรอกเอง';
+            }
+            if (! preg_match('/^\d{9,10}-\d$/', $code)) {
+                $uncertain['student_code'] = 'รูปแบบรหัสนักศึกษาอาจไม่ถูกต้อง — กรุณาตรวจสอบ';
+            }
+
+            $student['uncertain_fields'] = $uncertain;
+            $student['from_reg'] = false;
+
+            return $student;
+        }
+
+        $student['student_code'] = $reg['student_code'];
+        $student['name_prefix'] = $reg['name_prefix'];
+        $student['first_name'] = $reg['first_name'];
+        $student['last_name'] = $reg['last_name'];
+        $student['student_name'] = $reg['student_name'];
+        $student['from_reg'] = true;
+        // ชื่อจาก REG ชัดแล้ว — ไม่ต้องไฮไลต์ชื่อ
+        unset($uncertain['name_prefix'], $uncertain['first_name'], $uncertain['last_name'], $uncertain['student_code']);
+        $student['uncertain_fields'] = $uncertain;
+
+        return $student;
+    }
+
+    /**
+     * @return array{name_prefix: string, first_name: string, last_name: string}
+     */
+    private function splitDisplayName(string $name): array
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+        $prefix = '';
+        if (preg_match('/^(นางสาว|นาง|นาย|Mr\.|Mrs\.|Ms\.|Miss)\s+(.+)$/iu', $name, $m)) {
+            $prefix = $m[1];
+            $name = trim($m[2]);
+        }
+
+        $parts = preg_split('/\s+/u', $name) ?: [];
+        $first = array_shift($parts) ?: '';
+        $last = trim(implode(' ', $parts));
+
+        return [
+            'name_prefix' => $prefix,
+            'first_name' => $first,
+            'last_name' => $last,
+        ];
+    }
+
+    private function composeDisplayName(string $prefix, string $first, string $last): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', $prefix.' '.$first.' '.$last) ?? '');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function studentRow(string $code, string $name, string $grade, string $text): array
     {
         $name = trim($name);
         if ($name === '' || $this->isGarbledName($name)) {
-            $name = 'นักศึกษา '.$code;
+            $name = '';
         }
+        $parts = $this->splitDisplayName($name);
 
         return [
             'student_code' => $code,
-            'student_name' => $name,
+            'name_prefix' => $parts['name_prefix'],
+            'first_name' => $parts['first_name'],
+            'last_name' => $parts['last_name'],
+            'student_name' => $this->composeDisplayName($parts['name_prefix'], $parts['first_name'], $parts['last_name'])
+                ?: ($name !== '' ? $name : 'นักศึกษา '.$code),
             'degree' => $this->guessDegree($text, $code),
             'thesis_terms_count' => 1,
             'proposal_approved' => false,
             'grade' => $grade,
-            'progress_credits' => $grade === 'S' ? 0 : null,
+            'credits_registered' => null,
+            'credits_passed' => null,
+            'progress_credits' => null,
             'completed' => false,
             'defense_date' => null,
             'note' => null,
+            'uncertain_fields' => [],
+            'from_reg' => false,
         ];
     }
 

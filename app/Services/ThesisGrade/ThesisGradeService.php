@@ -97,14 +97,20 @@ class ThesisGradeService
 
             $attributes = [
                 'student_code' => $code,
-                'student_name' => trim((string) ($row['student_name'] ?? '')),
+                'name_prefix' => trim((string) ($row['name_prefix'] ?? '')) ?: null,
+                'first_name' => trim((string) ($row['first_name'] ?? '')) ?: null,
+                'last_name' => trim((string) ($row['last_name'] ?? '')) ?: null,
+                'student_name' => $this->composeStudentName($row),
                 'degree' => ($row['degree'] ?? '') === ThesisGradeStudent::DEGREE_DOCTORAL
                     ? ThesisGradeStudent::DEGREE_DOCTORAL
                     : ThesisGradeStudent::DEGREE_MASTER,
                 'thesis_terms_count' => max(1, (int) ($row['thesis_terms_count'] ?? 1)),
                 'proposal_approved' => $this->toBool($row['proposal_approved'] ?? false),
                 'grade' => strtoupper(trim((string) ($row['grade'] ?? 'S'))) ?: 'S',
-                'progress_credits' => $this->nullableDecimal($row['progress_credits'] ?? null),
+                'credits_registered' => $this->nullableDecimal($row['credits_registered'] ?? null),
+                'credits_passed' => $this->nullableDecimal($row['credits_passed'] ?? null),
+                // คง sync กับ credits_passed เพื่อ logic S=0 เดิม
+                'progress_credits' => $this->nullableDecimal($row['credits_passed'] ?? $row['progress_credits'] ?? null),
                 'completed' => $this->toBool($row['completed'] ?? false),
                 'defense_date' => $this->nullableDate($row['defense_date'] ?? null),
                 'note' => trim((string) ($row['note'] ?? '')) ?: null,
@@ -166,18 +172,36 @@ class ThesisGradeService
     {
         return $report->students->map(fn (ThesisGradeStudent $student) => [
             'student_code' => $student->student_code,
-            'student_name' => $student->student_name,
+            'student_name' => $student->displayName(),
             'degree' => $student->degree,
             'thesis_terms_count' => (int) $student->thesis_terms_count,
             'proposal_approved' => (bool) $student->proposal_approved,
             'grade' => $student->grade,
-            'progress_credits' => $student->progress_credits,
+            'progress_credits' => $student->credits_passed ?? $student->progress_credits,
             'completed' => (bool) $student->completed,
             'defense_date' => $student->defense_date?->toDateString(),
             'has_s0_letter' => $report->files->contains(
                 fn (ThesisGradeFile $file) => $file->isS0Letter() && (int) $file->student_id === (int) $student->student_id
             ),
         ])->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function composeStudentName(array $row): string
+    {
+        $composed = trim(preg_replace(
+            '/\s+/u',
+            ' ',
+            trim((string) ($row['name_prefix'] ?? '')).' '.trim((string) ($row['first_name'] ?? '')).' '.trim((string) ($row['last_name'] ?? ''))
+        ) ?? '');
+
+        if ($composed !== '') {
+            return $composed;
+        }
+
+        return trim((string) ($row['student_name'] ?? ''));
     }
 
     private function toBool(mixed $value): bool

@@ -26,11 +26,16 @@ class ThesisGradeStudent extends Model
     protected $fillable = [
         'thesis_grade_id',
         'student_code',
+        'name_prefix',
+        'first_name',
+        'last_name',
         'student_name',
         'degree',
         'thesis_terms_count',
         'proposal_approved',
         'grade',
+        'credits_registered',
+        'credits_passed',
         'progress_credits',
         'completed',
         'defense_date',
@@ -43,6 +48,8 @@ class ThesisGradeStudent extends Model
         return [
             'thesis_terms_count' => 'integer',
             'proposal_approved' => 'boolean',
+            'credits_registered' => 'float',
+            'credits_passed' => 'float',
             'progress_credits' => 'float',
             'completed' => 'boolean',
             'defense_date' => 'date',
@@ -76,18 +83,33 @@ class ThesisGradeStudent extends Model
 
     public function isS0(): bool
     {
-        return ThesisGradeComplianceService::isS0($this->grade, $this->progress_credits);
+        $credits = $this->credits_passed ?? $this->progress_credits;
+
+        return ThesisGradeComplianceService::isS0($this->grade, $credits);
     }
 
     public function requiresS0Letter(): bool
     {
+        $credits = $this->credits_passed ?? $this->progress_credits;
+
         return ThesisGradeComplianceService::requiresS0Letter(
             (string) $this->degree,
             (int) $this->thesis_terms_count,
             (bool) $this->proposal_approved,
             $this->grade,
-            $this->progress_credits,
+            $credits,
         );
+    }
+
+    public function displayName(): string
+    {
+        $composed = trim(preg_replace(
+            '/\s+/u',
+            ' ',
+            trim((string) $this->name_prefix).' '.trim((string) $this->first_name).' '.trim((string) $this->last_name)
+        ) ?? '');
+
+        return $composed !== '' ? $composed : (string) $this->student_name;
     }
 
     public function requiresDefenseDate(): bool

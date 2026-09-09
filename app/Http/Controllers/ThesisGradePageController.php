@@ -142,7 +142,9 @@ class ThesisGradePageController extends Controller
                     'year' => $parsed['year'],
                     'section' => $parsed['section'],
                     'students' => $parsed['students'],
+                    'uncertain_fields' => $parsed['uncertain_fields'] ?? [],
                 ],
+                'uncertain_fields' => $parsed['uncertain_fields'] ?? [],
                 'subject_in_catalog' => (bool) ($parsed['subject_in_catalog'] ?? false),
                 'signature_signed' => $signature['signed'],
                 'signature_message' => $signature['message'],
@@ -162,7 +164,14 @@ class ThesisGradePageController extends Controller
                     'students' => $parsed['students'],
                 ])
                 ->with('status', $payload['message'])
-                ->with('pdf_warnings', $parsed['warnings']);
+                ->with('pdf_warnings', $parsed['warnings'])
+                ->with('pdf_uncertain', [
+                    'course' => $parsed['uncertain_fields'] ?? [],
+                    'students' => array_map(
+                        fn (array $s) => $s['uncertain_fields'] ?? [],
+                        $parsed['students'] ?? []
+                    ),
+                ]);
         }
 
         try {
@@ -195,7 +204,9 @@ class ThesisGradePageController extends Controller
                         'year' => $parsed['year'],
                         'section' => $parsed['section'],
                         'students' => $parsed['students'],
+                        'uncertain_fields' => $parsed['uncertain_fields'] ?? [],
                     ],
+                    'uncertain_fields' => $parsed['uncertain_fields'] ?? [],
                 ], 422);
             }
 
@@ -259,6 +270,7 @@ class ThesisGradePageController extends Controller
                 'student_count' => count($parsed['students']),
             ],
             'warnings' => $parsed['warnings'],
+            'uncertain_fields' => $parsed['uncertain_fields'] ?? [],
             'subject_in_catalog' => (bool) ($parsed['subject_in_catalog'] ?? false),
             'signature_signed' => $signature['signed'],
             'signature_message' => $signature['message'],
@@ -273,6 +285,13 @@ class ThesisGradePageController extends Controller
         return redirect($editUrl)
             ->with('status', $payload['message'])
             ->with('pdf_warnings', $parsed['warnings'])
+            ->with('pdf_uncertain', [
+                'course' => $parsed['uncertain_fields'] ?? [],
+                'students' => array_map(
+                    fn (array $s) => $s['uncertain_fields'] ?? [],
+                    $parsed['students'] ?? []
+                ),
+            ])
             ->with('signature_message', $signature['message']);
     }
 

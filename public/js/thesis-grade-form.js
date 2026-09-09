@@ -4,11 +4,12 @@
 
     const editable = root.dataset.editable === '1';
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const initial = window.THESIS_FORM || { students: [], files: [], oldStudents: [] };
+    const initial = window.THESIS_FORM || { students: [], files: [], oldStudents: [], uncertainCourse: {} };
     let students = (initial.oldStudents && initial.oldStudents.length)
         ? initial.oldStudents.map(normalizeStudent)
         : (initial.students || []).map(normalizeStudent);
     let files = initial.files || [];
+    let courseUncertain = { ...(initial.uncertainCourse || {}) };
     let step = Number(root.dataset.initialStep || 1);
 
     const listEl = document.getElementById('student-list');
@@ -18,19 +19,95 @@
     const form = document.getElementById('thesis-form');
 
     function normalizeStudent(row) {
+        const prefix = row.name_prefix || '';
+        const first = row.first_name || '';
+        const last = row.last_name || '';
+        const composed = [prefix, first, last].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        const uncertain = (row.uncertain_fields && typeof row.uncertain_fields === 'object')
+            ? { ...row.uncertain_fields }
+            : {};
         return {
             id: row.id || row.student_id || '',
             student_code: row.student_code || '',
-            student_name: row.student_name || '',
+            name_prefix: prefix,
+            first_name: first,
+            last_name: last,
+            student_name: composed || row.student_name || '',
             degree: row.degree === 'doctoral' ? 'doctoral' : 'master',
             thesis_terms_count: Number(row.thesis_terms_count || 1),
             proposal_approved: !!row.proposal_approved && row.proposal_approved !== '0',
             grade: (row.grade || 'S').toString().toUpperCase(),
+            credits_registered: row.credits_registered === null || row.credits_registered === undefined ? '' : row.credits_registered,
+            credits_passed: row.credits_passed === null || row.credits_passed === undefined ? '' : row.credits_passed,
             progress_credits: row.progress_credits === null || row.progress_credits === undefined ? '' : row.progress_credits,
             completed: !!row.completed && row.completed !== '0',
             defense_date: row.defense_date || '',
             note: row.note || '',
+            uncertain_fields: uncertain,
         };
+    }
+
+    function reviewClass(uncertain, key) {
+        return uncertain && uncertain[key] ? 'field-needs-review' : '';
+    }
+
+    function reviewHintHtml(uncertain, key) {
+        if (!uncertain || !uncertain[key]) return '';
+        return `<span class="field-hint-review">${escapeHtml(uncertain[key])}</span>`;
+    }
+
+    function clearStudentUncertain(index, key) {
+        if (!students[index] || !students[index].uncertain_fields) return;
+        delete students[index].uncertain_fields[key];
+    }
+
+    function clearCourseUncertain(key) {
+        if (!courseUncertain || !courseUncertain[key]) return;
+        delete courseUncertain[key];
+        applyCourseUncertainMarks();
+        updateUncertainBanner();
+    }
+
+    function applyCourseUncertainMarks() {
+        document.querySelectorAll('[data-review-field]').forEach((el) => {
+            const key = el.dataset.reviewField;
+            const msg = courseUncertain[key] || '';
+            el.classList.toggle('field-needs-review', !!msg);
+            const hint = document.querySelector(`[data-review-hint="${key}"]`);
+            if (hint) {
+                hint.textContent = msg;
+                hint.classList.toggle('hidden', !msg);
+            }
+        });
+    }
+
+    function updateCourseContext() {
+        const code = (document.getElementById('subject_code')?.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        const subject = document.getElementById('subject')?.value || '';
+        const sectionRaw = document.querySelector('[name="section"]')?.value || '01';
+        const section = String(sectionRaw).replace(/\D/g, '') || '1';
+        const sectionPad = section.padStart(2, '0');
+        const label = [
+            code || 'ยังไม่มีรหัสวิชา',
+            subject || 'ยังไม่เลือกชื่อวิชา',
+            `กลุ่ม ${sectionPad}`,
+        ].join(' · ');
+
+        const main = document.getElementById('course-context-text');
+        if (main) main.textContent = label;
+        document.querySelectorAll('.course-context-text').forEach((el) => {
+            el.textContent = label;
+        });
+        const inline = document.getElementById('subject-inline-label');
+        if (inline) inline.textContent = label;
+    }
+
+    function updateUncertainBanner() {
+        const banner = document.getElementById('uncertain-review-banner');
+        if (!banner) return;
+        const hasCourse = Object.keys(courseUncertain || {}).length > 0;
+        const hasStudent = students.some((s) => s.uncertain_fields && Object.keys(s.uncertain_fields).length > 0);
+        banner.classList.toggle('hidden', !(hasCourse || hasStudent));
     }
 
     function isOverdue(s) {
@@ -39,7 +116,10 @@
     }
 
     function isS0(s) {
-        return String(s.grade || '').toUpperCase() === 'S' && (s.progress_credits === '' || Number(s.progress_credits) === 0);
+        const credits = s.credits_passed === '' || s.credits_passed === null || s.credits_passed === undefined
+            ? s.progress_credits
+            : s.credits_passed;
+        return String(s.grade || '').toUpperCase() === 'S' && (credits === '' || credits === null || credits === undefined || Number(credits) === 0);
     }
 
     function needsS0(s) {
@@ -70,6 +150,7 @@
         if (next) next.style.display = step === 3 ? 'none' : '';
         renderTsName();
         renderFiles();
+        updateCourseContext();
     }
 
     function collectFromDom() {
@@ -78,14 +159,21 @@
             const i = Number(card.dataset.studentIndex);
             if (!students[i]) return;
             students[i].student_code = card.querySelector('[data-f="student_code"]')?.value || '';
-            students[i].student_name = card.querySelector('[data-f="student_name"]')?.value || '';
+            students[i].name_prefix = card.querySelector('[data-f="name_prefix"]')?.value || '';
+            students[i].first_name = card.querySelector('[data-f="first_name"]')?.value || '';
+            students[i].last_name = card.querySelector('[data-f="last_name"]')?.value || '';
+            students[i].student_name = [students[i].name_prefix, students[i].first_name, students[i].last_name]
+                .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
             students[i].degree = card.querySelector('[data-f="degree"]')?.value || 'master';
-            students[i].thesis_terms_count = Number(card.querySelector('[data-f="thesis_terms_count"]')?.value || 1);
+            students[i].thesis_terms_count = Number(card.querySelector('[data-f="thesis_terms_count"]')?.value || students[i].thesis_terms_count || 1);
             students[i].proposal_approved = !!card.querySelector('[data-f="proposal_approved"]')?.checked;
             students[i].grade = (card.querySelector('[data-f="grade"]')?.value || 'S').toUpperCase();
-            students[i].progress_credits = card.querySelector('[data-f="progress_credits"]')?.value ?? '';
+            students[i].credits_registered = card.querySelector('[data-f="credits_registered"]')?.value ?? '';
+            students[i].credits_passed = card.querySelector('[data-f="credits_passed"]')?.value ?? '';
+            students[i].progress_credits = students[i].credits_passed;
             students[i].completed = !!card.querySelector('[data-f="completed"]')?.checked;
             students[i].defense_date = card.querySelector('[data-f="defense_date"]')?.value || '';
+            students[i].note = card.querySelector('[data-f="note"]')?.value || '';
         });
     }
 
@@ -106,9 +194,12 @@
                 ? `<span class="text-xs font-semibold text-red-700">เลยกำหนดเค้าโครง${s0 ? ' · ควรพิจารณา S=0' : ''}</span>`
                 : (s.proposal_approved ? '<span class="text-xs font-semibold text-green-700">อนุมัติเค้าโครงแล้ว</span>' : '<span class="text-xs text-amber-800">อยู่ในกำหนด</span>');
             const ro = editable ? '' : 'disabled';
+            const u = s.uncertain_fields || {};
             return `
             <div class="student-card ${cls} p-4" data-student-index="${i}">
                 <input type="hidden" name="students[${i}][id]" value="${escapeHtml(s.id)}">
+                <input type="hidden" name="students[${i}][thesis_terms_count]" data-f="thesis_terms_count" value="${escapeHtml(s.thesis_terms_count || 1)}">
+                <input type="hidden" name="students[${i}][student_name]" value="${escapeHtml(s.student_name)}">
                 <div class="flex items-center justify-between gap-2 mb-3">
                     <p class="text-sm font-semibold text-[#5C2E1F]">นักศึกษาคนที่ ${i + 1}</p>
                     <div class="flex items-center gap-2">${badge}
@@ -117,10 +208,20 @@
                 </div>
                 <div class="grid md:grid-cols-4 gap-3">
                     <label class="text-xs text-[#7A4A3A]">รหัสนักศึกษา
-                        <input ${ro} data-f="student_code" name="students[${i}][student_code]" value="${escapeHtml(s.student_code)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                        <input ${ro} data-f="student_code" name="students[${i}][student_code]" value="${escapeHtml(s.student_code)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'student_code')}" placeholder="677020018-0">
+                        ${reviewHintHtml(u, 'student_code')}
                     </label>
-                    <label class="text-xs text-[#7A4A3A] md:col-span-2">ชื่อ-สกุล
-                        <input ${ro} data-f="student_name" name="students[${i}][student_name]" value="${escapeHtml(s.student_name)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                    <label class="text-xs text-[#7A4A3A]">คำนำหน้าชื่อ
+                        <input ${ro} data-f="name_prefix" name="students[${i}][name_prefix]" value="${escapeHtml(s.name_prefix)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'name_prefix')}" placeholder="นาย / นางสาว / Mr.">
+                        ${reviewHintHtml(u, 'name_prefix')}
+                    </label>
+                    <label class="text-xs text-[#7A4A3A]">ชื่อ
+                        <input ${ro} data-f="first_name" name="students[${i}][first_name]" value="${escapeHtml(s.first_name)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'first_name')}">
+                        ${reviewHintHtml(u, 'first_name')}
+                    </label>
+                    <label class="text-xs text-[#7A4A3A]">สกุล
+                        <input ${ro} data-f="last_name" name="students[${i}][last_name]" value="${escapeHtml(s.last_name)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'last_name')}">
+                        ${reviewHintHtml(u, 'last_name')}
                     </label>
                     <label class="text-xs text-[#7A4A3A]">ระดับ
                         <select ${ro} data-f="degree" name="students[${i}][degree]" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
@@ -128,18 +229,24 @@
                             <option value="doctoral" ${s.degree === 'doctoral' ? 'selected' : ''}>ปริญญาเอก</option>
                         </select>
                     </label>
-                    <label class="text-xs text-[#7A4A3A]">ภาคที่ลงวิทยานิพนธ์สะสม
-                        <input ${ro} type="number" min="1" max="20" data-f="thesis_terms_count" name="students[${i}][thesis_terms_count]" value="${escapeHtml(s.thesis_terms_count)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                    <label class="text-xs text-[#7A4A3A]">หน่วยกิตที่ลง
+                        <input ${ro} type="number" min="0" step="0.5" data-f="credits_registered" name="students[${i}][credits_registered]" value="${escapeHtml(s.credits_registered)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'credits_registered')}">
+                        ${reviewHintHtml(u, 'credits_registered')}
+                    </label>
+                    <label class="text-xs text-[#7A4A3A]">หน่วยกิตที่ผ่าน
+                        <input ${ro} type="number" min="0" step="0.5" data-f="credits_passed" name="students[${i}][credits_passed]" value="${escapeHtml(s.credits_passed)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'credits_passed')}">
+                        ${reviewHintHtml(u, 'credits_passed')}
+                    </label>
+                    <label class="text-xs text-[#7A4A3A]">เกรด
+                        <input ${ro} data-f="grade" name="students[${i}][grade]" value="${escapeHtml(s.grade)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'grade')}" placeholder="S / U / I">
+                        ${reviewHintHtml(u, 'grade')}
+                    </label>
+                    <label class="text-xs text-[#7A4A3A] md:col-span-2">หมายเหตุ
+                        <input ${ro} data-f="note" name="students[${i}][note]" value="${escapeHtml(s.note)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
                     </label>
                     <label class="text-xs text-[#7A4A3A] flex items-center gap-2 mt-6">
                         <input ${ro} type="checkbox" data-f="proposal_approved" name="students[${i}][proposal_approved]" value="1" ${s.proposal_approved ? 'checked' : ''}>
                         อนุมัติเค้าโครงแล้ว
-                    </label>
-                    <label class="text-xs text-[#7A4A3A]">เกรด
-                        <input ${ro} data-f="grade" name="students[${i}][grade]" value="${escapeHtml(s.grade)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-                    </label>
-                    <label class="text-xs text-[#7A4A3A]">หน่วยกิตความก้าวหน้า
-                        <input ${ro} type="number" min="0" step="0.5" data-f="progress_credits" name="students[${i}][progress_credits]" value="${escapeHtml(s.progress_credits)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
                     </label>
                     <label class="text-xs text-[#7A4A3A] flex items-center gap-2 mt-6">
                         <input ${ro} type="checkbox" data-f="completed" name="students[${i}][completed]" value="1" ${s.completed ? 'checked' : ''}>
@@ -160,13 +267,31 @@
             });
         });
         listEl.querySelectorAll('input, select').forEach((el) => {
-            el.addEventListener('change', () => {
+            const onEdit = () => {
+                const card = el.closest('[data-student-index]');
+                const idx = card ? Number(card.dataset.studentIndex) : -1;
+                const key = el.getAttribute('data-f');
+                if (idx >= 0 && key) clearStudentUncertain(idx, key);
                 collectFromDom();
                 renderStudents();
+            };
+            el.addEventListener('change', onEdit);
+            el.addEventListener('input', () => {
+                const card = el.closest('[data-student-index]');
+                const idx = card ? Number(card.dataset.studentIndex) : -1;
+                const key = el.getAttribute('data-f');
+                if (idx >= 0 && key) {
+                    clearStudentUncertain(idx, key);
+                    el.classList.remove('field-needs-review');
+                    const hint = el.parentElement?.querySelector('.field-hint-review');
+                    if (hint) hint.remove();
+                    updateUncertainBanner();
+                }
             });
         });
         renderSummary();
         renderFiles();
+        updateUncertainBanner();
     }
 
     function renderSummary() {
@@ -336,18 +461,17 @@
             const first = (cells[0] || '').toLowerCase();
             if (first.includes('รหัส') || first.includes('code')) return [];
             if (!cells[0]) return [];
-            const degreeRaw = cells[2] || '';
-            const yes = (v) => ['1', 'y', 'yes', 'true', 'อนุมัติ', 'ผ่าน', 'ครบ', 'x'].includes((v || '').toLowerCase());
             return [normalizeStudent({
                 student_code: cells[0],
-                student_name: cells[1] || '',
-                degree: /เอก|doctoral|phd|^d$/i.test(degreeRaw) ? 'doctoral' : 'master',
-                thesis_terms_count: Number(cells[3] || 1),
-                proposal_approved: yes(cells[4]),
+                name_prefix: cells[1] || '',
+                first_name: cells[2] || '',
+                last_name: cells[3] || '',
+                student_name: [cells[1], cells[2], cells[3]].filter(Boolean).join(' '),
+                degree: /เอก|doctoral|phd|^d$/i.test(cells[4] || '') ? 'doctoral' : 'master',
                 grade: cells[5] || 'S',
-                progress_credits: cells[6] || '',
-                completed: yes(cells[7]),
-                defense_date: cells[8] || '',
+                credits_registered: cells[6] || '',
+                credits_passed: cells[7] || '',
+                note: cells[8] || '',
             })];
         });
     }
@@ -423,7 +547,7 @@
         subjectSelect.value = choice;
     }
 
-    function applyPrefill(prefill, studentsFromPdf) {
+    function applyPrefill(prefill, studentsFromPdf, uncertain) {
         if (!prefill) return;
         if (prefill.term != null) {
             const termEl = document.querySelector('[name="term"]');
@@ -443,10 +567,24 @@
         if (prefill.subject) {
             applySubjectChoice(prefill.subject);
         }
+        if (uncertain && typeof uncertain === 'object') {
+            courseUncertain = { ...(uncertain.course || uncertain) };
+            if (Array.isArray(uncertain.students) && Array.isArray(studentsFromPdf)) {
+                studentsFromPdf = studentsFromPdf.map((s, i) => ({
+                    ...s,
+                    uncertain_fields: uncertain.students[i] || s.uncertain_fields || {},
+                }));
+            }
+        } else if (prefill.uncertain_fields && typeof prefill.uncertain_fields === 'object') {
+            courseUncertain = { ...prefill.uncertain_fields };
+        }
         if (Array.isArray(studentsFromPdf) && studentsFromPdf.length) {
             students = studentsFromPdf.map(normalizeStudent);
             renderStudents();
         }
+        applyCourseUncertainMarks();
+        updateCourseContext();
+        updateUncertainBanner();
         renderTsName();
         codeInput?.focus();
     }
@@ -459,7 +597,9 @@
     codeInput?.addEventListener('input', () => {
         const q = codeInput.value.trim();
         clearTimeout(timer);
+        clearCourseUncertain('subject_code');
         renderTsName();
+        updateCourseContext();
         if (q.length < 1) {
             suggest?.classList.add('hidden');
             setCatalogHint('มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)', false);
@@ -479,33 +619,44 @@
             if (exact && exact.subject_choice) {
                 codeInput.value = exact.subject_code;
                 applySubjectChoice(exact.subject_choice);
-                setCatalogHint(`พบในฐานข้อมูล: ${exact.subject_code} · ${exact.subject_choice}`, false);
+                clearCourseUncertain('subject_code');
+                clearCourseUncertain('subject');
+                setCatalogHint(`พบในฐานข้อมูล: ${exact.subject_code} · ${exact.subject || exact.subject_choice}`, false);
+                updateCourseContext();
             } else {
                 setCatalogHint('พบรายการใกล้เคียง — คลิกเพื่อเลือก หรือกรอกเองได้', false);
             }
 
             suggest.innerHTML = rows.map((r) => {
                 const choice = r.subject_choice || '';
-                return `<div class="suggest-item" data-code="${escapeHtml(r.subject_code)}" data-choice="${escapeHtml(choice)}"><span class="font-semibold">${escapeHtml(r.subject_code)}</span> · ${escapeHtml(r.subject || choice || '—')}</div>`;
+                const name = r.subject || choice || '—';
+                return `<div class="suggest-item" data-code="${escapeHtml(r.subject_code)}" data-choice="${escapeHtml(choice)}" data-name="${escapeHtml(name)}"><span class="font-semibold">${escapeHtml(r.subject_code)}</span> · ${escapeHtml(name)}</div>`;
             }).join('');
             suggest.classList.remove('hidden');
             suggest.querySelectorAll('.suggest-item[data-code]').forEach((item) => {
                 item.addEventListener('click', () => {
                     codeInput.value = item.dataset.code || '';
+                    clearCourseUncertain('subject_code');
                     if (item.dataset.choice) {
                         applySubjectChoice(item.dataset.choice);
-                        setCatalogHint(`เลือกจากฐานข้อมูล: ${item.dataset.code} · ${item.dataset.choice}`, false);
+                        clearCourseUncertain('subject');
+                        setCatalogHint(`เลือกจากฐานข้อมูล: ${item.dataset.code} · ${item.dataset.name || item.dataset.choice}`, false);
                     } else {
                         setCatalogHint('พบรหัสแล้ว — กรุณาเลือกชื่อวิชาทางขวาเอง', true);
                     }
                     suggest.classList.add('hidden');
                     renderTsName();
+                    updateCourseContext();
                 });
             });
         }, 200);
     });
 
-    subjectSelect?.addEventListener('change', renderTsName);
+    subjectSelect?.addEventListener('change', () => {
+        clearCourseUncertain('subject');
+        renderTsName();
+        updateCourseContext();
+    });
 
     document.addEventListener('click', (e) => {
         if (!suggest?.contains(e.target) && e.target !== codeInput) suggest?.classList.add('hidden');
@@ -553,7 +704,10 @@
                 const hint = data.hint || 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน';
                 showStatus('error', title, hint);
                 if (data.prefill) {
-                    applyPrefill(data.prefill, data.prefill.students);
+                    applyPrefill(data.prefill, data.prefill.students, {
+                        course: data.uncertain_fields || data.prefill.uncertain_fields || {},
+                        students: (data.prefill.students || []).map((s) => s.uncertain_fields || {}),
+                    });
                 }
                 if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
                 return;
@@ -561,7 +715,10 @@
 
             // อ่านชนิดวิชาได้แล้ว แต่ยังต้องกรอกรหัสเอง
             if (data.draft_created === false && data.prefill) {
-                applyPrefill(data.prefill, data.prefill.students);
+                applyPrefill(data.prefill, data.prefill.students, {
+                    course: data.uncertain_fields || data.prefill.uncertain_fields || {},
+                    students: (data.prefill.students || []).map((s) => s.uncertain_fields || {}),
+                });
                 const hints = [
                     data.message || 'อ่านข้อมูลจาก PDF แล้ว',
                     ...(Array.isArray(data.warnings) ? data.warnings : []),
@@ -630,14 +787,26 @@
     });
 
     ['term', 'year', 'section'].forEach((name) => {
-        document.querySelector(`[name="${name}"]`)?.addEventListener('change', renderTsName);
-        document.querySelector(`[name="${name}"]`)?.addEventListener('input', renderTsName);
+        const el = document.querySelector(`[name="${name}"]`);
+        el?.addEventListener('change', () => {
+            clearCourseUncertain(name);
+            renderTsName();
+            updateCourseContext();
+        });
+        el?.addEventListener('input', () => {
+            clearCourseUncertain(name);
+            renderTsName();
+            updateCourseContext();
+        });
     });
 
     if (!students.length && editable) {
         students.push(normalizeStudent({}));
     }
 
+    applyCourseUncertainMarks();
+    updateCourseContext();
+    updateUncertainBanner();
     renderStudents();
     goStep(step);
 })();

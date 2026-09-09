@@ -47,6 +47,24 @@
     }
     .suggest-item { padding: .55rem .75rem; cursor: pointer; font-size: .85rem; }
     .suggest-item:hover, .suggest-item.active { background: #fef9c3; }
+    .field-needs-review {
+        border-color: #ef4444 !important;
+        background: #fef2f2 !important;
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, .25);
+    }
+    .field-hint-review {
+        display: block;
+        margin-top: .25rem;
+        font-size: .7rem;
+        line-height: 1.35;
+        color: #b91c1c;
+    }
+    .course-context-banner {
+        border: 1px solid #fde68a;
+        background: linear-gradient(90deg, #fffbeb, #fff7ed);
+        border-radius: .9rem;
+        padding: .85rem 1rem;
+    }
 </style>
 @endpush
 
@@ -70,6 +88,10 @@
                 <a href="{{ $regUrl }}" target="_blank" rel="noopener" class="underline text-[#a16207]">REG</a>
                 ก่อน แล้วอัปโหลดใบ มข.11 — ระบบอ่านข้อมูลและเก็บไฟล์บน S3 ให้เอง
             </p>
+            <div id="course-context-banner" class="course-context-banner mt-3 max-w-2xl">
+                <p class="text-xs text-[#7A4A3A]">กำลังกรอกวิชา</p>
+                <p id="course-context-text" class="text-base font-semibold text-[#5C2E1F] mt-0.5">—</p>
+            </div>
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('thesis-grades.index', ['term' => $term, 'year' => $year]) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">กลับรายการของฉัน</a>
@@ -177,58 +199,77 @@
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
-                        <select name="term" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                        <select name="term" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="term">
                             <option value="1" @selected((int) old('term', $report?->term ?? $term) === 1)>ภาคต้น</option>
                             <option value="2" @selected((int) old('term', $report?->term ?? $term) === 2)>ภาคปลาย</option>
                             <option value="3" @selected((int) old('term', $report?->term ?? $term) === 3)>ภาคการศึกษาพิเศษ</option>
                         </select>
+                        <span class="field-hint-review hidden" data-review-hint="term"></span>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ปีการศึกษา</label>
-                        <select name="year" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                        <select name="year" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="year">
                             @foreach ($years as $y)
                                 <option value="{{ $y }}" @selected((int) old('year', $report?->year ?? $year) === (int) $y)>{{ $y }}</option>
                             @endforeach
                         </select>
+                        <span class="field-hint-review hidden" data-review-hint="year"></span>
                     </div>
                 </div>
 
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div class="relative">
-                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">รหัสวิชา</label>
-                        <input type="text" name="subject_code" id="subject_code"
-                               value="{{ old('subject_code', $report?->subject_code ?? '') }}"
-                               autocomplete="off" @disabled(! $editable)
-                               placeholder="พิมพ์บางส่วน เช่น SC05"
-                               class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                        <div id="subject-suggest" class="suggest-list hidden"></div>
-                        <p id="subject-catalog-hint" class="text-xs text-[#7A4A3A]/70 mt-1">มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)</p>
+                <div class="rounded-xl border border-amber-200 bg-white p-4 space-y-3">
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div class="relative flex-1 min-w-[12rem]">
+                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">รหัสวิชา</label>
+                            <input type="text" name="subject_code" id="subject_code"
+                                   value="{{ old('subject_code', $report?->subject_code ?? '') }}"
+                                   autocomplete="off" @disabled(! $editable)
+                                   placeholder="พิมพ์บางส่วน เช่น SC05"
+                                   class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
+                                   data-review-field="subject_code">
+                            <div id="subject-suggest" class="suggest-list hidden"></div>
+                            <span class="field-hint-review hidden" data-review-hint="subject_code"></span>
+                        </div>
+                        <div class="flex-1 min-w-[12rem]">
+                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ชื่อวิชา <span class="font-normal text-[#7A4A3A]/70">(แสดงข้างรหัส)</span></label>
+                            <select name="subject" id="subject" @disabled(! $editable)
+                                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
+                                    data-review-field="subject">
+                                <option value="">— เลือกชนิดวิชา —</option>
+                                @foreach ($subjectChoices as $choice)
+                                    <option value="{{ $choice }}" @selected($selectedSubject === $choice)>{{ $choice }}</option>
+                                @endforeach
+                            </select>
+                            <span class="field-hint-review hidden" data-review-hint="subject"></span>
+                        </div>
+                        <div class="w-28">
+                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">กลุ่ม</label>
+                            <input type="text" name="section" id="section" value="{{ old('section', $report?->paddedSection() ?? '01') }}" @disabled(! $editable)
+                                   class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="01"
+                                   data-review-field="section">
+                            <span class="field-hint-review hidden" data-review-hint="section"></span>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ชื่อวิชา</label>
-                        <select name="subject" id="subject" @disabled(! $editable)
-                                class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                            <option value="">— เลือกชนิดวิชา —</option>
-                            @foreach ($subjectChoices as $choice)
-                                <option value="{{ $choice }}" @selected($selectedSubject === $choice)>{{ $choice }}</option>
-                            @endforeach
-                        </select>
-                        <p class="text-xs text-[#7A4A3A]/70 mt-1">เลือกได้เฉพาะ THESIS / INDEPENDENT STUDY / DISSERTATION</p>
-                    </div>
-                </div>
-
-                <div class="max-w-xs">
-                    <label class="block text-sm font-medium text-[#5C2E1F] mb-1">กลุ่มเรียน</label>
-                    <input type="text" name="section" value="{{ old('section', $report?->paddedSection() ?? '01') }}" @disabled(! $editable)
-                           class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="01">
+                    <p id="subject-inline-label" class="text-sm font-semibold text-[#854d0e]">
+                        {{ trim(old('subject_code', $report?->subject_code ?? '').' · '.($selectedSubject ?: 'ยังไม่เลือกชื่อวิชา').' · กลุ่ม '.old('section', $report?->paddedSection() ?? '01')) }}
+                    </p>
+                    <p id="subject-catalog-hint" class="text-xs text-[#7A4A3A]/70">มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)</p>
                 </div>
             </div>
         </div>
 
         <div class="thesis-panel" data-step="2">
+            <div id="course-context-step2" class="course-context-banner mb-4">
+                <p class="text-xs text-[#7A4A3A]">กำลังตรวจรายชื่อของวิชา</p>
+                <p class="course-context-text text-base font-semibold text-[#5C2E1F] mt-0.5">—</p>
+            </div>
             <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-4">
                 <p class="font-semibold">ตัวช่วยตรวจเค้าโครง</p>
                 <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากเลยกำหนดและให้ S=0 ต้องแนบหนังสือชี้แจง — ระเบียบ พ.ศ. 2566 ยกเลิกการตกออกจาก S=0 สองภาคติดแล้ว</p>
+            </div>
+            <div id="uncertain-review-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <p class="font-semibold">มีช่องที่ระบบอ่านจาก PDF ได้ไม่แน่ใจ</p>
+                <p class="mt-1">ช่องที่มีกรอบสีแดง — กรุณาตรวจสอบหรือกรอกเองให้ถูกต้อง</p>
             </div>
 
             <div id="student-summary" class="grid sm:grid-cols-3 gap-3 mb-4 text-sm"></div>
@@ -240,7 +281,7 @@
                     <button type="button" id="toggle-paste" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">วางจาก Excel / CSV</button>
                 </div>
                 <div id="paste-box" class="hidden mt-3">
-                    <textarea id="paste-input" rows="4" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm" placeholder="รหัสนักศึกษา, ชื่อ, ระดับ(โท/เอก), จำนวนภาค, อนุมัติเค้าโครง(1/0), เกรด, หน่วยกิต, ครบหลักสูตร(1/0), วันที่สอบ"></textarea>
+                    <textarea id="paste-input" rows="4" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm" placeholder="รหัสนักศึกษา, คำนำหน้า, ชื่อ, สกุล, ระดับ(โท/เอก), เกรด, หน่วยกิตที่ลง, หน่วยกิตที่ผ่าน, หมายเหตุ"></textarea>
                     <button type="button" id="apply-paste" class="mt-2 px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-sm">นำเข้า</button>
                 </div>
             @endif
@@ -330,19 +371,29 @@
 
 @push('scripts')
 @php
-    $thesisFormStudents = ($report?->students ?? collect())->map(function ($s) {
+    $pdfUncertain = session('pdf_uncertain', ['course' => [], 'students' => []]);
+    $uncertainCourse = is_array($pdfUncertain['course'] ?? null) ? $pdfUncertain['course'] : [];
+    $uncertainStudents = is_array($pdfUncertain['students'] ?? null) ? $pdfUncertain['students'] : [];
+
+    $thesisFormStudents = ($report?->students ?? collect())->values()->map(function ($s, $i) use ($uncertainStudents) {
         return [
             'id' => $s->student_id,
             'student_code' => $s->student_code,
-            'student_name' => $s->student_name,
+            'name_prefix' => $s->name_prefix,
+            'first_name' => $s->first_name,
+            'last_name' => $s->last_name,
+            'student_name' => $s->displayName(),
             'degree' => $s->degree,
             'thesis_terms_count' => $s->thesis_terms_count,
             'proposal_approved' => (bool) $s->proposal_approved,
             'grade' => $s->grade ?: 'S',
+            'credits_registered' => $s->credits_registered,
+            'credits_passed' => $s->credits_passed,
             'progress_credits' => $s->progress_credits,
             'completed' => (bool) $s->completed,
             'defense_date' => $s->defense_date?->toDateString(),
             'note' => $s->note,
+            'uncertain_fields' => is_array($uncertainStudents[$i] ?? null) ? $uncertainStudents[$i] : [],
         ];
     })->values();
 
@@ -355,13 +406,25 @@
             'url' => route('thesis-grades.files.show', [$report, $f]),
         ];
     })->values();
+
+    $oldStudents = collect(old('students', []))->values()->map(function ($row, $i) use ($uncertainStudents) {
+        if (! is_array($row)) {
+            return $row;
+        }
+        if (! isset($row['uncertain_fields']) && is_array($uncertainStudents[$i] ?? null)) {
+            $row['uncertain_fields'] = $uncertainStudents[$i];
+        }
+
+        return $row;
+    })->all();
 @endphp
 <script>
     window.THESIS_FORM = {
         students: @json($thesisFormStudents),
         files: @json($thesisFormFiles),
-        oldStudents: @json(old('students', [])),
+        oldStudents: @json($oldStudents),
+        uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=4"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=6"></script>
 @endpush
