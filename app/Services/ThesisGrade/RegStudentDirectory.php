@@ -24,12 +24,43 @@ class RegStudentDirectory
             return null;
         }
 
+        $map = $this->findManyByStudentCodes([$code]);
+
+        return $map[$code] ?? null;
+    }
+
+    /**
+     * ดึงหลายรหัสในครั้งเดียว เพื่อไม่เปิด query/connection ค้างนาน
+     *
+     * @param  list<string>  $codes
+     * @return array<string, array{
+     *     student_code: string,
+     *     name_prefix: string,
+     *     first_name: string,
+     *     last_name: string,
+     *     student_name: string
+     * }>
+     */
+    public function findManyByStudentCodes(array $codes): array
+    {
+        $normalized = [];
+        foreach ($codes as $code) {
+            $n = $this->normalizeCode((string) $code);
+            if ($n !== '') {
+                $normalized[$n] = true;
+            }
+        }
+        $list = array_keys($normalized);
+        if ($list === []) {
+            return [];
+        }
+
         try {
-            $row = DB::connection('reg')
+            $rows = DB::connection('reg')
                 ->table('studentmaster as s')
                 ->leftJoin('prefix as p', 'p.PREFIXID', '=', 's.PREFIXID')
-                ->where('s.STUDENTCODE', $code)
-                ->first([
+                ->whereIn('s.STUDENTCODE', $list)
+                ->get([
                     's.STUDENTCODE',
                     's.STUDENTNAME',
                     's.STUDENTSURNAME',
@@ -40,15 +71,35 @@ class RegStudentDirectory
                     'p.PREFIXNAMEENG',
                 ]);
         } catch (Throwable $e) {
-            Log::debug('REG student lookup failed', ['code' => $code, 'error' => $e->getMessage()]);
+            Log::debug('REG student batch lookup failed', [
+                'count' => count($list),
+                'error' => $e->getMessage(),
+            ]);
 
-            return null;
+            return [];
         }
 
-        if ($row === null) {
-            return null;
+        $out = [];
+        foreach ($rows as $row) {
+            $mapped = $this->mapRow($row);
+            $out[$mapped['student_code']] = $mapped;
         }
 
+        return $out;
+    }
+
+    /**
+     * @param  object  $row
+     * @return array{
+     *     student_code: string,
+     *     name_prefix: string,
+     *     first_name: string,
+     *     last_name: string,
+     *     student_name: string
+     * }
+     */
+    private function mapRow(object $row): array
+    {
         $first = trim((string) ($row->STUDENTNAME ?: $row->STUDENTNAMEENG ?: ''));
         $last = trim((string) ($row->STUDENTSURNAME ?: $row->STUDENTSURNAMEENG ?: ''));
         $prefix = trim((string) ($row->PREFIXNAME ?: $row->PREFIXABB ?: $row->PREFIXNAMEENG ?: ''));

@@ -517,9 +517,10 @@ class ThesisGradePdfParser
             $students[$code]['student_name'] = $fromFile;
         }
 
-        // เติมคำนำหน้า/ชื่อ/สกุล จาก REG ตามรหัสนักศึกษา
+        // เติมคำนำหน้า/ชื่อ/สกุล จาก REG ตามรหัสนักศึกษา (ดึงครั้งเดียว)
+        $regMap = $this->studentDirectory()->findManyByStudentCodes($ordered);
         foreach ($ordered as $code) {
-            $students[$code] = $this->enrichStudentFromReg($students[$code]);
+            $students[$code] = $this->enrichStudentFromReg($students[$code], $regMap[$code] ?? null);
         }
 
         return array_values($students);
@@ -599,13 +600,20 @@ class ThesisGradePdfParser
 
     /**
      * @param  array<string, mixed>  $student
+     * @param  array{
+     *     student_code: string,
+     *     name_prefix: string,
+     *     first_name: string,
+     *     last_name: string,
+     *     student_name: string
+     * }|null  $reg
      * @return array<string, mixed>
      */
-    private function enrichStudentFromReg(array $student): array
+    private function enrichStudentFromReg(array $student, ?array $reg = null): array
     {
         $uncertain = is_array($student['uncertain_fields'] ?? null) ? $student['uncertain_fields'] : [];
         $code = (string) ($student['student_code'] ?? '');
-        $reg = $this->studentDirectory()->findByStudentCode($code);
+        $reg ??= $this->studentDirectory()->findByStudentCode($code);
 
         if ($reg === null) {
             $parsed = $this->splitDisplayName((string) ($student['student_name'] ?? ''));

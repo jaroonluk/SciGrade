@@ -116,16 +116,21 @@ class SciGradeRole
             return false;
         }
 
+        static $cache = [];
+        if (array_key_exists($username, $cache)) {
+            return $cache[$username];
+        }
+
         $fromEnv = array_values(array_filter(array_map(
             'trim',
             explode(',', (string) env('SCIGRADE_SUPER_ADMIN_USERNAMES', '')),
         )));
 
         if (in_array($username, $fromEnv, true)) {
-            return true;
+            return $cache[$username] = true;
         }
 
-        return TblPrivilege::query()
+        return $cache[$username] = TblPrivilege::query()
             ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
             ->where('username', $username)
             ->where('level', TblPrivilege::LEVEL_SUPER)
@@ -180,12 +185,17 @@ class SciGradeRole
             return null;
         }
 
+        static $cache = [];
+        if (array_key_exists($username, $cache)) {
+            return $cache[$username];
+        }
+
         $level = TblPrivilege::query()
             ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
             ->where('username', $username)
             ->value('level');
 
-        return $level === null ? null : (int) $level;
+        return $cache[$username] = $level === null ? null : (int) $level;
     }
 
     /**

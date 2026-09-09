@@ -93,6 +93,10 @@ return [
             'prefix_indexes' => true,
             'strict' => false,
             'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? [
+                \PDO::ATTR_TIMEOUT => (int) env('SCIGRAD_DB_CONNECT_TIMEOUT', 5),
+                \PDO::ATTR_PERSISTENT => false,
+            ] : [],
         ],
 
         'reg' => [
@@ -108,6 +112,10 @@ return [
             'prefix_indexes' => true,
             'strict' => false,
             'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? [
+                \PDO::ATTR_TIMEOUT => (int) env('REG_DB_CONNECT_TIMEOUT', env('SCIGRAD_DB_CONNECT_TIMEOUT', 5)),
+                \PDO::ATTR_PERSISTENT => false,
+            ] : [],
         ],
 
         'mariadb' => [
