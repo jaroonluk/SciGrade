@@ -278,11 +278,14 @@
             @if ($editable)
                 <div class="flex flex-wrap gap-2 mt-4">
                     <button type="button" id="add-student" class="px-3 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">+ เพิ่มนักศึกษา</button>
-                    <button type="button" id="toggle-paste" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">วางจาก Excel / CSV</button>
-                </div>
-                <div id="paste-box" class="hidden mt-3">
-                    <textarea id="paste-input" rows="4" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm" placeholder="รหัสนักศึกษา, คำนำหน้า, ชื่อ, สกุล, ระดับ(โท/เอก), เกรด, หน่วยกิตที่ลง, หน่วยกิตที่ผ่าน, หมายเหตุ"></textarea>
-                    <button type="button" id="apply-paste" class="mt-2 px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-sm">นำเข้า</button>
+                    @if ($report && $report->files->contains(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT))
+                        <form method="POST" action="{{ route('thesis-grades.reparse-ts', $report) }}" class="inline">
+                            @csrf
+                            <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                                อ่านหน่วยกิต/หมายเหตุจากใบส่งเกรดอีกครั้ง
+                            </button>
+                        </form>
+                    @endif
                 </div>
             @endif
         </div>
@@ -426,5 +429,5 @@
         uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=6"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=7"></script>
 @endpush

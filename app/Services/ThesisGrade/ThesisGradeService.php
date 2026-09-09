@@ -143,6 +143,54 @@ class ThesisGradeService
     }
 
     /**
+     * อัปเดตหน่วยกิตที่ลง / ผ่าน / หมายเหตุ / เกรด จากผลอ่าน PDF โดยจับคู่รหัสนักศึกษา
+     *
+     * @param  list<array<string, mixed>>  $parsedStudents
+     * @return int จำนวนคนที่อัปเดต
+     */
+    public function applyParsedCreditsToStudents(ThesisGrade $report, array $parsedStudents): int
+    {
+        $report->loadMissing('students');
+        $byCode = [];
+        foreach ($parsedStudents as $row) {
+            $code = trim((string) ($row['student_code'] ?? ''));
+            if ($code !== '') {
+                $byCode[$code] = $row;
+            }
+        }
+
+        $updated = 0;
+        foreach ($report->students as $student) {
+            $code = trim((string) $student->student_code);
+            if ($code === '' || ! isset($byCode[$code])) {
+                continue;
+            }
+            $row = $byCode[$code];
+            $payload = [];
+            if (array_key_exists('credits_registered', $row) && $row['credits_registered'] !== null && $row['credits_registered'] !== '') {
+                $payload['credits_registered'] = $this->nullableDecimal($row['credits_registered']);
+            }
+            if (array_key_exists('credits_passed', $row) && $row['credits_passed'] !== null && $row['credits_passed'] !== '') {
+                $payload['credits_passed'] = $this->nullableDecimal($row['credits_passed']);
+                $payload['progress_credits'] = $payload['credits_passed'];
+            }
+            if (array_key_exists('note', $row) && trim((string) ($row['note'] ?? '')) !== '') {
+                $payload['note'] = trim((string) $row['note']);
+            }
+            if (array_key_exists('grade', $row) && trim((string) ($row['grade'] ?? '')) !== '') {
+                $payload['grade'] = strtoupper(trim((string) $row['grade']));
+            }
+            if ($payload === []) {
+                continue;
+            }
+            $student->update($payload);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */

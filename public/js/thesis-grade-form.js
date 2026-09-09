@@ -180,7 +180,7 @@
     function renderStudents() {
         if (!listEl) return;
         if (students.length === 0) {
-            listEl.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มีรายชื่อ — เพิ่มทีละคน หรือวางจาก Excel</p>';
+            listEl.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มีรายชื่อ — กดเพิ่มนักศึกษา หรืออัปโหลดใบ มข.11 / TS ในขั้นที่ 1</p>';
             renderSummary();
             renderFiles();
             return;
@@ -455,27 +455,6 @@
         }[ch]));
     }
 
-    function parsePaste(text) {
-        return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).flatMap((line) => {
-            const cells = line.split(/[\t,;|]+/).map((c) => c.trim());
-            const first = (cells[0] || '').toLowerCase();
-            if (first.includes('รหัส') || first.includes('code')) return [];
-            if (!cells[0]) return [];
-            return [normalizeStudent({
-                student_code: cells[0],
-                name_prefix: cells[1] || '',
-                first_name: cells[2] || '',
-                last_name: cells[3] || '',
-                student_name: [cells[1], cells[2], cells[3]].filter(Boolean).join(' '),
-                degree: /เอก|doctoral|phd|^d$/i.test(cells[4] || '') ? 'doctoral' : 'master',
-                grade: cells[5] || 'S',
-                credits_registered: cells[6] || '',
-                credits_passed: cells[7] || '',
-                note: cells[8] || '',
-            })];
-        });
-    }
-
     document.querySelectorAll('[data-go-step]').forEach((el) => {
         el.addEventListener('click', () => {
             collectFromDom();
@@ -500,21 +479,6 @@
         collectFromDom();
         students.push(normalizeStudent({}));
         renderStudents();
-    });
-    document.getElementById('toggle-paste')?.addEventListener('click', () => {
-        document.getElementById('paste-box')?.classList.toggle('hidden');
-    });
-    document.getElementById('apply-paste')?.addEventListener('click', () => {
-        const text = document.getElementById('paste-input')?.value || '';
-        const rows = parsePaste(text);
-        if (!rows.length) {
-            alert('ไม่พบแถวที่นำเข้าได้');
-            return;
-        }
-        collectFromDom();
-        students = students.concat(rows);
-        renderStudents();
-        document.getElementById('paste-input').value = '';
     });
     document.getElementById('delete-draft')?.addEventListener('click', () => {
         if (confirm('ลบร่างนี้หรือไม่')) document.getElementById('delete-form')?.submit();

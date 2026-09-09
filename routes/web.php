@@ -194,6 +194,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/{thesisGrade}', [ThesisGradePageController::class, 'update'])->name('update');
         Route::delete('/{thesisGrade}', [ThesisGradePageController::class, 'destroy'])->name('destroy');
         Route::post('/{thesisGrade}/submit', [ThesisGradePageController::class, 'submit'])->name('submit');
+        Route::post('/{thesisGrade}/reparse-ts', [ThesisGradePageController::class, 'reparseTs'])->name('reparse-ts');
         Route::get('/{thesisGrade}/files-zip', [ThesisGradePageController::class, 'downloadZip'])->name('files.zip');
         Route::post('/{thesisGrade}/files', [ThesisGradeFileController::class, 'store'])->name('files.store');
         Route::get('/{thesisGrade}/files/{file}', [ThesisGradeFileController::class, 'show'])->name('files.show');

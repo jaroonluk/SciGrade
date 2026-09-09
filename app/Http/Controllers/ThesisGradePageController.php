@@ -318,6 +318,76 @@ class ThesisGradePageController extends Controller
         return $this->formView($thesisGrade);
     }
 
+    /**
+     * อ่านคอลัมน์ ลง / ผ่าน / หมายเหตุ จากไฟล์ใบส่งเกรดที่แนบไว้แล้ว แล้วเติมลงรายชื่อ
+     */
+    public function reparseTs(ThesisGrade $thesisGrade): RedirectResponse
+    {
+        $this->authorize('update', $thesisGrade);
+        abort_unless($thesisGrade->isEditable(), 403);
+        $thesisGrade->loadMissing('files', 'students');
+
+        $file = $thesisGrade->files
+            ->first(fn (ThesisGradeFile $f) => $f->resolvedType() === ThesisGradeFile::TYPE_TS_REPORT)
+            ?? $thesisGrade->files()->where('file_type', ThesisGradeFile::TYPE_TS_REPORT)->orderByDesc('file_id')->first();
+
+        if (! $file) {
+            return redirect()
+                ->route('thesis-grades.edit', ['thesisGrade' => $thesisGrade, 'step' => 2])
+                ->with('error', 'ยังไม่มีไฟล์ใบส่งเกรดแนบไว้ — กรุณาอัปโหลดในขั้นที่ 1 หรือขั้นที่ 3 ก่อน');
+        }
+
+        $tmp = null;
+        try {
+            $disk = \App\Support\UploadStorage::diskFor($file->stored_path);
+            if (! $disk->exists($file->stored_path)) {
+                throw new RuntimeException('ไม่พบไฟล์ในระบบจัดเก็บ');
+            }
+            $tmp = tempnam(sys_get_temp_dir(), 'tspdf_');
+            if ($tmp === false) {
+                throw new RuntimeException('สร้างไฟล์ชั่วคราวไม่สำเร็จ');
+            }
+            file_put_contents($tmp, $disk->get($file->stored_path));
+
+            $parsed = $this->pdfParser->parse(
+                $tmp,
+                (string) $file->original_name,
+                (int) $thesisGrade->term,
+                (int) $thesisGrade->year,
+            );
+            $updated = $this->thesisGrades->applyParsedCreditsToStudents($thesisGrade, $parsed['students'] ?? []);
+        } catch (ThesisGradePdfParseException $e) {
+            return redirect()
+                ->route('thesis-grades.edit', ['thesisGrade' => $thesisGrade, 'step' => 2])
+                ->with('error', $e->getMessage())
+                ->with('error_hint', $e->hint !== '' ? $e->hint : null);
+        } catch (Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('thesis-grades.edit', ['thesisGrade' => $thesisGrade, 'step' => 2])
+                ->with('error', 'อ่านไฟล์ใบส่งเกรดไม่สำเร็จ กรุณาลองอัปโหลดใหม่');
+        } finally {
+            if (is_string($tmp) && is_file($tmp)) {
+                @unlink($tmp);
+            }
+        }
+
+        return redirect()
+            ->route('thesis-grades.edit', ['thesisGrade' => $thesisGrade, 'step' => 2])
+            ->with('status', $updated > 0
+                ? "อ่านจากใบส่งเกรดแล้ว — อัปเดตหน่วยกิต/หมายเหตุ {$updated} คน"
+                : 'อ่านจากใบส่งเกรดแล้ว แต่ไม่พบหน่วยกิตที่จับคู่รหัสนักศึกษาได้')
+            ->with('pdf_warnings', $parsed['warnings'] ?? [])
+            ->with('pdf_uncertain', [
+                'course' => $parsed['uncertain_fields'] ?? [],
+                'students' => array_map(
+                    fn (array $s) => $s['uncertain_fields'] ?? [],
+                    $parsed['students'] ?? []
+                ),
+            ]);
+    }
+
     public function update(SaveThesisGradeRequest $request, ThesisGrade $thesisGrade): RedirectResponse
     {
         $this->authorize('update', $thesisGrade);

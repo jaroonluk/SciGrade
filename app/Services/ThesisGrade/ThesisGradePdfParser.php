@@ -79,7 +79,9 @@ class ThesisGradePdfParser
 
         try {
             try {
-                $text = $this->parser->parseFile($absolutePath)->getText();
+                $document = $this->parser->parseFile($absolutePath);
+                $text = $document->getText();
+                $tableRows = $this->extractStudentTableRows($document);
             } catch (\Throwable $e) {
                 Log::warning('Thesis TS PDF extract failed', [
                     'filename' => $originalFilename,
@@ -97,7 +99,9 @@ class ThesisGradePdfParser
             }
         }
 
-        return $this->parseText((string) $text, $originalFilename, $termFallback, $yearFallback);
+        $parsed = $this->parseText((string) $text, $originalFilename, $termFallback, $yearFallback);
+
+        return $this->applyStudentTableRows($parsed, $tableRows ?? []);
     }
 
     /**
@@ -446,6 +450,371 @@ class ThesisGradePdfParser
         }
 
         return $names;
+    }
+
+    /**
+     * อ่านตารางนักศึกษาจากตำแหน่งข้อความใน PDF (คอลัมน์ ลง / ผ่าน / เกรด / หมายเหตุ)
+     * ใช้เมื่อ getText() รวมข้อความจนคอลัมน์หาย — โดยเฉพาะไฟล์จาก PDF printer
+     *
+     * @return list<array{
+     *     student_code: string,
+     *     grade: string,
+     *     credits_registered: float|null,
+     *     credits_passed: float|null,
+     *     note: ?string,
+     *     student_name: string
+     * }>
+     */
+    private function extractStudentTableRows(object $document): array
+    {
+        if (! method_exists($document, 'getPages')) {
+            return [];
+        }
+
+        $rows = [];
+        try {
+            foreach ($document->getPages() as $page) {
+                if (! method_exists($page, 'getDataTm')) {
+                    continue;
+                }
+                $items = [];
+                foreach ($page->getDataTm() as $item) {
+                    $tm = $item[0] ?? null;
+                    $text = trim(preg_replace('/\s+/u', ' ', (string) ($item[1] ?? '')) ?? '');
+                    $text = str_replace("\xC2\xA0", ' ', $text);
+                    $text = trim($text);
+                    if ($text === '' || ! is_array($tm)) {
+                        continue;
+                    }
+                    $items[] = [
+                        'x' => (float) ($tm[4] ?? 0),
+                        'y' => (float) ($tm[5] ?? 0),
+                        'text' => $text,
+                    ];
+                }
+                if ($items === []) {
+                    continue;
+                }
+
+                usort($items, function (array $a, array $b): int {
+                    if (abs($a['y'] - $b['y']) > 2.5) {
+                        return $b['y'] <=> $a['y'];
+                    }
+
+                    return $a['x'] <=> $b['x'];
+                });
+
+                $lines = [];
+                $currentY = null;
+                $buffer = [];
+                $flush = function () use (&$buffer, &$lines, &$currentY): void {
+                    if ($buffer === []) {
+                        return;
+                    }
+                    $lines[] = [
+                        'y' => $currentY,
+                        'cells' => $buffer,
+                    ];
+                    $buffer = [];
+                };
+
+                foreach ($items as $item) {
+                    if ($currentY === null || abs($item['y'] - $currentY) <= 2.8) {
+                        $buffer[] = $item;
+                        $currentY ??= $item['y'];
+                    } else {
+                        $flush();
+                        $buffer[] = $item;
+                        $currentY = $item['y'];
+                    }
+                }
+                $flush();
+
+                $columns = null;
+                foreach ($lines as $line) {
+                    $joined = implode('', array_map(fn ($c) => $c['text'], $line['cells']));
+                    if ($columns === null) {
+                        if (
+                            preg_match('/ลง/u', $joined)
+                            && preg_match('/ผ่าน/u', $joined)
+                            && (preg_match('/เกรด/u', $joined) || preg_match('/รหัส/u', $joined))
+                        ) {
+                            $columns = $this->mapTableHeaderColumns($line['cells']);
+                        }
+
+                        continue;
+                    }
+
+                    if (preg_match('/MANUAL|รวมทั้งหมด|อาจารย์ประจำวิชา|ประธานหลักสูตร/u', $joined)) {
+                        break;
+                    }
+
+                    $parsed = $this->parseTableDataLine($line['cells'], $columns);
+                    if ($parsed !== null) {
+                        $rows[] = $parsed;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            Log::debug('Thesis PDF table extract failed', ['error' => $e->getMessage()]);
+
+            return [];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{x: float, y: float, text: string}>  $cells
+     * @return array{code: float, registered: float, passed: float, grade: float, name: float, note: float}
+     */
+    private function mapTableHeaderColumns(array $cells): array
+    {
+        $columns = [
+            'code' => 76.0,
+            'registered' => 162.0,
+            'passed' => 189.0,
+            'grade' => 238.0,
+            'name' => 276.0,
+            'note' => 480.0,
+        ];
+
+        foreach ($cells as $cell) {
+            $t = $cell['text'];
+            $x = $cell['x'];
+            if (preg_match('/รหัส/u', $t)) {
+                $columns['code'] = $x;
+            } elseif ($t === 'ลง' || preg_match('/^ลง$/u', $t)) {
+                $columns['registered'] = $x;
+            } elseif (preg_match('/ผ่าน/u', $t)) {
+                $columns['passed'] = $x;
+            } elseif (preg_match('/เกรด/u', $t)) {
+                $columns['grade'] = $x;
+            } elseif (preg_match('/ชื่อ|ชื/u', $t)) {
+                $columns['name'] = $x;
+            } elseif (preg_match('/หมายเหตุ/u', $t)) {
+                $columns['note'] = $x;
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @param  list<array{x: float, y: float, text: string}>  $cells
+     * @param  array{code: float, registered: float, passed: float, grade: float, name: float, note: float}  $columns
+     * @return array{
+     *     student_code: string,
+     *     grade: string,
+     *     credits_registered: float|null,
+     *     credits_passed: float|null,
+     *     note: ?string,
+     *     student_name: string
+     * }|null
+     */
+    private function parseTableDataLine(array $cells, array $columns): ?array
+    {
+        $buckets = [
+            'code' => [],
+            'registered' => [],
+            'passed' => [],
+            'grade' => [],
+            'name' => [],
+            'note' => [],
+        ];
+
+        foreach ($cells as $cell) {
+            $col = $this->nearestTableColumn($cell['x'], $columns);
+            if ($col === null) {
+                continue;
+            }
+            $buckets[$col][] = $cell['text'];
+        }
+
+        $codeRaw = trim(implode('', $buckets['code']));
+        $code = $this->normalizeStudentCodeFromTable($codeRaw);
+        if ($code === null) {
+            return null;
+        }
+
+        $grade = '';
+        foreach ($buckets['grade'] as $g) {
+            if (preg_match('/^[SUIW]$/i', trim($g))) {
+                $grade = strtoupper(trim($g));
+                break;
+            }
+        }
+
+        $registered = $this->firstNumericToken($buckets['registered']);
+        $passed = $this->firstNumericToken($buckets['passed']);
+        $name = trim(preg_replace('/\s+/u', ' ', implode(' ', $buckets['name'])) ?? '');
+        $note = trim(preg_replace('/\s+/u', ' ', implode(' ', $buckets['note'])) ?? '');
+        if ($note !== '' && preg_match('/^(หมายเหตุ|[-_.]+)$/u', $note)) {
+            $note = '';
+        }
+
+        return [
+            'student_code' => $code,
+            'grade' => $grade !== '' ? $grade : 'S',
+            'credits_registered' => $registered,
+            'credits_passed' => $passed,
+            'note' => $note !== '' ? $note : null,
+            'student_name' => $name,
+        ];
+    }
+
+    /**
+     * @param  array{code: float, registered: float, passed: float, grade: float, name: float, note: float}  $columns
+     */
+    private function nearestTableColumn(float $x, array $columns): ?string
+    {
+        $best = null;
+        $bestDist = PHP_FLOAT_MAX;
+        foreach ($columns as $name => $cx) {
+            $dist = abs($x - (float) $cx);
+            $limit = match ($name) {
+                'name' => 90.0,
+                'note' => 70.0,
+                default => 28.0,
+            };
+            if ($dist <= $limit && $dist < $bestDist) {
+                $best = $name;
+                $bestDist = $dist;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param  list<string>  $tokens
+     */
+    private function firstNumericToken(array $tokens): ?float
+    {
+        foreach ($tokens as $token) {
+            $token = trim(str_replace([',', ' '], '', $token));
+            if (preg_match('/^\d+(?:\.\d+)?$/', $token)) {
+                return (float) $token;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeStudentCodeFromTable(string $raw): ?string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (preg_match('/(\d{9,10}-\d)/', $raw, $m)) {
+            return $m[1];
+        }
+
+        return $this->normalizeStudentCode(
+            preg_replace('/\D/', '', $raw) ?? '',
+            '0'
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $parsed
+     * @param  list<array{
+     *     student_code: string,
+     *     grade: string,
+     *     credits_registered: float|null,
+     *     credits_passed: float|null,
+     *     note: ?string,
+     *     student_name: string
+     * }>  $tableRows
+     * @return array<string, mixed>
+     */
+    private function applyStudentTableRows(array $parsed, array $tableRows): array
+    {
+        if ($tableRows === []) {
+            return $parsed;
+        }
+
+        /** @var array<string, array<string, mixed>> $byCode */
+        $byCode = [];
+        foreach ($parsed['students'] as $student) {
+            $code = (string) ($student['student_code'] ?? '');
+            if ($code !== '') {
+                $byCode[$code] = $student;
+            }
+        }
+
+        $ordered = [];
+        foreach ($tableRows as $row) {
+            $code = (string) $row['student_code'];
+            if ($code === '') {
+                continue;
+            }
+
+            if (! isset($byCode[$code])) {
+                $byCode[$code] = $this->studentRow(
+                    $code,
+                    (string) ($row['student_name'] ?? ''),
+                    (string) ($row['grade'] ?? 'S'),
+                    ''
+                );
+                $byCode[$code] = $this->enrichStudentFromReg($byCode[$code]);
+            }
+
+            $student = $byCode[$code];
+            $uncertain = is_array($student['uncertain_fields'] ?? null) ? $student['uncertain_fields'] : [];
+
+            if ($row['credits_registered'] !== null) {
+                $student['credits_registered'] = $row['credits_registered'];
+                unset($uncertain['credits_registered']);
+            }
+            if ($row['credits_passed'] !== null) {
+                $student['credits_passed'] = $row['credits_passed'];
+                $student['progress_credits'] = $row['credits_passed'];
+                unset($uncertain['credits_passed']);
+            }
+            if (($row['note'] ?? null) !== null && trim((string) $row['note']) !== '') {
+                $student['note'] = trim((string) $row['note']);
+                unset($uncertain['note']);
+            }
+            if (($row['grade'] ?? '') !== '') {
+                $student['grade'] = strtoupper((string) $row['grade']);
+            }
+
+            // ชื่อจากตารางใช้เฉพาะเมื่อยังไม่มีชื่อดีจาก REG
+            $tableName = trim((string) ($row['student_name'] ?? ''));
+            if (
+                $tableName !== ''
+                && ! $this->isGarbledName($tableName)
+                && empty($student['from_reg'])
+            ) {
+                $parts = $this->splitDisplayName($tableName);
+                $student['name_prefix'] = $parts['name_prefix'] ?: $student['name_prefix'];
+                $student['first_name'] = $parts['first_name'] ?: $student['first_name'];
+                $student['last_name'] = $parts['last_name'] ?: $student['last_name'];
+                $student['student_name'] = $this->composeDisplayName(
+                    (string) $student['name_prefix'],
+                    (string) $student['first_name'],
+                    (string) $student['last_name'],
+                ) ?: $tableName;
+            }
+
+            $student['uncertain_fields'] = $uncertain;
+            $byCode[$code] = $student;
+            $ordered[] = $code;
+        }
+
+        // คงคนที่อ่านจากข้อความได้แต่ไม่อยู่ในตาราง
+        foreach (array_keys($byCode) as $code) {
+            if (! in_array($code, $ordered, true)) {
+                $ordered[] = $code;
+            }
+        }
+
+        $parsed['students'] = array_values(array_map(fn (string $code) => $byCode[$code], $ordered));
+
+        return $parsed;
     }
 
     /**
