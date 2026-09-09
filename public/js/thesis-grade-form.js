@@ -18,6 +18,11 @@
     const s0SlotsEl = document.getElementById('s0-slots');
     const form = document.getElementById('thesis-form');
 
+    function isBlankNote(note) {
+        const text = String(note ?? '').trim();
+        return text === '' || /^(<>|&lt;&gt;|< >)$/i.test(text);
+    }
+
     function normalizeStudent(row) {
         const prefix = row.name_prefix || '';
         const first = row.first_name || '';
@@ -42,7 +47,7 @@
             progress_credits: row.progress_credits === null || row.progress_credits === undefined ? '' : row.progress_credits,
             completed: !!row.completed && row.completed !== '0',
             defense_date: row.defense_date || '',
-            note: row.note || '',
+            note: isBlankNote(row.note) ? '' : String(row.note).trim(),
             uncertain_fields: uncertain,
         };
     }
@@ -93,13 +98,8 @@
             `กลุ่ม ${sectionPad}`,
         ].join(' · ');
 
-        const main = document.getElementById('course-context-text');
-        if (main) main.textContent = label;
-        document.querySelectorAll('.course-context-text').forEach((el) => {
-            el.textContent = label;
-        });
-        const inline = document.getElementById('subject-inline-label');
-        if (inline) inline.textContent = label;
+        const heading = document.getElementById('course-context-text');
+        if (heading) heading.textContent = label;
     }
 
     function updateUncertainBanner() {
@@ -173,7 +173,8 @@
             students[i].progress_credits = students[i].credits_passed;
             students[i].completed = !!card.querySelector('[data-f="completed"]')?.checked;
             students[i].defense_date = card.querySelector('[data-f="defense_date"]')?.value || '';
-            students[i].note = card.querySelector('[data-f="note"]')?.value || '';
+            const noteValue = card.querySelector('[data-f="note"]')?.value || '';
+            students[i].note = isBlankNote(noteValue) ? '' : noteValue.trim();
         });
     }
 
@@ -195,6 +196,11 @@
                 : (s.proposal_approved ? '<span class="text-xs font-semibold text-green-700">อนุมัติเค้าโครงแล้ว</span>' : '<span class="text-xs text-amber-800">อยู่ในกำหนด</span>');
             const ro = editable ? '' : 'disabled';
             const u = s.uncertain_fields || {};
+            const noteField = isBlankNote(s.note)
+                ? `<input type="hidden" data-f="note" name="students[${i}][note]" value="">`
+                : `<label class="text-xs text-[#7A4A3A] md:col-span-2">หมายเหตุ
+                        <input ${ro} data-f="note" name="students[${i}][note]" value="${escapeHtml(s.note)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                    </label>`;
             return `
             <div class="student-card ${cls} p-4" data-student-index="${i}">
                 <input type="hidden" name="students[${i}][id]" value="${escapeHtml(s.id)}">
@@ -241,9 +247,7 @@
                         <input ${ro} data-f="grade" name="students[${i}][grade]" value="${escapeHtml(s.grade)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'grade')}" placeholder="S / U / I">
                         ${reviewHintHtml(u, 'grade')}
                     </label>
-                    <label class="text-xs text-[#7A4A3A] md:col-span-2">หมายเหตุ
-                        <input ${ro} data-f="note" name="students[${i}][note]" value="${escapeHtml(s.note)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-                    </label>
+                    ${noteField}
                     <label class="text-xs text-[#7A4A3A] flex items-center gap-2 mt-6">
                         <input ${ro} type="checkbox" data-f="proposal_approved" name="students[${i}][proposal_approved]" value="1" ${s.proposal_approved ? 'checked' : ''}>
                         อนุมัติเค้าโครงแล้ว
@@ -510,6 +514,11 @@
         if (!subjectSelect || !choice) return;
         subjectSelect.value = choice;
     }
+
+    subjectSelect?.addEventListener('change', () => {
+        clearCourseUncertain('subject');
+        updateCourseContext();
+    });
 
     function applyPrefill(prefill, studentsFromPdf, uncertain) {
         if (!prefill) return;

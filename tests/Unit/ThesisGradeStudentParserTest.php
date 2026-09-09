@@ -2,12 +2,22 @@
 
 namespace Tests\Unit;
 
+use App\Models\ThesisGradeStudent;
 use App\Services\ThesisGrade\ThesisGradeStudentParser;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ThesisGradeStudentParserTest extends TestCase
 {
+    #[Test]
+    public function it_hides_empty_and_placeholder_notes(): void
+    {
+        $this->assertNull(ThesisGradeStudent::sanitizeNote(null));
+        $this->assertNull(ThesisGradeStudent::sanitizeNote(''));
+        $this->assertNull(ThesisGradeStudent::sanitizeNote('<>'));
+        $this->assertNull(ThesisGradeStudent::sanitizeNote(' < > '));
+        $this->assertSame('รศ.ดร.ธนายุทธ', ThesisGradeStudent::sanitizeNote('รศ.ดร.ธนายุทธ'));
+    }
     #[Test]
     public function it_parses_csv_and_skips_header(): void
     {

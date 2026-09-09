@@ -113,7 +113,7 @@ class ThesisGradeService
                 'progress_credits' => $this->nullableDecimal($row['credits_passed'] ?? $row['progress_credits'] ?? null),
                 'completed' => $this->toBool($row['completed'] ?? false),
                 'defense_date' => $this->nullableDate($row['defense_date'] ?? null),
-                'note' => trim((string) ($row['note'] ?? '')) ?: null,
+                'note' => ThesisGradeStudent::sanitizeNote($row['note'] ?? null),
                 'sort_order' => $index + 1,
             ];
 
@@ -174,8 +174,8 @@ class ThesisGradeService
                 $payload['credits_passed'] = $this->nullableDecimal($row['credits_passed']);
                 $payload['progress_credits'] = $payload['credits_passed'];
             }
-            if (array_key_exists('note', $row) && trim((string) ($row['note'] ?? '')) !== '') {
-                $payload['note'] = trim((string) $row['note']);
+            if (array_key_exists('note', $row)) {
+                $payload['note'] = ThesisGradeStudent::sanitizeNote($row['note'] ?? null);
             }
             if (array_key_exists('grade', $row) && trim((string) ($row['grade'] ?? '')) !== '') {
                 $payload['grade'] = strtoupper(trim((string) $row['grade']));

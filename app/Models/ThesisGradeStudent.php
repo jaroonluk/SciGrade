@@ -112,6 +112,19 @@ class ThesisGradeStudent extends Model
         return $composed !== '' ? $composed : (string) $this->student_name;
     }
 
+    /**
+     * ค่าว่างหรือเครื่องหมาย <> จากใบ REG ไม่ใช่หมายเหตุที่ผู้ใช้ควรเห็น
+     */
+    public static function sanitizeNote(mixed $note): ?string
+    {
+        $note = trim((string) ($note ?? ''));
+        if ($note === '' || preg_match('/^(<>|&lt;&gt;|< >)$/u', $note) === 1) {
+            return null;
+        }
+
+        return $note;
+    }
+
     public function requiresDefenseDate(): bool
     {
         return ThesisGradeComplianceService::requiresDefenseDate((bool) $this->completed, $this->defense_date);

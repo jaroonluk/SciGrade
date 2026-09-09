@@ -504,33 +504,11 @@ class ThesisGradePdfParser
                     return $a['x'] <=> $b['x'];
                 });
 
-                $lines = [];
-                $currentY = null;
-                $buffer = [];
-                $flush = function () use (&$buffer, &$lines, &$currentY): void {
-                    if ($buffer === []) {
-                        return;
-                    }
-                    $lines[] = [
-                        'y' => $currentY,
-                        'cells' => $buffer,
-                    ];
-                    $buffer = [];
-                };
-
-                foreach ($items as $item) {
-                    if ($currentY === null || abs($item['y'] - $currentY) <= 2.8) {
-                        $buffer[] = $item;
-                        $currentY ??= $item['y'];
-                    } else {
-                        $flush();
-                        $buffer[] = $item;
-                        $currentY = $item['y'];
-                    }
-                }
-                $flush();
+                $lines = $this->clusterItemsIntoLines($items);
 
                 $columns = null;
+                $pageRows = [];
+                $bodyLines = [];
                 foreach ($lines as $line) {
                     $joined = implode('', array_map(fn ($c) => $c['text'], $line['cells']));
                     if ($columns === null) {
@@ -549,10 +527,21 @@ class ThesisGradePdfParser
                         break;
                     }
 
+                    $bodyLines[] = $line;
                     $parsed = $this->parseTableDataLine($line['cells'], $columns);
                     if ($parsed !== null) {
-                        $rows[] = $parsed;
+                        $parsed['_y'] = $this->studentRowAnchorY($line['cells'], $columns, $line['y']);
+                        $pageRows[] = $parsed;
                     }
+                }
+
+                if ($columns !== null && $pageRows !== []) {
+                    $pageRows = $this->attachNotesByProximity($pageRows, $bodyLines, $columns);
+                }
+
+                foreach ($pageRows as $pageRow) {
+                    unset($pageRow['_y']);
+                    $rows[] = $pageRow;
                 }
             }
         } catch (Throwable $e) {
@@ -562,6 +551,232 @@ class ThesisGradePdfParser
         }
 
         return $rows;
+    }
+
+    /**
+     * รวมชิ้นข้อความที่อยู่ใกล้กันในแนวตั้งเป็นบรรทัด — ใช้ single-linkage
+     * เพราะคอลัมน์หมายเหตุ (ชื่ออาจารย์ / วันที่สอบ) มักเลื่อนจากแถวรหัสนักศึกษา 4–6pt
+     *
+     * @param  list<array{x: float, y: float, text: string}>  $items
+     * @return list<array{y: float, cells: list<array{x: float, y: float, text: string}>}>
+     */
+    private function clusterItemsIntoLines(array $items): array
+    {
+        $lines = [];
+        $buffer = [];
+        $flush = function () use (&$buffer, &$lines): void {
+            if ($buffer === []) {
+                return;
+            }
+            $ys = array_map(fn (array $c) => $c['y'], $buffer);
+            $lines[] = [
+                'y' => array_sum($ys) / count($ys),
+                'cells' => $buffer,
+            ];
+            $buffer = [];
+        };
+
+        foreach ($items as $item) {
+            $joins = false;
+            foreach ($buffer as $existing) {
+                if (abs($item['y'] - $existing['y']) <= 8.0) {
+                    $joins = true;
+                    break;
+                }
+            }
+            if ($buffer === [] || $joins) {
+                $buffer[] = $item;
+            } else {
+                $flush();
+                $buffer[] = $item;
+            }
+        }
+        $flush();
+
+        return $lines;
+    }
+
+    /**
+     * @param  list<array{x: float, y: float, text: string}>  $cells
+     * @param  array{code: float, registered: float, passed: float, grade: float, name: float, note: float}  $columns
+     */
+    private function studentRowAnchorY(array $cells, array $columns, float $fallbackY): float
+    {
+        foreach ($cells as $cell) {
+            if ($this->nearestTableColumn($cell['x'], $columns) === 'code'
+                && $this->normalizeStudentCodeFromTable($cell['text']) !== null
+            ) {
+                return $cell['y'];
+            }
+        }
+
+        return $fallbackY;
+    }
+
+    /**
+     * คอลัมน์หมายเหตุมักไม่ได้อยู่พิกัด Y เดียวกับรหัสนักศึกษา (โดยเฉพาะไฟล์ที่พิมพ์ผ่าน PDF printer)
+     * จึงเก็บชิ้นข้อความฝั่งขวาของตาราง แล้วแปะให้แถวนักศึกษาที่ใกล้ที่สุด
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array{y: float, cells: list<array{x: float, y: float, text: string}>}>  $bodyLines
+     * @param  array{code: float, registered: float, passed: float, grade: float, name: float, note: float}  $columns
+     * @return list<array<string, mixed>>
+     */
+    private function attachNotesByProximity(array $rows, array $bodyLines, array $columns): array
+    {
+        $noteItems = [];
+        foreach ($bodyLines as $line) {
+            foreach ($line['cells'] as $cell) {
+                if (! $this->isNoteColumnX($cell['x'], $columns)) {
+                    continue;
+                }
+                if ($this->isNoteHeaderOrPlaceholder($cell['text'])) {
+                    continue;
+                }
+                $noteItems[] = $cell;
+            }
+        }
+
+        foreach ($rows as $i => $row) {
+            $mine = [];
+            foreach ($noteItems as $item) {
+                if ($this->nearestStudentRowIndex($item['y'], $rows) === $i) {
+                    $mine[] = $item;
+                }
+            }
+            $rows[$i]['note'] = $this->composeNote($mine);
+            unset($rows[$i]['_y']);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function nearestStudentRowIndex(float $y, array $rows): ?int
+    {
+        $best = null;
+        $bestDist = PHP_FLOAT_MAX;
+        foreach ($rows as $i => $row) {
+            $rowY = (float) ($row['_y'] ?? 0);
+            $dist = abs($rowY - $y);
+            if ($dist < $bestDist) {
+                $best = $i;
+                $bestDist = $dist;
+            }
+        }
+
+        // ระยะห่างแถวนักศึกษาในใบ REG ประมาณ 22pt — ใช้ไม่เกินครึ่งแถว
+        return $best !== null && $bestDist <= 12.0 ? $best : null;
+    }
+
+    /**
+     * @param  array{code: float, registered: float, passed: float, grade: float, name: float, note: float}  $columns
+     */
+    private function isNoteColumnX(float $x, array $columns): bool
+    {
+        $nameX = (float) ($columns['name'] ?? 276.0);
+        $noteX = (float) ($columns['note'] ?? 480.0);
+        $boundary = ($nameX + $noteX) / 2;
+
+        return $x >= ($boundary - 8.0);
+    }
+
+    /**
+     * @param  list<array{x: float, y: float, text: string}>  $cells
+     */
+    private function composeNote(array $cells): ?string
+    {
+        if ($cells === []) {
+            return null;
+        }
+
+        usort($cells, function (array $a, array $b): int {
+            if (abs($a['y'] - $b['y']) > 2.5) {
+                return $b['y'] <=> $a['y'];
+            }
+
+            return $a['x'] <=> $b['x'];
+        });
+
+        $lines = [];
+        $buffer = [];
+        $flush = function () use (&$buffer, &$lines): void {
+            if ($buffer === []) {
+                return;
+            }
+            $lines[] = $this->joinNoteFragments($buffer);
+            $buffer = [];
+        };
+
+        foreach ($cells as $cell) {
+            if ($buffer === [] || abs($cell['y'] - $buffer[array_key_last($buffer)]['y']) <= 2.8) {
+                $buffer[] = $cell;
+            } else {
+                $flush();
+                $buffer[] = $cell;
+            }
+        }
+        $flush();
+
+        $note = trim(preg_replace('/\s+/u', ' ', implode(' ', array_filter($lines))) ?? '');
+
+        return $this->normalizeNoteText($note);
+    }
+
+    /**
+     * @param  list<array{x: float, y: float, text: string}>  $cells
+     */
+    private function joinNoteFragments(array $cells): string
+    {
+        usort($cells, fn (array $a, array $b): int => $a['x'] <=> $b['x']);
+        $out = '';
+        $prevX = null;
+        foreach ($cells as $cell) {
+            $text = $cell['text'];
+            if ($out === '') {
+                $out = $text;
+                $prevX = $cell['x'];
+                continue;
+            }
+            $gap = $cell['x'] - (float) $prevX;
+            if ($text === '.' || str_ends_with($out, '.') || $gap < 9.0) {
+                $out .= $text;
+            } else {
+                $out .= ' '.$text;
+            }
+            $prevX = $cell['x'];
+        }
+
+        return $out;
+    }
+
+    private function normalizeNoteText(string $note): ?string
+    {
+        $note = trim(preg_replace('/\s+/u', ' ', $note) ?? '');
+        $note = preg_replace('/\s*\.\s*/u', '.', $note) ?? $note;
+        $note = preg_replace('/\.(\d{4})\b/u', '. $1', $note) ?? $note;
+        $note = trim(preg_replace('/\s+/u', ' ', $note) ?? '');
+
+        if ($note === '' || $this->isNoteHeaderOrPlaceholder($note) || preg_match('/^[.\s_-]+$/u', $note) === 1) {
+            return null;
+        }
+
+        if (preg_match('/CONTROL|CคOณNTRL|คณะวิทยาศสตร์/u', $note)) {
+            return null;
+        }
+
+        return $note;
+    }
+
+    private function isNoteHeaderOrPlaceholder(string $text): bool
+    {
+        $text = trim($text);
+
+        return $text === ''
+            || preg_match('/^(หมายเหตุ|<>|&lt;&gt;|< >)$/u', $text) === 1
+            || preg_match('/^[-_]{2,}$/u', $text) === 1;
     }
 
     /**
@@ -648,17 +863,14 @@ class ThesisGradePdfParser
         $registered = $this->firstNumericToken($buckets['registered']);
         $passed = $this->firstNumericToken($buckets['passed']);
         $name = trim(preg_replace('/\s+/u', ' ', implode(' ', $buckets['name'])) ?? '');
-        $note = trim(preg_replace('/\s+/u', ' ', implode(' ', $buckets['note'])) ?? '');
-        if ($note !== '' && preg_match('/^(หมายเหตุ|[-_.]+)$/u', $note)) {
-            $note = '';
-        }
+        $note = $this->normalizeNoteText(trim(preg_replace('/\s+/u', ' ', implode(' ', $buckets['note'])) ?? ''));
 
         return [
             'student_code' => $code,
             'grade' => $grade !== '' ? $grade : 'S',
             'credits_registered' => $registered,
             'credits_passed' => $passed,
-            'note' => $note !== '' ? $note : null,
+            'note' => $note,
             'student_name' => $name,
         ];
     }
@@ -668,15 +880,18 @@ class ThesisGradePdfParser
      */
     private function nearestTableColumn(float $x, array $columns): ?string
     {
+        if ($this->isNoteColumnX($x, $columns)) {
+            return 'note';
+        }
+
         $best = null;
         $bestDist = PHP_FLOAT_MAX;
         foreach ($columns as $name => $cx) {
+            if ($name === 'note') {
+                continue;
+            }
             $dist = abs($x - (float) $cx);
-            $limit = match ($name) {
-                'name' => 90.0,
-                'note' => 70.0,
-                default => 28.0,
-            };
+            $limit = $name === 'name' ? 90.0 : 28.0;
             if ($dist <= $limit && $dist < $bestDist) {
                 $best = $name;
                 $bestDist = $dist;

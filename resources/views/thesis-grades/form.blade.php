@@ -59,12 +59,6 @@
         line-height: 1.35;
         color: #b91c1c;
     }
-    .course-context-banner {
-        border: 1px solid #fde68a;
-        background: linear-gradient(90deg, #fffbeb, #fff7ed);
-        border-radius: .9rem;
-        padding: .85rem 1rem;
-    }
 </style>
 @endpush
 
@@ -82,16 +76,18 @@
 >
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-            <h2 class="text-xl font-bold text-[#5C2E1F]">{{ $report ? $report->displayCode().' · กลุ่ม '.$report->paddedSection() : 'ส่งผลการเรียนวิชาใหม่' }}</h2>
+            @php
+                $headingCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) old('subject_code', $report?->subject_code ?? '')) ?: '') ?: 'ยังไม่มีรหัสวิชา';
+                $headingSubject = $selectedSubject !== '' ? $selectedSubject : 'ยังไม่เลือกชื่อวิชา';
+                $headingSection = str_pad((string) ((int) preg_replace('/\D/', '', (string) old('section', $report?->paddedSection() ?? '01')) ?: 1), 2, '0', STR_PAD_LEFT);
+            @endphp
+            <p class="text-xs text-[#7A4A3A]">รหัสวิชา · ชื่อวิชา · กลุ่ม</p>
+            <h2 id="course-context-text" class="text-xl font-bold text-[#5C2E1F] mt-0.5">{{ $headingCode }} · {{ $headingSubject }} · กลุ่ม {{ $headingSection }}</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
                 ให้เกรดที่
                 <a href="{{ $regUrl }}" target="_blank" rel="noopener" class="underline text-[#a16207]">REG</a>
                 ก่อน แล้วอัปโหลดใบ มข.11 — ระบบอ่านข้อมูลและเก็บไฟล์บน S3 ให้เอง
             </p>
-            <div id="course-context-banner" class="course-context-banner mt-3 max-w-2xl">
-                <p class="text-xs text-[#7A4A3A]">กำลังกรอกวิชา</p>
-                <p id="course-context-text" class="text-base font-semibold text-[#5C2E1F] mt-0.5">—</p>
-            </div>
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('thesis-grades.index', ['term' => $term, 'year' => $year]) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">กลับรายการของฉัน</a>
@@ -250,19 +246,12 @@
                             <span class="field-hint-review hidden" data-review-hint="section"></span>
                         </div>
                     </div>
-                    <p id="subject-inline-label" class="text-sm font-semibold text-[#854d0e]">
-                        {{ trim(old('subject_code', $report?->subject_code ?? '').' · '.($selectedSubject ?: 'ยังไม่เลือกชื่อวิชา').' · กลุ่ม '.old('section', $report?->paddedSection() ?? '01')) }}
-                    </p>
                     <p id="subject-catalog-hint" class="text-xs text-[#7A4A3A]/70">มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)</p>
                 </div>
             </div>
         </div>
 
         <div class="thesis-panel" data-step="2">
-            <div id="course-context-step2" class="course-context-banner mb-4">
-                <p class="text-xs text-[#7A4A3A]">กำลังตรวจรายชื่อของวิชา</p>
-                <p class="course-context-text text-base font-semibold text-[#5C2E1F] mt-0.5">—</p>
-            </div>
             <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-4">
                 <p class="font-semibold">ตัวช่วยตรวจเค้าโครง</p>
                 <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากเลยกำหนดและให้ S=0 ต้องแนบหนังสือชี้แจง — ระเบียบ พ.ศ. 2566 ยกเลิกการตกออกจาก S=0 สองภาคติดแล้ว</p>
@@ -395,7 +384,7 @@
             'progress_credits' => $s->progress_credits,
             'completed' => (bool) $s->completed,
             'defense_date' => $s->defense_date?->toDateString(),
-            'note' => $s->note,
+            'note' => \App\Models\ThesisGradeStudent::sanitizeNote($s->note),
             'uncertain_fields' => is_array($uncertainStudents[$i] ?? null) ? $uncertainStudents[$i] : [],
         ];
     })->values();
@@ -414,6 +403,9 @@
         if (! is_array($row)) {
             return $row;
         }
+        if (array_key_exists('note', $row)) {
+            $row['note'] = \App\Models\ThesisGradeStudent::sanitizeNote($row['note']);
+        }
         if (! isset($row['uncertain_fields']) && is_array($uncertainStudents[$i] ?? null)) {
             $row['uncertain_fields'] = $uncertainStudents[$i];
         }
@@ -429,5 +421,5 @@
         uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=7"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=8"></script>
 @endpush
