@@ -145,7 +145,19 @@ function parseJointGradeReason(reason) {
 
 function serializeJointGradeReason(subjects) {
     if (!subjects.length) return null;
-    return `ตัดเกรดร่วมกับ :${subjects.map((s) => `${s.code}|${s.name}`).join(',')}`;
+    // เก็บรหัสเป็นหลัก ใส่ชื่อสั้นๆ เพื่อไม่ให้เกินคอลัมน์ reason
+    const parts = subjects.map((s) => {
+        const code = String(s.code || '').trim();
+        const name = String(s.name || '').trim();
+        if (!name) return code;
+        const shortName = name.length > 40 ? `${name.slice(0, 37)}...` : name;
+        return `${code}|${shortName}`;
+    });
+    let reason = `ตัดเกรดร่วมกับ :${parts.join(',')}`;
+    if (reason.length > 480) {
+        reason = `ตัดเกรดร่วมกับ :${subjects.map((s) => s.code).filter(Boolean).join(',')}`;
+    }
+    return reason;
 }
 
 function setJointGradeSubjects(subjects) {
@@ -1102,12 +1114,19 @@ function renderSectionStdList() {
     const showEva = statuseva === '1';
 
     tbody.innerHTML = sectionStdRows.map((row, index) => {
-        const facLabel = `${String(row.fac || '').toUpperCase()}${TYPE_COURSE_SUFFIX[row.type_course] || ''}`;
+        const facMissing = !String(row.fac || '').trim();
+        const facLabel = facMissing
+            ? '<span class="text-red-700 font-semibold">ยังไม่เลือกคณะ</span>'
+            : `${String(row.fac || '').toUpperCase()}${TYPE_COURSE_SUFFIX[row.type_course] || ''}`;
         const evaCell = showEva
             ? `<td class="px-2 py-2 text-center border-t border-amber-100">${row.evaluationscore ?? '—'}</td>`
             : '';
+        const rowClass = [
+            editingSectionIndex === index ? 'bg-amber-50' : '',
+            facMissing ? 'bg-red-50' : '',
+        ].filter(Boolean).join(' ');
         return `
-            <tr class="${editingSectionIndex === index ? 'bg-amber-50' : ''}">
+            <tr class="${rowClass}">
                 <td class="px-2 py-2 text-center border-t border-amber-100 whitespace-nowrap">
                     <button type="button" class="text-[#8B4513] hover:underline text-xs section-edit-btn" data-index="${index}">แก้ไข</button>
                     <button type="button" class="text-red-600 hover:underline text-xs ml-1 section-delete-btn" data-index="${index}">ลบ</button>
@@ -1237,7 +1256,7 @@ function validateEvaluationScores(payload) {
     if (statuseva === 2) {
         const total = payload.totalevaluationscore;
         if (total !== null && total !== '' && Number(total) > 5) {
-            return 'ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)';
+            return 'ขั้นตอนที่ 4: ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)';
         }
         return null;
     }
@@ -1245,7 +1264,54 @@ function validateEvaluationScores(payload) {
     for (let i = 0; i < (payload.grade_stds || []).length; i += 1) {
         const score = payload.grade_stds[i]?.evaluationscore;
         if (score !== null && score !== '' && Number(score) > 5) {
-            return `Section ${payload.grade_stds[i]?.sec ?? (i + 1)}: ผลการประเมินรายวิชาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)`;
+            return `ขั้นตอนที่ 5 — Section ${payload.grade_stds[i]?.sec ?? (i + 1)}: ผลการประเมินรายวิชาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)`;
+        }
+    }
+
+    return null;
+}
+
+function validateGradeReportBeforeSave(payload) {
+    if (!payload.subject_code) {
+        return 'ขั้นตอนที่ 1: กรุณากรอกรหัสวิชา';
+    }
+    if (!payload.subject) {
+        return 'ขั้นตอนที่ 1: กรุณากรอกชื่อวิชา';
+    }
+    if (!payload.teacher) {
+        return 'ขั้นตอนที่ 1: กรุณากรอกชื่ออาจารย์ผู้สอน';
+    }
+    if (!payload.term || ![1, 2, 3].includes(Number(payload.term))) {
+        return 'ขั้นตอนที่ 1: กรุณาเลือกภาคการศึกษา';
+    }
+    if (!payload.year || Number(payload.year) < 2500) {
+        return 'ขั้นตอนที่ 1: กรุณาระบุปีการศึกษา (พ.ศ.)';
+    }
+    if (Number(payload.reasonid) === 1 && !(payload.joint_subject_codes || []).length && !window.courseGroupLocked) {
+        return 'ขั้นตอนที่ 2: กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
+    }
+    if (payload.reason && String(payload.reason).length > 500) {
+        return 'ขั้นตอนที่ 2: ข้อความหมายเหตุ/วิชาตัดเกรดร่วมยาวเกินไป — ลดจำนวนวิชาหรือชื่อวิชา';
+    }
+
+    const rangeError = validateGradeRanges();
+    if (rangeError) return `ขั้นตอนที่ 3: ${rangeError}`;
+
+    const evaError = validateEvaluationScores(payload);
+    if (evaError) return evaError;
+
+    if (!payload.grade_stds?.length) {
+        return 'ขั้นตอนที่ 5: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อน)';
+    }
+
+    for (let i = 0; i < payload.grade_stds.length; i += 1) {
+        const row = payload.grade_stds[i];
+        const sec = row?.sec ?? (i + 1);
+        if (!String(row?.fac || '').trim()) {
+            return `ขั้นตอนที่ 5: Section ${sec} ยังไม่ได้เลือกคณะ — เปิดแก้ไข Section แล้วเลือกคณะก่อนบันทึก`;
+        }
+        if (String(row.fac).length > 255) {
+            return `ขั้นตอนที่ 5: Section ${sec} เลือกคณะมากเกินไป — แบ่งเป็นหลาย Section หรือลดจำนวนคณะ`;
         }
     }
 
@@ -2106,7 +2172,15 @@ function validateWizardStep(step, config) {
         return validateEvaluationScores(collectGradeReportPayload());
     }
     if (step === 5) {
-        if (!sectionStdRows.length) return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section';
+        if (!sectionStdRows.length) {
+            return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อนไปต่อ)';
+        }
+        for (let i = 0; i < sectionStdRows.length; i += 1) {
+            const row = sectionStdRows[i];
+            if (!String(row?.fac || '').trim()) {
+                return `Section ${row?.sec ?? (i + 1)} ยังไม่ได้เลือกคณะ — แก้ไข Section แล้วเลือกคณะก่อน`;
+            }
+        }
         return validateEvaluationScores(collectGradeReportPayload());
     }
     if (step === 6 && !hasRegistrarAttachment(config)) {
@@ -2157,16 +2231,29 @@ function showWizardDone() {
 
 async function saveWizardReport(config) {
     const payload = collectGradeReportPayload();
-    const rangeError = validateGradeRanges();
-    if (rangeError) return { ok: false, error: rangeError };
-    if (!payload.grade_stds?.length) return { ok: false, error: 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section' };
-    const evaError = validateEvaluationScores(payload);
-    if (evaError) return { ok: false, error: evaError };
+    const precheckError = validateGradeReportBeforeSave(payload);
 
     const overlay = document.getElementById('save-overlay');
     const loading = document.getElementById('save-overlay-loading');
     const success = document.getElementById('save-overlay-success');
     const errorBox = document.getElementById('save-overlay-error');
+    const showSaveError = (message) => {
+        loading?.classList.add('hidden');
+        success?.classList.add('hidden');
+        const errorMsg = document.getElementById('save-overlay-error-msg');
+        if (errorMsg) errorMsg.textContent = message || 'บันทึกไม่สำเร็จ';
+        errorBox?.classList.remove('hidden');
+        overlay?.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        showToast(message || 'บันทึกไม่สำเร็จ', 'error');
+    };
+
+    if (precheckError) {
+        showSaveError(precheckError);
+        return { ok: false, error: precheckError };
+    }
+
     loading?.classList.remove('hidden');
     success?.classList.add('hidden');
     errorBox?.classList.add('hidden');
@@ -2186,12 +2273,8 @@ async function saveWizardReport(config) {
     }
 
     if (!result.isOk) {
-        loading?.classList.add('hidden');
-        const errorMsg = document.getElementById('save-overlay-error-msg');
-        if (errorMsg) errorMsg.textContent = result.error || 'บันทึกไม่สำเร็จ';
-        errorBox?.classList.remove('hidden');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        return { ok: false };
+        showSaveError(result.error || 'บันทึกไม่สำเร็จ');
+        return { ok: false, error: result.error };
     }
 
     const savedId = result.data?.__backendId || result.data?.grade_id || config.currentReportId;

@@ -16,7 +16,8 @@ class GradReport2 extends Model
 
     protected $primaryKey = null;
 
-    public $timestamps = true;
+    /** ตารางเดิมไม่มี created_at / updated_at */
+    public $timestamps = false;
 
     protected $fillable = [
         'subject_code2',
