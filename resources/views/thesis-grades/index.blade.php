@@ -99,11 +99,13 @@
                                     @if ($missingDefense) · ขาดวันที่สอบ {{ $missingDefense }} คน @endif
                                 </p>
                             @endif
-                            @if ($report->status === 'returned' && $report->return_reason)
+                            @if ($report->normalizedStatus() === 'returned' && $report->return_reason)
                                 <p class="text-xs text-red-700 mt-1">สาขาส่งกลับ: {{ $report->return_reason }}</p>
                             @endif
                         </div>
-                        <span class="text-sm font-semibold text-[#a16207]">เปิดรายการ →</span>
+                        <span class="text-sm font-semibold text-[#a16207]">
+                            {{ $report->isEditable() ? 'แก้ไขรายการ →' : 'เปิดรายการ →' }}
+                        </span>
                     </div>
                 </a>
             @endforeach

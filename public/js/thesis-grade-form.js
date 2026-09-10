@@ -541,7 +541,9 @@
         renderStudents();
     });
     document.getElementById('delete-draft')?.addEventListener('click', () => {
-        if (confirm('ลบร่างนี้หรือไม่')) document.getElementById('delete-form')?.submit();
+        if (confirm('ต้องการลบรายการนี้หรือไม่? การลบจะลบไฟล์แนบด้วย')) {
+            document.getElementById('delete-form')?.submit();
+        }
     });
     form?.querySelectorAll('[data-intent]').forEach((btn) => {
         btn.addEventListener('click', () => {

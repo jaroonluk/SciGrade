@@ -433,7 +433,7 @@ class ThesisGradePageController extends Controller
 
         return redirect()
             ->route('thesis-grades.index', ['term' => $term, 'year' => $year])
-            ->with('status', 'ลบร่างเรียบร้อย');
+            ->with('status', 'ลบรายการเรียบร้อย');
     }
 
     public function downloadZip(ThesisGrade $thesisGrade): BinaryFileResponse

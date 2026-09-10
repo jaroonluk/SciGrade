@@ -99,19 +99,31 @@ class ThesisGrade extends Model
         return $this->files->filter(fn (ThesisGradeFile $file) => $file->isS0Letter())->values();
     }
 
+    public function normalizedStatus(): string
+    {
+        return strtolower(trim((string) $this->status));
+    }
+
     public function isEditable(): bool
     {
-        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_RETURNED], true);
+        return in_array($this->normalizedStatus(), [
+            self::STATUS_DRAFT,
+            self::STATUS_RETURNED,
+        ], true);
     }
 
     public function isDeletable(): bool
     {
-        return $this->status === self::STATUS_DRAFT;
+        // ร่าง และรายการที่สาขา/คณะส่งกลับแก้ไข — อาจารย์ลบได้
+        return in_array($this->normalizedStatus(), [
+            self::STATUS_DRAFT,
+            self::STATUS_RETURNED,
+        ], true);
     }
 
     public function statusLabel(): string
     {
-        return match ($this->status) {
+        return match ($this->normalizedStatus()) {
             self::STATUS_SUBMITTED => 'อาจารย์ส่ง',
             self::STATUS_RETURNED => 'ส่งกลับแก้ไข',
             self::STATUS_RECEIVED => 'ผ่านที่ประชุมสาขาฯ',
@@ -122,7 +134,7 @@ class ThesisGrade extends Model
 
     public function statusChipClass(): string
     {
-        return match ($this->status) {
+        return match ($this->normalizedStatus()) {
             self::STATUS_SUBMITTED => 'status-pending',
             self::STATUS_RETURNED => 'status-rejected',
             self::STATUS_RECEIVED => 'status-checked',

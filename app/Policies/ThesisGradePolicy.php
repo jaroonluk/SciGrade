@@ -83,6 +83,10 @@ class ThesisGradePolicy
             $username = $staff?->username;
         }
 
-        return $username !== null && $username !== '' && $report->username === $username;
+        if ($username === null || $username === '') {
+            return false;
+        }
+
+        return (string) $report->username === (string) $username;
     }
 }

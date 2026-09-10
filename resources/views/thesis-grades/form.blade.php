@@ -104,9 +104,9 @@
         </div>
     @endif
 
-    @if ($report?->status === 'returned' && $report->return_reason)
+    @if ($report?->normalizedStatus() === 'returned' && $report->return_reason)
         <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <p class="font-semibold">สาขาส่งกลับให้แก้ไข</p>
+            <p class="font-semibold">สาขาส่งกลับให้แก้ไข — สามารถแก้ไขแล้วส่งเข้าสาขาใหม่ หรือลบรายการนี้ได้</p>
             <p class="mt-1">{{ $report->return_reason }}</p>
         </div>
     @endif
@@ -328,7 +328,9 @@
                     <button type="submit" class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]" data-intent="submit">ส่งเข้าสาขา</button>
                 @endif
                 @if ($report?->isDeletable())
-                    <button type="button" id="delete-draft" class="px-4 py-2 text-sm text-red-700 hover:underline">ลบร่าง</button>
+                    <button type="button" id="delete-draft" class="px-4 py-2 text-sm text-red-700 hover:underline">
+                        {{ $report->normalizedStatus() === 'returned' ? 'ลบรายการ' : 'ลบร่าง' }}
+                    </button>
                 @endif
             </div>
         </div>
@@ -421,5 +423,5 @@
         uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=10"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=11"></script>
 @endpush
