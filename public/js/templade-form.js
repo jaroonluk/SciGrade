@@ -748,6 +748,25 @@ function isPriorReportedSection(sec) {
         && window.priorReportedSections.includes(Number(sec));
 }
 
+function priorSectionContactName(sec) {
+    const detail = window.priorSectionDetails?.[Number(sec)];
+    if (detail?.filled_by) return String(detail.filled_by).trim();
+    const prior = window.courseContext?.prior;
+    return (prior?.filled_by || prior?.teacher || 'ผู้กรอกก่อนหน้า').trim();
+}
+
+function priorSectionConflictMessage(sec) {
+    const detail = window.priorSectionDetails?.[Number(sec)];
+    const code = (detail?.subject_code
+        || document.getElementById('subject-code')?.value
+        || '').trim().replace(/\s+/g, '') || '-';
+    const name = (detail?.subject
+        || document.getElementById('subject-name')?.value
+        || '').trim() || '-';
+    const filledBy = priorSectionContactName(sec);
+    return `รหัสวิชา ${code} ชื่อวิชา ${name} Section ${sec} ได้มีการบันทึกผลการส่งเกรดแล้ว กรุณาติดต่อ ${filledBy}`;
+}
+
 function isSectionOptionUsed(sec, excludeIndex = null) {
     if (isPriorReportedSection(sec)) return true;
     const fac = getCurrentFacString();
@@ -834,7 +853,7 @@ function updateSectionFormHint() {
         return;
     }
     hint.textContent = window.priorReportedSections?.length
-        ? 'กรอก Section ที่ยังไม่มีในภาคนี้ แล้วกด «บันทึก Section นี้» — ระบบจะเพิ่มเข้าในรายการเดิม Section ที่กรอกแล้วจะไม่ให้เลือก'
+        ? 'รายวิชานี้มีผู้กรอก Section บางส่วนแล้ว — กรอกเฉพาะ Section ที่ยังไม่มี ระบบจะเพิ่มเข้าในรายงานเดิมอัตโนมัติ'
         : 'กรอกข้อมูล Section แล้วกด «บันทึก Section นี้» — Section ที่บันทึกแล้วจะไม่แสดงในรายการ';
 }
 
@@ -1007,7 +1026,7 @@ function addOrUpdateSectionFromForm() {
 
     const row = normalizeSectionRow(collectGradeStd());
     if (isPriorReportedSection(row.sec)) {
-        return { ok: false, error: `Section ${row.sec} มีผู้รายงานไปแล้วในภาคการศึกษานี้ — กรุณาเลือก Section อื่น` };
+        return { ok: false, error: priorSectionConflictMessage(row.sec) };
     }
     const duplicateIndex = sectionStdRows.findIndex((item, idx) => (
         idx !== editingSectionIndex
@@ -1307,6 +1326,9 @@ function validateGradeReportBeforeSave(payload) {
     for (let i = 0; i < payload.grade_stds.length; i += 1) {
         const row = payload.grade_stds[i];
         const sec = row?.sec ?? (i + 1);
+        if (isPriorReportedSection(sec)) {
+            return `ขั้นตอนที่ 5: ${priorSectionConflictMessage(sec)}`;
+        }
         if (!String(row?.fac || '').trim()) {
             return `ขั้นตอนที่ 5: Section ${sec} ยังไม่ได้เลือกคณะ — เปิดแก้ไข Section แล้วเลือกคณะก่อนบันทึก`;
         }
@@ -1672,6 +1694,7 @@ function initTempladeForm(options = {}) {
 
 window.courseContext = null;
 window.priorReportedSections = [];
+window.priorSectionDetails = {};
 window.sharedFieldsLocked = false;
 window.courseGroupLocked = false;
 window.priorSectionEvaEditable = false;
@@ -1708,7 +1731,13 @@ async function refreshCourseContext() {
     const seq = ++courseContextSeq;
 
     if (!code) {
-        applyCourseContext({ grouped: false, members: [], prior: null, reported_sections: [] });
+        applyCourseContext({
+            grouped: false,
+            members: [],
+            prior: null,
+            reported_sections: [],
+            reported_section_details: [],
+        });
         return;
     }
 
@@ -1723,10 +1752,22 @@ async function refreshCourseContext() {
         });
         const data = await res.json().catch(() => ({}));
         if (seq !== courseContextSeq) return;
-        applyCourseContext(res.ok ? data : { grouped: false, members: [], prior: null, reported_sections: [] });
+        applyCourseContext(res.ok ? data : {
+            grouped: false,
+            members: [],
+            prior: null,
+            reported_sections: [],
+            reported_section_details: [],
+        });
     } catch {
         if (seq !== courseContextSeq) return;
-        applyCourseContext({ grouped: false, members: [], prior: null, reported_sections: [] });
+        applyCourseContext({
+            grouped: false,
+            members: [],
+            prior: null,
+            reported_sections: [],
+            reported_section_details: [],
+        });
     }
 }
 
@@ -1735,7 +1776,13 @@ function applyCourseContext(data) {
     const thesisBlocked = data?.exam_reportable === false;
     renderCourseThesisBanner(thesisBlocked, data?.message);
     if (thesisBlocked) {
-        data = { grouped: false, members: [], prior: null, reported_sections: [] };
+        data = {
+            grouped: false,
+            members: [],
+            prior: null,
+            reported_sections: [],
+            reported_section_details: [],
+        };
     }
     const members = Array.isArray(data?.members) ? data.members : [];
     const grouped = Boolean(data?.grouped && members.length);
@@ -1744,6 +1791,11 @@ function applyCourseContext(data) {
     window.priorReportedSections = Array.isArray(data?.reported_sections)
         ? data.reported_sections.map((n) => Number(n)).filter((n) => n > 0)
         : [];
+    window.priorSectionDetails = {};
+    (Array.isArray(data?.reported_section_details) ? data.reported_section_details : []).forEach((row) => {
+        const sec = Number(row?.sec);
+        if (sec > 0) window.priorSectionDetails[sec] = row;
+    });
     window.courseGroupLocked = grouped;
     window.sharedFieldsLocked = Boolean(prior);
     window.priorSectionEvaEditable = Boolean(prior && Number(prior.statuseva) === 1);
@@ -1840,10 +1892,10 @@ function renderCoursePriorBanner(prior) {
         : ' คะแนนประเมินรายวิชาแบบรวมถูกดึงมาให้แล้ว';
 
     banner.classList.remove('hidden');
-    body.textContent = `${termLabel} ปีการศึกษา ${year} กรอกโดย ${name} `
-        + 'ระบบจะเพิ่ม Section เข้าในรายการเดิม ไม่สร้างรายงานใหม่ '
-        + 'ช่วงคะแนน ค่าเฉลี่ย ส่วนเบี่ยงเบนมาตรฐาน และเกณฑ์ถูกดึงมาให้แล้ว และไม่สามารถแก้ไขได้ '
-        + `หากต้องการเปลี่ยนแปลงเกณฑ์ กรุณาติดต่อ ${name}${sectionNote}`;
+    body.textContent = `${termLabel} ปีการศึกษา ${year} มีผู้กรอกก่อนหน้าแล้ว โดย ${name} `
+        + 'หากเพิ่ม Section อื่นที่ยังไม่ถูกบันทึก ระบบจะเพิ่มเข้าในรายงานรายวิชาเดิมให้อัตโนมัติ '
+        + 'ช่วงคะแนนและเกณฑ์ถูกดึงมาให้แล้วและไม่สามารถแก้ไขได้ '
+        + `หากต้องการเปลี่ยนแปลงเกณฑ์หรือแก้ไข Section เดิม กรุณาติดต่อ ${name}${sectionNote}`;
 }
 
 let priorTeacherSourceId = null;
@@ -1939,9 +1991,15 @@ function renderPriorSectionsBox(sections) {
     }
 
     box.classList.remove('hidden');
-    list.innerHTML = sections.map((sec) => (
-        `<span class="prior-sec-chip inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold">Section ${sec}</span>`
-    )).join('');
+    list.innerHTML = sections.map((sec) => {
+        const filledBy = priorSectionContactName(sec);
+        return `
+            <span class="prior-sec-chip inline-flex flex-col items-start gap-0.5 px-2.5 py-1 rounded-lg text-xs">
+                <span class="font-semibold">Section ${sec}</span>
+                <span class="font-normal opacity-90">กรอกโดย ${filledBy}</span>
+            </span>
+        `;
+    }).join('');
 }
 
 function applyRemarksFromRecord(record) {
@@ -2213,7 +2271,10 @@ function showWizardStep(step, config) {
     if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
 
     if (step === 2) refreshCourseContext();
-    if (step === 5) applyGraduateFacultyDefault();
+    if (step === 5) {
+        applyGraduateFacultyDefault();
+        refreshCourseContext();
+    }
     updateAttachmentChecklist(config);
 }
 

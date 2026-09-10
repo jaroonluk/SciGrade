@@ -449,7 +449,10 @@
                         </div>
                         <div id="prior-sections-box" class="hidden rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5">
                             <p class="text-sm font-semibold text-orange-950">Section ที่รายงานไปแล้วในภาคนี้</p>
-                            <p class="text-xs text-orange-900/80 mt-0.5">Section เหล่านี้มีในรายการเดิมแล้ว จึงไม่แสดงให้เลือก — กรอกเฉพาะ Section ที่ยังไม่มี ระบบจะเพิ่มเข้าในรายงานเดิม</p>
+                            <p class="text-xs text-orange-900/80 mt-0.5">
+                                Section เหล่านี้ถูกบันทึกแล้ว จึงไม่ให้เลือกซ้ำ — กรอกเฉพาะ Section ที่ยังไม่มี
+                                ระบบจะเพิ่มเข้าในรายงานรายวิชาเดิมอัตโนมัติ หากต้องการแก้ Section เดิม กรุณาติดต่อผู้กรอกที่แสดงด้านล่าง
+                            </p>
                             <div id="prior-sections-list" class="flex flex-wrap gap-1.5 mt-2"></div>
                         </div>
 

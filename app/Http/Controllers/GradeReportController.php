@@ -81,6 +81,7 @@ class GradeReportController extends Controller
 
         $prior = null;
         $reportedSections = [];
+        $sectionDetails = [];
 
         if ($code !== '' && $term > 0 && $year > 0) {
             $reports = GradeReport::query()
@@ -95,25 +96,29 @@ class GradeReportController extends Controller
                 ->get();
 
             foreach ($reports as $report) {
+                $filledBy = $this->resolveReportFillerName($report);
                 foreach ($report->gradeStds as $std) {
                     $sec = (int) $std->sec;
-                    if ($sec > 0) {
-                        $reportedSections[$sec] = true;
+                    if ($sec <= 0) {
+                        continue;
+                    }
+                    $reportedSections[$sec] = true;
+                    if (! isset($sectionDetails[$sec])) {
+                        $sectionDetails[$sec] = [
+                            'sec' => $sec,
+                            'filled_by' => $filledBy,
+                            'username' => trim((string) $report->username),
+                            'grade_id' => $report->grade_id,
+                            'subject_code' => trim((string) $report->subject_code),
+                            'subject' => trim((string) $report->subject),
+                        ];
                     }
                 }
             }
 
             $first = $reports->first();
             if ($first) {
-                $filledBy = trim((string) $first->teacher) ?: (string) $first->username;
-                try {
-                    $staff = TblUser::query()->with('titleRelation')->find($first->username);
-                    if ($staff?->displayName()) {
-                        $filledBy = $staff->displayName();
-                    }
-                } catch (\Throwable) {
-                    // ใช้ชื่ออาจารย์จากรายงาน หากดึงข้อมูลบุคลากรไม่ได้
-                }
+                $filledBy = $this->resolveReportFillerName($first);
                 $teacherNames = $this->collectTeacherNames($reports);
                 $prior = [
                     'exists' => true,
@@ -122,6 +127,8 @@ class GradeReportController extends Controller
                     'teachers' => $teacherNames,
                     'filled_by' => $filledBy,
                     'username' => $first->username,
+                    'subject_code' => trim((string) $first->subject_code),
+                    'subject' => trim((string) $first->subject),
                     'term' => (int) $first->term,
                     'year' => (int) $first->year,
                     'term_label' => $first->termLabel(),
@@ -131,11 +138,14 @@ class GradeReportController extends Controller
             }
         }
 
+        ksort($sectionDetails);
+
         return response()->json([
             'grouped' => $members !== [],
             'members' => $members,
             'prior' => $prior,
             'reported_sections' => array_values(array_map('intval', array_keys($reportedSections))),
+            'reported_section_details' => array_values($sectionDetails),
         ]);
     }
 
@@ -406,6 +416,45 @@ class GradeReportController extends Controller
         return (int) $report->approv <= 0 && ! $report->awaitingDeptResubmit();
     }
 
+    private function resolveReportFillerName(GradeReport $report): string
+    {
+        try {
+            $staff = TblUser::query()->with('titleRelation')->find($report->username);
+            $display = $staff?->displayName();
+            if (is_string($display) && trim($display) !== '') {
+                return trim($display);
+            }
+        } catch (\Throwable) {
+            // ใช้ชื่อจากรายงานหากดึงบุคลากรไม่ได้
+        }
+
+        $teacher = trim((string) $report->teacher);
+        if ($teacher !== '') {
+            $parts = preg_split('/[,;\/]+/u', $teacher) ?: [];
+            $first = trim((string) ($parts[0] ?? ''));
+            if ($first !== '') {
+                return $first;
+            }
+        }
+
+        $username = trim((string) $report->username);
+
+        return $username !== '' ? $username : 'ผู้กรอกก่อนหน้า';
+    }
+
+    /**
+     * @param  list<int>  $sections
+     */
+    private function duplicateSectionMessage(GradeReport $report, array $sections): string
+    {
+        $code = trim((string) $report->subject_code) ?: '-';
+        $name = trim((string) $report->subject) ?: '-';
+        $secLabel = implode(', ', array_map(fn (int $sec) => (string) $sec, $sections));
+        $filledBy = $this->resolveReportFillerName($report);
+
+        return "รหัสวิชา {$code} ชื่อวิชา {$name} Section {$secLabel} ได้มีการบันทึกผลการส่งเกรดแล้ว กรุณาติดต่อ {$filledBy}";
+    }
+
     /**
      * @param  Collection<int, GradeReport>  $reports
      * @return list<string>
@@ -465,12 +514,45 @@ class GradeReportController extends Controller
             return response()->json(['message' => 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section'], 422);
         }
 
-        DB::connection('scigrad')->transaction(function () use ($report, $stds, $data) {
+        $existingSecs = $report->gradeStds()
+            ->pluck('sec')
+            ->map(fn ($sec) => (int) $sec)
+            ->all();
+
+        $conflicts = [];
+        $toAdd = [];
+        foreach ($stds as $std) {
+            $sec = (int) ($std['sec'] ?? 0);
+            if ($sec > 0 && in_array($sec, $existingSecs, true)) {
+                $conflicts[] = $sec;
+                continue;
+            }
+            $toAdd[] = $std;
+        }
+
+        $conflicts = array_values(array_unique($conflicts));
+        if ($conflicts !== []) {
+            return response()->json([
+                'message' => $this->duplicateSectionMessage($report, $conflicts),
+                'hint' => 'กรุณาเลือก Section อื่นที่ยังไม่มีการบันทึก หรือติดต่อผู้กรอกก่อนหน้าหากต้องการแก้ไขข้อมูลเดิม',
+                'conflict_sections' => $conflicts,
+                'filled_by' => $this->resolveReportFillerName($report),
+            ], 422);
+        }
+
+        if ($toAdd === []) {
+            return response()->json([
+                'message' => 'ไม่มี Section ใหม่ให้เพิ่ม — Section ที่ส่งมาถูกบันทึกไว้แล้ว',
+                'filled_by' => $this->resolveReportFillerName($report),
+            ], 422);
+        }
+
+        DB::connection('scigrad')->transaction(function () use ($report, $toAdd, $data) {
             $teacher = trim((string) ($data['teacher'] ?? ''));
             if ($teacher !== '') {
                 $report->update(['teacher' => mb_substr($teacher, 0, 250)]);
             }
-            $this->mergeNewGradeStds($report, $stds);
+            $this->mergeNewGradeStds($report, $toAdd);
         });
 
         // ไฟล์ REG ใน session จะถูกแนบเมื่อทำ wizard ครบ (finalize-wizard) เท่านั้น
@@ -483,6 +565,10 @@ class GradeReportController extends Controller
                 'subject_code' => $report->subject_code,
                 'term' => $report->term,
                 'year' => $report->year,
+                'added_sections' => array_values(array_filter(array_map(
+                    fn ($std) => (int) ($std['sec'] ?? 0),
+                    $toAdd,
+                ))),
             ],
         );
 
