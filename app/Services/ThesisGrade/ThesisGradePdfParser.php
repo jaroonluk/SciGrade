@@ -537,6 +537,7 @@ class ThesisGradePdfParser
 
                 if ($columns !== null && $pageRows !== []) {
                     $pageRows = $this->attachNotesByProximity($pageRows, $bodyLines, $columns);
+                    $pageRows = $this->attachAnnotationNotes($pageRows, $page, $columns);
                 }
 
                 foreach ($pageRows as $pageRow) {
@@ -551,6 +552,125 @@ class ThesisGradePdfParser
         }
 
         return $rows;
+    }
+
+    /**
+     * หมายเหตุในใบ REG มักเป็น FreeText Typewriter (Foxit) ไม่ได้อยู่ใน content stream ของตาราง
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array{code: float, registered: float, passed: float, grade: float, name: float, note: float}  $columns
+     * @return list<array<string, mixed>>
+     */
+    private function attachAnnotationNotes(array $rows, object $page, array $columns): array
+    {
+        $noteItems = $this->extractFreeTextNotesFromPage($page);
+        if ($noteItems === []) {
+            return $rows;
+        }
+
+        foreach ($rows as $i => $row) {
+            $mine = [];
+            foreach ($noteItems as $item) {
+                if (! $this->isNoteColumnX($item['x'], $columns)) {
+                    continue;
+                }
+                if ($this->nearestStudentRowIndex($item['y'], $rows) === $i) {
+                    $mine[] = $item;
+                }
+            }
+            if ($mine === []) {
+                continue;
+            }
+
+            $composed = $this->composeNote($mine);
+            if ($composed === null || $composed === '') {
+                continue;
+            }
+
+            $existing = trim((string) ($rows[$i]['note'] ?? ''));
+            $rows[$i]['note'] = $existing !== '' && $existing !== $composed
+                ? trim($existing.' '.$composed)
+                : $composed;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array{x: float, y: float, text: string}>
+     */
+    private function extractFreeTextNotesFromPage(object $page): array
+    {
+        if (! method_exists($page, 'get')) {
+            return [];
+        }
+
+        try {
+            $annotsEl = $page->get('Annots');
+        } catch (Throwable) {
+            return [];
+        }
+
+        if (! is_object($annotsEl) || ! method_exists($annotsEl, 'getContent')) {
+            return [];
+        }
+
+        $content = $annotsEl->getContent();
+        if (! is_array($content) || $content === []) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($content as $obj) {
+            if (! is_object($obj) || ! method_exists($obj, 'getDetails')) {
+                continue;
+            }
+
+            try {
+                $details = $obj->getDetails(true);
+            } catch (Throwable) {
+                continue;
+            }
+
+            if (! is_array($details)) {
+                continue;
+            }
+
+            $subtype = (string) ($details['Subtype'] ?? '');
+            if ($subtype !== 'FreeText') {
+                continue;
+            }
+
+            $text = trim((string) ($details['Contents'] ?? ''));
+            if ($text === '' || $this->isNoteHeaderOrPlaceholder($text)) {
+                continue;
+            }
+
+            $rect = $details['Rect'] ?? null;
+            if (! is_array($rect) || count($rect) < 4) {
+                continue;
+            }
+
+            $x1 = (float) $rect[0];
+            $y1 = (float) $rect[1];
+            $x2 = (float) $rect[2];
+            $y2 = (float) $rect[3];
+            $midX = ($x1 + $x2) / 2;
+            $midY = ($y1 + $y2) / 2;
+
+            // ข้ามข้อความลายเซ็น/หัวกระดาษด้านล่าง
+            if ($midY < 120.0) {
+                continue;
+            }
+
+            $items[] = [
+                'x' => $midX,
+                'y' => $midY,
+                'text' => $text,
+            ];
+        }
+
+        return $items;
     }
 
     /**
@@ -645,7 +765,6 @@ class ThesisGradePdfParser
                 }
             }
             $rows[$i]['note'] = $this->composeNote($mine);
-            unset($rows[$i]['_y']);
         }
 
         return $rows;
@@ -755,7 +874,8 @@ class ThesisGradePdfParser
     private function normalizeNoteText(string $note): ?string
     {
         $note = trim(preg_replace('/\s+/u', ' ', $note) ?? '');
-        $note = preg_replace('/\s*\.\s*/u', '.', $note) ?? $note;
+        // เศษจาก content stream บางไฟล์แยกวันที่เป็น "1 . 4 . 2568" — เก็บช่องว่างหลังจุดเฉพาะเลขปี
+        $note = preg_replace('/\s*\.\s*(?=\d)/u', '.', $note) ?? $note;
         $note = preg_replace('/\.(\d{4})\b/u', '. $1', $note) ?? $note;
         $note = trim(preg_replace('/\s+/u', ' ', $note) ?? '');
 
