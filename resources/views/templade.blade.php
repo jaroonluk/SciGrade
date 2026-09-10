@@ -504,7 +504,7 @@
                                 </label>
                                 <p class="text-xs text-[#7A4A3A]/80">
                                     ระบบจะตรวจรหัสวิชา ภาคการศึกษา และปีการศึกษาให้ตรงกับที่กรอกด้านบน
-                                    เมื่อบันทึกรายงาน ไฟล์นี้จะถูกแนบเป็นใบส่งผลการศึกษา (REG) อัตโนมัติ
+                                    ไฟล์จะถูกเก็บชั่วคราว และอัปโหลดเข้าสู่ระบบอย่างสมบูรณ์เมื่อกด「เสร็จสิ้น」ครบทุกขั้นตอน
                                 </p>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <input id="section-pdf-upload" type="file" accept=".pdf,application/pdf"
@@ -617,7 +617,8 @@
                             <p class="text-sm text-[#7A4A3A]/80 leading-relaxed">
                                 กรณีกรอกข้อมูลเอง กรุณาดาวน์โหลดใบส่งผลการศึกษาจากสำนักทะเบียน
                                 <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>
-                                แล้วอัปโหลดไฟล์ PDF ที่นี่ ต้องแนบไฟล์นี้ก่อนจึงจะเสร็จสิ้นได้ หากอัปโหลดไว้แล้วในขั้นตอนที่ 5 ระบบจะข้ามขั้นตอนนี้ให้อัตโนมัติ
+                                แล้วเลือกไฟล์ PDF ที่นี่ (ยังไม่อัปโหลดเข้าฐานจนกว่าจะกดเสร็จสิ้น)
+                                ต้องมีไฟล์นี้ก่อนจึงจะเสร็จสิ้นได้ หากเลือกไว้แล้วในขั้นตอนที่ 5 ระบบจะข้ามขั้นตอนนี้ให้อัตโนมัติ
                             </p>
                             <input id="wizard-reg-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
@@ -638,13 +639,14 @@
 
                     <div class="wizard-step space-y-4" data-wizard-step="8">
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
-                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องแนบไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น</p>
+                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องเลือกไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น</p>
+                            <p class="text-xs text-[#7A4A3A]/80">ไฟล์จะถูกอัปโหลดเข้าสู่ระบบอย่างสมบูรณ์เมื่อกด「เสร็จสิ้น」เท่านั้น</p>
                             <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">ใบส่งผลการศึกษา (REG) — ขั้นตอนที่ 6</p>
                             <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบขวางที่พิมพ์และลงนามแล้ว — ขั้นตอนที่ 8</p>
                         </div>
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
                             <h3 class="font-bold text-[#5C2E1F]">อัปโหลดรายงานผลการสอบไล่ (ใบขวาง)</h3>
-                            <p class="text-sm text-[#7A4A3A]/80">กรุณาอัปโหลดไฟล์ PDF ที่พิมพ์และลงนามแล้ว เพื่อให้สาขาตรวจสอบได้ — ต้องแนบไฟล์นี้ก่อนจึงจะเสร็จสิ้นได้</p>
+                            <p class="text-sm text-[#7A4A3A]/80">กรุณาเลือกไฟล์ PDF ที่พิมพ์และลงนามแล้ว — ระบบจะอัปโหลดเข้าสู่ระบบเมื่อกด「เสร็จสิ้น」ครบทุกขั้นตอนเท่านั้น</p>
                             <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
                             <p id="wizard-exam-status" class="text-xs text-[#7A4A3A]"></p>
@@ -666,7 +668,8 @@
                     </div>
                     <h3 class="text-xl font-bold text-green-900">ดำเนินการรายงานผลการสอบไล่เรียบร้อยแล้ว</h3>
                     <p class="mt-2 text-sm text-[#5C2E1F] leading-relaxed max-w-xl mx-auto">
-                        ระบบได้รับข้อมูลรายวิชานี้แล้ว ท่านสามารถกลับหน้าหลักเพื่อกรอกผลการสอบรายวิชาถัดไป หรือไปติดตามสถานะที่ส่งแล้ว
+                        ระบบบันทึกข้อมูลรายวิชาและอัปโหลดไฟล์แนบ (REG + ใบขวาง) เข้าสู่ระบบเรียบร้อยแล้ว
+                        ท่านสามารถกลับหน้าหลักเพื่อกรอกผลการสอบรายวิชาถัดไป หรือไปติดตามสถานะที่ส่งแล้ว
                     </p>
                     <div class="mt-6 flex flex-wrap justify-center gap-3">
                         <a href="{{ $dashboardUrl }}" class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-semibold hover:bg-[#6B3410]">

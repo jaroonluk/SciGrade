@@ -980,8 +980,8 @@ async function uploadSectionRegistrarPdf(file) {
         const wizardRegStatus = document.getElementById('wizard-reg-status');
         if (wizardRegStatus) {
             wizardRegStatus.textContent = data.file_name
-                ? `แนบไฟล์แล้ว: ${data.file_name}`
-                : 'แนบไฟล์ REG แล้ว';
+                ? `เลือกไฟล์แล้ว: ${data.file_name} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`
+                : 'เลือกไฟล์ REG แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น';
         }
         showToast(data.message || 'อ่านไฟล์สำเร็จ', 'success');
     } catch (err) {
@@ -2082,7 +2082,7 @@ function hasRegistrarAttachment(config) {
 }
 
 function hasExamReportAttachment(config) {
-    return Boolean(config?.hasExamReportFile);
+    return Boolean(config?.hasExamReportFile || config?.hasPendingExam || window.pendingExamFile);
 }
 
 function shouldSkipRegStep(config) {
@@ -2111,13 +2111,17 @@ function updateAttachmentChecklist(config) {
 
     if (regCheck) {
         regCheck.textContent = hasReg
-            ? 'แนบใบส่งผลการศึกษา (REG) แล้ว'
+            ? (config?.hasRegistrarFile
+                ? 'แนบใบส่งผลการศึกษา (REG) เข้าสู่ระบบแล้ว'
+                : 'เลือกไฟล์ REG แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น')
             : 'ยังไม่ได้แนบใบส่งผลการศึกษา (REG) — ย้อนกลับไปขั้นตอนที่ 6';
         regCheck.className = `text-sm ${hasReg ? 'text-green-800 font-medium' : 'text-red-700'}`;
     }
     if (examCheck) {
         examCheck.textContent = hasExam
-            ? 'แนบใบขวางแล้ว'
+            ? (config?.hasExamReportFile
+                ? 'แนบใบขวางเข้าสู่ระบบแล้ว'
+                : 'เลือกไฟล์ใบขวางแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น')
             : 'ยังไม่ได้แนบใบขวาง — อัปโหลดในขั้นตอนนี้';
         examCheck.className = `text-sm ${hasExam ? 'text-green-800 font-medium' : 'text-red-700'}`;
     }
@@ -2282,47 +2286,93 @@ async function saveWizardReport(config) {
     loading?.classList.add('hidden');
     overlay?.classList.add('hidden');
     document.body.style.overflow = '';
-    if (hasRegistrarAttachment(config)) {
-        config.hasRegistrarFile = true;
-    }
+    // ไฟล์ REG ยังเป็น pending จนกว่าจะกดเสร็จสิ้น — ไม่ทำเครื่องหมายว่าอัปโหลดเข้าฐานแล้ว
     persistWizardState(config, 7);
     refreshCourseContext();
     return { ok: true };
 }
 
-async function uploadExamReport(config, file) {
-    if (!config.currentReportId) {
-        showToast('กรุณาบันทึกรายงานก่อนอัปโหลดใบขวาง', 'error');
+/** ไฟล์ใบขวางที่เลือกไว้ รออัปโหลดจริงตอนกดเสร็จสิ้น */
+window.pendingExamFile = null;
+
+async function stageExamReport(config, file) {
+    if (!file) return;
+    if (file.type && file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+        showToast('รองรับเฉพาะไฟล์ PDF', 'error');
         return;
     }
+    window.pendingExamFile = file;
+    config.hasPendingExam = true;
     const status = document.getElementById('wizard-exam-status');
-    if (status) status.textContent = 'กำลังอัปโหลด...';
+    if (status) {
+        status.textContent = `เลือกไฟล์แล้ว: ${file.name} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`;
+    }
+    persistWizardState(config, 8);
+    updateAttachmentChecklist(config);
+    showToast('เลือกไฟล์ใบขวางแล้ว — กดเสร็จสิ้นเพื่ออัปโหลดเข้าสู่ระบบ', 'success');
+}
+
+async function finalizeWizardAttachments(config) {
+    if (!config.currentReportId) {
+        return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณาย้อนกลับไปกด «บันทึกแล้วไปต่อ» ที่ขั้นตอนที่ 5' };
+    }
+
+    const overlay = document.getElementById('save-overlay');
+    const loading = document.getElementById('save-overlay-loading');
+    const success = document.getElementById('save-overlay-success');
+    const errorBox = document.getElementById('save-overlay-error');
+    loading?.classList.remove('hidden');
+    success?.classList.add('hidden');
+    errorBox?.classList.add('hidden');
+    overlay?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 
     const formData = new FormData();
-    formData.append('attachment', file);
-    formData.append('file_type', 'exam_report');
+    if (window.pendingExamFile) {
+        formData.append('attachment', window.pendingExamFile);
+        formData.append('file_type', 'exam_report');
+    }
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     try {
-        const res = await fetch(`/api/grade-reports/${config.currentReportId}/files`, {
+        const res = await fetch(`/api/grade-reports/${config.currentReportId}/finalize-wizard`, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': csrf,
                 'X-Requested-With': 'XMLHttpRequest',
                 Accept: 'application/json',
             },
+            credentials: 'same-origin',
             body: formData,
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || 'อัปโหลดไม่สำเร็จ');
-        if (status) status.textContent = `อัปโหลดแล้ว: ${data.original_name || file.name}`;
+        if (!res.ok) {
+            const msg = [data.message, data.hint].filter(Boolean).join(' — ')
+                || 'แนบไฟล์เข้าสู่ระบบไม่สำเร็จ';
+            throw new Error(msg);
+        }
+
+        window.pendingExamFile = null;
+        config.hasPendingExam = false;
         config.hasExamReportFile = true;
-        persistWizardState(config, 8);
+        config.hasRegistrarFile = true;
+        window.wizardHasPendingReg = false;
+        config.hasPendingRegistrar = false;
+
+        loading?.classList.add('hidden');
+        overlay?.classList.add('hidden');
+        document.body.style.overflow = '';
         updateAttachmentChecklist(config);
-        showToast('อัปโหลดใบขวางเรียบร้อย', 'success');
+        return { ok: true, data };
     } catch (err) {
-        if (status) status.textContent = '';
-        showToast(err?.message || 'อัปโหลดไม่สำเร็จ', 'error');
+        loading?.classList.add('hidden');
+        const errorMsg = document.getElementById('save-overlay-error-msg');
+        const message = err?.message || 'แนบไฟล์เข้าสู่ระบบไม่สำเร็จ';
+        if (errorMsg) errorMsg.textContent = message;
+        errorBox?.classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        showToast(message, 'error');
+        return { ok: false, error: message };
     }
 }
 
@@ -2335,8 +2385,10 @@ function persistWizardState(config, step) {
         sessionStorage.setItem(wizardStorageKey(), JSON.stringify({
             reportId: config.currentReportId || null,
             step,
-            hasRegistrarFile: hasRegistrarAttachment(config),
-            hasExamReportFile: hasExamReportAttachment(config),
+            hasRegistrarFile: Boolean(config.hasRegistrarFile),
+            hasPendingRegistrar: hasRegistrarAttachment(config) && !config.hasRegistrarFile,
+            hasExamReportFile: Boolean(config.hasExamReportFile),
+            hasPendingExam: Boolean(config.hasPendingExam || window.pendingExamFile),
             at: Date.now(),
         }));
     } catch {
@@ -2356,7 +2408,15 @@ function restoreWizardState(config) {
             config.currentReportId = String(saved.reportId);
         }
         if (saved.hasRegistrarFile) config.hasRegistrarFile = true;
+        if (saved.hasPendingRegistrar) {
+            config.hasPendingRegistrar = true;
+            window.wizardHasPendingReg = true;
+        }
         if (saved.hasExamReportFile) config.hasExamReportFile = true;
+        // ใบขวางที่เลือกค้างไว้หายหลังรีเฟรช — ต้องเลือกใหม่ (ยังไม่อัปโหลดเข้าฐาน)
+        if (saved.hasPendingExam && !saved.hasExamReportFile) {
+            config.hasPendingExam = false;
+        }
 
         const step = Number(saved.step);
         return step >= 1 && step <= 8 ? step : 1;
@@ -2404,6 +2464,8 @@ function initGradeReportWizard(config) {
         }
 
         if (step === 8) {
+            const finalized = await finalizeWizardAttachments(config);
+            if (!finalized.ok) return;
             showWizardDone();
             return;
         }
@@ -2417,7 +2479,7 @@ function initGradeReportWizard(config) {
 
     document.getElementById('wizard-exam-upload')?.addEventListener('change', (e) => {
         const file = e.target.files?.[0];
-        if (file) uploadExamReport(config, file);
+        if (file) stageExamReport(config, file);
         e.target.value = '';
     });
 

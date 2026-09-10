@@ -6,6 +6,7 @@ use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Services\AuditLogService;
 use App\Services\GradeReportAttachmentNameService;
+use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
 use App\Support\UploadStorage;
@@ -20,6 +21,7 @@ class GradeReportFileController extends Controller
         private readonly StaffAuthService $staffAuth,
         private readonly GradeReportAttachmentNameService $attachmentNames,
         private readonly AuditLogService $auditLog,
+        private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
 
     public function store(Request $request, GradeReport $gradeReport): JsonResponse
@@ -68,6 +70,105 @@ class GradeReportFileController extends Controller
         );
 
         return response()->json($this->formatFile($file), 201);
+    }
+
+    /**
+     * แนบไฟล์ REG ที่ค้างใน session + ใบขวาง เฉพาะตอนทำ wizard ครบทุกขั้นตอน
+     */
+    public function finalizeWizard(Request $request, GradeReport $gradeReport): JsonResponse
+    {
+        abort_unless($this->ownsReport($gradeReport) || $this->canContribute($gradeReport), 403);
+
+        if (! $gradeReport->canUploadFiles()) {
+            return response()->json([
+                'message' => 'ไม่สามารถแนบไฟล์ได้ เนื่องจากรายงานผ่านการอนุมัติแล้ว',
+            ], 422);
+        }
+
+        $request->validate([
+            'attachment' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
+            'file_type' => ['nullable', 'string', Rule::in(GradeReportFile::allowedTypes())],
+        ], [
+            'attachment.mimes' => 'รองรับเฉพาะไฟล์ PDF',
+        ]);
+
+        $username = $this->staffUsername();
+        $registrarFiles = $this->pendingRegistrar->attachFromSession($gradeReport, $username);
+
+        $examFile = null;
+        if ($request->hasFile('attachment')) {
+            $fileType = (string) ($request->input('file_type') ?: GradeReportFile::TYPE_EXAM_REPORT);
+            $uploaded = $request->file('attachment');
+            $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType);
+            $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType);
+
+            $examFile = GradeReportFile::query()->create([
+                'grade_id' => $gradeReport->grade_id,
+                'file_type' => $fileType,
+                'original_name' => basename($storedPath) ?: $displayName,
+                'stored_path' => $storedPath,
+                'uploaded_at' => now(),
+                'username' => $username,
+            ]);
+
+            $this->auditLog->record(
+                'grade_report_file.upload',
+                subjectType: 'grade_report_file',
+                subjectId: $examFile->file_id,
+                metadata: [
+                    'grade_id' => $gradeReport->grade_id,
+                    'file_type' => $fileType,
+                    'original_name' => $examFile->original_name,
+                    'source' => 'wizard_finalize',
+                ],
+            );
+        }
+
+        $hasRegistrar = $gradeReport->files()
+            ->where('file_type', GradeReportFile::TYPE_REGISTRAR)
+            ->exists() || $registrarFiles !== [];
+        $hasExam = $gradeReport->files()
+            ->where('file_type', GradeReportFile::TYPE_EXAM_REPORT)
+            ->exists() || $examFile !== null;
+
+        if (! $hasRegistrar || ! $hasExam) {
+            $missing = [];
+            if (! $hasRegistrar) {
+                $missing[] = 'ใบส่งผลการศึกษา (REG)';
+            }
+            if (! $hasExam) {
+                $missing[] = 'ใบขวางที่พิมพ์และลงนามแล้ว';
+            }
+
+            return response()->json([
+                'message' => 'ยังแนบไฟล์ไม่ครบ: '.implode(' และ ', $missing),
+                'hint' => 'เลือกไฟล์ให้ครบในขั้นตอนที่ 6 และ 8 แล้วกดเสร็จสิ้นอีกครั้ง — ระบบจะอัปโหลดเข้าฐานข้อมูลเมื่อทำครบทุกขั้นตอนเท่านั้น',
+                'registrar_attached' => count($registrarFiles),
+                'exam_attached' => $examFile !== null,
+                'has_registrar' => $hasRegistrar,
+                'has_exam' => $hasExam,
+            ], 422);
+        }
+
+        $this->auditLog->record(
+            'grade_report.wizard_finalize',
+            subjectType: 'grade_report',
+            subjectId: $gradeReport->grade_id,
+            metadata: [
+                'registrar_attached' => count($registrarFiles),
+                'exam_attached' => $examFile !== null,
+            ],
+        );
+
+        return response()->json([
+            'message' => 'แนบไฟล์ครบและอัปโหลดเข้าสู่ระบบเรียบร้อยแล้ว',
+            'registrar_attached' => count($registrarFiles),
+            'exam_attached' => $examFile !== null,
+            'has_registrar' => true,
+            'has_exam' => true,
+            'exam_file' => $examFile ? $this->formatFile($examFile) : null,
+            'registrar_files' => array_map(fn (GradeReportFile $f) => $this->formatFile($f), $registrarFiles),
+        ]);
     }
 
     public function show(Request $request, GradeReport $gradeReport, GradeReportFile $file): StreamedResponse

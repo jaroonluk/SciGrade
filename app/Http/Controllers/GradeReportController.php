@@ -8,7 +8,6 @@ use App\Models\GradReport2;
 use App\Models\TblUser;
 use App\Services\AuditLogService;
 use App\Services\GradReport2Service;
-use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
 use App\Support\SubjectDegree;
 use App\Support\ThesisCourse;
@@ -29,7 +28,6 @@ class GradeReportController extends Controller
         private readonly StaffAuthService $staffAuth,
         private readonly GradReport2Service $gradReport2,
         private readonly AuditLogService $auditLog,
-        private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -176,7 +174,7 @@ class GradeReportController extends Controller
                 return $report->load('gradeStds');
             });
 
-            $this->pendingRegistrar->attachFromSession($report, $this->staffUsername());
+            // ไฟล์ REG ใน session จะถูกแนบเมื่อทำ wizard ครบ (finalize-wizard) เท่านั้น
 
             $this->auditLog->record(
                 'grade_report.create',
@@ -244,7 +242,7 @@ class GradeReportController extends Controller
                 }
             });
 
-            $this->pendingRegistrar->attachFromSession($gradeReport->fresh(), $this->staffUsername());
+            // ไฟล์ REG ใน session จะถูกแนบเมื่อทำ wizard ครบ (finalize-wizard) เท่านั้น
 
             $this->auditLog->record(
                 'grade_report.update',
@@ -475,7 +473,7 @@ class GradeReportController extends Controller
             $this->mergeNewGradeStds($report, $stds);
         });
 
-        $this->pendingRegistrar->attachFromSession($report->fresh(), $this->staffUsername());
+        // ไฟล์ REG ใน session จะถูกแนบเมื่อทำ wizard ครบ (finalize-wizard) เท่านั้น
 
         $this->auditLog->record(
             'grade_report.append_sections',

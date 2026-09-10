@@ -242,7 +242,7 @@ class GradeReportPageController extends Controller
                 'year' => (int) ($parsed['year'] ?? $request->integer('year')),
                 'return' => 'dashboard',
             ])
-            ->with('status', 'อ่านไฟล์ PDF สำเร็จ — เมื่อบันทึกรายงาน ระบบจะแนบเป็นใบส่งผลการศึกษา (REG) ให้อัตโนมัติ');
+            ->with('status', 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน');
     }
 
     /**
@@ -317,7 +317,7 @@ class GradeReportPageController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'อ่านไฟล์สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว เมื่อบันทึกรายงาน ระบบจะแนบเป็นใบส่งผลการศึกษา (REG) อัตโนมัติ',
+            'message' => 'อ่านไฟล์สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน',
             'parsed' => $parsed,
             'file_name' => $canonicalName,
         ]);
