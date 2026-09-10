@@ -23,6 +23,41 @@
         return text === '' || /^(<>|&lt;&gt;|< >)$/i.test(text);
     }
 
+    function splitDisplayName(name) {
+        let rest = String(name || '').replace(/\s+/g, ' ').trim();
+        let prefix = '';
+        const m = rest.match(/^(นางสาว|นาง|นาย|Mr\.|Mrs\.|Ms\.|Miss)\s+(.+)$/i);
+        if (m) {
+            prefix = m[1];
+            rest = m[2].trim();
+        }
+        const parts = rest ? rest.split(/\s+/) : [];
+        const first = parts.shift() || '';
+        const last = parts.join(' ').trim();
+        const studentName = [prefix, first, last].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        return {
+            name_prefix: prefix,
+            first_name: first,
+            last_name: last,
+            student_name: studentName,
+        };
+    }
+
+    function displayNameOf(s) {
+        return [s.name_prefix, s.first_name, s.last_name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+            || s.student_name
+            || '';
+    }
+
+    function nameNeedsReview(uncertain) {
+        return !!(uncertain && (uncertain.name_prefix || uncertain.first_name || uncertain.last_name || uncertain.student_name));
+    }
+
+    function nameReviewHint(uncertain) {
+        if (!uncertain) return '';
+        return uncertain.first_name || uncertain.last_name || uncertain.name_prefix || uncertain.student_name || '';
+    }
+
     function normalizeStudent(row) {
         const prefix = row.name_prefix || '';
         const first = row.first_name || '';
@@ -159,11 +194,20 @@
             const i = Number(card.dataset.studentIndex);
             if (!students[i]) return;
             students[i].student_code = card.querySelector('[data-f="student_code"]')?.value || '';
-            students[i].name_prefix = card.querySelector('[data-f="name_prefix"]')?.value || '';
-            students[i].first_name = card.querySelector('[data-f="first_name"]')?.value || '';
-            students[i].last_name = card.querySelector('[data-f="last_name"]')?.value || '';
-            students[i].student_name = [students[i].name_prefix, students[i].first_name, students[i].last_name]
-                .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+            const display = card.querySelector('[data-f="display_name"]')?.value || '';
+            const parts = splitDisplayName(display);
+            students[i].name_prefix = parts.name_prefix;
+            students[i].first_name = parts.first_name;
+            students[i].last_name = parts.last_name;
+            students[i].student_name = parts.student_name || display.trim();
+            const setHidden = (field, value) => {
+                const el = card.querySelector(`input[type="hidden"][name="students[${i}][${field}]"]`);
+                if (el) el.value = value;
+            };
+            setHidden('name_prefix', students[i].name_prefix);
+            setHidden('first_name', students[i].first_name);
+            setHidden('last_name', students[i].last_name);
+            setHidden('student_name', students[i].student_name);
             students[i].degree = card.querySelector('[data-f="degree"]')?.value || 'master';
             students[i].thesis_terms_count = Number(card.querySelector('[data-f="thesis_terms_count"]')?.value || students[i].thesis_terms_count || 1);
             students[i].proposal_approved = !!card.querySelector('[data-f="proposal_approved"]')?.checked;
@@ -193,23 +237,24 @@
             const cls = s.completed && s.defense_date ? 'is-ready' : (overdue ? 'is-overdue' : '');
             const badge = overdue
                 ? `<span class="text-xs font-semibold text-red-700">เลยกำหนดเค้าโครง${s0 ? ' · ควรพิจารณา S=0' : ''}</span>`
-                : (s.proposal_approved ? '<span class="text-xs font-semibold text-green-700">อนุมัติเค้าโครงแล้ว</span>' : '<span class="text-xs text-amber-800">อยู่ในกำหนด</span>');
+                : (s.proposal_approved ? '<span class="text-xs font-semibold text-green-700">อนุมัติเค้าโครงแล้ว</span>' : '');
             const ro = editable ? '' : 'disabled';
             const u = s.uncertain_fields || {};
-            const noteField = isBlankNote(s.note)
-                ? `<input type="hidden" data-f="note" name="students[${i}][note]" value="">`
-                : `<label class="text-xs text-[#7A4A3A] md:col-span-2">หมายเหตุ
-                        <input ${ro} data-f="note" name="students[${i}][note]" value="${escapeHtml(s.note)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-                    </label>`;
+            const fullName = displayNameOf(s);
+            const nameReview = nameNeedsReview(u);
+            const nameHint = nameReviewHint(u);
             return `
             <div class="student-card ${cls} p-4" data-student-index="${i}">
                 <input type="hidden" name="students[${i}][id]" value="${escapeHtml(s.id)}">
                 <input type="hidden" name="students[${i}][thesis_terms_count]" data-f="thesis_terms_count" value="${escapeHtml(s.thesis_terms_count || 1)}">
-                <input type="hidden" name="students[${i}][student_name]" value="${escapeHtml(s.student_name)}">
+                <input type="hidden" name="students[${i}][name_prefix]" value="${escapeHtml(s.name_prefix)}">
+                <input type="hidden" name="students[${i}][first_name]" value="${escapeHtml(s.first_name)}">
+                <input type="hidden" name="students[${i}][last_name]" value="${escapeHtml(s.last_name)}">
+                <input type="hidden" name="students[${i}][student_name]" value="${escapeHtml(s.student_name || fullName)}">
                 <div class="flex items-center justify-between gap-2 mb-3">
                     <p class="text-sm font-semibold text-[#5C2E1F]">นักศึกษาคนที่ ${i + 1}</p>
                     <div class="flex items-center gap-2">${badge}
-                        ${editable ? `<button type="button" class="text-xs text-red-700 hover:underline" data-remove="${i}">ลบ</button>` : ''}
+                        ${editable ? `<button type="button" class="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 hover:text-red-700" data-remove="${i}" title="ลบนักศึกษา" aria-label="ลบนักศึกษา"><span class="text-xl leading-none font-bold" aria-hidden="true">&times;</span></button>` : ''}
                     </div>
                 </div>
                 <div class="grid md:grid-cols-4 gap-3">
@@ -217,17 +262,9 @@
                         <input ${ro} data-f="student_code" name="students[${i}][student_code]" value="${escapeHtml(s.student_code)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'student_code')}" placeholder="677020018-0">
                         ${reviewHintHtml(u, 'student_code')}
                     </label>
-                    <label class="text-xs text-[#7A4A3A]">คำนำหน้าชื่อ
-                        <input ${ro} data-f="name_prefix" name="students[${i}][name_prefix]" value="${escapeHtml(s.name_prefix)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'name_prefix')}" placeholder="นาย / นางสาว / Mr.">
-                        ${reviewHintHtml(u, 'name_prefix')}
-                    </label>
-                    <label class="text-xs text-[#7A4A3A]">ชื่อ
-                        <input ${ro} data-f="first_name" name="students[${i}][first_name]" value="${escapeHtml(s.first_name)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'first_name')}">
-                        ${reviewHintHtml(u, 'first_name')}
-                    </label>
-                    <label class="text-xs text-[#7A4A3A]">สกุล
-                        <input ${ro} data-f="last_name" name="students[${i}][last_name]" value="${escapeHtml(s.last_name)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'last_name')}">
-                        ${reviewHintHtml(u, 'last_name')}
+                    <label class="text-xs text-[#7A4A3A] md:col-span-3">คำนำหน้าชื่อ-ชื่อ-สกุล
+                        <input ${ro} data-f="display_name" value="${escapeHtml(fullName)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${nameReview ? 'field-needs-review' : ''}" placeholder="เช่น นางสาว จุวัยนีย์ หมัดอาดัม">
+                        ${nameHint ? `<span class="field-hint-review">${escapeHtml(nameHint)}</span>` : ''}
                     </label>
                     <label class="text-xs text-[#7A4A3A]">ระดับ
                         <select ${ro} data-f="degree" name="students[${i}][degree]" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
@@ -247,7 +284,10 @@
                         <input ${ro} data-f="grade" name="students[${i}][grade]" value="${escapeHtml(s.grade)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'grade')}" placeholder="S / U / I">
                         ${reviewHintHtml(u, 'grade')}
                     </label>
-                    ${noteField}
+                    <label class="text-xs text-[#7A4A3A] md:col-span-2">หมายเหตุ
+                        <input ${ro} data-f="note" name="students[${i}][note]" value="${escapeHtml(s.note)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'note')}" placeholder="กรอกได้หากมี หรือเว้นว่างไว้">
+                        ${reviewHintHtml(u, 'note')}
+                    </label>
                     <label class="text-xs text-[#7A4A3A] flex items-center gap-2 mt-6">
                         <input ${ro} type="checkbox" data-f="proposal_approved" name="students[${i}][proposal_approved]" value="1" ${s.proposal_approved ? 'checked' : ''}>
                         อนุมัติเค้าโครงแล้ว
@@ -275,7 +315,16 @@
                 const card = el.closest('[data-student-index]');
                 const idx = card ? Number(card.dataset.studentIndex) : -1;
                 const key = el.getAttribute('data-f');
-                if (idx >= 0 && key) clearStudentUncertain(idx, key);
+                if (idx >= 0 && key) {
+                    if (key === 'display_name') {
+                        clearStudentUncertain(idx, 'name_prefix');
+                        clearStudentUncertain(idx, 'first_name');
+                        clearStudentUncertain(idx, 'last_name');
+                        clearStudentUncertain(idx, 'student_name');
+                    } else {
+                        clearStudentUncertain(idx, key);
+                    }
+                }
                 collectFromDom();
                 renderStudents();
             };
@@ -285,7 +334,14 @@
                 const idx = card ? Number(card.dataset.studentIndex) : -1;
                 const key = el.getAttribute('data-f');
                 if (idx >= 0 && key) {
-                    clearStudentUncertain(idx, key);
+                    if (key === 'display_name') {
+                        clearStudentUncertain(idx, 'name_prefix');
+                        clearStudentUncertain(idx, 'first_name');
+                        clearStudentUncertain(idx, 'last_name');
+                        clearStudentUncertain(idx, 'student_name');
+                    } else {
+                        clearStudentUncertain(idx, key);
+                    }
                     el.classList.remove('field-needs-review');
                     const hint = el.parentElement?.querySelector('.field-hint-review');
                     if (hint) hint.remove();

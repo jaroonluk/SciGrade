@@ -421,5 +421,5 @@
         uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=8"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=10"></script>
 @endpush
