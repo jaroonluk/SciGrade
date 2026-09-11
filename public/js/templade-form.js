@@ -918,17 +918,25 @@ function applyParsedSectionFromPdf(parsed) {
     }
 }
 
-async function uploadSectionRegistrarPdf(file) {
-    const statusEl = document.getElementById('section-pdf-upload-status');
-    const errorEl = document.getElementById('section-pdf-upload-error');
-    const input = document.getElementById('section-pdf-upload');
+async function uploadSectionRegistrarPdf(file, options = {}) {
+    const attachOnly = Boolean(options.attachOnly);
+    const expectedSection = options.expectedSection != null ? Number(options.expectedSection) : null;
+    const statusEl = attachOnly
+        ? document.getElementById(`wizard-reg-status-${expectedSection}`)
+        : document.getElementById('section-pdf-upload-status');
+    const errorEl = attachOnly
+        ? document.getElementById(`wizard-reg-error-${expectedSection}`)
+        : document.getElementById('section-pdf-upload-error');
+    const input = attachOnly
+        ? document.getElementById(`wizard-reg-input-${expectedSection}`)
+        : document.getElementById('section-pdf-upload');
 
     const showError = (msg) => {
         if (errorEl) {
             errorEl.textContent = msg;
             errorEl.classList.remove('hidden');
         }
-        if (statusEl) statusEl.textContent = '';
+        if (statusEl && !attachOnly) statusEl.textContent = '';
         showToast(msg, 'error');
     };
 
@@ -953,13 +961,17 @@ async function uploadSectionRegistrarPdf(file) {
         return;
     }
 
-    if (statusEl) statusEl.textContent = 'กำลังอ่านไฟล์...';
+    if (statusEl) statusEl.textContent = attachOnly ? 'กำลังอัปโหลด...' : 'กำลังอ่านไฟล์...';
 
     const body = new FormData();
     body.append('grade_file', file);
     body.append('subject_code', subjectCode);
     body.append('term', term);
     body.append('year', year);
+    if (attachOnly) body.append('attach_only', '1');
+    if (expectedSection != null && expectedSection > 0) {
+        body.append('expected_section', String(expectedSection));
+    }
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
@@ -984,28 +996,29 @@ async function uploadSectionRegistrarPdf(file) {
             throw new Error(details || data.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง');
         }
 
-        applyParsedSectionFromPdf(data.parsed);
+        const sec = Number(data.section || data.parsed?.grade_stds?.[0]?.sec || expectedSection || 0);
+        markRegUploadForSection(sec, data.file_name || file.name || 'ไฟล์ มข.11', 'pending');
+
+        if (!attachOnly && data.parsed) {
+            applyParsedSectionFromPdf(data.parsed);
+        }
+
         window.wizardHasPendingReg = true;
         window.pendingRegFileName = data.file_name || file.name || 'ไฟล์ มข.11';
         if (window.wizardConfig) {
             window.wizardConfig.hasPendingRegistrar = true;
             window.wizardConfig.regFilledFromPdf = true;
-            persistWizardState(window.wizardConfig, 6);
+            persistWizardState(window.wizardConfig, attachOnly ? 6 : 5);
             updateAttachmentChecklist(window.wizardConfig);
+            renderRegUploadSlots(window.wizardConfig);
             syncWizardRegStatus(window.wizardConfig);
         }
-        if (statusEl) {
+        if (statusEl && !attachOnly) {
             statusEl.textContent = data.file_name
                 ? `อ่านสำเร็จ: ${data.file_name}`
                 : 'อ่านไฟล์สำเร็จ';
         }
-        const wizardRegStatus = document.getElementById('wizard-reg-status');
-        if (wizardRegStatus) {
-            wizardRegStatus.textContent = data.file_name
-                ? `เลือกแบบฟอร์ม มข.11 แล้ว: ${data.file_name} — กดไปต่อได้ (จะอัปโหลดเข้าสู่ระบบเมื่อเสร็จสิ้น)`
-                : 'เลือกแบบฟอร์ม มข.11 แล้ว — กดไปต่อได้ (จะอัปโหลดเข้าสู่ระบบเมื่อเสร็จสิ้น)';
-        }
-        showToast(data.message || 'อ่านไฟล์ มข.11 สำเร็จ', 'success');
+        showToast(data.message || 'แนบแบบฟอร์ม มข.11 สำเร็จ', 'success');
     } catch (err) {
         showError(err?.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง');
     } finally {
@@ -1658,6 +1671,10 @@ function populateFormFromRecord(record) {
     updateGradeRangeColumnHeaders();
     applyGraduateFacultyDefault();
     refreshCourseContext();
+    if (window.wizardConfig) {
+        renderRegUploadSlots(window.wizardConfig);
+        syncWizardRegStatus(window.wizardConfig);
+    }
 }
 
 let templadeFormBootstrapped = false;
@@ -2124,16 +2141,48 @@ async function loadJointPeers() {
 }
 
 function setupWizardRegUpload() {
-    const input = document.getElementById('wizard-reg-upload');
-    if (!input || input.dataset.bound === '1') return;
-    input.dataset.bound = '1';
-    input.addEventListener('change', () => {
-        const file = input.files?.[0];
-        if (file) uploadSectionRegistrarPdf(file);
-    });
+    // ช่องอัปโหลดราย Section ถูก bind ใน renderRegUploadSlots()
+    const legacy = document.getElementById('wizard-reg-upload');
+    if (legacy && legacy.dataset.bound !== '1') {
+        legacy.dataset.bound = '1';
+    }
+}
+
+/** @type {Record<number, { name: string, source: 'pending'|'saved' }>} */
+window.regUploadBySection = window.regUploadBySection || {};
+
+function requiredRegSections() {
+    const secs = sectionStdRows
+        .map((row) => Number(row.sec))
+        .filter((sec) => sec > 0);
+    return [...new Set(secs)].sort((a, b) => a - b);
+}
+
+function markRegUploadForSection(sec, name, source = 'pending') {
+    const n = Number(sec);
+    if (!n || n <= 0) return;
+    window.regUploadBySection[n] = {
+        name: name || `Section ${n}`,
+        source: source === 'saved' ? 'saved' : 'pending',
+    };
+}
+
+function missingRegSections() {
+    return requiredRegSections().filter((sec) => !window.regUploadBySection[sec]);
+}
+
+function regUploadProgress() {
+    const required = requiredRegSections();
+    const done = required.filter((sec) => window.regUploadBySection[sec]).length;
+    return { required, done, total: required.length, missing: missingRegSections() };
 }
 
 function hasRegistrarAttachment(config) {
+    const progress = regUploadProgress();
+    if (progress.total > 0) {
+        return progress.missing.length === 0;
+    }
+    // ยังไม่มี Section ในฟอร์ม — fallback ตามสถานะเดิม
     return Boolean(
         config?.hasRegistrarFile
         || window.wizardHasPendingReg
@@ -2141,38 +2190,81 @@ function hasRegistrarAttachment(config) {
     );
 }
 
+function renderRegUploadSlots(config) {
+    const list = document.getElementById('wizard-reg-uploads-list');
+    const summary = document.getElementById('wizard-reg-summary');
+    if (!list) return;
+
+    const required = requiredRegSections();
+    if (!required.length) {
+        list.innerHTML = '<p class="text-sm text-amber-800">ยังไม่มี Section จากขั้นตอนที่ 5 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน</p>';
+        if (summary) summary.textContent = '';
+        return;
+    }
+
+    const progress = regUploadProgress();
+    if (summary) {
+        summary.textContent = progress.missing.length === 0
+            ? `อัปโหลด มข.11 ครบแล้ว ${progress.done}/${progress.total} Section`
+            : `อัปโหลด มข.11 แล้ว ${progress.done}/${progress.total} Section — ยังขาด Section ${progress.missing.join(', ')}`;
+        summary.className = `text-sm font-semibold ${progress.missing.length === 0 ? 'text-green-800' : 'text-red-700'}`;
+    }
+
+    list.innerHTML = required.map((sec) => {
+        const info = window.regUploadBySection[sec];
+        const done = Boolean(info);
+        const statusText = done
+            ? (info.source === 'saved'
+                ? `มีไฟล์ในระบบแล้ว${info.name ? `: ${info.name}` : ''}`
+                : `เลือกไฟล์แล้ว: ${info.name || 'ไฟล์ มข.11'}`)
+            : 'ยังไม่ได้แนบไฟล์';
+        return `
+            <div class="rounded-lg border ${done ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-[#FFFBF7]'} px-3 py-3 space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-sm font-semibold text-[#5C2E1F]">Section ${sec}</p>
+                    <p id="wizard-reg-status-${sec}" class="text-xs ${done ? 'text-green-800' : 'text-red-700'}">${statusText}</p>
+                </div>
+                <input id="wizard-reg-input-${sec}" type="file" accept=".pdf,application/pdf" data-reg-section="${sec}"
+                    class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                <p id="wizard-reg-error-${sec}" class="hidden text-xs text-red-600"></p>
+            </div>
+        `;
+    }).join('');
+
+    list.querySelectorAll('input[data-reg-section]').forEach((input) => {
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            const sec = Number(input.dataset.regSection);
+            if (file && sec > 0) {
+                uploadSectionRegistrarPdf(file, { attachOnly: true, expectedSection: sec });
+            }
+        });
+    });
+}
+
 function syncWizardRegStatus(config) {
     const status = document.getElementById('wizard-reg-status');
     const help = document.getElementById('wizard-reg-help');
-    const pendingName = window.pendingRegFileName || '';
+    const progress = regUploadProgress();
 
     if (help) {
-        if (config?.hasRegistrarFile && !window.wizardHasPendingReg) {
-            help.textContent = 'รายงานนี้มีแบบฟอร์ม มข.11 ในระบบแล้ว — กดไปต่อได้ หรือเลือกไฟล์ใหม่เพื่อแทนที่เมื่อกดเสร็จสิ้น';
-        } else if (window.wizardHasPendingReg || config?.regFilledFromPdf) {
-            help.textContent = 'ตรวจพบว่ามีการเลือก/อ่านแบบฟอร์ม มข.11 แล้ว — ตรวจสอบสถานะด้านล่างแล้วกดไปต่อได้ ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น';
-        } else {
-            help.textContent = 'หากกรอกจำนวนนักศึกษาเอง ต้องแนบไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียนก่อนจึงจะไปขั้นตอนถัดไปได้ ไฟล์จะถูกอัปโหลดเข้าสู่ระบบจริงเมื่อแนบใบขวางครบและกดเสร็จสิ้น';
-        }
+        help.textContent = progress.total === 0
+            ? 'กรุณาย้อนกลับไปขั้นตอนที่ 5 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section'
+            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 5 หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้ ไฟล์จะถูกอัปโหลดเข้าสู่ระบบจริงเมื่อแนบใบขวางครบและกดเสร็จสิ้น';
     }
 
     if (!status) return;
-
-    if (window.wizardHasPendingReg) {
-        status.textContent = pendingName
-            ? `สถานะ: เลือกแบบฟอร์ม มข.11 แล้ว (${pendingName}) — กดไปต่อได้`
-            : 'สถานะ: เลือกแบบฟอร์ม มข.11 แล้ว — กดไปต่อได้';
+    if (progress.total === 0) {
+        status.textContent = 'สถานะ: ยังไม่มี Section ที่ต้องแนบไฟล์';
+        status.className = 'text-sm text-amber-800 font-medium';
+        return;
+    }
+    if (progress.missing.length === 0) {
+        status.textContent = `สถานะ: แนบ มข.11 ครบ ${progress.done}/${progress.total} Section แล้ว — กดไปต่อได้`;
         status.className = 'text-sm text-green-800 font-medium';
         return;
     }
-
-    if (config?.hasRegistrarFile) {
-        status.textContent = 'สถานะ: มีแบบฟอร์ม มข.11 ในระบบแล้ว — กดไปต่อได้ หรือเลือกไฟล์ใหม่เพื่อแทนที่';
-        status.className = 'text-sm text-green-800 font-medium';
-        return;
-    }
-
-    status.textContent = 'สถานะ: ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาเลือกไฟล์ก่อนไปต่อ';
+    status.textContent = `สถานะ: ยังแนบไม่ครบ (ขาด Section ${progress.missing.join(', ')}) — กรุณาอัปโหลดให้ครบ ${progress.total} ไฟล์`;
     status.className = 'text-sm text-red-700 font-medium';
 }
 
@@ -2181,7 +2273,6 @@ function hasExamReportAttachment(config) {
 }
 
 function shouldSkipRegStep() {
-    // ไม่ข้ามขั้นตอนมข.11 — ให้ผู้ใช้เห็นสถานะไฟล์หรือแนบไฟล์ก่อนไปต่อเสมอ
     return false;
 }
 
@@ -2190,10 +2281,17 @@ function requiredAttachmentError(config) {
     const hasExam = hasExamReportAttachment(config);
     if (hasReg && hasExam) return null;
     if (!hasReg && !hasExam) {
-        return 'กรุณาแนบไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น: แบบฟอร์ม มข.11 ในขั้นตอนที่ 6 และใบรายงานผลการสอบไล่ (ใบขวาง) ในขั้นตอนที่ 8';
+        const missing = missingRegSections();
+        const regMsg = missing.length
+            ? `แบบฟอร์ม มข.11 ยังไม่ครบ (ขาด Section ${missing.join(', ')})`
+            : 'แบบฟอร์ม มข.11 ในขั้นตอนที่ 6';
+        return `กรุณาแนบไฟล์ให้ครบก่อนเสร็จสิ้น: ${regMsg} และใบรายงานผลการสอบไล่ (ใบขวาง) ในขั้นตอนที่ 8`;
     }
     if (!hasReg) {
-        return 'ยังไม่ได้แนบแบบฟอร์ม มข.11 กรุณาย้อนกลับไปขั้นตอนที่ 6 เพื่อเลือกไฟล์ก่อนเสร็จสิ้น';
+        const missing = missingRegSections();
+        return missing.length
+            ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')} กรุณาย้อนกลับไปขั้นตอนที่ 6`
+            : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 กรุณาย้อนกลับไปขั้นตอนที่ 6';
     }
     return 'ยังไม่ได้แนบใบรายงานผลการสอบไล่ (ใบขวาง) กรุณาเลือกไฟล์ PDF ที่พิมพ์และลงนามแล้วในขั้นตอนที่ 8 ก่อนเสร็จสิ้น';
 }
@@ -2204,13 +2302,16 @@ function updateAttachmentChecklist(config) {
     const regCheck = document.getElementById('wizard-reg-check');
     const examCheck = document.getElementById('wizard-exam-check');
     const box = document.getElementById('wizard-attachment-checklist');
+    const progress = regUploadProgress();
 
     if (regCheck) {
         regCheck.textContent = hasReg
-            ? (config?.hasRegistrarFile
-                ? 'แนบแบบฟอร์ม มข.11 เข้าสู่ระบบแล้ว'
-                : 'เลือกแบบฟอร์ม มข.11 แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น')
-            : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — ย้อนกลับไปขั้นตอนที่ 6';
+            ? (config?.hasRegistrarFile && progress.missing.length === 0
+                ? `แนบแบบฟอร์ม มข.11 ครบ ${progress.done}/${progress.total || progress.done} Section แล้ว`
+                : `เลือก มข.11 ครบ ${progress.done}/${progress.total} Section — จะอัปโหลดเมื่อกดเสร็จสิ้น`)
+            : (progress.missing.length
+                ? `ยังแนบ มข.11 ไม่ครบ — ขาด Section ${progress.missing.join(', ')}`
+                : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — ย้อนกลับไปขั้นตอนที่ 6');
         regCheck.className = `text-sm ${hasReg ? 'text-green-800 font-medium' : 'text-red-700'}`;
     }
     if (examCheck) {
@@ -2279,8 +2380,15 @@ function validateWizardStep(step, config) {
         }
         return validateEvaluationScores(collectGradeReportPayload());
     }
-    if (step === 6 && !hasRegistrarAttachment(config)) {
-        return 'กรุณาแนบแบบฟอร์ม มข.11 (ใบส่งผลการศึกษาจากสำนักทะเบียน) ก่อนไปขั้นตอนถัดไป — หากกรอกข้อมูลเองต้องเลือกไฟล์ PDF มข.11 ในขั้นตอนนี้';
+    if (step === 6) {
+        const missing = missingRegSections();
+        if (!requiredRegSections().length) {
+            return 'กรุณาย้อนกลับไปขั้นตอนที่ 5 เพิ่ม Section ก่อนแนบแบบฟอร์ม มข.11';
+        }
+        if (missing.length) {
+            return `กรุณาแนบแบบฟอร์ม มข.11 ให้ครบทุก Section — ยังขาด Section ${missing.join(', ')} (ต้องอัปโหลด ${requiredRegSections().length} ไฟล์ ตามจำนวน Section ที่กรอก)`;
+        }
+        return null;
     }
     if (step === 8) {
         return requiredAttachmentError(config);
@@ -2309,7 +2417,10 @@ function showWizardStep(step, config) {
         applyGraduateFacultyDefault();
         refreshCourseContext();
     }
-    if (step === 6) syncWizardRegStatus(config);
+    if (step === 6) {
+        renderRegUploadSlots(config);
+        syncWizardRegStatus(config);
+    }
     updateAttachmentChecklist(config);
 }
 
@@ -2414,7 +2525,13 @@ async function finalizeWizardAttachments(config) {
     }
 
     if (!hasRegistrarAttachment(config)) {
-        return { ok: false, error: 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาย้อนกลับไปขั้นตอนที่ 6' };
+        const missing = missingRegSections();
+        return {
+            ok: false,
+            error: missing.length
+                ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')} กรุณาย้อนกลับไปขั้นตอนที่ 6`
+                : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาย้อนกลับไปขั้นตอนที่ 6',
+        };
     }
     if (!hasExamReportAttachment(config)) {
         return { ok: false, error: 'ยังไม่ได้เลือกใบรายงานผลการสอบไล่ (ใบขวาง) — กรุณาเลือกไฟล์ในขั้นตอนนี้ก่อนกดเสร็จสิ้น' };
@@ -2505,6 +2622,7 @@ function persistWizardState(config, step) {
             step,
             hasRegistrarFile: Boolean(config.hasRegistrarFile),
             hasPendingRegistrar: hasRegistrarAttachment(config) && !config.hasRegistrarFile,
+            regUploadBySection: window.regUploadBySection || {},
             hasExamReportFile: Boolean(config.hasExamReportFile),
             hasPendingExam: Boolean(config.hasPendingExam || window.pendingExamFile),
             at: Date.now(),
@@ -2529,6 +2647,17 @@ function restoreWizardState(config) {
         if (saved.hasPendingRegistrar && !config.openedAsEdit) {
             config.hasPendingRegistrar = true;
             window.wizardHasPendingReg = true;
+        }
+        if (saved.regUploadBySection && typeof saved.regUploadBySection === 'object') {
+            Object.entries(saved.regUploadBySection).forEach(([sec, info]) => {
+                const n = Number(sec);
+                if (n > 0 && info) {
+                    window.regUploadBySection[n] = {
+                        name: info.name || `Section ${n}`,
+                        source: info.source === 'saved' ? 'saved' : 'pending',
+                    };
+                }
+            });
         }
         if (saved.hasExamReportFile) config.hasExamReportFile = true;
         // ใบขวางที่เลือกค้างไว้หายหลังรีเฟรช — ต้องเลือกใหม่ (ยังไม่อัปโหลดเข้าฐาน)
@@ -2560,14 +2689,34 @@ function initGradeReportWizard(config) {
     window.wizardConfig = config;
     window.pendingExamFile = window.pendingExamFile || null;
     window.pendingRegFileName = window.pendingRegFileName || null;
+    window.regUploadBySection = window.regUploadBySection || {};
 
-    // โหมดแก้ไขไม่ใช้ REG pending จาก session ของรายวิชาอื่น — นับเฉพาะไฟล์ของรายงานนี้
+    // ไฟล์ มข.11 ที่บันทึกในระบบแล้ว (โหมดแก้ไข)
+    (config.registrarFileSections || []).forEach((sec) => {
+        const n = Number(sec);
+        if (n > 0 && !window.regUploadBySection[n]) {
+            markRegUploadForSection(n, `Section ${n}`, 'saved');
+        }
+    });
+    // ไฟล์ที่ค้างใน session
+    (config.pendingRegistrarSections || []).forEach((row) => {
+        const n = Number(row?.section ?? row);
+        if (n > 0) {
+            markRegUploadForSection(n, row?.name || `Section ${n}`, 'pending');
+        }
+    });
+
+    // โหมดแก้ไขไม่ใช้ REG pending จาก session ของรายวิชาอื่นแบบรวม — ใช้ราย Section ด้านบน
     if (config.openedAsEdit) {
-        window.wizardHasPendingReg = false;
-        config.hasPendingRegistrar = false;
+        window.wizardHasPendingReg = Object.values(window.regUploadBySection).some((x) => x.source === 'pending');
+        config.hasPendingRegistrar = window.wizardHasPendingReg;
         config.cameFromUpload = false;
     } else {
-        window.wizardHasPendingReg = Boolean(config.hasPendingRegistrar || config.cameFromUpload);
+        window.wizardHasPendingReg = Boolean(
+            config.hasPendingRegistrar
+            || config.cameFromUpload
+            || Object.keys(window.regUploadBySection).length > 0
+        );
         if (window.wizardHasPendingReg) {
             config.regFilledFromPdf = true;
             if (!window.pendingRegFileName) {
@@ -2577,6 +2726,7 @@ function initGradeReportWizard(config) {
     }
     let step = restoreWizardState(config);
 
+    renderRegUploadSlots(config);
     syncWizardRegStatus(config);
 
     const go = (next) => {

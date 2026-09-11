@@ -40,6 +40,7 @@ class GradeReportPageController extends Controller
         ?array $prefillReport = null,
         bool $hasRegistrarFile = false,
         bool $hasExamReportFile = false,
+        array $registrarFileSections = [],
     ): View {
         $teacherHelpImageUrl = file_exists(public_path('images/teacher2.png'))
             ? asset('images/teacher2.png')
@@ -56,6 +57,8 @@ class GradeReportPageController extends Controller
 
         $term = (int) ($nav['returnTerm'] ?? AcademicTerm::defaultTerm());
         $year = (int) ($nav['returnYear'] ?? AcademicTerm::defaultYear());
+
+        $pendingReg = $this->pendingRegistrar->pendingBySection();
 
         return view('templade', [
             'reportId' => $reportId,
@@ -80,6 +83,8 @@ class GradeReportPageController extends Controller
             'hasPendingRegistrar' => $this->pendingRegistrar->hasPending(),
             'hasRegistrarFile' => $hasRegistrarFile,
             'hasExamReportFile' => $hasExamReportFile,
+            'registrarFileSections' => array_values(array_unique(array_map('intval', $registrarFileSections))),
+            'pendingRegistrarSections' => array_values($pendingReg),
         ]);
     }
 
@@ -138,9 +143,18 @@ class GradeReportPageController extends Controller
 
         $gradeReport->load(['gradeStds', 'files']);
 
-        $hasRegistrarFile = $gradeReport->files->contains(
-            fn ($file) => $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR
-        );
+        $registrarSections = [];
+        foreach ($gradeReport->files as $file) {
+            if ($file->resolvedType() !== GradeReportFile::TYPE_REGISTRAR) {
+                continue;
+            }
+            $sec = $file->resolvedSection($gradeReport);
+            if ($sec !== null && (int) $sec > 0) {
+                $registrarSections[] = (int) $sec;
+            }
+        }
+
+        $hasRegistrarFile = $registrarSections !== [];
         $hasExamReportFile = $gradeReport->files->contains(
             fn ($file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
         );
@@ -152,6 +166,7 @@ class GradeReportPageController extends Controller
             $gradeReports->formPayload($gradeReport),
             $hasRegistrarFile,
             $hasExamReportFile,
+            $registrarSections,
         );
     }
 
@@ -253,7 +268,9 @@ class GradeReportPageController extends Controller
         $data = $request->validate([
             'subject_code' => ['required', 'string', 'max:32'],
             'term' => ['required', 'integer', 'in:1,2,3'],
-            'year' => ['required', 'integer', 'min:2500', 'max:2600'],
+            'year' => ['required', 'integer', 'min:2500', 'max:2700'],
+            'expected_section' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'attach_only' => ['nullable', 'boolean'],
             'grade_file' => [
                 'required',
                 'file',
@@ -300,6 +317,16 @@ class GradeReportPageController extends Controller
         }
 
         $section = (int) ($parsed['grade_stds'][0]['sec'] ?? 0);
+        $expectedSection = isset($data['expected_section']) ? (int) $data['expected_section'] : 0;
+        if ($expectedSection > 0 && $section > 0 && $section !== $expectedSection) {
+            return response()->json([
+                'message' => "ไฟล์นี้เป็น Section {$section} แต่ช่องนี้ต้องการ Section {$expectedSection} — กรุณาอัปโหลดแบบฟอร์ม มข.11 ของ Section {$expectedSection}",
+            ], 422);
+        }
+        if ($expectedSection > 0 && $section <= 0) {
+            $section = $expectedSection;
+        }
+
         $canonicalName = $this->pdfParser->canonicalFilename(
             (string) ($parsed['subject_code'] ?? 'SUBJECT'),
             $section > 0 ? $section : 1,
@@ -312,14 +339,20 @@ class GradeReportPageController extends Controller
             'term' => (int) $parsed['term'],
             'year' => (int) $parsed['year'],
             'subject_code' => (string) $parsed['subject_code'],
-            'section' => $parsed['grade_stds'][0]['sec'] ?? null,
+            'section' => $section > 0 ? $section : ($parsed['grade_stds'][0]['sec'] ?? null),
             'owner' => auth()->id(),
         ]);
 
+        $attachOnly = $request->boolean('attach_only');
+
         return response()->json([
-            'message' => 'อ่านไฟล์ มข.11 สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น',
-            'parsed' => $parsed,
+            'message' => $attachOnly
+                ? "แนบแบบฟอร์ม มข.11 Section {$section} แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น"
+                : 'อ่านไฟล์ มข.11 สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น',
+            'parsed' => $attachOnly ? null : $parsed,
             'file_name' => $canonicalName,
+            'section' => $section > 0 ? $section : null,
+            'attach_only' => $attachOnly,
         ]);
     }
 

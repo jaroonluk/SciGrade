@@ -178,7 +178,7 @@ class InstructorPendingRegistrarService
     /**
      * @return list<array<string, mixed>>
      */
-    private function pendingItems(): array
+    public function pendingItems(): array
     {
         $queue = session(self::SESSION_QUEUE, []);
         if (is_array($queue) && $queue !== []) {
@@ -200,6 +200,44 @@ class InstructorPendingRegistrarService
             'section' => session(self::SESSION_SECTION),
             'owner' => session(self::SESSION_OWNER),
         ]];
+    }
+
+    /**
+     * @return array<int, array{section: int, name: string}>
+     */
+    public function pendingBySection(?string $subjectCode = null, ?int $term = null, ?int $year = null): array
+    {
+        $map = [];
+        foreach ($this->pendingItems() as $item) {
+            if ($subjectCode !== null) {
+                $itemSubject = Str::upper(trim((string) ($item['subject_code'] ?? '')));
+                if ($itemSubject !== Str::upper(trim($subjectCode))) {
+                    continue;
+                }
+            }
+            if ($term !== null && (int) ($item['term'] ?? 0) !== $term) {
+                continue;
+            }
+            if ($year !== null && (int) ($item['year'] ?? 0) !== $year) {
+                continue;
+            }
+
+            $section = isset($item['section']) && is_numeric($item['section'])
+                ? (int) $item['section']
+                : ($this->sectionFromName((string) ($item['name'] ?? '')) ?? 0);
+            if ($section <= 0) {
+                continue;
+            }
+
+            $map[$section] = [
+                'section' => $section,
+                'name' => (string) ($item['name'] ?? ''),
+            ];
+        }
+
+        ksort($map);
+
+        return $map;
     }
 
     /**

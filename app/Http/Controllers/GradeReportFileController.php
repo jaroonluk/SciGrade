@@ -124,13 +124,56 @@ class GradeReportFileController extends Controller
             );
         }
 
-        $gradeReport->load('files');
+        $gradeReport->load(['gradeStds', 'files']);
         $hasRegistrar = $gradeReport->files->contains(
             fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR
         ) || $registrarFiles !== [];
         $hasExam = $gradeReport->files->contains(
             fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
         ) || $examFile !== null;
+
+        $neededSections = $gradeReport->gradeStds
+            ->map(fn ($row) => (int) $row->sec)
+            ->filter(fn ($sec) => $sec > 0)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $haveSections = [];
+        foreach ($gradeReport->files as $file) {
+            if ($file->resolvedType() !== GradeReportFile::TYPE_REGISTRAR) {
+                continue;
+            }
+            $sec = $file->resolvedSection($gradeReport);
+            if ($sec !== null && (int) $sec > 0) {
+                $haveSections[(int) $sec] = true;
+            }
+        }
+        foreach ($registrarFiles as $file) {
+            $sec = $file->resolvedSection($gradeReport);
+            if ($sec !== null && (int) $sec > 0) {
+                $haveSections[(int) $sec] = true;
+            }
+        }
+
+        $missingSections = array_values(array_filter(
+            $neededSections,
+            fn (int $sec) => ! isset($haveSections[$sec]),
+        ));
+
+        if ($missingSections !== []) {
+            $label = implode(', ', $missingSections);
+
+            return response()->json([
+                'message' => "ยังแนบแบบฟอร์ม มข.11 ไม่ครบทุก Section (ขาด Section {$label})",
+                'hint' => 'กรุณาย้อนกลับไปขั้นตอนที่ 6 อัปโหลดไฟล์ มข.11 ให้ครบเท่าจำนวน Section ที่กรอก แล้วกดเสร็จสิ้นอีกครั้ง',
+                'missing_sections' => $missingSections,
+                'required_sections' => $neededSections,
+                'has_registrar' => $hasRegistrar,
+                'has_exam' => $hasExam,
+            ], 422);
+        }
 
         if (! $hasRegistrar || ! $hasExam) {
             $missing = [];

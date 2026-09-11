@@ -616,17 +616,19 @@
 
                     <div class="wizard-step space-y-4" data-wizard-step="6">
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
-                            <h3 class="font-bold text-[#5C2E1F]">แนบแบบฟอร์ม มข.11 (ใบส่งผลการศึกษา)</h3>
+                            <h3 class="font-bold text-[#5C2E1F]">แนบแบบฟอร์ม มข.11 ครบทุก Section</h3>
                             <p id="wizard-reg-help" class="text-sm text-[#7A4A3A]/80 leading-relaxed">
-                                หากกรอกจำนวนนักศึกษาเอง ต้องแนบไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียน
+                                ต้องอัปโหลดไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียน
                                 (<a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>)
-                                ก่อนจึงจะไปขั้นตอนถัดไปได้
-                                หากอัปโหลดไฟล์ มข.11 เพื่อกรอกข้อมูลแล้ว ระบบจะแสดงสถานะไฟล์ด้านล่าง — กดไปต่อได้
+                                ให้ครบเท่าจำนวน Section ที่กรอกในขั้นตอนที่ 5
+                                หากยังอัปโหลดไม่ครบ ระบบจะไม่อนุญาตให้ไปขั้นตอนถัดไป
                                 ไฟล์จะถูกอัปโหลดเข้าสู่ระบบจริงเมื่อแนบใบขวางครบและกดเสร็จสิ้น
                             </p>
-                            <input id="wizard-reg-upload" type="file" accept=".pdf,application/pdf"
-                                class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                            <p id="wizard-reg-summary" class="text-sm font-semibold text-[#5C2E1F]"></p>
+                            <div id="wizard-reg-uploads-list" class="space-y-3"></div>
                             <p id="wizard-reg-status" class="text-sm text-[#5C2E1F] font-medium"></p>
+                            {{-- ช่องอัปโหลดเดิมเก็บไว้เป็น fallback ซ่อน --}}
+                            <input id="wizard-reg-upload" type="file" accept=".pdf,application/pdf" class="hidden">
                         </div>
                     </div>
 
@@ -645,7 +647,7 @@
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
                             <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบ 2 ส่วนก่อนเสร็จสิ้น</p>
                             <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบอย่างแท้จริง</p>
-                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11 — ขั้นตอนที่ 6</p>
+                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11 ครบทุก Section — ขั้นตอนที่ 6</p>
                             <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบรายงานผลการสอบไล่ / ใบขวาง — ขั้นตอนที่ 8</p>
                         </div>
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
@@ -747,6 +749,8 @@
         const hasPendingRegistrar = @json($hasPendingRegistrar ?? false);
         const hasRegistrarFile = @json($hasRegistrarFile ?? false);
         const hasExamReportFile = @json($hasExamReportFile ?? false);
+        const registrarFileSections = @json($registrarFileSections ?? []);
+        const pendingRegistrarSections = @json($pendingRegistrarSections ?? []);
 
         window.wizardConfig = { currentReportId: reportId, openedAsEdit: Boolean(reportId) };
         initTempladeForm({ teacherHelpImageUrl });
@@ -781,6 +785,8 @@
             hasPendingRegistrar,
             hasRegistrarFile,
             hasExamReportFile,
+            registrarFileSections,
+            pendingRegistrarSections,
             returnUrl,
             dashboardUrl,
         }));
