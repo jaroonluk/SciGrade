@@ -53,19 +53,23 @@ class GradeReportAttachmentNameService
 
     /**
      * คัดลอกไฟล์ที่เก็บไว้แล้วไปยังโฟลเดอร์แนบของรายงาน (ใช้หลังอัปโหลด PDF จากสำนักทะเบียน)
+     *
+     * @param  string|null  $preferredFilename  ชื่อไฟล์ที่ต้องการ เช่น SC101011-01.pdf (ว่าง = ใช้ชื่อมาตรฐานของระบบ)
      */
     public function storeFromStoragePath(
         GradeReport $report,
         string $sourcePath,
         string $fileType = GradeReportFile::TYPE_REGISTRAR,
         ?int $sectionOverride = null,
+        ?string $preferredFilename = null,
     ): string {
         $directory = 'grade-report-files/'.$report->grade_id;
         if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
             $directory .= '/registrar';
         }
 
-        $filename = $this->generateDisplayName($report, $fileType, $sectionOverride);
+        $filename = $this->normalizePreferredFilename($preferredFilename)
+            ?? $this->generateDisplayName($report, $fileType, $sectionOverride);
         $disk = UploadStorage::disk();
 
         while ($disk->exists($directory.'/'.$filename)) {
@@ -83,6 +87,26 @@ class GradeReportAttachmentNameService
         }
 
         return $destination;
+    }
+
+    private function normalizePreferredFilename(?string $preferredFilename): ?string
+    {
+        if ($preferredFilename === null) {
+            return null;
+        }
+
+        $base = basename(str_replace('\\', '/', trim($preferredFilename)));
+        if ($base === '') {
+            return null;
+        }
+
+        if (! preg_match('/\.pdf$/i', $base)) {
+            $base .= '.pdf';
+        }
+
+        $safe = preg_replace('/[^\w.\-]+/u', '_', $base) ?: 'file.pdf';
+
+        return $safe;
     }
 
     private function baseName(GradeReport $report, string $fileType, ?int $sectionOverride = null): string

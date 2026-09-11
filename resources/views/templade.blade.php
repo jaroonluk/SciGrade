@@ -506,8 +506,10 @@
                                     อัปโหลดใบส่งผลการศึกษา (PDF) เพื่อกรอกจำนวนนักศึกษา
                                 </label>
                                 <p class="text-xs text-[#7A4A3A]/80">
-                                    ระบบจะตรวจรหัสวิชา ภาคการศึกษา และปีการศึกษาให้ตรงกับที่กรอกด้านบน
-                                    ไฟล์แบบฟอร์ม มข.11 จะถูกเก็บชั่วคราว และอัปโหลดเข้าสู่ระบบอย่างแท้จริงเมื่อแนบใบขวางครบแล้วกดเสร็จสิ้น
+                                    ตั้งชื่อไฟล์อย่างไรก็ได้ — ระบบอ่านกลุ่มเรียนจากเนื้อหา PDF แล้วตั้งชื่อเป็น
+                                    <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span>
+                                    ให้อัตโนมัติ (เช่น SC101011-01.pdf)
+                                    และตรวจรหัสวิชา ภาคการศึกษา ปีการศึกษาให้ตรงกับที่กรอกด้านบน
                                 </p>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <input id="section-pdf-upload" type="file" accept=".pdf,application/pdf"
@@ -621,13 +623,15 @@
                                 ต้องอัปโหลดไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียน
                                 (<a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>)
                                 ให้ครบเท่าจำนวน Section ที่กรอกในขั้นตอนที่ 5
-                                สามารถเลือกหลายไฟล์พร้อมกันได้ ระบบจะจับคู่ Section จากไฟล์ให้อัตโนมัติ
-                                หากยังอัปโหลดไม่ครบ ระบบจะไม่อนุญาตให้ไปขั้นตอนถัดไป
+                                <strong class="font-semibold text-[#5C2E1F]">ตั้งชื่อไฟล์อย่างไรก็ได้</strong>
+                                — ระบบจะตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ
+                                (เช่น SC101011-01.pdf) จากรหัสวิชาและกลุ่มเรียนในไฟล์
+                                สามารถเลือกหลายไฟล์พร้อมกันได้ หากยังอัปโหลดไม่ครบ ระบบจะไม่อนุญาตให้ไปขั้นตอนถัดไป
                             </p>
 
                             <div class="rounded-lg border border-dashed border-amber-400 bg-[#FFFBF7] p-4 space-y-2">
                                 <p class="text-sm font-semibold text-[#5C2E1F]">อัปโหลดหลายไฟล์พร้อมกัน</p>
-                                <p class="text-xs text-[#7A4A3A]/80">เลือกไฟล์ PDF มข.11 ได้หลายไฟล์ในครั้งเดียว (เช่น Section 1–3)</p>
+                                <p class="text-xs text-[#7A4A3A]/80">เลือกไฟล์ PDF มข.11 ได้หลายไฟล์ในครั้งเดียว (ตั้งชื่ออย่างไรก็ได้) ระบบจะจับคู่ Section และตั้งชื่อเป็นรหัสวิชา-กลุ่ม.pdf ให้เอง</p>
                                 <input id="wizard-reg-bulk-upload" type="file" accept=".pdf,application/pdf" multiple
                                     class="block w-full max-w-xl text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
                                 <p id="wizard-reg-bulk-status" class="text-xs text-[#7A4A3A]"></p>

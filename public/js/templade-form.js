@@ -2547,9 +2547,9 @@ function syncWizardRegStatus(config) {
     const progress = regUploadProgress();
 
     if (help) {
-        help.textContent = progress.total === 0
+        help.innerHTML = progress.total === 0
             ? 'กรุณาย้อนกลับไปขั้นตอนที่ 5 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section'
-            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 5 สามารถเลือกหลายไฟล์พร้อมกันได้ ระบบจะจับคู่ Section จากไฟล์ หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้';
+            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 5 <strong>ตั้งชื่อไฟล์อย่างไรก็ได้</strong> — ระบบตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ สามารถเลือกหลายไฟล์พร้อมกันได้ หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้';
     }
 
     if (!status) return;

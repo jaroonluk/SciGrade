@@ -113,17 +113,24 @@ class InstructorPendingRegistrarService
                     ? (int) $item['section']
                     : $this->sectionFromName((string) ($item['name'] ?? ''));
 
+                $canonicalName = (string) ($item['name'] ?? '');
+                if ($canonicalName === '' && $section !== null) {
+                    $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($item['subject_code'] ?? $report->subject_code)) ?: 'SUBJECT');
+                    $canonicalName = sprintf('%s-%02d.pdf', $code, (int) $section);
+                }
+
                 $storedPath = $this->attachmentNames->storeFromStoragePath(
                     $report,
                     $path,
                     GradeReportFile::TYPE_REGISTRAR,
                     $section,
+                    $canonicalName !== '' ? $canonicalName : null,
                 );
 
                 $record = GradeReportFile::query()->create([
                     'grade_id' => $report->grade_id,
                     'file_type' => GradeReportFile::TYPE_REGISTRAR,
-                    'original_name' => basename($storedPath),
+                    'original_name' => $canonicalName !== '' ? $canonicalName : basename($storedPath),
                     'stored_path' => $storedPath,
                     'uploaded_at' => now(),
                     'username' => $username,

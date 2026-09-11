@@ -405,7 +405,7 @@ class GradeReportPageController extends Controller
         }
 
         $canonicalName = $this->pdfParser->canonicalFilename(
-            (string) ($parsed['subject_code'] ?? 'SUBJECT'),
+            (string) ($data['subject_code'] ?? $parsed['subject_code'] ?? 'SUBJECT'),
             $section > 0 ? $section : 1,
         );
         $path = $uploaded->store('grade-uploads/'.auth()->id(), UploadStorage::diskName());
@@ -415,7 +415,7 @@ class GradeReportPageController extends Controller
             'name' => $canonicalName,
             'term' => (int) $parsed['term'],
             'year' => (int) $parsed['year'],
-            'subject_code' => (string) $parsed['subject_code'],
+            'subject_code' => (string) ($data['subject_code'] ?? $parsed['subject_code']),
             'section' => $section > 0 ? $section : ($parsed['grade_stds'][0]['sec'] ?? null),
             'owner' => auth()->id(),
         ]);
@@ -424,8 +424,8 @@ class GradeReportPageController extends Controller
 
         return response()->json([
             'message' => $attachOnly
-                ? "แนบแบบฟอร์ม มข.11 Section {$section} แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น"
-                : 'อ่านไฟล์ มข.11 สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น',
+                ? "แนบแบบฟอร์ม มข.11 Section {$section} แล้ว (ตั้งชื่อเป็น {$canonicalName}) — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น"
+                : "อ่านไฟล์ มข.11 สำเร็จ — ตั้งชื่อเป็น {$canonicalName} ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น",
             'parsed' => $attachOnly ? null : $parsed,
             'file_name' => $canonicalName,
             'section' => $section > 0 ? $section : null,
