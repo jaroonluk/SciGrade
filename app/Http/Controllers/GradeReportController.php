@@ -532,40 +532,23 @@ class GradeReportController extends Controller
             ->map(fn ($sec) => (int) $sec)
             ->all();
 
-        $conflicts = [];
+        $skipped = [];
         $toAdd = [];
         foreach ($stds as $std) {
             $sec = (int) ($std['sec'] ?? 0);
             if ($sec > 0 && in_array($sec, $existingSecs, true)) {
-                $conflicts[] = $sec;
+                // บันทึกซ้ำตอน wizard (เช่น ขั้น 5 แล้วขั้น 6) — ข้าม Section ที่มีแล้ว ไม่ error
+                $skipped[] = $sec;
                 continue;
             }
             $toAdd[] = $std;
         }
 
-        $conflicts = array_values(array_unique($conflicts));
-        if ($conflicts !== []) {
-            $filledBy = $this->resolveReportFillerName($report);
-            $isOwnReport = $this->ownsReport($report);
-
-            return response()->json([
-                'message' => $isOwnReport
-                    ? $this->duplicateOwnSectionMessage($report, $conflicts)
-                    : $this->duplicateSectionMessage($report, $conflicts),
-                'hint' => $isOwnReport
-                    ? 'Section นี้มีอยู่ในรายงานของท่านแล้ว — กรุณาเปิดแก้ไขรายงานเลขที่ '.$report->grade_id.' แทนการสร้างใหม่ หรือเลือก Section อื่น'
-                    : 'กรุณาเลือก Section อื่นที่ยังไม่มีการบันทึก หรือติดต่อผู้กรอกก่อนหน้าหากต้องการแก้ไขข้อมูลเดิม',
-                'conflict_sections' => $conflicts,
-                'filled_by' => $filledBy,
-                'grade_id' => $report->grade_id,
-            ], 422);
-        }
+        $skipped = array_values(array_unique($skipped));
 
         if ($toAdd === []) {
-            return response()->json([
-                'message' => 'ไม่มี Section ใหม่ให้เพิ่ม — Section ที่ส่งมาถูกบันทึกไว้แล้ว',
-                'filled_by' => $this->resolveReportFillerName($report),
-            ], 422);
+            // ไม่มี Section ใหม่ — คืนรายงานปัจจุบันให้ wizard ไปต่อได้
+            return response()->json($this->formatReport($report->loadMissing('gradeStds')));
         }
 
         DB::connection('scigrad')->transaction(function () use ($report, $toAdd, $data) {
@@ -590,6 +573,7 @@ class GradeReportController extends Controller
                     fn ($std) => (int) ($std['sec'] ?? 0),
                     $toAdd,
                 ))),
+                'skipped_sections' => $skipped,
             ],
         );
 

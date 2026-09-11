@@ -751,18 +751,18 @@ function isPriorReportedSection(sec) {
 
     const currentId = currentWizardReportId();
     const detail = window.priorSectionDetails?.[n];
+    const inCurrentForm = sectionStdRows.some((row) => Number(row.sec) === n);
 
-    // Section ของรายงานที่กำลังแก้ไขอยู่ — ไม่ถือว่า conflict
-    if (currentId && detail?.grade_id && String(detail.grade_id) === String(currentId)) {
+    // Section ของรายงานที่กำลังเปิด/แนบอยู่ และอยู่ในฟอร์มแล้ว
+    // (รวมกรณีบันทึกขั้น 5 แล้ว refresh แล้วบันทึกขั้น 6 ซ้ำ) — ไม่บล็อก
+    if (inCurrentForm && (window.wizardConfig?.openedAsEdit || window.appendingToPriorReport)) {
         return false;
     }
 
-    // โหมดแก้ไข: Section ที่โหลด/อยู่ในฟอร์มของรายงานนี้แล้ว ให้อัปเดตต่อได้
-    // (กันกรณี course-context ยังชี้ Section ของรายงานตัวเอง หรือรายงานซ้ำของผู้ใช้คนเดียวกัน)
-    if (window.wizardConfig?.openedAsEdit
-        && !window.appendingToPriorReport
-        && sectionStdRows.some((row) => Number(row.sec) === n)) {
-        return false;
+    if (currentId && detail?.grade_id && String(detail.grade_id) === String(currentId)) {
+        if (window.wizardConfig?.openedAsEdit || inCurrentForm) {
+            return false;
+        }
     }
 
     return true;
