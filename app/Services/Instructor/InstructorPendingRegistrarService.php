@@ -203,7 +203,7 @@ class InstructorPendingRegistrarService
     }
 
     /**
-     * @return array<int, array{section: int, name: string}>
+     * @return array<int, array{section: int, name: string, path: string}>
      */
     public function pendingBySection(?string $subjectCode = null, ?int $term = null, ?int $year = null): array
     {
@@ -232,12 +232,81 @@ class InstructorPendingRegistrarService
             $map[$section] = [
                 'section' => $section,
                 'name' => (string) ($item['name'] ?? ''),
+                'path' => (string) ($item['path'] ?? ''),
             ];
         }
 
         ksort($map);
 
         return $map;
+    }
+
+    /**
+     * @return array{path: string, name: string, term: int, year: int, subject_code: string, section: int|null, owner: mixed}|null
+     */
+    public function findPendingBySection(int $section): ?array
+    {
+        foreach ($this->pendingItems() as $item) {
+            $itemSection = isset($item['section']) && is_numeric($item['section'])
+                ? (int) $item['section']
+                : ($this->sectionFromName((string) ($item['name'] ?? '')) ?? 0);
+            if ($itemSection === $section) {
+                return $item;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ลบไฟล์ pending ตาม Section ออกจาก session (และลบไฟล์ชั่วคราวถ้ามี)
+     */
+    public function forgetSection(int $section): bool
+    {
+        $item = $this->findPendingBySection($section);
+        if ($item === null) {
+            return false;
+        }
+
+        $path = (string) ($item['path'] ?? '');
+        if ($path !== '') {
+            try {
+                UploadStorage::disk()->delete($path);
+            } catch (Throwable) {
+                // ignore missing temp object
+            }
+        }
+
+        $queue = array_values(array_filter(
+            $this->pendingItems(),
+            function ($row) use ($section) {
+                $rowSection = isset($row['section']) && is_numeric($row['section'])
+                    ? (int) $row['section']
+                    : ($this->sectionFromName((string) ($row['name'] ?? '')) ?? 0);
+
+                return $rowSection !== $section;
+            }
+        ));
+
+        if ($queue === []) {
+            $this->forgetSession();
+
+            return true;
+        }
+
+        $first = $queue[0];
+        session([
+            self::SESSION_QUEUE => $queue,
+            self::SESSION_PATH => $first['path'] ?? null,
+            self::SESSION_NAME => $first['name'] ?? null,
+            self::SESSION_TERM => $first['term'] ?? null,
+            self::SESSION_YEAR => $first['year'] ?? null,
+            self::SESSION_SUBJECT => $first['subject_code'] ?? null,
+            self::SESSION_SECTION => $first['section'] ?? null,
+            self::SESSION_OWNER => $first['owner'] ?? session(self::SESSION_OWNER),
+        ]);
+
+        return true;
     }
 
     /**

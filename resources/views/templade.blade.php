@@ -655,6 +655,7 @@
                             <p class="text-sm text-[#7A4A3A]/80">เลือกไฟล์ PDF ที่พิมพ์และลงนามแล้ว — เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดทั้ง มข.11 และใบขวางเข้าสู่ระบบพร้อมกัน</p>
                             <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                            <div id="wizard-exam-actions" class="hidden flex flex-wrap gap-2"></div>
                             <p id="wizard-exam-status" class="text-xs text-[#7A4A3A]"></p>
                         </div>
                     </div>
@@ -750,6 +751,8 @@
         const hasRegistrarFile = @json($hasRegistrarFile ?? false);
         const hasExamReportFile = @json($hasExamReportFile ?? false);
         const registrarFileSections = @json($registrarFileSections ?? []);
+        const registrarFileDetails = @json($registrarFileDetails ?? []);
+        const examFileDetail = @json($examFileDetail ?? null);
         const pendingRegistrarSections = @json($pendingRegistrarSections ?? []);
 
         window.wizardConfig = { currentReportId: reportId, openedAsEdit: Boolean(reportId) };
@@ -786,6 +789,8 @@
             hasRegistrarFile,
             hasExamReportFile,
             registrarFileSections,
+            registrarFileDetails,
+            examFileDetail,
             pendingRegistrarSections,
             returnUrl,
             dashboardUrl,

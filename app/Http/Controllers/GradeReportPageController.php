@@ -23,6 +23,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GradeReportPageController extends Controller
 {
@@ -33,6 +34,10 @@ class GradeReportPageController extends Controller
         private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
 
+    /**
+     * @param  list<array{section: int, file_id: int, name: string, view_url: string}>  $registrarFileDetails
+     * @param  array{file_id: int, name: string, view_url: string}|null  $examFileDetail
+     */
     private function formView(
         ?int $reportId,
         array $nav = [],
@@ -40,7 +45,8 @@ class GradeReportPageController extends Controller
         ?array $prefillReport = null,
         bool $hasRegistrarFile = false,
         bool $hasExamReportFile = false,
-        array $registrarFileSections = [],
+        array $registrarFileDetails = [],
+        ?array $examFileDetail = null,
     ): View {
         $teacherHelpImageUrl = file_exists(public_path('images/teacher2.png'))
             ? asset('images/teacher2.png')
@@ -59,6 +65,11 @@ class GradeReportPageController extends Controller
         $year = (int) ($nav['returnYear'] ?? AcademicTerm::defaultYear());
 
         $pendingReg = $this->pendingRegistrar->pendingBySection();
+        $registrarFileSections = array_values(array_unique(array_map(
+            fn ($row) => (int) ($row['section'] ?? 0),
+            $registrarFileDetails,
+        )));
+        $registrarFileSections = array_values(array_filter($registrarFileSections, fn ($sec) => $sec > 0));
 
         return view('templade', [
             'reportId' => $reportId,
@@ -83,8 +94,19 @@ class GradeReportPageController extends Controller
             'hasPendingRegistrar' => $this->pendingRegistrar->hasPending(),
             'hasRegistrarFile' => $hasRegistrarFile,
             'hasExamReportFile' => $hasExamReportFile,
-            'registrarFileSections' => array_values(array_unique(array_map('intval', $registrarFileSections))),
-            'pendingRegistrarSections' => array_values($pendingReg),
+            'registrarFileSections' => $registrarFileSections,
+            'registrarFileDetails' => array_values($registrarFileDetails),
+            'examFileDetail' => $examFileDetail,
+            'pendingRegistrarSections' => array_values(array_map(
+                fn ($row) => [
+                    'section' => (int) ($row['section'] ?? 0),
+                    'name' => (string) ($row['name'] ?? ''),
+                    'view_url' => route('grade-reports.pending-registrar.show', [
+                        'section' => (int) ($row['section'] ?? 0),
+                    ]),
+                ],
+                $pendingReg,
+            )),
         ]);
     }
 
@@ -143,21 +165,40 @@ class GradeReportPageController extends Controller
 
         $gradeReport->load(['gradeStds', 'files']);
 
-        $registrarSections = [];
+        $registrarFileDetails = [];
+        $examFileDetail = null;
         foreach ($gradeReport->files as $file) {
-            if ($file->resolvedType() !== GradeReportFile::TYPE_REGISTRAR) {
-                continue;
-            }
-            $sec = $file->resolvedSection($gradeReport);
-            if ($sec !== null && (int) $sec > 0) {
-                $registrarSections[] = (int) $sec;
+            $type = $file->resolvedType();
+            if ($type === GradeReportFile::TYPE_REGISTRAR) {
+                $sec = $file->resolvedSection($gradeReport);
+                if ($sec === null || (int) $sec <= 0) {
+                    continue;
+                }
+                $section = (int) $sec;
+                $registrarFileDetails[$section] = [
+                    'section' => $section,
+                    'file_id' => (int) $file->file_id,
+                    'name' => (string) ($file->registrarDisplayName($gradeReport) ?: $file->original_name),
+                    'view_url' => route('grade-reports.files.show', [
+                        'gradeReport' => $gradeReport->grade_id,
+                        'file' => $file->file_id,
+                    ]),
+                ];
+            } elseif ($type === GradeReportFile::TYPE_EXAM_REPORT && $examFileDetail === null) {
+                $examFileDetail = [
+                    'file_id' => (int) $file->file_id,
+                    'name' => (string) $file->original_name,
+                    'view_url' => route('grade-reports.files.show', [
+                        'gradeReport' => $gradeReport->grade_id,
+                        'file' => $file->file_id,
+                    ]),
+                ];
             }
         }
 
-        $hasRegistrarFile = $registrarSections !== [];
-        $hasExamReportFile = $gradeReport->files->contains(
-            fn ($file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
-        );
+        $registrarFileDetails = array_values($registrarFileDetails);
+        $hasRegistrarFile = $registrarFileDetails !== [];
+        $hasExamReportFile = $examFileDetail !== null;
 
         return $this->formView(
             $gradeReport->grade_id,
@@ -166,8 +207,44 @@ class GradeReportPageController extends Controller
             $gradeReports->formPayload($gradeReport),
             $hasRegistrarFile,
             $hasExamReportFile,
-            $registrarSections,
+            $registrarFileDetails,
+            $examFileDetail,
         );
+    }
+
+    public function showPendingRegistrar(int $section): StreamedResponse
+    {
+        abort_unless($section > 0, 404);
+
+        $item = $this->pendingRegistrar->findPendingBySection($section);
+        abort_unless($item !== null, 404);
+
+        $owner = $item['owner'] ?? null;
+        abort_unless($owner === null || (int) $owner === (int) auth()->id(), 403);
+
+        $path = (string) ($item['path'] ?? '');
+        abort_unless($path !== '' && UploadStorage::disk()->exists($path), 404);
+
+        $name = (string) ($item['name'] ?? "มข.11-Section-{$section}.pdf");
+
+        return UploadStorage::inlineResponse($path, $name, 'application/pdf');
+    }
+
+    public function destroyPendingRegistrar(int $section): JsonResponse
+    {
+        abort_unless($section > 0, 404);
+
+        $item = $this->pendingRegistrar->findPendingBySection($section);
+        if ($item === null) {
+            return response()->json(['ok' => true, 'removed' => false]);
+        }
+
+        $owner = $item['owner'] ?? null;
+        abort_unless($owner === null || (int) $owner === (int) auth()->id(), 403);
+
+        $this->pendingRegistrar->forgetSection($section);
+
+        return response()->json(['ok' => true, 'removed' => true]);
     }
 
     public function submitCorrections(GradeReport $gradeReport): RedirectResponse
@@ -353,6 +430,9 @@ class GradeReportPageController extends Controller
             'file_name' => $canonicalName,
             'section' => $section > 0 ? $section : null,
             'attach_only' => $attachOnly,
+            'view_url' => $section > 0
+                ? route('grade-reports.pending-registrar.show', ['section' => $section])
+                : null,
         ]);
     }
 

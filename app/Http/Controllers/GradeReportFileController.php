@@ -204,14 +204,24 @@ class GradeReportFileController extends Controller
             ],
         );
 
+        $examForResponse = $examFile ?? $gradeReport->files->first(
+            fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
+        );
+        $registrarForResponse = $registrarFiles !== []
+            ? $registrarFiles
+            : $gradeReport->files
+                ->filter(fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR)
+                ->values()
+                ->all();
+
         return response()->json([
             'message' => 'อัปโหลดแบบฟอร์ม มข.11 และใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบเรียบร้อยแล้ว',
             'registrar_attached' => count($registrarFiles),
             'exam_attached' => $examFile !== null,
             'has_registrar' => true,
             'has_exam' => true,
-            'exam_file' => $examFile ? $this->formatFile($examFile) : null,
-            'registrar_files' => array_map(fn (GradeReportFile $f) => $this->formatFile($f), $registrarFiles),
+            'exam_file' => $examForResponse ? $this->formatFile($examForResponse) : null,
+            'registrar_files' => array_map(fn (GradeReportFile $f) => $this->formatFile($f), $registrarForResponse),
         ]);
     }
 
