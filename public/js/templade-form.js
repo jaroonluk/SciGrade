@@ -744,8 +744,28 @@ function getCurrentFacString() {
 }
 
 function isPriorReportedSection(sec) {
-    return Array.isArray(window.priorReportedSections)
-        && window.priorReportedSections.includes(Number(sec));
+    const n = Number(sec);
+    if (!Array.isArray(window.priorReportedSections) || !window.priorReportedSections.includes(n)) {
+        return false;
+    }
+
+    const currentId = currentWizardReportId();
+    const detail = window.priorSectionDetails?.[n];
+
+    // Section ของรายงานที่กำลังแก้ไขอยู่ — ไม่ถือว่า conflict
+    if (currentId && detail?.grade_id && String(detail.grade_id) === String(currentId)) {
+        return false;
+    }
+
+    // โหมดแก้ไข: Section ที่โหลด/อยู่ในฟอร์มของรายงานนี้แล้ว ให้อัปเดตต่อได้
+    // (กันกรณี course-context ยังชี้ Section ของรายงานตัวเอง หรือรายงานซ้ำของผู้ใช้คนเดียวกัน)
+    if (window.wizardConfig?.openedAsEdit
+        && !window.appendingToPriorReport
+        && sectionStdRows.some((row) => Number(row.sec) === n)) {
+        return false;
+    }
+
+    return true;
 }
 
 function priorSectionContactName(sec) {
@@ -764,6 +784,10 @@ function priorSectionConflictMessage(sec) {
         || document.getElementById('subject-name')?.value
         || '').trim() || '-';
     const filledBy = priorSectionContactName(sec);
+    const priorId = detail?.grade_id;
+    if (priorId) {
+        return `รหัสวิชา ${code} ชื่อวิชา ${name} Section ${sec} ได้มีการบันทึกผลการส่งเกรดแล้วโดย ${filledBy} — กรุณาเปิดแก้ไขรายงานเดิม (เลขที่ ${priorId}) หรือเลือก Section อื่น`;
+    }
     return `รหัสวิชา ${code} ชื่อวิชา ${name} Section ${sec} ได้มีการบันทึกผลการส่งเกรดแล้ว กรุณาติดต่อ ${filledBy}`;
 }
 
@@ -1847,14 +1871,30 @@ function applyCourseContext(data) {
     const grouped = Boolean(data?.grouped && members.length);
     const prior = data?.prior && data.prior.exists ? data.prior : null;
 
-    window.priorReportedSections = Array.isArray(data?.reported_sections)
-        ? data.reported_sections.map((n) => Number(n)).filter((n) => n > 0)
-        : [];
     window.priorSectionDetails = {};
     (Array.isArray(data?.reported_section_details) ? data.reported_section_details : []).forEach((row) => {
         const sec = Number(row?.sec);
         if (sec > 0) window.priorSectionDetails[sec] = row;
     });
+
+    const currentId = currentWizardReportId();
+    let reported = Array.isArray(data?.reported_sections)
+        ? data.reported_sections.map((n) => Number(n)).filter((n) => n > 0)
+        : [];
+    // กรอง Section ของรายงานที่กำลังเปิดแก้ไขออกจากรายการ "ถูกบันทึกแล้ว"
+    if (currentId && !window.appendingToPriorReport) {
+        reported = reported.filter((sec) => {
+            const detail = window.priorSectionDetails[sec];
+            return !(detail?.grade_id && String(detail.grade_id) === String(currentId));
+        });
+        Object.keys(window.priorSectionDetails).forEach((sec) => {
+            const detail = window.priorSectionDetails[sec];
+            if (detail?.grade_id && String(detail.grade_id) === String(currentId)) {
+                delete window.priorSectionDetails[sec];
+            }
+        });
+    }
+    window.priorReportedSections = reported;
     window.courseGroupLocked = grouped;
     window.sharedFieldsLocked = Boolean(prior);
     window.priorSectionEvaEditable = Boolean(prior && Number(prior.statuseva) === 1);

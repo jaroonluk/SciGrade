@@ -456,6 +456,19 @@ class GradeReportController extends Controller
     }
 
     /**
+     * @param  list<int>  $sections
+     */
+    private function duplicateOwnSectionMessage(GradeReport $report, array $sections): string
+    {
+        $code = trim((string) $report->subject_code) ?: '-';
+        $name = trim((string) $report->subject) ?: '-';
+        $secLabel = implode(', ', array_map(fn (int $sec) => (string) $sec, $sections));
+        $gradeId = $report->grade_id;
+
+        return "รหัสวิชา {$code} ชื่อวิชา {$name} Section {$secLabel} มีอยู่ในรายงานของท่านแล้ว (เลขที่ {$gradeId}) — กรุณาเปิดแก้ไขรายงานเดิมแทนการสร้างใหม่";
+    }
+
+    /**
      * @param  Collection<int, GradeReport>  $reports
      * @return list<string>
      */
@@ -532,11 +545,19 @@ class GradeReportController extends Controller
 
         $conflicts = array_values(array_unique($conflicts));
         if ($conflicts !== []) {
+            $filledBy = $this->resolveReportFillerName($report);
+            $isOwnReport = $this->ownsReport($report);
+
             return response()->json([
-                'message' => $this->duplicateSectionMessage($report, $conflicts),
-                'hint' => 'กรุณาเลือก Section อื่นที่ยังไม่มีการบันทึก หรือติดต่อผู้กรอกก่อนหน้าหากต้องการแก้ไขข้อมูลเดิม',
+                'message' => $isOwnReport
+                    ? $this->duplicateOwnSectionMessage($report, $conflicts)
+                    : $this->duplicateSectionMessage($report, $conflicts),
+                'hint' => $isOwnReport
+                    ? 'Section นี้มีอยู่ในรายงานของท่านแล้ว — กรุณาเปิดแก้ไขรายงานเลขที่ '.$report->grade_id.' แทนการสร้างใหม่ หรือเลือก Section อื่น'
+                    : 'กรุณาเลือก Section อื่นที่ยังไม่มีการบันทึก หรือติดต่อผู้กรอกก่อนหน้าหากต้องการแก้ไขข้อมูลเดิม',
                 'conflict_sections' => $conflicts,
-                'filled_by' => $this->resolveReportFillerName($report),
+                'filled_by' => $filledBy,
+                'grade_id' => $report->grade_id,
             ], 422);
         }
 
