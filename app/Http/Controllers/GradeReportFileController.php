@@ -124,25 +124,26 @@ class GradeReportFileController extends Controller
             );
         }
 
-        $hasRegistrar = $gradeReport->files()
-            ->where('file_type', GradeReportFile::TYPE_REGISTRAR)
-            ->exists() || $registrarFiles !== [];
-        $hasExam = $gradeReport->files()
-            ->where('file_type', GradeReportFile::TYPE_EXAM_REPORT)
-            ->exists() || $examFile !== null;
+        $gradeReport->load('files');
+        $hasRegistrar = $gradeReport->files->contains(
+            fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR
+        ) || $registrarFiles !== [];
+        $hasExam = $gradeReport->files->contains(
+            fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
+        ) || $examFile !== null;
 
         if (! $hasRegistrar || ! $hasExam) {
             $missing = [];
             if (! $hasRegistrar) {
-                $missing[] = 'ใบส่งผลการศึกษา (REG)';
+                $missing[] = 'แบบฟอร์ม มข.11 (ใบส่งผลการศึกษา)';
             }
             if (! $hasExam) {
-                $missing[] = 'ใบขวางที่พิมพ์และลงนามแล้ว';
+                $missing[] = 'ใบรายงานผลการสอบไล่ (ใบขวาง)';
             }
 
             return response()->json([
                 'message' => 'ยังแนบไฟล์ไม่ครบ: '.implode(' และ ', $missing),
-                'hint' => 'เลือกไฟล์ให้ครบในขั้นตอนที่ 6 และ 8 แล้วกดเสร็จสิ้นอีกครั้ง — ระบบจะอัปโหลดเข้าฐานข้อมูลเมื่อทำครบทุกขั้นตอนเท่านั้น',
+                'hint' => 'เลือกแบบฟอร์ม มข.11 ในขั้นตอนที่ 6 และใบขวางในขั้นตอนที่ 8 แล้วกดเสร็จสิ้น — ระบบจะอัปโหลดทั้ง 2 ไฟล์เข้าสู่ระบบเมื่อทำครบเท่านั้น',
                 'registrar_attached' => count($registrarFiles),
                 'exam_attached' => $examFile !== null,
                 'has_registrar' => $hasRegistrar,
@@ -161,7 +162,7 @@ class GradeReportFileController extends Controller
         );
 
         return response()->json([
-            'message' => 'แนบไฟล์ครบและอัปโหลดเข้าสู่ระบบเรียบร้อยแล้ว',
+            'message' => 'อัปโหลดแบบฟอร์ม มข.11 และใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบเรียบร้อยแล้ว',
             'registrar_attached' => count($registrarFiles),
             'exam_attached' => $examFile !== null,
             'has_registrar' => true,

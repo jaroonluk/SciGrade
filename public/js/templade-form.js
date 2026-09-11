@@ -986,10 +986,13 @@ async function uploadSectionRegistrarPdf(file) {
 
         applyParsedSectionFromPdf(data.parsed);
         window.wizardHasPendingReg = true;
+        window.pendingRegFileName = data.file_name || file.name || 'ไฟล์ มข.11';
         if (window.wizardConfig) {
             window.wizardConfig.hasPendingRegistrar = true;
+            window.wizardConfig.regFilledFromPdf = true;
             persistWizardState(window.wizardConfig, 6);
             updateAttachmentChecklist(window.wizardConfig);
+            syncWizardRegStatus(window.wizardConfig);
         }
         if (statusEl) {
             statusEl.textContent = data.file_name
@@ -999,10 +1002,10 @@ async function uploadSectionRegistrarPdf(file) {
         const wizardRegStatus = document.getElementById('wizard-reg-status');
         if (wizardRegStatus) {
             wizardRegStatus.textContent = data.file_name
-                ? `เลือกไฟล์แล้ว: ${data.file_name} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`
-                : 'เลือกไฟล์ REG แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น';
+                ? `เลือกแบบฟอร์ม มข.11 แล้ว: ${data.file_name} — กดไปต่อได้ (จะอัปโหลดเข้าสู่ระบบเมื่อเสร็จสิ้น)`
+                : 'เลือกแบบฟอร์ม มข.11 แล้ว — กดไปต่อได้ (จะอัปโหลดเข้าสู่ระบบเมื่อเสร็จสิ้น)';
         }
-        showToast(data.message || 'อ่านไฟล์สำเร็จ', 'success');
+        showToast(data.message || 'อ่านไฟล์ มข.11 สำเร็จ', 'success');
     } catch (err) {
         showError(err?.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง');
     } finally {
@@ -2132,19 +2135,54 @@ function setupWizardRegUpload() {
 
 function hasRegistrarAttachment(config) {
     return Boolean(
-        window.wizardHasPendingReg
-        || config?.cameFromUpload
-        || config?.hasPendingRegistrar
-        || config?.hasRegistrarFile
+        config?.hasRegistrarFile
+        || window.wizardHasPendingReg
+        || (!config?.openedAsEdit && (config?.cameFromUpload || config?.hasPendingRegistrar))
     );
+}
+
+function syncWizardRegStatus(config) {
+    const status = document.getElementById('wizard-reg-status');
+    const help = document.getElementById('wizard-reg-help');
+    const pendingName = window.pendingRegFileName || '';
+
+    if (help) {
+        if (config?.hasRegistrarFile && !window.wizardHasPendingReg) {
+            help.textContent = 'รายงานนี้มีแบบฟอร์ม มข.11 ในระบบแล้ว — กดไปต่อได้ หรือเลือกไฟล์ใหม่เพื่อแทนที่เมื่อกดเสร็จสิ้น';
+        } else if (window.wizardHasPendingReg || config?.regFilledFromPdf) {
+            help.textContent = 'ตรวจพบว่ามีการเลือก/อ่านแบบฟอร์ม มข.11 แล้ว — ตรวจสอบสถานะด้านล่างแล้วกดไปต่อได้ ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น';
+        } else {
+            help.textContent = 'หากกรอกจำนวนนักศึกษาเอง ต้องแนบไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียนก่อนจึงจะไปขั้นตอนถัดไปได้ ไฟล์จะถูกอัปโหลดเข้าสู่ระบบจริงเมื่อแนบใบขวางครบและกดเสร็จสิ้น';
+        }
+    }
+
+    if (!status) return;
+
+    if (window.wizardHasPendingReg) {
+        status.textContent = pendingName
+            ? `สถานะ: เลือกแบบฟอร์ม มข.11 แล้ว (${pendingName}) — กดไปต่อได้`
+            : 'สถานะ: เลือกแบบฟอร์ม มข.11 แล้ว — กดไปต่อได้';
+        status.className = 'text-sm text-green-800 font-medium';
+        return;
+    }
+
+    if (config?.hasRegistrarFile) {
+        status.textContent = 'สถานะ: มีแบบฟอร์ม มข.11 ในระบบแล้ว — กดไปต่อได้ หรือเลือกไฟล์ใหม่เพื่อแทนที่';
+        status.className = 'text-sm text-green-800 font-medium';
+        return;
+    }
+
+    status.textContent = 'สถานะ: ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาเลือกไฟล์ก่อนไปต่อ';
+    status.className = 'text-sm text-red-700 font-medium';
 }
 
 function hasExamReportAttachment(config) {
     return Boolean(config?.hasExamReportFile || config?.hasPendingExam || window.pendingExamFile);
 }
 
-function shouldSkipRegStep(config) {
-    return hasRegistrarAttachment(config);
+function shouldSkipRegStep() {
+    // ไม่ข้ามขั้นตอนมข.11 — ให้ผู้ใช้เห็นสถานะไฟล์หรือแนบไฟล์ก่อนไปต่อเสมอ
+    return false;
 }
 
 function requiredAttachmentError(config) {
@@ -2152,12 +2190,12 @@ function requiredAttachmentError(config) {
     const hasExam = hasExamReportAttachment(config);
     if (hasReg && hasExam) return null;
     if (!hasReg && !hasExam) {
-        return 'กรุณาแนบไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น: ใบส่งผลการศึกษา (REG) ในขั้นตอนที่ 6 และใบขวางในขั้นตอนที่ 8';
+        return 'กรุณาแนบไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น: แบบฟอร์ม มข.11 ในขั้นตอนที่ 6 และใบรายงานผลการสอบไล่ (ใบขวาง) ในขั้นตอนที่ 8';
     }
     if (!hasReg) {
-        return 'ยังไม่ได้แนบใบส่งผลการศึกษา (REG) กรุณาย้อนกลับไปขั้นตอนที่ 6 เพื่ออัปโหลดไฟล์ก่อนเสร็จสิ้น';
+        return 'ยังไม่ได้แนบแบบฟอร์ม มข.11 กรุณาย้อนกลับไปขั้นตอนที่ 6 เพื่อเลือกไฟล์ก่อนเสร็จสิ้น';
     }
-    return 'ยังไม่ได้แนบใบขวาง กรุณาอัปโหลดไฟล์ PDF ที่พิมพ์และลงนามแล้วในขั้นตอนที่ 8 ก่อนเสร็จสิ้น';
+    return 'ยังไม่ได้แนบใบรายงานผลการสอบไล่ (ใบขวาง) กรุณาเลือกไฟล์ PDF ที่พิมพ์และลงนามแล้วในขั้นตอนที่ 8 ก่อนเสร็จสิ้น';
 }
 
 function updateAttachmentChecklist(config) {
@@ -2170,17 +2208,17 @@ function updateAttachmentChecklist(config) {
     if (regCheck) {
         regCheck.textContent = hasReg
             ? (config?.hasRegistrarFile
-                ? 'แนบใบส่งผลการศึกษา (REG) เข้าสู่ระบบแล้ว'
-                : 'เลือกไฟล์ REG แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น')
-            : 'ยังไม่ได้แนบใบส่งผลการศึกษา (REG) — ย้อนกลับไปขั้นตอนที่ 6';
+                ? 'แนบแบบฟอร์ม มข.11 เข้าสู่ระบบแล้ว'
+                : 'เลือกแบบฟอร์ม มข.11 แล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น')
+            : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — ย้อนกลับไปขั้นตอนที่ 6';
         regCheck.className = `text-sm ${hasReg ? 'text-green-800 font-medium' : 'text-red-700'}`;
     }
     if (examCheck) {
         examCheck.textContent = hasExam
             ? (config?.hasExamReportFile
-                ? 'แนบใบขวางเข้าสู่ระบบแล้ว'
-                : 'เลือกไฟล์ใบขวางแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น')
-            : 'ยังไม่ได้แนบใบขวาง — อัปโหลดในขั้นตอนนี้';
+                ? 'แนบใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบแล้ว'
+                : 'เลือกใบขวางแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น')
+            : 'ยังไม่ได้แนบใบรายงานผลการสอบไล่ (ใบขวาง) — อัปโหลดในขั้นตอนนี้';
         examCheck.className = `text-sm ${hasExam ? 'text-green-800 font-medium' : 'text-red-700'}`;
     }
     if (box) {
@@ -2190,23 +2228,19 @@ function updateAttachmentChecklist(config) {
         box.classList.toggle('bg-[#FFFBF7]', !(hasReg && hasExam));
     }
 
-    const regStatus = document.getElementById('wizard-reg-status');
-    if (regStatus && hasReg && !regStatus.textContent) {
-        regStatus.textContent = 'แนบไฟล์ REG แล้ว';
-    }
+    syncWizardRegStatus(config);
+
     const examStatus = document.getElementById('wizard-exam-status');
     if (examStatus && hasExam && !examStatus.textContent) {
-        examStatus.textContent = 'แนบใบขวางแล้ว';
+        examStatus.textContent = 'เลือกใบขวางแล้ว';
     }
 }
 
-function nextWizardStep(current, config) {
-    if (current === 5 && shouldSkipRegStep(config)) return 7;
+function nextWizardStep(current) {
     return current + 1;
 }
 
-function prevWizardStep(current, config) {
-    if (current === 7 && shouldSkipRegStep(config)) return 5;
+function prevWizardStep(current) {
     return current - 1;
 }
 
@@ -2246,7 +2280,7 @@ function validateWizardStep(step, config) {
         return validateEvaluationScores(collectGradeReportPayload());
     }
     if (step === 6 && !hasRegistrarAttachment(config)) {
-        return 'กรุณาแนบใบส่งผลการศึกษา (REG) ก่อนไปขั้นตอนถัดไป';
+        return 'กรุณาแนบแบบฟอร์ม มข.11 (ใบส่งผลการศึกษาจากสำนักทะเบียน) ก่อนไปขั้นตอนถัดไป — หากกรอกข้อมูลเองต้องเลือกไฟล์ PDF มข.11 ในขั้นตอนนี้';
     }
     if (step === 8) {
         return requiredAttachmentError(config);
@@ -2275,6 +2309,7 @@ function showWizardStep(step, config) {
         applyGraduateFacultyDefault();
         refreshCourseContext();
     }
+    if (step === 6) syncWizardRegStatus(config);
     updateAttachmentChecklist(config);
 }
 
@@ -2370,12 +2405,19 @@ async function stageExamReport(config, file) {
     }
     persistWizardState(config, 8);
     updateAttachmentChecklist(config);
-    showToast('เลือกไฟล์ใบขวางแล้ว — กดเสร็จสิ้นเพื่ออัปโหลดเข้าสู่ระบบ', 'success');
+    showToast('เลือกใบขวางแล้ว — กดเสร็จสิ้นเพื่ออัปโหลด มข.11 และใบขวางเข้าสู่ระบบ', 'success');
 }
 
 async function finalizeWizardAttachments(config) {
     if (!config.currentReportId) {
         return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณาย้อนกลับไปกด «บันทึกแล้วไปต่อ» ที่ขั้นตอนที่ 5' };
+    }
+
+    if (!hasRegistrarAttachment(config)) {
+        return { ok: false, error: 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาย้อนกลับไปขั้นตอนที่ 6' };
+    }
+    if (!hasExamReportAttachment(config)) {
+        return { ok: false, error: 'ยังไม่ได้เลือกใบรายงานผลการสอบไล่ (ใบขวาง) — กรุณาเลือกไฟล์ในขั้นตอนนี้ก่อนกดเสร็จสิ้น' };
     }
 
     const overlay = document.getElementById('save-overlay');
@@ -2409,26 +2451,38 @@ async function finalizeWizardAttachments(config) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             const msg = [data.message, data.hint].filter(Boolean).join(' — ')
-                || 'แนบไฟล์เข้าสู่ระบบไม่สำเร็จ';
+                || 'อัปโหลดไฟล์เข้าสู่ระบบไม่สำเร็จ';
             throw new Error(msg);
         }
 
         window.pendingExamFile = null;
+        window.pendingRegFileName = null;
         config.hasPendingExam = false;
         config.hasExamReportFile = true;
         config.hasRegistrarFile = true;
         window.wizardHasPendingReg = false;
         config.hasPendingRegistrar = false;
+        config.regFilledFromPdf = false;
 
         loading?.classList.add('hidden');
+        const successMsg = document.getElementById('save-overlay-success-msg');
+        if (successMsg) {
+            successMsg.textContent = data.message
+                || 'อัปโหลดแบบฟอร์ม มข.11 และใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบเรียบร้อยแล้ว';
+        }
+        success?.classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        await new Promise((resolve) => setTimeout(resolve, 900));
         overlay?.classList.add('hidden');
+        success?.classList.add('hidden');
         document.body.style.overflow = '';
         updateAttachmentChecklist(config);
+        showToast('อัปโหลด มข.11 และใบขวางเข้าสู่ระบบเรียบร้อย', 'success');
         return { ok: true, data };
     } catch (err) {
         loading?.classList.add('hidden');
         const errorMsg = document.getElementById('save-overlay-error-msg');
-        const message = err?.message || 'แนบไฟล์เข้าสู่ระบบไม่สำเร็จ';
+        const message = err?.message || 'อัปโหลดไฟล์เข้าสู่ระบบไม่สำเร็จ';
         if (errorMsg) errorMsg.textContent = message;
         errorBox?.classList.remove('hidden');
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -2437,13 +2491,16 @@ async function finalizeWizardAttachments(config) {
     }
 }
 
-function wizardStorageKey() {
+function wizardStorageKey(config = window.wizardConfig) {
+    if (config?.openedAsEdit && config?.currentReportId) {
+        return `scigrade.wizard.edit.${config.currentReportId}`;
+    }
     return 'scigrade.wizard.create';
 }
 
 function persistWizardState(config, step) {
     try {
-        sessionStorage.setItem(wizardStorageKey(), JSON.stringify({
+        sessionStorage.setItem(wizardStorageKey(config), JSON.stringify({
             reportId: config.currentReportId || null,
             step,
             hasRegistrarFile: Boolean(config.hasRegistrarFile),
@@ -2459,7 +2516,7 @@ function persistWizardState(config, step) {
 
 function restoreWizardState(config) {
     try {
-        const saved = JSON.parse(sessionStorage.getItem(wizardStorageKey()) || 'null');
+        const saved = JSON.parse(sessionStorage.getItem(wizardStorageKey(config)) || 'null');
         if (!saved || typeof saved !== 'object') return 1;
 
         if (config.currentReportId && saved.reportId && String(saved.reportId) !== String(config.currentReportId)) {
@@ -2469,7 +2526,7 @@ function restoreWizardState(config) {
             config.currentReportId = String(saved.reportId);
         }
         if (saved.hasRegistrarFile) config.hasRegistrarFile = true;
-        if (saved.hasPendingRegistrar) {
+        if (saved.hasPendingRegistrar && !config.openedAsEdit) {
             config.hasPendingRegistrar = true;
             window.wizardHasPendingReg = true;
         }
@@ -2486,9 +2543,9 @@ function restoreWizardState(config) {
     }
 }
 
-function clearWizardState() {
+function clearWizardState(config = window.wizardConfig) {
     try {
-        sessionStorage.removeItem(wizardStorageKey());
+        sessionStorage.removeItem(wizardStorageKey(config));
     } catch {
         /* ignore */
     }
@@ -2501,8 +2558,26 @@ function printReportUrl(reportId) {
 function initGradeReportWizard(config) {
     config.openedAsEdit = Boolean(config.openedAsEdit);
     window.wizardConfig = config;
-    window.wizardHasPendingReg = Boolean(config.hasPendingRegistrar || config.cameFromUpload);
+    window.pendingExamFile = window.pendingExamFile || null;
+    window.pendingRegFileName = window.pendingRegFileName || null;
+
+    // โหมดแก้ไขไม่ใช้ REG pending จาก session ของรายวิชาอื่น — นับเฉพาะไฟล์ของรายงานนี้
+    if (config.openedAsEdit) {
+        window.wizardHasPendingReg = false;
+        config.hasPendingRegistrar = false;
+        config.cameFromUpload = false;
+    } else {
+        window.wizardHasPendingReg = Boolean(config.hasPendingRegistrar || config.cameFromUpload);
+        if (window.wizardHasPendingReg) {
+            config.regFilledFromPdf = true;
+            if (!window.pendingRegFileName) {
+                window.pendingRegFileName = 'ไฟล์ มข.11 ที่อัปโหลดไว้';
+            }
+        }
+    }
     let step = restoreWizardState(config);
+
+    syncWizardRegStatus(config);
 
     const go = (next) => {
         step = next;

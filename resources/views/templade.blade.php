@@ -199,7 +199,7 @@
                         3 => 'ช่วงคะแนน',
                         4 => 'ประเมินรายวิชา',
                         5 => 'จำนวนนักศึกษา',
-                        6 => 'แนบ REG',
+                        6 => 'แนบ มข.11',
                         7 => 'พิมพ์ใบขวาง',
                         8 => 'อัปโหลดใบขวาง',
                     ] as $n => $label)
@@ -507,7 +507,7 @@
                                 </label>
                                 <p class="text-xs text-[#7A4A3A]/80">
                                     ระบบจะตรวจรหัสวิชา ภาคการศึกษา และปีการศึกษาให้ตรงกับที่กรอกด้านบน
-                                    ไฟล์จะถูกเก็บชั่วคราว และอัปโหลดเข้าสู่ระบบอย่างสมบูรณ์เมื่อกด「เสร็จสิ้น」ครบทุกขั้นตอน
+                                    ไฟล์แบบฟอร์ม มข.11 จะถูกเก็บชั่วคราว และอัปโหลดเข้าสู่ระบบอย่างแท้จริงเมื่อแนบใบขวางครบแล้วกดเสร็จสิ้น
                                 </p>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <input id="section-pdf-upload" type="file" accept=".pdf,application/pdf"
@@ -616,16 +616,17 @@
 
                     <div class="wizard-step space-y-4" data-wizard-step="6">
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
-                            <h3 class="font-bold text-[#5C2E1F]">แนบใบส่งผลการศึกษา (REG)</h3>
-                            <p class="text-sm text-[#7A4A3A]/80 leading-relaxed">
-                                กรณีกรอกข้อมูลเอง กรุณาดาวน์โหลดใบส่งผลการศึกษาจากสำนักทะเบียน
-                                <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>
-                                แล้วเลือกไฟล์ PDF ที่นี่ (ยังไม่อัปโหลดเข้าฐานจนกว่าจะกดเสร็จสิ้น)
-                                ต้องมีไฟล์นี้ก่อนจึงจะเสร็จสิ้นได้ หากเลือกไว้แล้วในขั้นตอนที่ 5 ระบบจะข้ามขั้นตอนนี้ให้อัตโนมัติ
+                            <h3 class="font-bold text-[#5C2E1F]">แนบแบบฟอร์ม มข.11 (ใบส่งผลการศึกษา)</h3>
+                            <p id="wizard-reg-help" class="text-sm text-[#7A4A3A]/80 leading-relaxed">
+                                หากกรอกจำนวนนักศึกษาเอง ต้องแนบไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียน
+                                (<a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>)
+                                ก่อนจึงจะไปขั้นตอนถัดไปได้
+                                หากอัปโหลดไฟล์ มข.11 เพื่อกรอกข้อมูลแล้ว ระบบจะแสดงสถานะไฟล์ด้านล่าง — กดไปต่อได้
+                                ไฟล์จะถูกอัปโหลดเข้าสู่ระบบจริงเมื่อแนบใบขวางครบและกดเสร็จสิ้น
                             </p>
                             <input id="wizard-reg-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
-                            <p id="wizard-reg-status" class="text-xs text-[#7A4A3A]"></p>
+                            <p id="wizard-reg-status" class="text-sm text-[#5C2E1F] font-medium"></p>
                         </div>
                     </div>
 
@@ -642,14 +643,14 @@
 
                     <div class="wizard-step space-y-4" data-wizard-step="8">
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
-                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องเลือกไฟล์ให้ครบ 2 ส่วนก่อนเสร็จสิ้น</p>
-                            <p class="text-xs text-[#7A4A3A]/80">ไฟล์จะถูกอัปโหลดเข้าสู่ระบบอย่างสมบูรณ์เมื่อกด「เสร็จสิ้น」เท่านั้น</p>
-                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">ใบส่งผลการศึกษา (REG) — ขั้นตอนที่ 6</p>
-                            <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบขวางที่พิมพ์และลงนามแล้ว — ขั้นตอนที่ 8</p>
+                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบ 2 ส่วนก่อนเสร็จสิ้น</p>
+                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบอย่างแท้จริง</p>
+                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11 — ขั้นตอนที่ 6</p>
+                            <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบรายงานผลการสอบไล่ / ใบขวาง — ขั้นตอนที่ 8</p>
                         </div>
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
-                            <h3 class="font-bold text-[#5C2E1F]">อัปโหลดรายงานผลการสอบไล่ (ใบขวาง)</h3>
-                            <p class="text-sm text-[#7A4A3A]/80">กรุณาเลือกไฟล์ PDF ที่พิมพ์และลงนามแล้ว — ระบบจะอัปโหลดเข้าสู่ระบบเมื่อกด「เสร็จสิ้น」ครบทุกขั้นตอนเท่านั้น</p>
+                            <h3 class="font-bold text-[#5C2E1F]">อัปโหลดใบรายงานผลการสอบไล่ (ใบขวาง)</h3>
+                            <p class="text-sm text-[#7A4A3A]/80">เลือกไฟล์ PDF ที่พิมพ์และลงนามแล้ว — เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดทั้ง มข.11 และใบขวางเข้าสู่ระบบพร้อมกัน</p>
                             <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
                             <p id="wizard-exam-status" class="text-xs text-[#7A4A3A]"></p>
@@ -671,8 +672,9 @@
                     </div>
                     <h3 class="text-xl font-bold text-green-900">ดำเนินการรายงานผลการสอบไล่เรียบร้อยแล้ว</h3>
                     <p class="mt-2 text-sm text-[#5C2E1F] leading-relaxed max-w-xl mx-auto">
-                        ระบบบันทึกข้อมูลรายวิชาและอัปโหลดไฟล์แนบ (REG + ใบขวาง) เข้าสู่ระบบเรียบร้อยแล้ว
-                        ท่านสามารถกลับหน้าหลักเพื่อกรอกผลการสอบรายวิชาถัดไป หรือไปติดตามสถานะที่ส่งแล้ว
+                        ระบบบันทึกข้อมูลรายวิชาและอัปโหลดไฟล์แนบครบแล้ว
+                        (แบบฟอร์ม มข.11 + ใบรายงานผลการสอบไล่ / ใบขวาง)
+                        ท่านสามารถกลับหน้าหลักเพื่อกรอกรายวิชาถัดไป หรือไปติดตามสถานะที่ส่งแล้ว
                     </p>
                     <div class="mt-6 flex flex-wrap justify-center gap-3">
                         <a href="{{ $dashboardUrl }}" class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-semibold hover:bg-[#6B3410]">

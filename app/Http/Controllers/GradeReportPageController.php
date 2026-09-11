@@ -317,7 +317,7 @@ class GradeReportPageController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'อ่านไฟล์สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน',
+            'message' => 'อ่านไฟล์ มข.11 สำเร็จ — กรอกจำนวนนักศึกษาให้แล้ว ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น',
             'parsed' => $parsed,
             'file_name' => $canonicalName,
         ]);
