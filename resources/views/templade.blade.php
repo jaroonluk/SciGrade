@@ -615,19 +615,28 @@
                     </div>
 
                     <div class="wizard-step space-y-4" data-wizard-step="6">
-                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
+                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
                             <h3 class="font-bold text-[#5C2E1F]">แนบแบบฟอร์ม มข.11 ครบทุก Section</h3>
                             <p id="wizard-reg-help" class="text-sm text-[#7A4A3A]/80 leading-relaxed">
                                 ต้องอัปโหลดไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียน
                                 (<a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>)
                                 ให้ครบเท่าจำนวน Section ที่กรอกในขั้นตอนที่ 5
+                                สามารถเลือกหลายไฟล์พร้อมกันได้ ระบบจะจับคู่ Section จากไฟล์ให้อัตโนมัติ
                                 หากยังอัปโหลดไม่ครบ ระบบจะไม่อนุญาตให้ไปขั้นตอนถัดไป
-                                ไฟล์จะถูกอัปโหลดเข้าสู่ระบบจริงเมื่อแนบใบขวางครบและกดเสร็จสิ้น
                             </p>
+
+                            <div class="rounded-lg border border-dashed border-amber-400 bg-[#FFFBF7] p-4 space-y-2">
+                                <p class="text-sm font-semibold text-[#5C2E1F]">อัปโหลดหลายไฟล์พร้อมกัน</p>
+                                <p class="text-xs text-[#7A4A3A]/80">เลือกไฟล์ PDF มข.11 ได้หลายไฟล์ในครั้งเดียว (เช่น Section 1–3)</p>
+                                <input id="wizard-reg-bulk-upload" type="file" accept=".pdf,application/pdf" multiple
+                                    class="block w-full max-w-xl text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                                <p id="wizard-reg-bulk-status" class="text-xs text-[#7A4A3A]"></p>
+                            </div>
+
                             <p id="wizard-reg-summary" class="text-sm font-semibold text-[#5C2E1F]"></p>
+                            <ul id="wizard-reg-completeness" class="grid gap-1.5 sm:grid-cols-2 text-sm"></ul>
                             <div id="wizard-reg-uploads-list" class="space-y-3"></div>
                             <p id="wizard-reg-status" class="text-sm text-[#5C2E1F] font-medium"></p>
-                            {{-- ช่องอัปโหลดเดิมเก็บไว้เป็น fallback ซ่อน --}}
                             <input id="wizard-reg-upload" type="file" accept=".pdf,application/pdf" class="hidden">
                         </div>
                     </div>
@@ -653,6 +662,7 @@
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
                             <h3 class="font-bold text-[#5C2E1F]">อัปโหลดใบรายงานผลการสอบไล่ (ใบขวาง)</h3>
                             <p class="text-sm text-[#7A4A3A]/80">เลือกไฟล์ PDF ที่พิมพ์และลงนามแล้ว — เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดทั้ง มข.11 และใบขวางเข้าสู่ระบบพร้อมกัน</p>
+                            <div id="wizard-exam-file-row" class="hidden"></div>
                             <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
                             <div id="wizard-exam-actions" class="hidden flex flex-wrap gap-2"></div>

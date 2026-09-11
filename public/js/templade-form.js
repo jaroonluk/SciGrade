@@ -921,15 +921,16 @@ function applyParsedSectionFromPdf(parsed) {
 async function uploadSectionRegistrarPdf(file, options = {}) {
     const attachOnly = Boolean(options.attachOnly);
     const expectedSection = options.expectedSection != null ? Number(options.expectedSection) : null;
-    const statusEl = attachOnly
+    const silentToast = Boolean(options.silentToast);
+    const statusEl = attachOnly && expectedSection
         ? document.getElementById(`wizard-reg-status-${expectedSection}`)
-        : document.getElementById('section-pdf-upload-status');
-    const errorEl = attachOnly
+        : (attachOnly ? null : document.getElementById('section-pdf-upload-status'));
+    const errorEl = attachOnly && expectedSection
         ? document.getElementById(`wizard-reg-error-${expectedSection}`)
-        : document.getElementById('section-pdf-upload-error');
-    const input = attachOnly
+        : (attachOnly ? null : document.getElementById('section-pdf-upload-error'));
+    const input = attachOnly && expectedSection
         ? document.getElementById(`wizard-reg-input-${expectedSection}`)
-        : document.getElementById('section-pdf-upload');
+        : (attachOnly ? document.getElementById('wizard-reg-bulk-upload') : document.getElementById('section-pdf-upload'));
 
     const showError = (msg) => {
         if (errorEl) {
@@ -937,7 +938,7 @@ async function uploadSectionRegistrarPdf(file, options = {}) {
             errorEl.classList.remove('hidden');
         }
         if (statusEl && !attachOnly) statusEl.textContent = '';
-        showToast(msg, 'error');
+        if (!silentToast) showToast(msg, 'error');
     };
 
     if (errorEl) {
@@ -951,14 +952,16 @@ async function uploadSectionRegistrarPdf(file, options = {}) {
     const year = document.getElementById('year-input')?.value;
 
     if (!subjectCode) {
-        showError('กรุณากรอกรหัสวิชาก่อนอัปโหลดไฟล์ หรือกรอกจำนวนนักศึกษาเอง');
-        if (input) input.value = '';
-        return;
+        const msg = 'กรุณากรอกรหัสวิชาก่อนอัปโหลดไฟล์ หรือกรอกจำนวนนักศึกษาเอง';
+        showError(msg);
+        if (input && !options.keepInput) input.value = '';
+        return { ok: false, error: msg };
     }
     if (!term || !year) {
-        showError('กรุณาเลือกภาคการศึกษาและปีการศึกษาก่อนอัปโหลดไฟล์ หรือกรอกจำนวนนักศึกษาเอง');
-        if (input) input.value = '';
-        return;
+        const msg = 'กรุณาเลือกภาคการศึกษาและปีการศึกษาก่อนอัปโหลดไฟล์ หรือกรอกจำนวนนักศึกษาเอง';
+        showError(msg);
+        if (input && !options.keepInput) input.value = '';
+        return { ok: false, error: msg };
     }
 
     if (statusEl) statusEl.textContent = attachOnly ? 'กำลังอัปโหลด...' : 'กำลังอ่านไฟล์...';
@@ -997,6 +1000,33 @@ async function uploadSectionRegistrarPdf(file, options = {}) {
         }
 
         const sec = Number(data.section || data.parsed?.grade_stds?.[0]?.sec || expectedSection || 0);
+        if (attachOnly && sec > 0) {
+            const required = requiredRegSections();
+            if (required.length && !required.includes(sec)) {
+                throw new Error(`ไฟล์นี้เป็น Section ${sec} ซึ่งไม่อยู่ในรายการที่ต้องแนบ (${required.join(', ')})`);
+            }
+            // ถ้า Section นี้มีไฟล์บันทึกในระบบแล้ว ให้ลบก่อนแล้วค่อยแทนด้วยไฟล์ใหม่
+            const existing = window.regUploadBySection[sec];
+            if (existing?.source === 'saved') {
+                const fileId = resolveSavedRegFileId(sec, existing, window.wizardConfig);
+                if (window.wizardConfig?.currentReportId && fileId) {
+                    const delRes = await fetch(`/api/grade-reports/${window.wizardConfig.currentReportId}/files/${fileId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            Accept: 'application/json',
+                        },
+                        credentials: 'same-origin',
+                    });
+                    if (!delRes.ok) {
+                        const delData = await delRes.json().catch(() => ({}));
+                        throw new Error(delData.message || `ไม่สามารถแทนที่ไฟล์ Section ${sec} ได้`);
+                    }
+                }
+            }
+        }
+
         markRegUploadForSection(sec, data.file_name || file.name || 'ไฟล์ มข.11', 'pending', {
             viewUrl: data.view_url || (sec > 0 ? `/grade-reports/pending-registrar/${sec}` : null),
         });
@@ -1010,21 +1040,28 @@ async function uploadSectionRegistrarPdf(file, options = {}) {
         if (window.wizardConfig) {
             window.wizardConfig.hasPendingRegistrar = true;
             window.wizardConfig.regFilledFromPdf = true;
-            persistWizardState(window.wizardConfig, attachOnly ? 6 : 5);
-            updateAttachmentChecklist(window.wizardConfig);
-            renderRegUploadSlots(window.wizardConfig);
-            syncWizardRegStatus(window.wizardConfig);
+            if (!options.skipRender) {
+                persistWizardState(window.wizardConfig, attachOnly ? 6 : 5);
+                updateAttachmentChecklist(window.wizardConfig);
+                renderRegUploadSlots(window.wizardConfig);
+                syncWizardRegStatus(window.wizardConfig);
+            }
         }
         if (statusEl && !attachOnly) {
             statusEl.textContent = data.file_name
                 ? `อ่านสำเร็จ: ${data.file_name}`
                 : 'อ่านไฟล์สำเร็จ';
         }
-        showToast(data.message || 'แนบแบบฟอร์ม มข.11 สำเร็จ', 'success');
+        if (!silentToast) {
+            showToast(data.message || 'แนบแบบฟอร์ม มข.11 สำเร็จ', 'success');
+        }
+        return { ok: true, section: sec, fileName: data.file_name || file.name };
     } catch (err) {
-        showError(err?.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง');
+        const msg = err?.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง';
+        showError(msg);
+        return { ok: false, error: msg };
     } finally {
-        if (input) input.value = '';
+        if (input && !options.keepInput) input.value = '';
     }
 }
 
@@ -2209,6 +2246,45 @@ function hasRegistrarAttachment(config) {
     );
 }
 
+function pdfFileIconHtml() {
+    return `<span class="inline-flex h-10 w-8 shrink-0 items-center justify-center rounded bg-[#E53935] text-[10px] font-bold leading-none text-white shadow-sm" aria-hidden="true">PDF</span>`;
+}
+
+function regViewUrlForSection(sec, info = window.regUploadBySection[sec]) {
+    if (!info) return null;
+    if (info.viewUrl) return info.viewUrl;
+    if (info.source === 'pending') return `/grade-reports/pending-registrar/${sec}`;
+    const fileId = resolveSavedRegFileId(sec, info, window.wizardConfig);
+    const reportId = window.wizardConfig?.currentReportId;
+    if (info.source === 'saved' && reportId && fileId) {
+        return `/grade-reports/${reportId}/files/${fileId}`;
+    }
+    return null;
+}
+
+function resolveSavedRegFileId(sec, info, config = window.wizardConfig) {
+    if (info?.fileId) return Number(info.fileId);
+    const detail = (config?.registrarFileDetails || []).find((row) => Number(row.section) === Number(sec));
+    return detail?.file_id != null ? Number(detail.file_id) : null;
+}
+
+function renderRegCompleteness(config) {
+    const list = document.getElementById('wizard-reg-completeness');
+    if (!list) return;
+    const required = requiredRegSections();
+    if (!required.length) {
+        list.innerHTML = '';
+        return;
+    }
+    list.innerHTML = required.map((sec) => {
+        const done = Boolean(window.regUploadBySection[sec]);
+        return `<li class="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 ${done ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}">
+            <span class="text-base leading-none">${done ? '✓' : '✗'}</span>
+            <span>Section ${sec}${done ? ' ครบ' : ' ยังขาดไฟล์'}</span>
+        </li>`;
+    }).join('');
+}
+
 function renderRegUploadSlots(config) {
     const list = document.getElementById('wizard-reg-uploads-list');
     const summary = document.getElementById('wizard-reg-summary');
@@ -2218,6 +2294,7 @@ function renderRegUploadSlots(config) {
     if (!required.length) {
         list.innerHTML = '<p class="text-sm text-amber-800">ยังไม่มี Section จากขั้นตอนที่ 5 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน</p>';
         if (summary) summary.textContent = '';
+        renderRegCompleteness(config);
         return;
     }
 
@@ -2228,39 +2305,52 @@ function renderRegUploadSlots(config) {
             : `อัปโหลด มข.11 แล้ว ${progress.done}/${progress.total} Section — ยังขาด Section ${progress.missing.join(', ')}`;
         summary.className = `text-sm font-semibold ${progress.missing.length === 0 ? 'text-green-800' : 'text-red-700'}`;
     }
+    renderRegCompleteness(config);
 
     list.innerHTML = required.map((sec) => {
         const info = window.regUploadBySection[sec];
         const done = Boolean(info);
-        const statusText = done
-            ? (info.source === 'saved'
-                ? `มีไฟล์ในระบบแล้ว${info.name ? `: ${escapeHtml(info.name)}` : ''}`
-                : `เลือกไฟล์แล้ว: ${escapeHtml(info.name || 'ไฟล์ มข.11')}`)
-            : 'ยังไม่ได้แนบไฟล์';
-        const actions = done
-            ? `<div class="flex flex-wrap gap-2">
-                    <button type="button" data-reg-view="${sec}"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-400 text-amber-900 text-xs font-medium hover:bg-amber-50">
-                        ดูไฟล์
-                    </button>
-                    <button type="button" data-reg-delete="${sec}"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-medium hover:bg-red-50">
-                        ลบแล้วอัปโหลดใหม่
-                    </button>
-               </div>`
-            : '';
-        const fileInputClass = done
-            ? 'hidden'
-            : 'block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]';
-        return `
-            <div class="rounded-lg border ${done ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-[#FFFBF7]'} px-3 py-3 space-y-2">
+        const viewUrl = regViewUrlForSection(sec, info);
+        const fileName = escapeHtml(info?.name || `มข.11-Section-${sec}.pdf`);
+
+        if (done) {
+            return `
+            <div class="rounded-lg border border-green-300 bg-green-50 px-3 py-3 space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-sm font-semibold text-[#5C2E1F]">Section ${sec}</p>
-                    <p id="wizard-reg-status-${sec}" class="text-xs ${done ? 'text-green-800' : 'text-red-700'}">${statusText}</p>
+                    <p id="wizard-reg-status-${sec}" class="text-xs text-green-800">แนบไฟล์แล้ว</p>
                 </div>
-                ${actions}
-                <input id="wizard-reg-input-${sec}" type="file" accept=".pdf,application/pdf" data-reg-section="${sec}"
-                    class="${fileInputClass}">
+                <div class="flex flex-wrap items-center gap-3">
+                    <a href="${escapeHtml(viewUrl || '#')}" target="_blank" rel="noopener noreferrer"
+                        data-reg-view="${sec}"
+                        class="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-[#5C2E1F] hover:bg-green-50"
+                        title="เปิดดูไฟล์ PDF">
+                        ${pdfFileIconHtml()}
+                        <span class="min-w-0">
+                            <span class="block font-medium truncate max-w-[16rem]">${fileName}</span>
+                            <span class="block text-xs text-[#7A4A3A]">คลิกเพื่อเปิดดู PDF</span>
+                        </span>
+                    </a>
+                    <button type="button" data-reg-delete="${sec}"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-medium hover:bg-red-50">
+                        ลบไฟล์
+                    </button>
+                </div>
+                <p id="wizard-reg-error-${sec}" class="hidden text-xs text-red-600"></p>
+            </div>`;
+        }
+
+        return `
+            <div class="rounded-lg border border-amber-300 bg-[#FFFBF7] px-3 py-3 space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-sm font-semibold text-[#5C2E1F]">Section ${sec}</p>
+                    <p id="wizard-reg-status-${sec}" class="text-xs text-red-700">ยังไม่ได้แนบไฟล์ — อัปโหลดด้านล่างหรือใช้ช่องหลายไฟล์ด้านบน</p>
+                </div>
+                <label class="block space-y-1">
+                    <span class="text-xs font-medium text-[#5C2E1F]">อัปโหลดไฟล์ มข.11 ของ Section ${sec}</span>
+                    <input id="wizard-reg-input-${sec}" type="file" accept=".pdf,application/pdf" data-reg-section="${sec}"
+                        class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                </label>
                 <p id="wizard-reg-error-${sec}" class="hidden text-xs text-red-600"></p>
             </div>
         `;
@@ -2276,10 +2366,14 @@ function renderRegUploadSlots(config) {
         });
     });
 
-    list.querySelectorAll('[data-reg-view]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const sec = Number(btn.getAttribute('data-reg-view'));
-            viewRegUploadForSection(sec);
+    list.querySelectorAll('[data-reg-view]').forEach((el) => {
+        el.addEventListener('click', (e) => {
+            const sec = Number(el.getAttribute('data-reg-view'));
+            const url = regViewUrlForSection(sec);
+            if (!url) {
+                e.preventDefault();
+                showToast('ไม่พบลิงก์ดูไฟล์ของ Section นี้', 'error');
+            }
         });
     });
 
@@ -2292,9 +2386,7 @@ function renderRegUploadSlots(config) {
 }
 
 function viewRegUploadForSection(sec) {
-    const info = window.regUploadBySection[sec];
-    const url = info?.viewUrl
-        || (info?.source === 'pending' ? `/grade-reports/pending-registrar/${sec}` : null);
+    const url = regViewUrlForSection(sec);
     if (!url) {
         showToast('ไม่พบลิงก์ดูไฟล์ของ Section นี้', 'error');
         return;
@@ -2305,9 +2397,32 @@ function viewRegUploadForSection(sec) {
     }
 }
 
+async function clearRegSlotLocal(sec, config = window.wizardConfig) {
+    clearRegUploadForSection(sec);
+    window.wizardHasPendingReg = Object.values(window.regUploadBySection).some((x) => x.source === 'pending');
+    if (config) {
+        config.hasPendingRegistrar = window.wizardHasPendingReg;
+        config.registrarFileDetails = (config.registrarFileDetails || [])
+            .filter((row) => Number(row.section) !== Number(sec));
+        config.registrarFileSections = (config.registrarFileSections || [])
+            .filter((s) => Number(s) !== Number(sec));
+        config.pendingRegistrarSections = (config.pendingRegistrarSections || [])
+            .filter((row) => Number(row?.section ?? row) !== Number(sec));
+        config.hasRegistrarFile = (config.registrarFileSections || []).length > 0
+            || Object.values(window.regUploadBySection).some((x) => x.source === 'saved');
+    }
+    renderRegUploadSlots(config);
+    syncWizardRegStatus(config);
+    updateAttachmentChecklist(config);
+    persistWizardState(config, currentWizardStep());
+}
+
 async function deleteRegUploadForSection(sec, config = window.wizardConfig) {
     const info = window.regUploadBySection[sec];
-    if (!info) return;
+    if (!info) {
+        await clearRegSlotLocal(sec, config);
+        return;
+    }
     if (!window.confirm(`ลบไฟล์ มข.11 ของ Section ${sec} แล้วอัปโหลดใหม่หรือไม่?`)) {
         return;
     }
@@ -2316,27 +2431,22 @@ async function deleteRegUploadForSection(sec, config = window.wizardConfig) {
 
     try {
         if (info.source === 'saved') {
-            if (!config?.currentReportId || !info.fileId) {
-                throw new Error('ไม่พบไฟล์ในระบบสำหรับ Section นี้');
+            const fileId = resolveSavedRegFileId(sec, info, config);
+            if (config?.currentReportId && fileId) {
+                const res = await fetch(`/api/grade-reports/${config.currentReportId}/files/${fileId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        Accept: 'application/json',
+                    },
+                    credentials: 'same-origin',
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.message || 'ลบไฟล์ไม่สำเร็จ');
+                }
             }
-            const res = await fetch(`/api/grade-reports/${config.currentReportId}/files/${info.fileId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': csrf,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    Accept: 'application/json',
-                },
-                credentials: 'same-origin',
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.message || 'ลบไฟล์ไม่สำเร็จ');
-            }
-            config.registrarFileDetails = (config.registrarFileDetails || [])
-                .filter((row) => Number(row.section) !== Number(sec));
-            config.registrarFileSections = (config.registrarFileSections || [])
-                .filter((s) => Number(s) !== Number(sec));
-            config.hasRegistrarFile = (config.registrarFileSections || []).length > 0;
         } else {
             const res = await fetch(`/grade-reports/pending-registrar/${sec}`, {
                 method: 'DELETE',
@@ -2351,21 +2461,78 @@ async function deleteRegUploadForSection(sec, config = window.wizardConfig) {
             if (!res.ok) {
                 throw new Error(data.message || 'ลบไฟล์ชั่วคราวไม่สำเร็จ');
             }
-            config.pendingRegistrarSections = (config.pendingRegistrarSections || [])
-                .filter((row) => Number(row?.section ?? row) !== Number(sec));
         }
 
-        clearRegUploadForSection(sec);
-        window.wizardHasPendingReg = Object.values(window.regUploadBySection).some((x) => x.source === 'pending');
-        config.hasPendingRegistrar = window.wizardHasPendingReg;
-        renderRegUploadSlots(config);
-        syncWizardRegStatus(config);
-        updateAttachmentChecklist(config);
-        persistWizardState(config, currentWizardStep());
-        showToast(`ลบไฟล์ Section ${sec} แล้ว — กรุณาอัปโหลดใหม่`, 'success');
+        await clearRegSlotLocal(sec, config);
+        showToast(`ลบไฟล์ Section ${sec} แล้ว — กรุณาอัปโหลดใหม่ด้านล่างหรือใช้ช่องหลายไฟล์ด้านบน`, 'success');
     } catch (err) {
-        showToast(err?.message || 'ลบไฟล์ไม่สำเร็จ', 'error');
+        // แม้ลบฝั่งเซิร์ฟเวอร์ไม่สำเร็จ ให้เปิดช่องอัปโหลดใหม่ถ้าผู้ใช้ยืนยันแล้ว
+        await clearRegSlotLocal(sec, config);
+        showToast(err?.message || 'ลบไฟล์ไม่สำเร็จ — เปิดช่องอัปโหลดใหม่ให้แล้ว', 'error');
     }
+}
+
+async function uploadMultipleRegistrarPdfs(fileList, config = window.wizardConfig) {
+    const files = Array.from(fileList || []).filter(Boolean);
+    const status = document.getElementById('wizard-reg-bulk-status');
+    if (!files.length) return;
+
+    const required = requiredRegSections();
+    if (!required.length) {
+        showToast('ยังไม่มี Section จากขั้นตอนที่ 5 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน', 'error');
+        return;
+    }
+
+    let ok = 0;
+    let fail = 0;
+    const notes = [];
+
+    if (status) {
+        status.textContent = `กำลังอัปโหลด 0/${files.length} ไฟล์...`;
+        status.className = 'text-xs text-[#7A4A3A]';
+    }
+
+    for (let i = 0; i < files.length; i += 1) {
+        const file = files[i];
+        if (status) status.textContent = `กำลังอัปโหลด ${i + 1}/${files.length}: ${file.name}`;
+        try {
+            if (file.type && file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+                throw new Error(`${file.name}: รองรับเฉพาะ PDF`);
+            }
+            const result = await uploadSectionRegistrarPdf(file, {
+                attachOnly: true,
+                expectedSection: null,
+                silentToast: true,
+                keepInput: true,
+                skipRender: true,
+            });
+            if (!result?.ok) {
+                throw new Error(result?.error || `${file.name}: อัปโหลดไม่สำเร็จ`);
+            }
+            const sec = Number(result.section || 0);
+            if (sec > 0 && !required.includes(sec)) {
+                notes.push(`${file.name}: เป็น Section ${sec} ซึ่งไม่อยู่ในรายการที่ต้องแนบ`);
+            }
+            ok += 1;
+        } catch (err) {
+            fail += 1;
+            notes.push(err?.message || `${file.name}: ไม่สำเร็จ`);
+        }
+    }
+
+    renderRegUploadSlots(config);
+    syncWizardRegStatus(config);
+    updateAttachmentChecklist(config);
+
+    const progress = regUploadProgress();
+    const summaryMsg = fail === 0
+        ? `อัปโหลดสำเร็จ ${ok} ไฟล์ — ครบ ${progress.done}/${progress.total} Section`
+        : `สำเร็จ ${ok} ไฟล์, ไม่สำเร็จ ${fail} ไฟล์ — ครบ ${progress.done}/${progress.total} Section`;
+    if (status) {
+        status.textContent = notes.length ? `${summaryMsg} | ${notes.join(' · ')}` : summaryMsg;
+        status.className = `text-xs ${progress.missing.length === 0 && fail === 0 ? 'text-green-800' : 'text-amber-800'}`;
+    }
+    showToast(summaryMsg, fail === 0 && progress.missing.length === 0 ? 'success' : (fail ? 'error' : 'success'));
 }
 
 function currentWizardStep() {
@@ -2382,7 +2549,7 @@ function syncWizardRegStatus(config) {
     if (help) {
         help.textContent = progress.total === 0
             ? 'กรุณาย้อนกลับไปขั้นตอนที่ 5 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section'
-            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 5 หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้ ไฟล์จะถูกอัปโหลดเข้าสู่ระบบจริงเมื่อแนบใบขวางครบและกดเสร็จสิ้น';
+            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 5 สามารถเลือกหลายไฟล์พร้อมกันได้ ระบบจะจับคู่ Section จากไฟล์ หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้';
     }
 
     if (!status) return;
@@ -2467,82 +2634,99 @@ function updateAttachmentChecklist(config) {
 
 function syncExamUploadUi(config = window.wizardConfig) {
     const input = document.getElementById('wizard-exam-upload');
+    const fileRow = document.getElementById('wizard-exam-file-row');
     const actions = document.getElementById('wizard-exam-actions');
     const status = document.getElementById('wizard-exam-status');
     if (!status) return;
 
     const saved = Boolean(config?.hasExamReportFile && config?.examFileDetail?.view_url);
     const pending = Boolean(config?.hasPendingExam || window.pendingExamFile);
-    const hasExam = saved || pending;
+    const pendingName = window.pendingExamFile?.name || 'ใบขวาง.pdf';
 
-    if (actions) {
+    if (fileRow) {
         if (saved) {
-            actions.classList.remove('hidden');
-            actions.innerHTML = `
-                <button type="button" id="wizard-exam-view"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-400 text-amber-900 text-xs font-medium hover:bg-amber-50">
-                    ดูไฟล์
-                </button>
-                <button type="button" id="wizard-exam-delete"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-medium hover:bg-red-50">
-                    ลบแล้วอัปโหลดใหม่
-                </button>
-            `;
-            document.getElementById('wizard-exam-view')?.addEventListener('click', () => {
-                const opened = window.open(config.examFileDetail.view_url, '_blank', 'noopener,noreferrer');
-                if (!opened) showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วกดดูไฟล์อีกครั้ง', 'error');
-            });
+            fileRow.classList.remove('hidden');
+            fileRow.innerHTML = `
+                <div class="flex flex-wrap items-center gap-3">
+                    <a href="${escapeHtml(config.examFileDetail.view_url)}" target="_blank" rel="noopener noreferrer"
+                        class="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-[#5C2E1F] hover:bg-green-100"
+                        title="เปิดดูไฟล์ PDF">
+                        ${pdfFileIconHtml()}
+                        <span class="min-w-0">
+                            <span class="block font-medium truncate max-w-[16rem]">${escapeHtml(config.examFileDetail.name || 'ใบขวาง.pdf')}</span>
+                            <span class="block text-xs text-[#7A4A3A]">คลิกเพื่อเปิดดู PDF</span>
+                        </span>
+                    </a>
+                    <button type="button" id="wizard-exam-delete"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-medium hover:bg-red-50">
+                        ลบไฟล์
+                    </button>
+                </div>`;
             document.getElementById('wizard-exam-delete')?.addEventListener('click', () => {
                 deleteExamReportFile(config);
             });
+        } else if (pending) {
+            fileRow.classList.remove('hidden');
+            fileRow.innerHTML = `
+                <div class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-[#FFFBF7] px-3 py-2 text-sm text-[#5C2E1F]">
+                    ${pdfFileIconHtml()}
+                    <span class="min-w-0">
+                        <span class="block font-medium truncate max-w-[16rem]">${escapeHtml(pendingName)}</span>
+                        <span class="block text-xs text-[#7A4A3A]">เลือกแล้ว — จะอัปโหลดเมื่อกดเสร็จสิ้น</span>
+                    </span>
+                </div>`;
         } else {
-            actions.classList.add('hidden');
-            actions.innerHTML = '';
+            fileRow.classList.add('hidden');
+            fileRow.innerHTML = '';
         }
     }
 
+    if (actions) {
+        actions.classList.add('hidden');
+        actions.innerHTML = '';
+    }
+
     if (input) {
-        input.classList.toggle('hidden', saved && !pending);
+        input.classList.toggle('hidden', saved);
+        if (!saved) {
+            input.classList.remove('hidden');
+        }
     }
 
     if (saved) {
-        status.textContent = `มีไฟล์ในระบบแล้ว: ${config.examFileDetail.name || 'ใบขวาง'}`;
+        status.textContent = 'มีไฟล์ใบขวางในระบบแล้ว — คลิกไอคอน PDF เพื่อดู หรือลบแล้วอัปโหลดใหม่';
         status.className = 'text-xs text-green-800 font-medium';
-    } else if (window.pendingExamFile) {
-        status.textContent = `เลือกไฟล์แล้ว: ${window.pendingExamFile.name} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`;
-        status.className = 'text-xs text-green-800';
     } else if (pending) {
-        status.textContent = 'เลือกใบขวางแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น';
+        status.textContent = `เลือกไฟล์แล้ว: ${pendingName} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`;
         status.className = 'text-xs text-green-800';
     } else {
-        status.textContent = 'ยังไม่ได้เลือกไฟล์ใบขวาง';
+        status.textContent = 'ยังไม่ได้เลือกไฟล์ใบขวาง — กรุณาเลือกไฟล์ด้านบน';
         status.className = 'text-xs text-[#7A4A3A]';
     }
 }
 
 async function deleteExamReportFile(config = window.wizardConfig) {
-    if (!config?.currentReportId || !config?.examFileDetail?.file_id) {
-        showToast('ไม่พบไฟล์ใบขวางในระบบ', 'error');
-        return;
-    }
     if (!window.confirm('ลบไฟล์ใบขวางแล้วอัปโหลดใหม่หรือไม่?')) {
         return;
     }
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const fileId = config?.examFileDetail?.file_id;
     try {
-        const res = await fetch(`/api/grade-reports/${config.currentReportId}/files/${config.examFileDetail.file_id}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': csrf,
-                'X-Requested-With': 'XMLHttpRequest',
-                Accept: 'application/json',
-            },
-            credentials: 'same-origin',
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            throw new Error(data.message || 'ลบไฟล์ไม่สำเร็จ');
+        if (config?.currentReportId && fileId) {
+            const res = await fetch(`/api/grade-reports/${config.currentReportId}/files/${fileId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
+                },
+                credentials: 'same-origin',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.message || 'ลบไฟล์ไม่สำเร็จ');
+            }
         }
 
         config.hasExamReportFile = false;
@@ -2556,9 +2740,16 @@ async function deleteExamReportFile(config = window.wizardConfig) {
         }
         updateAttachmentChecklist(config);
         persistWizardState(config, currentWizardStep());
-        showToast('ลบไฟล์ใบขวางแล้ว — กรุณาอัปโหลดใหม่', 'success');
+        showToast('ลบไฟล์ใบขวางแล้ว — กรุณาเลือกไฟล์ใหม่ด้านล่าง', 'success');
     } catch (err) {
-        showToast(err?.message || 'ลบไฟล์ไม่สำเร็จ', 'error');
+        config.hasExamReportFile = false;
+        config.examFileDetail = null;
+        config.hasPendingExam = false;
+        window.pendingExamFile = null;
+        const input = document.getElementById('wizard-exam-upload');
+        if (input) input.classList.remove('hidden');
+        updateAttachmentChecklist(config);
+        showToast(err?.message || 'ลบไฟล์ไม่สำเร็จ — เปิดช่องอัปโหลดใหม่ให้แล้ว', 'error');
     }
 }
 
@@ -3040,6 +3231,18 @@ function initGradeReportWizard(config) {
         if (file) stageExamReport(config, file);
         e.target.value = '';
     });
+
+    const bulkInput = document.getElementById('wizard-reg-bulk-upload');
+    if (bulkInput && bulkInput.dataset.bound !== '1') {
+        bulkInput.dataset.bound = '1';
+        bulkInput.addEventListener('change', async () => {
+            const files = bulkInput.files;
+            if (files?.length) {
+                await uploadMultipleRegistrarPdfs(files, config);
+            }
+            bulkInput.value = '';
+        });
+    }
 
     document.getElementById('wizard-print-link')?.addEventListener('click', (e) => {
         e.preventDefault();
