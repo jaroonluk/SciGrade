@@ -99,6 +99,21 @@ class GradeReportFileController extends Controller
         if ($request->hasFile('attachment')) {
             $fileType = (string) ($request->input('file_type') ?: GradeReportFile::TYPE_EXAM_REPORT);
             $uploaded = $request->file('attachment');
+
+            if ($fileType === GradeReportFile::TYPE_EXAM_REPORT) {
+                $gradeReport->loadMissing('files');
+                foreach ($gradeReport->files as $oldExam) {
+                    if ($oldExam->resolvedType() !== GradeReportFile::TYPE_EXAM_REPORT) {
+                        continue;
+                    }
+                    if (! $oldExam->isInstructorUpload($gradeReport)) {
+                        continue;
+                    }
+                    $oldExam->delete();
+                }
+                $gradeReport->unsetRelation('files');
+            }
+
             $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType);
             $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType);
 

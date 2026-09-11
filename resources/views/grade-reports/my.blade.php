@@ -424,6 +424,10 @@
             });
 
             if (res.ok) {
+                try {
+                    sessionStorage.removeItem(`scigrade.wizard.edit.${id}`);
+                    sessionStorage.removeItem('scigrade.wizard.create');
+                } catch (e) { /* ignore */ }
                 window.location.reload();
             } else {
                 const data = await res.json().catch(() => ({}));

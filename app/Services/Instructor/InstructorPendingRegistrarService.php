@@ -119,6 +119,9 @@ class InstructorPendingRegistrarService
                     $canonicalName = sprintf('%s-%02d.pdf', $code, (int) $section);
                 }
 
+                // ลบ REG เดิมของ Section นี้ก่อนแนบใหม่ กันไฟล์เก่าค้างแสดง
+                $this->deleteInstructorRegistrarForSection($report, $section);
+
                 $storedPath = $this->attachmentNames->storeFromStoragePath(
                     $report,
                     $path,
@@ -314,6 +317,126 @@ class InstructorPendingRegistrarService
         ]);
 
         return true;
+    }
+
+    /**
+     * ลบไฟล์ pending ที่ตรงกับรหัสวิชา/ภาค/ปี (ใช้ตอนลบรายงาน)
+     */
+    public function forgetMatchingCourse(string $subjectCode, int|string|null $term = null, int|string|null $year = null): int
+    {
+        $code = Str::upper(trim($subjectCode));
+        if ($code === '') {
+            return 0;
+        }
+
+        $termInt = $term !== null && $term !== '' ? (int) $term : null;
+        $yearInt = $year !== null && $year !== '' ? (int) $year : null;
+        $removed = 0;
+        $kept = [];
+
+        foreach ($this->pendingItems() as $item) {
+            $itemSubject = Str::upper(trim((string) ($item['subject_code'] ?? '')));
+            $matchesSubject = $itemSubject !== '' && $itemSubject === $code;
+            $matchesTerm = $termInt === null || (int) ($item['term'] ?? 0) === $termInt;
+            $matchesYear = $yearInt === null || (int) ($item['year'] ?? 0) === $yearInt;
+
+            if ($matchesSubject && $matchesTerm && $matchesYear) {
+                $path = (string) ($item['path'] ?? '');
+                if ($path !== '') {
+                    try {
+                        UploadStorage::disk()->delete($path);
+                    } catch (Throwable) {
+                        // ignore
+                    }
+                }
+                $removed++;
+                continue;
+            }
+
+            $kept[] = $item;
+        }
+
+        if ($removed === 0) {
+            return 0;
+        }
+
+        if ($kept === []) {
+            $this->forgetSession();
+
+            return $removed;
+        }
+
+        $first = $kept[0];
+        session([
+            self::SESSION_QUEUE => array_values($kept),
+            self::SESSION_PATH => $first['path'] ?? null,
+            self::SESSION_NAME => $first['name'] ?? null,
+            self::SESSION_TERM => $first['term'] ?? null,
+            self::SESSION_YEAR => $first['year'] ?? null,
+            self::SESSION_SUBJECT => $first['subject_code'] ?? null,
+            self::SESSION_SECTION => $first['section'] ?? null,
+            self::SESSION_OWNER => $first['owner'] ?? session(self::SESSION_OWNER),
+        ]);
+
+        return $removed;
+    }
+
+    /**
+     * ลบไฟล์ REG ของอาจารย์ใน Section เดียวกันก่อนแนบไฟล์ใหม่ (กันไฟล์เก่าค้าง)
+     */
+    public function deleteInstructorRegistrarForSection(GradeReport $report, ?int $section): int
+    {
+        if ($section === null || $section <= 0) {
+            return 0;
+        }
+
+        $report->loadMissing(['files', 'gradeStds']);
+        $deleted = 0;
+
+        foreach ($report->files as $file) {
+            if (! $file->isRegistrar() || ! $file->isInstructorUpload($report)) {
+                continue;
+            }
+            $sec = $file->resolvedSection($report);
+            if ($sec === null || (int) $sec !== (int) $section) {
+                continue;
+            }
+            $file->delete();
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * ลบไฟล์ REG ของอาจารย์ที่ Section ไม่อยู่ในรายงานแล้ว
+     */
+    public function purgeOrphanInstructorRegistrarFiles(GradeReport $report): int
+    {
+        $report->loadMissing(['files', 'gradeStds']);
+        $activeSecs = $report->gradeStds
+            ->map(fn ($row) => (int) $row->sec)
+            ->filter(fn ($sec) => $sec > 0)
+            ->unique()
+            ->all();
+
+        $deleted = 0;
+        foreach ($report->files as $file) {
+            if (! $file->isRegistrar() || ! $file->isInstructorUpload($report)) {
+                continue;
+            }
+            $sec = $file->resolvedSection($report);
+            if ($sec === null || $sec <= 0) {
+                continue;
+            }
+            if (in_array((int) $sec, $activeSecs, true)) {
+                continue;
+            }
+            $file->delete();
+            $deleted++;
+        }
+
+        return $deleted;
     }
 
     /**

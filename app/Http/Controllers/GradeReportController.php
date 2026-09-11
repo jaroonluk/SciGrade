@@ -8,6 +8,7 @@ use App\Models\GradReport2;
 use App\Models\TblUser;
 use App\Services\AuditLogService;
 use App\Services\GradReport2Service;
+use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
 use App\Support\SubjectDegree;
 use App\Support\ThesisCourse;
@@ -28,6 +29,7 @@ class GradeReportController extends Controller
         private readonly StaffAuthService $staffAuth,
         private readonly GradReport2Service $gradReport2,
         private readonly AuditLogService $auditLog,
+        private readonly InstructorPendingRegistrarService $pendingRegistrar,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -289,12 +291,21 @@ class GradeReportController extends Controller
             'year' => $gradeReport->year,
         ];
         $gradeId = $gradeReport->grade_id;
+        $subjectCode = (string) $gradeReport->subject_code;
+        $term = $gradeReport->term;
+        $year = $gradeReport->year;
 
         DB::connection('scigrad')->transaction(function () use ($gradeReport) {
-            $gradeReport->files()->each(fn ($file) => $file->delete());
+            $gradeReport->loadMissing('files');
+            foreach ($gradeReport->files as $file) {
+                $file->delete();
+            }
             $gradeReport->gradeStds()->delete();
             $gradeReport->delete();
         });
+
+        // ลบไฟล์ มข.11 ที่ค้างใน session ของวิชานี้ด้วย กันแสดง/แนบไฟล์เก่าตอนกรอกใหม่
+        $this->pendingRegistrar->forgetMatchingCourse($subjectCode, $term, $year);
 
         $this->auditLog->record(
             'grade_report.delete',
@@ -303,7 +314,12 @@ class GradeReportController extends Controller
             metadata: $meta,
         );
 
-        return response()->json(['ok' => true]);
+        return response()->json([
+            'ok' => true,
+            'cleared_subject' => $subjectCode,
+            'cleared_term' => $term,
+            'cleared_year' => $year,
+        ]);
     }
 
     private function updateApproval(Request $request, GradeReport $gradeReport): JsonResponse
@@ -906,6 +922,8 @@ class GradeReportController extends Controller
         } else {
             $report->gradeStds()->delete();
         }
+
+        $this->pendingRegistrar->purgeOrphanInstructorRegistrarFiles($report);
     }
 
     private function normalizeStdData(array $std): array
