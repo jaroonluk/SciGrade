@@ -53,7 +53,51 @@
     }
     #eva-hint-popover { display: none; z-index: 9999; }
     #eva-hint-popover.is-visible { display: block; }
-    #eva-hint-popover img { max-width: min(100vw - 2rem, 420px); height: auto; border-radius: 0.5rem; border: 1px solid #e8cdb5; box-shadow: 0 8px 24px rgba(92,46,31,.18); background: #fff; }
+    #eva-hint-popover .eva-hint-popover-card {
+        position: relative;
+        max-width: min(100vw - 2rem, 420px);
+        border-radius: 0.65rem;
+        border: 1px solid #e8cdb5;
+        box-shadow: 0 8px 24px rgba(92,46,31,.18);
+        background: #fff;
+        overflow: hidden;
+    }
+    #eva-hint-popover .eva-hint-popover-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.45rem 0.55rem 0.45rem 0.75rem;
+        background: #fff8f1;
+        border-bottom: 1px solid #f3e0d0;
+    }
+    #eva-hint-popover .eva-hint-popover-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #5C2E1F;
+    }
+    #eva-hint-popover .eva-hint-popover-close {
+        flex-shrink: 0;
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+        padding: 0 0.65rem;
+        border-radius: 0.45rem;
+        border: 1px solid #e8cdb5;
+        background: #fff;
+        color: #5C2E1F;
+        font-size: 0.8rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+    }
+    #eva-hint-popover .eva-hint-popover-close:hover,
+    #eva-hint-popover .eva-hint-popover-close:focus {
+        background: #fef2f2;
+        border-color: #fca5a5;
+        color: #b91c1c;
+        outline: none;
+    }
+    #eva-hint-popover img { display: block; width: 100%; height: auto; background: #fff; }
     #grade-boundary-hint { color: #92400e; font-weight: 500; }
     .fac-dropdown-panel { max-height: 16rem; overflow-y: auto; }
     .fac-tag { background: #FAF0E6; border: 1px solid #E8C4B8; color: #5C2E1F; }
@@ -348,9 +392,15 @@
                     </div>
                     </div>
 
-                    <div id="eva-hint-popover" class="fixed z-[9999] no-print pointer-events-none">
-                        <img src="{{ $teacherHelpImageUrl }}" alt="ตัวอย่างการกรอกผลประเมินรายวิชา"
-                            onerror="this.onerror=null;this.src='https://e.sc.kku.ac.th/sci-eoffice/teacher/images2/teacher2.png';">
+                    <div id="eva-hint-popover" class="fixed z-[9999] no-print" role="dialog" aria-label="ตัวอย่างการกรอกผลประเมินรายวิชา" aria-hidden="true">
+                        <div class="eva-hint-popover-card">
+                            <div class="eva-hint-popover-bar">
+                                <p class="eva-hint-popover-title">ตัวอย่างการกรอก — กดปิดได้</p>
+                                <button type="button" id="eva-hint-popover-close" class="eva-hint-popover-close" aria-label="ปิดรูปตัวอย่าง">ปิด</button>
+                            </div>
+                            <img src="{{ $teacherHelpImageUrl }}" alt="ตัวอย่างการกรอกผลประเมินรายวิชา"
+                                onerror="this.onerror=null;this.src='https://e.sc.kku.ac.th/sci-eoffice/teacher/images2/teacher2.png';">
+                        </div>
                     </div>
 
                     <div class="wizard-step space-y-5" data-wizard-step="3">

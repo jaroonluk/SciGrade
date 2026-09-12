@@ -399,6 +399,23 @@ function setupReasonIdFields() {
 }
 
 let evaHintHideTimer = null;
+const EVA_HINT_DISMISS_KEY = 'scigrade.evaHintPopoverDismissed';
+
+function isEvaHintDismissed() {
+    try {
+        return sessionStorage.getItem(EVA_HINT_DISMISS_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function markEvaHintDismissed() {
+    try {
+        sessionStorage.setItem(EVA_HINT_DISMISS_KEY, '1');
+    } catch {
+        // ignore quota / private mode
+    }
+}
 
 function setupEvaHintPopover(imageUrl) {
     const popover = document.getElementById('eva-hint-popover');
@@ -413,10 +430,19 @@ function setupEvaHintPopover(imageUrl) {
         document.body.appendChild(popover);
     }
 
-    if (popover.dataset.evaHintBound === '1') return;
-    popover.dataset.evaHintBound = '1';
+    const hidePopover = () => {
+        clearTimeout(evaHintHideTimer);
+        popover.classList.remove('is-visible');
+        popover.setAttribute('aria-hidden', 'true');
+    };
+
+    const dismissPopover = () => {
+        markEvaHintDismissed();
+        hidePopover();
+    };
 
     const showNear = (el) => {
+        if (isEvaHintDismissed()) return;
         if (el.closest('.hidden')) return;
 
         clearTimeout(evaHintHideTimer);
@@ -427,32 +453,56 @@ function setupEvaHintPopover(imageUrl) {
             left = window.innerWidth - popW - 16;
         }
         let top = rect.bottom + 8;
-        const popH = img?.offsetHeight || 280;
+        const popH = popover.offsetHeight || img?.offsetHeight || 280;
         if (top + popH > window.innerHeight - 16) {
             top = Math.max(16, rect.top - popH - 8);
         }
         popover.style.left = `${Math.max(16, left)}px`;
         popover.style.top = `${top}px`;
         popover.classList.add('is-visible');
+        popover.setAttribute('aria-hidden', 'false');
     };
 
     const scheduleHide = () => {
         clearTimeout(evaHintHideTimer);
         evaHintHideTimer = setTimeout(() => {
+            if (popover.contains(document.activeElement)) return;
             const active = document.activeElement;
             if (active?.classList.contains('eva-hint-field')) return;
-            popover.classList.remove('is-visible');
+            hidePopover();
         }, 200);
     };
+
+    if (popover.dataset.evaHintBound === '1') return;
+    popover.dataset.evaHintBound = '1';
+
+    document.getElementById('eva-hint-popover-close')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissPopover();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (!popover.classList.contains('is-visible')) return;
+        e.preventDefault();
+        dismissPopover();
+    });
 
     document.addEventListener('focusin', (e) => {
         if (e.target.matches?.('.eva-hint-field')) showNear(e.target);
     });
     document.addEventListener('focusout', (e) => {
-        if (e.target.matches?.('.eva-hint-field')) scheduleHide();
+        if (e.target.matches?.('.eva-hint-field') || popover.contains(e.target)) scheduleHide();
     });
     document.addEventListener('mousedown', (e) => {
-        if (e.target.matches?.('.eva-hint-field')) showNear(e.target);
+        if (e.target.matches?.('.eva-hint-field')) {
+            showNear(e.target);
+            return;
+        }
+        if (popover.classList.contains('is-visible') && !popover.contains(e.target)) {
+            dismissPopover();
+        }
     });
 }
 
@@ -2853,6 +2903,11 @@ function validateWizardStep(step, config) {
 }
 
 function showWizardStep(step, config) {
+    const evaHint = document.getElementById('eva-hint-popover');
+    if (evaHint) {
+        evaHint.classList.remove('is-visible');
+        evaHint.setAttribute('aria-hidden', 'true');
+    }
     document.querySelectorAll('[data-wizard-step]').forEach((el) => {
         el.classList.toggle('is-active', Number(el.dataset.wizardStep) === step);
     });
