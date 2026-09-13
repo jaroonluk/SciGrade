@@ -121,6 +121,47 @@ class ThesisGrade extends Model
         return in_array($this->normalizedStatus(), [self::STATUS_SUBMITTED, self::STATUS_RECEIVED], true);
     }
 
+    public function canFacultyReceive(): bool
+    {
+        return $this->normalizedStatus() === self::STATUS_RECEIVED;
+    }
+
+    /**
+     * ใบรายงานผลการสอบที่ใช้เป็นชุดสมบูรณ์: ไฟล์สาขา (ประธานลงนาม) ถ้ามี ไม่เช่นนั้นใช้ไฟล์อาจารย์
+     *
+     * @return Collection<int, ThesisGradeFile>
+     */
+    public function completeExamFiles(): Collection
+    {
+        $this->loadMissing('files');
+        $chair = $this->chairFiles();
+
+        return $chair->isNotEmpty() ? $chair : $this->tsFiles();
+    }
+
+    /**
+     * ชุดเอกสารที่คณะใช้ดาวน์โหลด: ใบรายงานสมบูรณ์ + หนังสือ S=0
+     *
+     * @return Collection<int, ThesisGradeFile>
+     */
+    public function completePacketFiles(): Collection
+    {
+        return $this->completeExamFiles()->concat($this->s0Files())->values();
+    }
+
+    public function completeExamSource(): ?string
+    {
+        $this->loadMissing('files');
+        if ($this->chairFiles()->isNotEmpty()) {
+            return 'dept';
+        }
+        if ($this->tsFiles()->isNotEmpty()) {
+            return 'instructor';
+        }
+
+        return null;
+    }
+
     public function normalizedStatus(): string
     {
         return strtolower(trim((string) $this->status));

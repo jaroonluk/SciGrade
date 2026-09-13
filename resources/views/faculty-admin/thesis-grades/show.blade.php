@@ -30,8 +30,11 @@
             @endif
         </div>
         <div class="flex flex-wrap gap-2">
+            @if ($report->completePacketFiles()->isNotEmpty())
+                <a href="{{ route('faculty-admin.thesis-grades.files.zip', ['thesisGrade' => $report, 'complete' => 1]) }}" class="px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">ดาวน์โหลดเอกสารสมบูรณ์</a>
+            @endif
             @if ($report->files->isNotEmpty())
-                <a href="{{ route('faculty-admin.thesis-grades.files.zip', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดรวม</a>
+                <a href="{{ route('faculty-admin.thesis-grades.files.zip', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดทุกไฟล์</a>
             @endif
             <a href="{{ route('faculty-admin.thesis-grades.index') }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">กลับรายการ</a>
         </div>
@@ -45,16 +48,31 @@
 
     <section class="form-section rounded-xl p-5">
         <h3 class="font-semibold text-[#5C2E1F] mb-3">ไฟล์แนบ</h3>
-        <div class="space-y-2">
-            @forelse ($report->files as $file)
-                <a href="{{ route('faculty-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank"
-                   class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm hover:bg-amber-50">
-                    <span>{{ $file->typeLabel() }} · {{ $file->original_name }}</span>
-                    <span class="text-[#a16207] font-semibold">เปิด</span>
-                </a>
-            @empty
-                <p class="text-sm text-[#7A4A3A]/70">ไม่มีไฟล์</p>
-            @endforelse
+        <div class="grid md:grid-cols-2 gap-3">
+            <div class="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                <p class="text-xs font-bold text-[#854d0e] mb-2">ไฟล์อาจารย์</p>
+                @forelse ($report->instructorFiles() as $file)
+                    <a href="{{ route('faculty-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank"
+                       class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm hover:bg-amber-50 mb-1.5">
+                        <span class="truncate">{{ $file->typeLabel() }} · {{ $file->original_name }}</span>
+                        <span class="text-[#a16207] font-semibold shrink-0">เปิด</span>
+                    </a>
+                @empty
+                    <p class="text-sm text-[#7A4A3A]/70">ไม่มีไฟล์จากอาจารย์</p>
+                @endforelse
+            </div>
+            <div class="rounded-lg border border-teal-200 bg-teal-50/50 p-3">
+                <p class="text-xs font-bold text-teal-800 mb-2">ไฟล์ Admin สาขา</p>
+                @forelse ($report->chairFiles() as $file)
+                    <a href="{{ route('faculty-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank"
+                       class="flex items-center justify-between gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm hover:bg-teal-50 mb-1.5">
+                        <span class="truncate">{{ $file->original_name }}</span>
+                        <span class="text-teal-800 font-semibold shrink-0">เปิด</span>
+                    </a>
+                @empty
+                    <p class="text-sm text-teal-800/80">สาขาไม่ได้อัปโหลดเพิ่ม — ใช้ไฟล์อาจารย์ได้</p>
+                @endforelse
+            </div>
         </div>
     </section>
 

@@ -24,10 +24,23 @@ class ThesisGradeZipService
     }
 
     /**
+     * ชุดเอกสารสมบูรณ์: ใบจากสาขา (ถ้ามี) ไม่เช่นนั้นใบอาจารย์ + หนังสือ S=0
+     *
+     * @param  Collection<int, ThesisGrade>  $reports
+     */
+    public function downloadCompleteReports(Collection $reports, string $downloadName): BinaryFileResponse
+    {
+        $keyed = $reports->keyBy('thesis_grade_id');
+        $files = $keyed->flatMap(fn (ThesisGrade $report) => $report->completePacketFiles());
+
+        return $this->downloadFiles($files, $keyed, $downloadName, completeLayout: true);
+    }
+
+    /**
      * @param  Collection<int, ThesisGradeFile>  $files
      * @param  Collection<int, ThesisGrade>|null  $reports
      */
-    public function downloadFiles(Collection $files, ?Collection $reports, string $downloadName): BinaryFileResponse
+    public function downloadFiles(Collection $files, ?Collection $reports, string $downloadName, bool $completeLayout = false): BinaryFileResponse
     {
         if ($files->isEmpty()) {
             throw new RuntimeException('ไม่พบไฟล์แนบตามเงื่อนไข');
@@ -61,7 +74,7 @@ class ThesisGradeZipService
             }
 
             $report = $reports?->get($file->thesis_grade_id) ?? $file->report;
-            $entry = $this->uniqueName($this->entryName($file, $report), $usedNames);
+            $entry = $this->uniqueName($this->entryName($file, $report, $completeLayout), $usedNames);
             $zip->addFromString($entry, $contents);
             $added++;
         }
@@ -80,10 +93,19 @@ class ThesisGradeZipService
         ])->deleteFileAfterSend(true);
     }
 
-    private function entryName(ThesisGradeFile $file, ?ThesisGrade $report): string
+    private function entryName(ThesisGradeFile $file, ?ThesisGrade $report, bool $completeLayout = false): string
     {
-        $folder = $file->isS0Letter() ? 'S0' : 'TS';
         $name = $file->original_name !== '' ? $file->original_name : basename($file->stored_path);
+
+        if ($completeLayout) {
+            $course = $report ? $report->displayCode().'-'.$report->paddedSection() : 'course';
+            $folder = $file->isS0Letter() ? 'S0' : 'เอกสารสมบูรณ์';
+            $source = $file->isChairSigned() ? 'จากสาขา-' : ($file->isS0Letter() ? '' : 'จากอาจารย์-');
+
+            return $course.'/'.$folder.'/'.$source.$name;
+        }
+
+        $folder = $file->isS0Letter() ? 'S0' : ($file->isChairSigned() ? 'สาขา' : 'TS');
 
         if ($report) {
             $prefix = $report->displayCode().'-'.$report->paddedSection();

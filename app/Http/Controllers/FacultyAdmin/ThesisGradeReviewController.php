@@ -129,10 +129,17 @@ class ThesisGradeReviewController extends Controller
         $thesisGrade->load('files');
 
         try {
-            return $this->zipService->downloadReports(
-                collect([$thesisGrade]),
-                preg_replace('/\.pdf$/i', '-files.zip', $thesisGrade->tsFilename()) ?: 'thesis-files.zip',
-            );
+            $complete = request()->boolean('complete');
+
+            return $complete
+                ? $this->zipService->downloadCompleteReports(
+                    collect([$thesisGrade]),
+                    preg_replace('/\.pdf$/i', '-complete.zip', $thesisGrade->tsFilename()) ?: 'thesis-complete.zip',
+                )
+                : $this->zipService->downloadReports(
+                    collect([$thesisGrade]),
+                    preg_replace('/\.pdf$/i', '-files.zip', $thesisGrade->tsFilename()) ?: 'thesis-files.zip',
+                );
         } catch (RuntimeException $e) {
             abort(404, $e->getMessage());
         }
@@ -173,10 +180,17 @@ class ThesisGradeReviewController extends Controller
         }
 
         try {
-            return $this->zipService->downloadReports(
-                $reports,
-                'TS-faculty-'.now()->format('Ymd-His').'.zip',
-            );
+            $complete = $request->boolean('complete');
+
+            return $complete
+                ? $this->zipService->downloadCompleteReports(
+                    $reports,
+                    'TS-faculty-complete-'.now()->format('Ymd-His').'.zip',
+                )
+                : $this->zipService->downloadReports(
+                    $reports,
+                    'TS-faculty-'.now()->format('Ymd-His').'.zip',
+                );
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
