@@ -29,10 +29,6 @@
         padding: .25rem .5rem; border-radius: .375rem;
         background: #fffaf5; border: 1px solid #f0e0d0; font-size: .75rem; color: #5C2E1F;
     }
-    .file-upload-zone {
-        border: 1px dashed #E8C4B8; border-radius: .5rem; padding: .5rem;
-        background: #fffaf5;
-    }
     .reg-source-block {
         border-radius: .5rem;
         padding: .45rem .5rem;
@@ -212,30 +208,15 @@
                                                        class="hover:underline truncate max-w-[9rem]" title="{{ $file->original_name }}">
                                                         {{ $file->original_name }}
                                                     </a>
-                                                    @if ($canEdit)
-                                                        <button type="button"
-                                                            class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
-                                                            data-report-id="{{ $report->grade_id }}"
-                                                            data-file-id="{{ $file->file_id }}"
-                                                            title="ลบไฟล์">
-                                                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                                                        </button>
-                                                    @endif
                                                 </div>
                                             @endforeach
                                         </div>
                                     @endif
 
                                     @if ($canEdit)
-                                        <label class="file-upload-zone block cursor-pointer">
-                                            <input type="file" accept=".pdf,application/pdf" class="hidden file-upload-input"
-                                                data-report-id="{{ $report->grade_id }}"
-                                                data-file-type="exam_report">
-                                            <span class="text-xs text-[#8B4513] font-medium flex items-center gap-1">
-                                                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                                                อัปโหลด PDF
-                                            </span>
-                                        </label>
+                                        <p class="text-xs text-[#7A4A3A]/80 leading-relaxed">
+                                            ต้องการเปลี่ยนไฟล์ ให้กด «แก้ไข»
+                                        </p>
                                     @elseif ($awaitingDept)
                                         <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
                                             ส่งการแก้ไขแล้ว — รอสาขา
@@ -267,31 +248,15 @@
                                                            class="hover:underline truncate max-w-[9rem]" title="{{ $regDisplayName }}">
                                                             {{ $regDisplayName }}
                                                         </a>
-                                                        @if ($canEdit)
-                                                            <button type="button"
-                                                                class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
-                                                                data-report-id="{{ $report->grade_id }}"
-                                                                data-file-id="{{ $file->file_id }}"
-                                                                title="ลบไฟล์">
-                                                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                                                            </button>
-                                                        @endif
                                                     </div>
                                                 @endforeach
                                             </div>
                                         @endif
 
                                         @if ($canEdit)
-                                            <label class="file-upload-zone block cursor-pointer">
-                                                <input type="file" accept=".pdf,application/pdf" class="hidden file-upload-input"
-                                                    data-report-id="{{ $report->grade_id }}"
-                                                    data-file-type="registrar"
-                                                    data-reg-source="instructor">
-                                                <span class="text-xs text-[#8B4513] font-medium flex items-center gap-1">
-                                                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                                                    อัปโหลดจาก REG
-                                                </span>
-                                            </label>
+                                            <p class="text-xs text-[#7A4A3A]/80 leading-relaxed">
+                                                ต้องการเปลี่ยนไฟล์ ให้กด «แก้ไข»
+                                            </p>
                                             @if ($canSubmitCorrections)
                                                 <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5 leading-relaxed">
                                                     แก้ไขครบแล้ว กด «ส่งการแก้ไข» เพื่อส่งให้สาขาวิชาดำเนินการ
@@ -392,7 +357,7 @@
         </div>
         <p class="text-xs text-red-700 mt-3 leading-relaxed">
             ** เมื่อสร้างแบบรายงานแล้ว ต้องกรอกจำนวนนักศึกษาก่อนจึงจะพิมพ์แบบฟอร์มได้<br>
-            ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด (อัปโหลด PDF ในคอลัมน์ «แบบรายงานผลการสอบไล่» และ «ใบส่งผลการศึกษา (REG)»)
+            ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด — กด «แก้ไข» เพื่ออัปโหลดหรือเปลี่ยนไฟล์ PDF
         </p>
     @endif
 </div>
@@ -402,11 +367,6 @@
 <script>
 (function() {
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    function refreshLucideIcons(root) {
-        if (typeof lucide === 'undefined' || !lucide.createIcons) return;
-        lucide.createIcons(root ? { root } : undefined);
-    }
 
     document.querySelectorAll('.btn-delete-report').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -435,132 +395,6 @@
             }
         });
     });
-
-    document.querySelectorAll('.file-upload-input').forEach((input) => {
-        input.addEventListener('change', async () => {
-            const file = input.files?.[0];
-            if (!file) return;
-
-            if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                alert('รองรับเฉพาะไฟล์ PDF');
-                input.value = '';
-                return;
-            }
-
-            const reportId = input.dataset.reportId;
-            const fileType = input.dataset.fileType || 'exam_report';
-            const formData = new FormData();
-            formData.append('attachment', file);
-            formData.append('file_type', fileType);
-
-            const res = await fetch(`/api/grade-reports/${reportId}/files`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrf(),
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-                body: formData,
-            });
-
-            input.value = '';
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                alert(data.message || 'อัปโหลดไม่สำเร็จ');
-                return;
-            }
-
-            const uploaded = await res.json();
-            const regSource = input.dataset.regSource;
-            const container = regSource
-                ? document.querySelector(`[data-report-files="${reportId}"][data-file-type="${fileType}"][data-reg-source="${regSource}"]`)
-                : document.querySelector(`[data-report-files="${reportId}"][data-file-type="${fileType}"]`);
-            if (!container) return;
-
-            container.querySelector('.file-empty-msg')?.remove();
-
-            let list = container.querySelector('.file-list');
-            if (!list) {
-                list = document.createElement('div');
-                list.className = 'flex flex-col gap-1.5 file-list';
-                const uploadZone = container.querySelector('.file-upload-zone');
-                if (uploadZone) {
-                    container.insertBefore(list, uploadZone);
-                } else {
-                    container.appendChild(list);
-                }
-            }
-
-            const chip = document.createElement('div');
-            chip.className = 'file-chip';
-            chip.dataset.fileId = uploaded.file_id;
-            const shownName = uploaded.display_name || uploaded.original_name;
-            chip.innerHTML = `
-                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
-                <a href="${uploaded.view_url}" target="_blank" rel="noopener noreferrer"
-                   class="hover:underline truncate max-w-[9rem]" title="${shownName}">
-                    ${shownName}
-                </a>
-                <button type="button" class="btn-delete-file text-red-600 hover:text-red-800 ml-1"
-                    data-report-id="${reportId}" data-file-id="${uploaded.file_id}" title="ลบไฟล์">
-                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                </button>
-            `;
-            list.appendChild(chip);
-            bindDeleteFile(chip.querySelector('.btn-delete-file'));
-            refreshLucideIcons(chip);
-        });
-    });
-
-    function bindDeleteFile(btn) {
-        if (!btn || btn.dataset.bound) return;
-        btn.dataset.bound = '1';
-        btn.addEventListener('click', async () => {
-            if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
-
-            const reportId = btn.dataset.reportId;
-            const fileId = btn.dataset.fileId;
-            const res = await fetch(`/api/grade-reports/${reportId}/files/${fileId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': csrf(),
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-            });
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                alert(data.message || 'ลบไฟล์ไม่สำเร็จ');
-                return;
-            }
-
-            const chip = btn.closest('.file-chip');
-            const container = chip?.closest('[data-report-files]');
-            chip?.remove();
-            const list = container?.querySelector('.file-list');
-            if (list && !list.children.length) {
-                list.remove();
-                const empty = document.createElement('p');
-                empty.className = 'text-xs text-gray-500 file-empty-msg';
-                empty.textContent = container.dataset.regSource === 'dept'
-                    ? 'ยังไม่มีไฟล์จากสาขา'
-                    : 'ยังไม่มีไฟล์';
-                const uploadZone = container.querySelector('.file-upload-zone');
-                const label = container.querySelector('.reg-source-label');
-                if (uploadZone) {
-                    container.insertBefore(empty, uploadZone);
-                } else if (label) {
-                    label.after(empty);
-                } else {
-                    container.appendChild(empty);
-                }
-            }
-        });
-    }
-
-    document.querySelectorAll('.btn-delete-file').forEach(bindDeleteFile);
 })();
 </script>
 @endpush
