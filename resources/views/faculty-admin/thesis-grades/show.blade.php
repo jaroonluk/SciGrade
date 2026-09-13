@@ -40,12 +40,6 @@
         </div>
     </div>
 
-    @if ($report->return_reason)
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            ส่งกลับล่าสุด: {{ $report->return_reason }}
-        </div>
-    @endif
-
     <section class="form-section rounded-xl p-5">
         <h3 class="font-semibold text-[#5C2E1F] mb-3">ไฟล์แนบ</h3>
         <div class="grid md:grid-cols-2 gap-3">
@@ -131,26 +125,13 @@
         <p class="text-xs text-[#7A4A3A]/70 mt-3">แบบฟอร์มหนังสือชี้แจง: <a href="{{ $s0FormUrl }}" class="underline text-[#a16207]" target="_blank" rel="noopener">เปิดลิงก์</a></p>
     </section>
 
-    @if (in_array($report->status, ['received', 'approved'], true))
+    @if ($report->status === 'received')
         <section class="rounded-xl border border-amber-200 bg-white p-5">
             <h3 class="font-semibold text-[#5C2E1F] mb-3">การดำเนินการของคณะ</h3>
-            <div class="flex flex-wrap gap-3">
-                @if ($report->status === 'received')
-                    <form method="POST" action="{{ route('faculty-admin.thesis-grades.receive', $report) }}">
-                        @csrf
-                        <button type="submit" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">ผ่านที่ประชุมกรรมการคณะฯ</button>
-                    </form>
-                @endif
-                <form method="POST" action="{{ route('faculty-admin.thesis-grades.send-back', $report) }}" class="flex-1 min-w-[16rem]">
-                    @csrf
-                    <label class="block text-sm text-[#5C2E1F] mb-1">ส่งกลับแก้ไข</label>
-                    <div class="flex gap-2">
-                        <input type="text" name="return_reason" required placeholder="ระบุสิ่งที่ขาด เช่น ยังไม่มีหนังสือ S=0"
-                               class="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm">
-                        <button type="submit" class="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-semibold hover:bg-red-800">ส่งกลับ</button>
-                    </div>
-                </form>
-            </div>
+            <form method="POST" action="{{ route('faculty-admin.thesis-grades.receive', $report) }}">
+                @csrf
+                <button type="submit" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">ผ่านที่ประชุมกรรมการคณะฯ</button>
+            </form>
         </section>
     @endif
 </div>

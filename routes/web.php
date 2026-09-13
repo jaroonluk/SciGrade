@@ -95,7 +95,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/thesis-grades/download', [ThesisGradeReviewController::class, 'downloadSelected'])->name('thesis-grades.download');
         Route::get('/thesis-grades/{thesisGrade}', [ThesisGradeReviewController::class, 'show'])->name('thesis-grades.show');
         Route::post('/thesis-grades/{thesisGrade}/receive', [ThesisGradeReviewController::class, 'receive'])->name('thesis-grades.receive');
-        Route::post('/thesis-grades/{thesisGrade}/send-back', [ThesisGradeReviewController::class, 'sendBack'])->name('thesis-grades.send-back');
         Route::post('/thesis-grades/{thesisGrade}/chair-files', [ThesisGradeReviewController::class, 'storeChairFiles'])->name('thesis-grades.chair-files.store');
         Route::delete('/thesis-grades/{thesisGrade}/chair-files/{file}', [ThesisGradeReviewController::class, 'destroyChairFile'])->name('thesis-grades.chair-files.destroy');
         Route::get('/thesis-grades/{thesisGrade}/students/{student}/s0.docx', [ThesisGradeReviewController::class, 'exportS0'])->name('thesis-grades.s0.docx');
@@ -122,7 +121,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/thesis-grades/download', [FacultyThesisGradeReviewController::class, 'downloadSelected'])->name('thesis-grades.download');
         Route::get('/thesis-grades/{thesisGrade}', [FacultyThesisGradeReviewController::class, 'show'])->name('thesis-grades.show');
         Route::post('/thesis-grades/{thesisGrade}/receive', [FacultyThesisGradeReviewController::class, 'receive'])->name('thesis-grades.receive');
-        Route::post('/thesis-grades/{thesisGrade}/send-back', [FacultyThesisGradeReviewController::class, 'sendBack'])->name('thesis-grades.send-back');
         Route::get('/thesis-grades/{thesisGrade}/files-zip', [FacultyThesisGradeReviewController::class, 'downloadReport'])->name('thesis-grades.files.zip');
         Route::get('/thesis-grades/{thesisGrade}/files/{file}', [FacultyThesisGradeReviewController::class, 'showFile'])->name('thesis-grades.files.show');
 

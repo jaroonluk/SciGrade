@@ -92,27 +92,6 @@ class ThesisGradeReviewController extends Controller
         return back()->with('status', 'ผ่านที่ประชุมกรรมการคณะฯ เรียบร้อย');
     }
 
-    public function sendBack(Request $request, ThesisGrade $thesisGrade): RedirectResponse
-    {
-        $this->requireReviewer();
-        $this->authorize('reviewFaculty', $thesisGrade);
-        $reason = trim((string) $request->input('return_reason', ''));
-
-        try {
-            $this->approval->facultySendBack($thesisGrade, $this->staffUsername(), $reason);
-        } catch (InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        $this->auditLog->record('thesis_grade.faculty_send_back', 'thesis_grade', $thesisGrade->thesis_grade_id, [
-            'reason' => $reason,
-        ], actorRole: SciGradeRole::current());
-
-        return redirect()
-            ->route('faculty-admin.thesis-grades.index')
-            ->with('status', 'ส่งกลับให้อาจารย์แก้ไขแล้ว');
-    }
-
     public function showFile(ThesisGrade $thesisGrade, ThesisGradeFile $file): StreamedResponse
     {
         $this->requireReviewer();

@@ -682,7 +682,7 @@
             <div class="role-panel-head">
                 <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ</p>
                 <h4 class="role-title" style="color:#854d0e;">รับผลการเรียนจากอาจารย์</h4>
-                <p class="role-desc">ตรวจไฟล์ TS หนังสือชี้แจง S=0 แล้วกดผ่านที่ประชุมสาขาฯ หรือส่งกลับ — แยกจากคิวสอบไล่</p>
+                <p class="role-desc">ตรวจไฟล์ TS หนังสือชี้แจง S=0 แล้วกดผ่านที่ประชุมสาขาฯ — แยกจากคิวสอบไล่</p>
             </div>
             <div class="role-panel-body">
                 <a href="{{ route('dept-admin.thesis-grades.index') }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
