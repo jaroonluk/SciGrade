@@ -280,7 +280,7 @@
                                 @if ($attachedFiles->isNotEmpty())
                                     <div class="mt-1 flex flex-col gap-0.5">
                                         @foreach ($attachedFiles as $file)
-                                            <a href="{{ route('grade-reports.files.show', ['gradeReport' => $row->grade_id, 'file' => $file->file_id]) }}"
+                                            <a href="{{ route('grade-reports.files.show', ['gradeReport' => $file->grade_id ?? $row->grade_id, 'file' => $file->file_id]) }}"
                                                 target="_blank" rel="noopener noreferrer"
                                                 class="text-xs text-[#8B4513] hover:underline inline-flex items-center gap-1 w-fit"
                                                 title="{{ $file->file_name ?: $file->type_label }}">

@@ -13,37 +13,23 @@ use Tests\TestCase;
 class RegGradeAttachedFilesForSectionTest extends TestCase
 {
     #[Test]
-    public function it_shows_section_specific_and_course_level_files_on_each_row(): void
+    public function it_shows_only_registrar_files_for_the_matching_section(): void
     {
         $report = $this->multiSectionReport();
-
         $service = $this->makeService();
 
         $sec1 = $service->attachedFilesForSection($report, 1);
         $sec2 = $service->attachedFilesForSection($report, '02');
 
-        $this->assertSame(
-            [
-                'แบบรายงานผลการสอบไล่-Sec1',
-                'ใบส่งผลการศึกษา (REG)-Sec1',
-                'แบบรายงานผลการสอบไล่',
-            ],
-            $sec1->pluck('type_label')->all(),
-        );
-        $this->assertSame(
-            [
-                'ใบส่งผลการศึกษา (REG-Admin)-Sec2',
-                'แบบรายงานผลการสอบไล่',
-            ],
-            $sec2->pluck('type_label')->all(),
-        );
-
-        $this->assertSame([11, 12, 30], $sec1->pluck('file_id')->all());
-        $this->assertSame([21, 30], $sec2->pluck('file_id')->all());
+        $this->assertSame(['ใบส่งผลการศึกษา (REG)-Sec1'], $sec1->pluck('type_label')->all());
+        $this->assertSame(['ใบส่งผลการศึกษา (REG-Admin)-Sec2'], $sec2->pluck('type_label')->all());
+        $this->assertSame([12], $sec1->pluck('file_id')->all());
+        $this->assertSame([21], $sec2->pluck('file_id')->all());
+        $this->assertSame([500], $sec1->pluck('grade_id')->all());
     }
 
     #[Test]
-    public function it_still_shows_documents_on_section_one_when_files_are_tagged_for_another_section(): void
+    public function it_does_not_show_another_section_file_on_an_empty_row(): void
     {
         $report = new GradeReport([
             'subject_code' => 'SC203001',
@@ -66,8 +52,21 @@ class RegGradeAttachedFilesForSectionTest extends TestCase
 
         $sec1 = $this->makeService()->attachedFilesForSection($report, 1);
 
-        $this->assertSame([22], $sec1->pluck('file_id')->all());
-        $this->assertSame('ใบส่งผลการศึกษา (REG)-Sec2', $sec1->first()->type_label);
+        $this->assertSame([], $sec1->pluck('file_id')->all());
+    }
+
+    #[Test]
+    public function it_leaves_a_section_without_its_own_file_empty(): void
+    {
+        $report = $this->multiSectionReport();
+        $report->setRelation('gradeStds', collect([
+            new GradeStd(['sec' => '1', 'total_std' => 20]),
+            new GradeStd(['sec' => '5', 'total_std' => 18]),
+        ]));
+
+        $sec7 = $this->makeService()->attachedFilesForSection($report, 7);
+
+        $this->assertTrue($sec7->isEmpty());
     }
 
     #[Test]
@@ -78,9 +77,26 @@ class RegGradeAttachedFilesForSectionTest extends TestCase
 
         $sec1Ids = $service->attachedFilesForSection($report, 1)->pluck('file_id')->all();
 
-        $this->assertContains(11, $sec1Ids);
         $this->assertContains(12, $sec1Ids);
+        $this->assertNotContains(11, $sec1Ids);
         $this->assertNotContains(21, $sec1Ids);
+        $this->assertNotContains(30, $sec1Ids);
+    }
+
+    #[Test]
+    public function it_lists_all_exam_files_for_the_course_and_not_on_later_sections(): void
+    {
+        $report = $this->multiSectionReport();
+        $service = $this->makeService();
+
+        $exams = $service->examFilesForReports(collect([$report]));
+        $sec2 = $service->attachedFilesForSection($report, 2);
+
+        $this->assertSame([11, 30], $exams->pluck('file_id')->all());
+        $this->assertSame([500, 500], $exams->pluck('grade_id')->all());
+        $this->assertTrue($exams->every(fn (object $file) => $file->file_type === GradeReportFile::TYPE_EXAM_REPORT));
+        $this->assertNotContains(11, $sec2->pluck('file_id')->all());
+        $this->assertNotContains(30, $sec2->pluck('file_id')->all());
     }
 
     private function makeService(): RegGradeDepartmentService

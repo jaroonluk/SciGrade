@@ -100,6 +100,7 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
             'attached_files' => collect([
                 (object) [
                     'file_id' => 11,
+                    'grade_id' => 101,
                     'file_name' => '2568_2_SC203001_01.pdf',
                     'file_type' => 'exam_report',
                     'type_label' => 'แบบรายงานผลการสอบไล่-Sec1',
@@ -113,6 +114,7 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
             'attached_files' => collect([
                 (object) [
                     'file_id' => 21,
+                    'grade_id' => 101,
                     'file_name' => 'REG_2568_2_SC203001_02.pdf',
                     'file_type' => 'registrar',
                     'type_label' => 'ใบส่งผลการศึกษา (REG)-Sec2',
