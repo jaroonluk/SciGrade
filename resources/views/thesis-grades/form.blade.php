@@ -73,6 +73,8 @@
     data-file-base="{{ $report ? url('/thesis-grades/'.$report->thesis_grade_id.'/files') : '' }}"
     data-initial-step="{{ $step }}"
     data-s0-form-url="{{ $s0FormUrl }}"
+    data-s0-letter-url="{{ $report ? route('thesis-grades.s0-letter', $report) : '' }}"
+    data-s0-letter-student-tpl="{{ $report ? url('/thesis-grades/'.$report->thesis_grade_id.'/students/__SID__/s0-letter') : '' }}"
 >
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
@@ -255,6 +257,9 @@
             <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-4">
                 <p class="font-semibold">ตัวช่วยตรวจเค้าโครง</p>
                 <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากเลยกำหนดและให้ S=0 ต้องแนบหนังสือชี้แจง — ระเบียบ พ.ศ. 2566 ยกเลิกการตกออกจาก S=0 สองภาคติดแล้ว</p>
+                @if ($report)
+                    <p class="mt-2">กด «เปิดแบบฟอร์มบันทึกข้อความ» ที่นักศึกษา S=0 เพื่อพิมพ์บันทึกที่มีรหัสวิชา ชื่อวิชา กลุ่ม และภาค/ปีของรายการนี้เติมไว้แล้ว</p>
+                @endif
             </div>
             <div id="uncertain-review-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 <p class="font-semibold">มีช่องที่ระบบอ่านจาก PDF ได้ไม่แน่ใจ</p>
@@ -268,12 +273,9 @@
                 <div class="flex flex-wrap gap-2 mt-4">
                     <button type="button" id="add-student" class="px-3 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">+ เพิ่มนักศึกษา</button>
                     @if ($report && $report->files->contains(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT))
-                        <form method="POST" action="{{ route('thesis-grades.reparse-ts', $report) }}" class="inline">
-                            @csrf
-                            <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
-                                อ่านหน่วยกิต/หมายเหตุจากใบส่งเกรดอีกครั้ง
-                            </button>
-                        </form>
+                        <button type="submit" form="reparse-ts-form" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                            อ่านหน่วยกิต/หมายเหตุจากใบส่งเกรดอีกครั้ง
+                        </button>
                     @endif
                 </div>
             @endif
@@ -301,7 +303,11 @@
             <div class="form-section rounded-xl p-5 mb-4">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <h3 class="font-semibold text-[#5C2E1F]">หนังสือชี้แจง S=0</h3>
-                    <a href="{{ $s0FormUrl }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">เปิดแบบฟอร์มบันทึกชี้แจง</a>
+                    @if ($report)
+                        <a href="{{ route('thesis-grades.s0-letter', $report) }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">เปิดแบบฟอร์มบันทึกข้อความ (เติมข้อมูลรายวิชาแล้ว)</a>
+                    @else
+                        <a href="{{ $s0FormUrl }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">เปิดแบบฟอร์มบันทึกชี้แจง</a>
+                    @endif
                 </div>
                 <p class="text-sm text-[#7A4A3A]/80 mb-3">แนบรายคนเฉพาะนักศึกษาที่เลยกำหนดเค้าโครงและให้ S=0</p>
                 <div id="s0-slots" class="space-y-2"></div>
@@ -336,6 +342,11 @@
         </div>
     </form>
 
+    @if ($report && $report->files->contains(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT))
+        <form id="reparse-ts-form" method="POST" action="{{ route('thesis-grades.reparse-ts', $report) }}" class="hidden">
+            @csrf
+        </form>
+    @endif
     @if ($report?->isDeletable())
         <form method="POST" action="{{ route('thesis-grades.destroy', $report) }}" id="delete-form" class="hidden">
             @csrf
@@ -423,5 +434,5 @@
         uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=11"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=12"></script>
 @endpush

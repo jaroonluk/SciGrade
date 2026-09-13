@@ -5,6 +5,7 @@ namespace App\Services\ThesisGrade;
 use App\Models\ThesisGrade;
 use App\Models\ThesisGradeStudent;
 use App\Support\ThaiDateTime;
+use App\Support\ThesisGradeS0Letter;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
@@ -17,7 +18,7 @@ class ThesisGradeDocxExportService
     /**
      * Export S=0 explanation letter for one student.
      */
-    public function downloadS0Letter(ThesisGrade $report, ThesisGradeStudent $student): BinaryFileResponse
+    public function downloadS0Letter(ThesisGrade $report, ?ThesisGradeStudent $student = null): BinaryFileResponse
     {
         $phpWord = new PhpWord();
         $phpWord->setDefaultFontName('TH Sarabun New');
@@ -30,23 +31,33 @@ class ThesisGradeDocxExportService
             'marginRight' => 1200,
         ]);
 
+        $fields = ThesisGradeS0Letter::fields($report, $student);
+        $studentName = $fields['student_name'] !== '' ? $fields['student_name'] : '(นาย/นาง/นางสาว)......................................';
+        $studentCode = $fields['student_code'] !== '' ? $fields['student_code'] : '....................';
+        $proposal = $fields['proposal_status'] !== '' ? $fields['proposal_status'] : 'ได้รับอนุมัติเค้าโครงแล้ว / ยังไม่ได้รับอนุมัติเค้าโครง';
+
         $section->addText('บันทึกข้อความ', ['bold' => true, 'size' => 20], ['alignment' => Jc::CENTER]);
         $section->addTextBreak(1);
 
-        $section->addText('ส่วนราชการ  คณะวิทยาศาสตร์  สาขาวิชา........................');
+        $section->addText('ส่วนราชการ  คณะวิทยาศาสตร์');
         $section->addText('ที่  ศบ  ................../........    วันที่ ......................');
-        $section->addText('เรื่อง  ชี้แจงการให้เกรด S = 0 ในรายวิชา '.($report->displayCode().' '.$report->subject));
+        $section->addText('เรื่อง  '.$fields['subject_line']);
         $section->addTextBreak(1);
-        $section->addText('เรียน  คณบดีคณะวิทยาศาสตร์ (ผ่านหัวหน้าสาขาวิชา..................)');
+        $section->addText('เรียน  คณบดีคณะวิทยาศาสตร์ (ผ่านหัวหน้าสาขาวิชา)');
         $section->addTextBreak(1);
 
         $section->addText(
-            'ด้วยข้าพเจ้า (นาย/นาง/นางสาว)...................................... รหัสประจำตัวนักศึกษา '
-            .($student->student_code ?: '....................')
-            .' นักศึกษาหลักสูตร (วิทยานิพนธ์/ดุษฎีนิพนธ์/การศึกษาอิสระ) สาขาวิชา................................ '
-            .'ได้รับอนุมัติเค้าโครงวิทยานิพนธ์แล้ว / ยังไม่ได้รับอนุมัติเค้าโครง '
-            .'และได้ลงทะเบียนรายวิชา '.$report->displayCode().' '.$report->subject
-            .' ได้ S=0 ครั้งที่ .... ด้วยเหตุผลจาก...............................................',
+            'ด้วยข้าพเจ้า '.$studentName
+            .' รหัสประจำตัวนักศึกษา '.$studentCode
+            .' นักศึกษาหลักสูตร '.$fields['course_kind_th']
+            .($fields['degree'] !== '' ? ' ระดับ '.$fields['degree'] : '')
+            .' '.$proposal
+            .' และได้ลงทะเบียนรายวิชา '.$fields['subject_code'].' '.$fields['subject']
+            .' กลุ่มที่ '.$fields['section']
+            .' '.$fields['term_label'].' ปีการศึกษา '.$fields['year']
+            .' ได้เกรด '.$fields['grade']
+            .' หน่วยกิตที่ผ่าน '.$fields['credits_passed']
+            .($fields['note'] !== '' ? ' หมายเหตุ '.$fields['note'] : ''),
             [],
             ['alignment' => Jc::BOTH]
         );
@@ -54,28 +65,32 @@ class ThesisGradeDocxExportService
         $section->addText('จึงเรียนมาเพื่อโปรดพิจารณา', [], ['alignment' => Jc::BOTH]);
         $section->addTextBreak(2);
 
-        $section->addText('(..........................................................)');
+        $section->addText('('.($fields['teacher'] !== '' ? $fields['teacher'] : '..........................................................').')');
         $section->addText('อาจารย์ที่ปรึกษาวิทยานิพนธ์');
         $section->addTextBreak(1);
         $section->addText('(..........................................................)');
-        $section->addText('หัวหน้าสาขาวิชา........');
+        $section->addText('หัวหน้าสาขาวิชา');
         $section->addTextBreak(1);
 
-        $section->addText('ข้อมูลระบบ SciGrade (เติมอัตโนมัติ)', ['bold' => true, 'size' => 14]);
-        $section->addText('ภาคการศึกษา: '.$report->termLabel().' '.$report->year);
-        $section->addText('กลุ่มที่: '.$report->paddedSection());
-        $section->addText('อาจารย์ผู้ส่ง: '.($report->teacher ?: $report->username));
-        $section->addText('นักศึกษา: '.trim($student->student_code.' '.$student->student_name));
-        $section->addText('ระดับ: '.$student->degreeLabel().' · ภาคสะสม: '.$student->thesis_terms_count);
-        $section->addText('เกรด/หน่วยกิต: '.($student->grade ?: '—').' / '.($student->progress_credits ?? '—'));
-        if ($student->note) {
-            $section->addText('หมายเหตุ: '.$student->note);
+        $section->addText('ข้อมูลรายวิชาที่กำลังรายงานใน SciGrade', ['bold' => true, 'size' => 14]);
+        $section->addText('รหัส/ชื่อวิชา: '.$fields['subject_code'].' '.$fields['subject']);
+        $section->addText('กลุ่มที่ '.$fields['section'].' · '.$fields['term_label'].' ปีการศึกษา '.$fields['year']);
+        $section->addText('อาจารย์ผู้ส่ง: '.($fields['teacher'] !== '' ? $fields['teacher'] : '—'));
+        $section->addText('นักศึกษา: '.trim($fields['student_code'].' '.$fields['student_name']));
+        $section->addText('ระดับ: '.$fields['degree'].' · ภาคสะสม: '.$fields['thesis_terms']);
+        $section->addText('เกรด/หน่วยกิตที่ผ่าน: '.$fields['grade'].' / '.$fields['credits_passed']);
+        if ($fields['note'] !== '') {
+            $section->addText('หมายเหตุ: '.$fields['note']);
         }
         $section->addText('พิมพ์เมื่อ: '.ThaiDateTime::formatDateTime(now()));
 
+        $suffix = $student?->student_code
+            ? preg_replace('/\W+/', '', (string) $student->student_code)
+            : 'course';
+
         return $this->streamDocx(
             $phpWord,
-            'S0-'.$report->displayCode().'-'.$report->paddedSection().'-'.preg_replace('/\W+/', '', (string) $student->student_code).'.docx'
+            'S0-'.$report->displayCode().'-'.$report->paddedSection().'-'.$suffix.'.docx'
         );
     }
 

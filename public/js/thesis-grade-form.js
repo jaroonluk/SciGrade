@@ -165,6 +165,14 @@
         return files.some((f) => f.file_type === 's0_letter' && String(f.student_id) === String(s.id));
     }
 
+    function s0LetterUrlFor(s) {
+        const tpl = root.dataset.s0LetterStudentTpl || '';
+        if (s?.id && tpl) {
+            return tpl.replace('__SID__', encodeURIComponent(s.id));
+        }
+        return root.dataset.s0LetterUrl || '';
+    }
+
     function tsFiles() {
         return files.filter((f) => f.file_type === 'ts_report');
     }
@@ -235,9 +243,13 @@
             const overdue = isOverdue(s);
             const s0 = needsS0(s);
             const cls = s.completed && s.defense_date ? 'is-ready' : (overdue ? 'is-overdue' : '');
+            const s0LetterUrl = s0LetterUrlFor(s);
             const badge = overdue
                 ? `<span class="text-xs font-semibold text-red-700">เลยกำหนดเค้าโครง${s0 ? ' · ควรพิจารณา S=0' : ''}</span>`
                 : (s.proposal_approved ? '<span class="text-xs font-semibold text-green-700">อนุมัติเค้าโครงแล้ว</span>' : '');
+            const s0LetterLink = s0 && s0LetterUrl
+                ? `<a href="${escapeHtml(s0LetterUrl)}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline">เปิดแบบฟอร์มบันทึกข้อความ</a>`
+                : '';
             const ro = editable ? '' : 'disabled';
             const u = s.uncertain_fields || {};
             const fullName = displayNameOf(s);
@@ -253,7 +265,7 @@
                 <input type="hidden" name="students[${i}][student_name]" value="${escapeHtml(s.student_name || fullName)}">
                 <div class="flex items-center justify-between gap-2 mb-3">
                     <p class="text-sm font-semibold text-[#5C2E1F]">นักศึกษาคนที่ ${i + 1}</p>
-                    <div class="flex items-center gap-2">${badge}
+                    <div class="flex items-center gap-2">${badge}${s0LetterLink}
                         ${editable ? `<button type="button" class="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 hover:text-red-700" data-remove="${i}" title="ลบนักศึกษา" aria-label="ลบนักศึกษา"><span class="text-xl leading-none font-bold" aria-hidden="true">&times;</span></button>` : ''}
                     </div>
                 </div>
@@ -396,6 +408,7 @@
                         return `<div class="rounded-lg border border-red-200 bg-white px-3 py-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <p class="text-sm font-medium text-red-800">${escapeHtml(s.student_code)} ${escapeHtml(s.student_name)}</p>
+                                ${s0LetterUrlFor(s) ? `<a href="${escapeHtml(s0LetterUrlFor(s))}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline">เปิดแบบฟอร์มบันทึกข้อความ</a>` : ''}
                                 ${editable && root.dataset.uploadUrl ? `<label class="text-xs font-semibold text-[#a16207] cursor-pointer">แนบ PDF
                                     <input type="file" accept="application/pdf" class="hidden" data-s0="${escapeHtml(s.id)}">
                                 </label>` : ''}
@@ -553,6 +566,12 @@
     });
     form?.addEventListener('submit', () => {
         collectFromDom();
+        const intent = document.getElementById('form-intent')?.value;
+        const submitBtn = form.querySelector('[data-intent="submit"]');
+        if (intent === 'submit' && submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'กำลังส่งเข้าสาขา...';
+        }
     });
 
     const codeInput = document.getElementById('subject_code');

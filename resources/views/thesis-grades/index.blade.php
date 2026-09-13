@@ -112,4 +112,47 @@
         </div>
     @endif
 </div>
+
+@if (session('thesis_submitted'))
+    @php $submitted = session('thesis_submitted'); @endphp
+    <div id="thesis-submit-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-md rounded-2xl bg-white border border-amber-200 shadow-xl p-5">
+            <h3 class="text-lg font-bold text-[#854d0e]">ส่งเข้าสาขาเรียบร้อย</h3>
+            <p class="text-sm text-[#7A4A3A] mt-2 leading-relaxed">
+                ส่งผลการเรียน
+                <span class="font-semibold text-[#5C2E1F]">{{ $submitted['code'] ?? '' }} {{ $submitted['subject'] ?? '' }}</span>
+                @if (! empty($submitted['section']))
+                    กลุ่ม {{ $submitted['section'] }}
+                @endif
+                เข้าสาขาแล้ว — ติดตามสถานะจากรายการนี้ หรือส่งผลวิชาต่อไป
+            </p>
+            <div class="mt-5 flex flex-col gap-2">
+                <a href="{{ route('thesis-grades.create', ['term' => $term, 'year' => $year]) }}"
+                   class="px-4 py-2.5 bg-[#a16207] text-white rounded-lg text-sm font-semibold text-center hover:bg-[#854d0e]">
+                    ส่งเกรดวิชาต่อไป
+                </a>
+                <a href="{{ route('dashboard') }}"
+                   class="px-4 py-2.5 border border-amber-300 text-[#5C2E1F] rounded-lg text-sm font-semibold text-center hover:bg-amber-50">
+                    กลับหน้าหลัก
+                </a>
+                <button type="button" id="thesis-submit-modal-close" class="px-4 py-2 text-sm text-[#7A4A3A] hover:underline">
+                    อยู่ในหน้ารายการนี้
+                </button>
+            </div>
+        </div>
+    </div>
+@endif
 @endsection
+
+@push('scripts')
+@if (session('thesis_submitted'))
+<script>
+    document.getElementById('thesis-submit-modal-close')?.addEventListener('click', () => {
+        document.getElementById('thesis-submit-modal')?.remove();
+    });
+    document.getElementById('thesis-submit-modal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) e.currentTarget.remove();
+    });
+</script>
+@endif
+@endpush

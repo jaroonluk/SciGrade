@@ -197,6 +197,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{thesisGrade}', [ThesisGradePageController::class, 'destroy'])->name('destroy');
         Route::post('/{thesisGrade}/submit', [ThesisGradePageController::class, 'submit'])->name('submit');
         Route::post('/{thesisGrade}/reparse-ts', [ThesisGradePageController::class, 'reparseTs'])->name('reparse-ts');
+        Route::get('/{thesisGrade}/s0-letter', [ThesisGradePageController::class, 's0Letter'])->name('s0-letter');
+        Route::get('/{thesisGrade}/s0.docx', [ThesisGradePageController::class, 'downloadS0Letter'])->name('s0.docx');
+        Route::get('/{thesisGrade}/students/{student}/s0-letter', [ThesisGradePageController::class, 's0Letter'])->name('s0-letter.student');
+        Route::get('/{thesisGrade}/students/{student}/s0.docx', [ThesisGradePageController::class, 'downloadS0Letter'])->name('s0.docx.student');
         Route::get('/{thesisGrade}/files-zip', [ThesisGradePageController::class, 'downloadZip'])->name('files.zip');
         Route::post('/{thesisGrade}/files', [ThesisGradeFileController::class, 'store'])->name('files.store');
         Route::get('/{thesisGrade}/files/{file}', [ThesisGradeFileController::class, 'show'])->name('files.show');

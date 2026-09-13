@@ -5,14 +5,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ThesisGrade\SaveThesisGradeRequest;
 use App\Models\ThesisGrade;
 use App\Models\ThesisGradeFile;
+use App\Models\ThesisGradeStudent;
 use App\Services\StaffAuthService;
 use App\Services\ThesisGrade\PdfSignatureInspector;
 use App\Services\ThesisGrade\ThesisGradeAttachmentNameService;
+use App\Services\ThesisGrade\ThesisGradeDocxExportService;
 use App\Services\ThesisGrade\ThesisGradePdfParseException;
 use App\Services\ThesisGrade\ThesisGradePdfParser;
 use App\Services\ThesisGrade\ThesisGradeService;
 use App\Services\ThesisGrade\ThesisGradeZipService;
 use App\Support\AcademicTerm;
+use App\Support\ThesisGradeS0Letter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +35,7 @@ class ThesisGradePageController extends Controller
         private readonly ThesisGradePdfParser $pdfParser,
         private readonly ThesisGradeAttachmentNameService $names,
         private readonly PdfSignatureInspector $signatures,
+        private readonly ThesisGradeDocxExportService $docxExport,
     ) {}
 
     public function index(Request $request): View
@@ -418,9 +422,7 @@ class ThesisGradePageController extends Controller
                 ->with('submit_errors', $errors);
         }
 
-        return redirect()
-            ->route('thesis-grades.index', ['term' => $thesisGrade->term, 'year' => $thesisGrade->year])
-            ->with('status', 'ส่งผลการเรียนเข้าสาขาแล้ว');
+        return $this->afterSubmitRedirect($thesisGrade);
     }
 
     public function destroy(ThesisGrade $thesisGrade): RedirectResponse
@@ -451,6 +453,45 @@ class ThesisGradePageController extends Controller
         }
     }
 
+    public function s0Letter(ThesisGrade $thesisGrade, ?ThesisGradeStudent $student = null): View
+    {
+        $this->authorize('view', $thesisGrade);
+        if ($student !== null) {
+            abort_unless((int) $student->thesis_grade_id === (int) $thesisGrade->thesis_grade_id, 404);
+        }
+
+        return view('thesis-grades.s0-letter', [
+            'fields' => ThesisGradeS0Letter::fields($thesisGrade, $student),
+            'backUrl' => route('thesis-grades.edit', ['thesisGrade' => $thesisGrade, 'step' => 2]),
+            'officialFormUrl' => (string) config('scigrade.s0_letter_form_url'),
+            'docxUrl' => $student
+                ? route('thesis-grades.s0.docx.student', [$thesisGrade, $student])
+                : route('thesis-grades.s0.docx', $thesisGrade),
+        ]);
+    }
+
+    public function downloadS0Letter(ThesisGrade $thesisGrade, ?ThesisGradeStudent $student = null): BinaryFileResponse
+    {
+        $this->authorize('view', $thesisGrade);
+        if ($student !== null) {
+            abort_unless((int) $student->thesis_grade_id === (int) $thesisGrade->thesis_grade_id, 404);
+        }
+
+        return $this->docxExport->downloadS0Letter($thesisGrade, $student);
+    }
+
+    private function afterSubmitRedirect(ThesisGrade $report): RedirectResponse
+    {
+        return redirect()
+            ->route('thesis-grades.index', ['term' => $report->term, 'year' => $report->year])
+            ->with('status', 'ส่งผลการเรียนเข้าสาขาแล้ว — ติดตามสถานะจากรายการด้านล่าง หรือส่งผลวิชาต่อไปได้')
+            ->with('thesis_submitted', [
+                'code' => $report->displayCode(),
+                'section' => $report->paddedSection(),
+                'subject' => (string) $report->subject,
+            ]);
+    }
+
     private function afterSave(SaveThesisGradeRequest $request, ThesisGrade $report, bool $created): RedirectResponse
     {
         if ($request->input('intent') === 'submit') {
@@ -462,9 +503,7 @@ class ThesisGradePageController extends Controller
                     ->with('submit_errors', $errors);
             }
 
-            return redirect()
-                ->route('thesis-grades.index', ['term' => $report->term, 'year' => $report->year])
-                ->with('status', 'ส่งผลการเรียนเข้าสาขาแล้ว');
+            return $this->afterSubmitRedirect($report);
         }
 
         $step = (int) $request->input('step', $created ? 2 : 1);
