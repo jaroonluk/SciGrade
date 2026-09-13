@@ -3226,8 +3226,18 @@ function clearWizardState(config = window.wizardConfig) {
     }
 }
 
-function printReportUrl(reportId) {
-    return `/grade-reports/${encodeURIComponent(reportId)}/print`;
+function printReportUrl(reportId, sections = null) {
+    const path = `/grade-reports/${encodeURIComponent(reportId)}/print`;
+    const secs = [...new Set(
+        (Array.isArray(sections) ? sections : requiredRegSections())
+            .map((n) => Number(n))
+            .filter((n) => n > 0)
+    )];
+    if (!secs.length) {
+        return `${path}?sections=`;
+    }
+
+    return `${path}?${secs.map((sec) => `sections[]=${encodeURIComponent(sec)}`).join('&')}`;
 }
 
 function initGradeReportWizard(config) {

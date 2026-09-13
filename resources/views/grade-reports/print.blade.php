@@ -112,7 +112,7 @@
     </div>
 
     @php
-        $stds = $gradeReport->gradeStds->sortBy(fn ($r) => (int) $r->sec)->values();
+        $stds = isset($printStds) ? $printStds : $gradeReport->gradeStds->sortBy(fn ($r) => (int) $r->sec)->values();
         $rowCount = max($stds->count(), 1);
         $typeSuffix = function ($type) {
             return match ((int) $type) {

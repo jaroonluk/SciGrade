@@ -13,6 +13,7 @@ use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
+use App\Support\GradeReportPrintStds;
 use App\Support\SciGradeRole;
 use App\Support\ThaiDateTime;
 use App\Support\ThesisCourse;
@@ -542,7 +543,7 @@ class GradeReportPageController extends Controller
         ]);
     }
 
-    public function print(GradeReport $gradeReport): View
+    public function print(Request $request, GradeReport $gradeReport): View
     {
         abort_if(ThesisCourse::isThesisSubject((string) $gradeReport->subject_code, (string) $gradeReport->subject), 404);
 
@@ -558,6 +559,7 @@ class GradeReportPageController extends Controller
 
         return view('grade-reports.print', [
             'gradeReport' => $gradeReport,
+            'printStds' => GradeReportPrintStds::forRequest($request, $gradeReport),
             'teacherSignName' => $staff?->displayName() ?? $gradeReport->teacher,
             'printedAt' => ThaiDateTime::formatPrintFooter(),
         ]);

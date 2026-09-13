@@ -304,7 +304,7 @@
                                 <div class="flex flex-wrap justify-center gap-2">
                                     @if ($canEdit)
                                         @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', $report->grade_id) }}" target="_blank"
+                                            <a href="{{ route('grade-reports.print', ['gradeReport' => $report->grade_id, 'scope' => 'all']) }}" target="_blank"
                                                class="action-btn bg-amber-700 text-white hover:bg-amber-800">
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </a>
@@ -333,7 +333,7 @@
                                         @endif
                                     @elseif ($awaitingDept)
                                         @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', $report->grade_id) }}" target="_blank"
+                                            <a href="{{ route('grade-reports.print', ['gradeReport' => $report->grade_id, 'scope' => 'all']) }}" target="_blank"
                                                class="action-btn bg-amber-700 text-white hover:bg-amber-800">
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </a>
@@ -341,7 +341,7 @@
                                         <span class="text-xs text-amber-800 text-center block w-full mt-1">{{ $report->instructorTrackStatusLabel() }}</span>
                                     @else
                                         @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', $report->grade_id) }}" target="_blank"
+                                            <a href="{{ route('grade-reports.print', ['gradeReport' => $report->grade_id, 'scope' => 'all']) }}" target="_blank"
                                                class="action-btn bg-amber-700 text-white hover:bg-amber-800">
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </a>
