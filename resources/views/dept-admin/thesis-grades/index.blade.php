@@ -30,7 +30,7 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">THESIS · DISSERTATION · INDEPENDENT STUDY</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">รับผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจไฟล์ ผ่านที่ประชุมสาขาวิชา และดูเอกสารที่สาขาอัปโหลดได้จากหน้ารายการนี้</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">ต้องกดผ่านที่ประชุมสาขาวิชาทุกรายการ ไฟล์จากสาขาเป็นทางเลือก ไม่บังคับก่อนกดผ่าน</p>
         </div>
     </div>
 
@@ -188,7 +188,7 @@
                                     </div>
                                 </div>
                             @empty
-                                <p class="text-xs text-teal-800/70">ยังไม่มีไฟล์ที่สาขาอัปโหลด</p>
+                                <p class="text-xs text-teal-800/70">ยังไม่มีไฟล์จากสาขา — อัปโหลดได้ถ้ามีเอกสารเพิ่ม ไม่บังคับก่อนกดผ่านที่ประชุม</p>
                             @endforelse
                             @if ($canUploadChair)
                                 <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.store', $report) }}" enctype="multipart/form-data" class="pt-1">

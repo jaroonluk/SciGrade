@@ -116,8 +116,8 @@
 
     @if (in_array($report->status, ['submitted', 'received'], true))
         <section class="form-section rounded-xl p-5">
-            <h3 class="font-semibold text-[#5C2E1F] mb-1">ไฟล์ที่ประธานหลักสูตรลงนามแล้ว</h3>
-            <p class="text-sm text-[#7A4A3A]/80 mb-3">อัปโหลดได้ทีละไฟล์หรือหลายไฟล์ (PDF)</p>
+            <h3 class="font-semibold text-[#5C2E1F] mb-1">เอกสารสาขาวิชา · Admin สาขาอัปโหลด</h3>
+            <p class="text-sm text-[#7A4A3A]/80 mb-3">อัปโหลดได้ถ้ามีเอกสารเพิ่ม (PDF) — ไม่บังคับก่อนกดผ่านที่ประชุมสาขาวิชา</p>
             <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.store', $report) }}" enctype="multipart/form-data" class="space-y-3">
                 @csrf
                 <input type="file" name="files[]" accept="application/pdf" multiple required

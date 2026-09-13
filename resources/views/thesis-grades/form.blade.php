@@ -313,6 +313,26 @@
                 <div id="s0-slots" class="space-y-2"></div>
             </div>
 
+            @if ($report && $report->chairFiles()->isNotEmpty())
+                <div class="form-section rounded-xl p-5 mb-4 border border-teal-200 bg-teal-50/50">
+                    <h3 class="font-semibold text-teal-900 mb-1">เอกสารจาก Admin สาขา</h3>
+                    <p class="text-sm text-teal-900/80 mb-3">สาขาอัปโหลดไฟล์นี้เพิ่มจากหน้ารับเรื่อง — คุณเปิดดูได้จากที่นี่</p>
+                    <div class="space-y-2">
+                        @foreach ($report->chairFiles() as $file)
+                            <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener"
+                               class="flex items-center justify-between gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm text-teal-800 hover:bg-teal-50">
+                                <span class="truncate">{{ $file->original_name }}</span>
+                                <span class="font-semibold shrink-0">เปิด</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @elseif ($report && $report->normalizedStatus() === 'submitted')
+                <div class="rounded-xl border border-teal-200 bg-teal-50/60 px-4 py-3 text-sm text-teal-900 mb-4">
+                    สาขาไม่จำเป็นต้องอัปโหลดไฟล์เพิ่ม — ทุกรายการต้องรอสาขากดผ่านที่ประชุมสาขาวิชา
+                </div>
+            @endif
+
             <div class="form-section rounded-xl p-5 space-y-3">
                 <label class="flex items-start gap-2 text-sm text-[#5C2E1F]">
                     <input type="checkbox" name="checked_proposal" value="1" class="mt-1" @checked(old('checked_proposal', $report?->checked_proposal ?? false)) @disabled(! $editable)>

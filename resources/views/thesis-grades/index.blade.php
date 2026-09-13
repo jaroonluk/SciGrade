@@ -15,6 +15,16 @@
     }
     .thesis-card { background: #fff; border: 1px solid #fde68a; transition: all .15s; }
     .thesis-card:hover { border-color: #eab308; box-shadow: 0 6px 18px rgba(161, 98, 7, .08); }
+    .thesis-file-panel { border-radius: .75rem; padding: .75rem .85rem; }
+    .thesis-file-instructor { background: #fffbeb; border: 1px solid #fde68a; }
+    .thesis-file-dept { background: #f0fdfa; border: 1px solid #99f6e4; }
+    .thesis-file-chip {
+        display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+        background: #fff; border-radius: .5rem; padding: .35rem .55rem;
+        font-size: .75rem; line-height: 1.3;
+    }
+    .thesis-file-chip a { color: #854d0e; font-weight: 600; min-width: 0; }
+    .thesis-file-dept .thesis-file-chip a { color: #0f766e; }
 </style>
 @endpush
 
@@ -27,6 +37,7 @@
                 <h2 class="text-xl font-bold text-[#854d0e] mt-1">ส่งผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
                 <p class="text-sm text-[#7A4A3A]/80 mt-1.5 max-w-2xl leading-relaxed">
                     ให้เกรดที่ REG ตาม มข.30 แล้วอัปโหลดใบส่งเกรดที่ลงนามแล้วเข้าที่นี่ — รายวิชานี้ส่งได้ตลอด ไม่ผูกปฏิทินสอบไล่
+                    หลังส่งเข้าสาขา ทุกรายการต้องรอสาขากดผ่านที่ประชุมสาขาวิชา (สาขาไม่จำเป็นต้องอัปโหลดไฟล์เพิ่ม)
                 </p>
             </div>
             <a href="{{ route('thesis-grades.create', ['term' => $term, 'year' => $year]) }}"
@@ -74,10 +85,13 @@
                     $overdue = $report->overdueStudentCount();
                     $missingS0 = $report->missingS0Count();
                     $missingDefense = $report->missingDefenseCount();
+                    $instructorFiles = $report->instructorFiles();
+                    $chairFiles = $report->chairFiles();
+                    $status = $report->normalizedStatus();
                 @endphp
-                <a href="{{ route('thesis-grades.edit', $report) }}" class="thesis-card rounded-xl p-4 block">
+                <article class="thesis-card rounded-xl p-4">
                     <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div>
+                        <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
                                 <p class="font-bold text-[#5C2E1F]">{{ $report->displayCode() }} <span class="text-[#7A4A3A] font-medium">กลุ่ม {{ $report->paddedSection() }}</span></p>
                                 <span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">{{ $report->courseKindLabel() }}</span>
@@ -86,12 +100,12 @@
                             <p class="text-sm text-[#7A4A3A] mt-1">{{ $report->subject }}</p>
                             <p class="text-xs text-[#7A4A3A]/70 mt-1">
                                 {{ $report->termLabel() }} {{ $report->year }} · นักศึกษา {{ $report->students->count() }} คน
-                                @if ($report->tsFiles()->isNotEmpty())
-                                    · มีไฟล์ TS
-                                @else
-                                    · ยังไม่มีไฟล์ TS
-                                @endif
                             </p>
+                            @if ($status === 'submitted')
+                                <p class="text-xs text-amber-800 mt-1.5">รอสาขากดผ่านที่ประชุมสาขาวิชา — สาขาไม่จำเป็นต้องอัปโหลดไฟล์เพิ่ม</p>
+                            @elseif ($status === 'received')
+                                <p class="text-xs text-emerald-800 mt-1.5">สาขาผ่านที่ประชุมสาขาวิชาแล้ว@if ($chairFiles->isEmpty()) โดยไม่มีไฟล์เพิ่มจากสาขา@endif</p>
+                            @endif
                             @if ($overdue || $missingS0 || $missingDefense)
                                 <p class="text-xs text-amber-800 mt-1.5">
                                     @if ($overdue) เลยกำหนดเค้าโครง {{ $overdue }} คน @endif
@@ -99,15 +113,49 @@
                                     @if ($missingDefense) · ขาดวันที่สอบ {{ $missingDefense }} คน @endif
                                 </p>
                             @endif
-                            @if ($report->normalizedStatus() === 'returned' && $report->return_reason)
+                            @if ($status === 'returned' && $report->return_reason)
                                 <p class="text-xs text-red-700 mt-1">สาขาส่งกลับ: {{ $report->return_reason }}</p>
                             @endif
                         </div>
-                        <span class="text-sm font-semibold text-[#a16207]">
-                            {{ $report->isEditable() ? 'แก้ไขรายการ →' : 'เปิดรายการ →' }}
-                        </span>
+                        <a href="{{ route('thesis-grades.edit', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm font-semibold text-[#a16207] hover:bg-amber-50 shrink-0">
+                            {{ $report->isEditable() ? 'แก้ไขรายการ' : 'เปิดรายการ' }}
+                        </a>
                     </div>
-                </a>
+
+                    <div class="grid md:grid-cols-2 gap-3 mt-4">
+                        <section class="thesis-file-panel thesis-file-instructor">
+                            <p class="text-xs font-bold tracking-wide text-[#854d0e] mb-2">ไฟล์ที่คุณอัปโหลด</p>
+                            <div class="space-y-1.5">
+                                @forelse ($instructorFiles as $file)
+                                    <div class="thesis-file-chip">
+                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="truncate" title="{{ $file->original_name }}">
+                                            {{ $file->typeLabel() }} · {{ $file->original_name }}
+                                        </a>
+                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="shrink-0">เปิด</a>
+                                    </div>
+                                @empty
+                                    <p class="text-xs text-[#7A4A3A]/70">ยังไม่มีใบ TS หรือหนังสือ S=0</p>
+                                @endforelse
+                            </div>
+                        </section>
+
+                        <section class="thesis-file-panel thesis-file-dept">
+                            <p class="text-xs font-bold tracking-wide text-teal-800 mb-2">เอกสารจาก Admin สาขา</p>
+                            <div class="space-y-1.5">
+                                @forelse ($chairFiles as $file)
+                                    <div class="thesis-file-chip">
+                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="truncate" title="{{ $file->original_name }}">
+                                            {{ $file->original_name }}
+                                        </a>
+                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="shrink-0">เปิด</a>
+                                    </div>
+                                @empty
+                                    <p class="text-xs text-teal-800/80">สาขายังไม่ได้อัปโหลดเอกสารเพิ่ม — ไม่บังคับ รอสาขากดผ่านที่ประชุมสาขาวิชา</p>
+                                @endforelse
+                            </div>
+                        </section>
+                    </div>
+                </article>
             @endforeach
         </div>
     @endif
