@@ -3062,6 +3062,9 @@ async function finalizeWizardAttachments(config) {
         formData.append('attachment', window.pendingExamFile);
         formData.append('file_type', 'exam_report');
     }
+    requiredRegSections().forEach((sec) => {
+        formData.append('required_sections[]', String(sec));
+    });
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     try {

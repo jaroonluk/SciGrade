@@ -7,6 +7,7 @@ use App\Models\GradeReportFile;
 use App\Services\AuditLogService;
 use App\Services\GradeReportAttachmentNameService;
 use App\Services\Instructor\InstructorPendingRegistrarService;
+use App\Services\Instructor\RegistrarSectionRequirement;
 use App\Services\StaffAuthService;
 use App\Support\SciGradeRole;
 use App\Support\UploadStorage;
@@ -88,11 +89,24 @@ class GradeReportFileController extends Controller
         $request->validate([
             'attachment' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
             'file_type' => ['nullable', 'string', Rule::in(GradeReportFile::allowedTypes())],
+            'required_sections' => ['nullable', 'array'],
+            'required_sections.*' => ['integer', 'min:1', 'max:50'],
         ], [
             'attachment.mimes' => 'รองรับเฉพาะไฟล์ PDF',
         ]);
 
         $username = $this->staffUsername();
+        $pendingSections = array_keys($this->pendingRegistrar->pendingBySection(
+            (string) $gradeReport->subject_code,
+            (int) $gradeReport->term,
+            (int) $gradeReport->year,
+        ));
+        $requestedSections = $request->input('required_sections', []);
+        if (! is_array($requestedSections)) {
+            $requestedSections = $requestedSections !== null && $requestedSections !== ''
+                ? [$requestedSections]
+                : [];
+        }
         $registrarFiles = $this->pendingRegistrar->attachFromSession($gradeReport, $username);
 
         $examFile = null;
@@ -147,13 +161,19 @@ class GradeReportFileController extends Controller
             fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
         ) || $examFile !== null;
 
-        $neededSections = $gradeReport->gradeStds
+        $reportSections = $gradeReport->gradeStds
             ->map(fn ($row) => (int) $row->sec)
             ->filter(fn ($sec) => $sec > 0)
             ->unique()
             ->sort()
             ->values()
             ->all();
+
+        $neededSections = RegistrarSectionRequirement::needed(
+            $reportSections,
+            is_array($requestedSections) ? $requestedSections : [],
+            $pendingSections,
+        );
 
         $haveSections = [];
         foreach ($gradeReport->files as $file) {
@@ -182,7 +202,7 @@ class GradeReportFileController extends Controller
 
             return response()->json([
                 'message' => "ยังแนบแบบฟอร์ม มข.11 ไม่ครบทุก Section (ขาด Section {$label})",
-                'hint' => 'กรุณาย้อนกลับไปขั้นตอนที่ 6 อัปโหลดไฟล์ มข.11 ให้ครบเท่าจำนวน Section ที่กรอก แล้วกดเสร็จสิ้นอีกครั้ง',
+                'hint' => 'กรุณาย้อนกลับไปขั้นตอนที่ 6 อัปโหลดไฟล์ มข.11 ของ Section ที่กำลังกรอกในรอบนี้ แล้วกดเสร็จสิ้นอีกครั้ง',
                 'missing_sections' => $missingSections,
                 'required_sections' => $neededSections,
                 'has_registrar' => $hasRegistrar,
