@@ -16,7 +16,7 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
         $html = view('dept-admin.reg-grade-status.index', $this->viewData())->render();
 
         $this->assertStringContainsString('ติกสลับได้ที่แถวแรกของวิชา', $html);
-        $this->assertStringContainsString('แบบรายงานผลการสอบไล่-Sec1', $html);
+        $this->assertStringContainsString('แบบรายงานผลการสอบไล่(1)', $html);
         $this->assertStringContainsString('ใบส่งผลการศึกษา (REG)-Sec2', $html);
         $this->assertSame(1, substr_count($html, 'data-status-control="1"'));
         $this->assertSame(1, substr_count($html, 'data-status-control="0"'));
@@ -60,7 +60,7 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
         ))->render();
 
         $this->assertStringContainsString('ติกสลับได้ที่แถวแรกของวิชา', $html);
-        $this->assertStringContainsString('แบบรายงานผลการสอบไล่-Sec1', $html);
+        $this->assertStringContainsString('แบบรายงานผลการสอบไล่(1)', $html);
         $this->assertSame(1, substr_count($html, 'data-status-control="1"'));
         $this->assertSame(1, preg_match_all('/class="[^"]*btn-faculty-status[^"]*"/', $html));
     }
@@ -103,7 +103,7 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
                     'grade_id' => 101,
                     'file_name' => '2568_2_SC203001_01.pdf',
                     'file_type' => 'exam_report',
-                    'type_label' => 'แบบรายงานผลการสอบไล่-Sec1',
+                    'type_label' => 'แบบรายงานผลการสอบไล่(1)',
                 ],
             ]),
         ]);

@@ -61,6 +61,14 @@ class GradeReportFile extends Model
         };
     }
 
+    /**
+     * ป้ายใบขวาง: แบบรายงานผลการสอบไล่(ลำดับการส่ง) — ไม่ใส่ Sec. เพราะไฟล์ไม่ผูกกลุ่มเรียน
+     */
+    public static function examReportLabel(int $submissionOrder = 1): string
+    {
+        return 'แบบรายงานผลการสอบไล่('.max(1, $submissionOrder).')';
+    }
+
     public function resolvedType(): string
     {
         $type = (string) ($this->file_type ?? '');
@@ -185,6 +193,10 @@ class GradeReportFile extends Model
      */
     public function attachmentLinkLabel(string $baseLabel, ?GradeReport $report = null): string
     {
+        if ($this->resolvedType() === self::TYPE_EXAM_REPORT) {
+            return $baseLabel;
+        }
+
         $suffix = $this->attachmentSectionSuffix($report);
 
         return $suffix !== null ? $baseLabel.'-'.$suffix : $baseLabel;

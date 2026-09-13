@@ -94,6 +94,7 @@ class RegGradeAttachedFilesForSectionTest extends TestCase
 
         $this->assertSame([11, 30], $exams->pluck('file_id')->all());
         $this->assertSame([500, 500], $exams->pluck('grade_id')->all());
+        $this->assertSame(['แบบรายงานผลการสอบไล่(1)', 'แบบรายงานผลการสอบไล่(2)'], $exams->pluck('type_label')->all());
         $this->assertTrue($exams->every(fn (object $file) => $file->file_type === GradeReportFile::TYPE_EXAM_REPORT));
         $this->assertNotContains(11, $sec2->pluck('file_id')->all());
         $this->assertNotContains(30, $sec2->pluck('file_id')->all());

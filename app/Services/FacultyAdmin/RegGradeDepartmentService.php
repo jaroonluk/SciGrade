@@ -445,7 +445,25 @@ class RegGradeDepartmentService
         return $files
             ->unique('file_id')
             ->sortBy(fn (object $file) => (int) $file->file_id)
+            ->values()
+            ->map(function (object $file, int $index) {
+                $file->type_label = GradeReportFile::examReportLabel($index + 1);
+
+                return $file;
+            });
+    }
+
+    private function examSubmissionOrder(GradeReportFile $file, GradeReport $report): int
+    {
+        $ids = $report->files
+            ->filter(fn (GradeReportFile $row) => $row->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT)
+            ->sortBy(fn (GradeReportFile $row) => (int) $row->file_id)
+            ->pluck('file_id')
             ->values();
+
+        $index = $ids->search($file->file_id);
+
+        return $index === false ? 1 : (int) $index + 1;
     }
 
     /**
@@ -641,18 +659,21 @@ class RegGradeDepartmentService
      */
     private function formatAttachedFile(GradeReportFile $file, GradeReport $report): object
     {
-        $baseLabel = match (true) {
-            $file->isDeptAdminUpload($report) => 'ใบส่งผลการศึกษา (REG-Admin)',
-            $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR => 'ใบส่งผลการศึกษา (REG)',
-            default => 'แบบรายงานผลการสอบไล่',
-        };
+        if ($file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT) {
+            $typeLabel = GradeReportFile::examReportLabel($this->examSubmissionOrder($file, $report));
+        } else {
+            $baseLabel = $file->isDeptAdminUpload($report)
+                ? 'ใบส่งผลการศึกษา (REG-Admin)'
+                : 'ใบส่งผลการศึกษา (REG)';
+            $typeLabel = $file->attachmentLinkLabel($baseLabel, $report);
+        }
 
         return (object) [
             'file_id' => $file->file_id,
             'grade_id' => $file->grade_id ?: $report->grade_id,
             'file_name' => $file->original_name,
             'file_type' => $file->resolvedType(),
-            'type_label' => $file->attachmentLinkLabel($baseLabel, $report),
+            'type_label' => $typeLabel,
         ];
     }
 

@@ -186,7 +186,10 @@
                             </td>
                             <td>
                                 @php
-                                    $examFiles = $report->files->filter(fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_EXAM_REPORT);
+                                    $examFiles = $report->files
+                                        ->filter(fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_EXAM_REPORT)
+                                        ->sortBy(fn ($f) => (int) $f->file_id)
+                                        ->values();
                                     $regInstructorFiles = $report->files->filter(
                                         fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_REGISTRAR
                                             && $f->isInstructorUpload($report)
@@ -201,12 +204,15 @@
                                     @else
                                         <div class="flex flex-col gap-1.5 file-list">
                                             @foreach ($examFiles as $file)
+                                                @php
+                                                    $examLabel = \App\Models\GradeReportFile::examReportLabel($loop->iteration);
+                                                @endphp
                                                 <div class="file-chip" data-file-id="{{ $file->file_id }}">
                                                     <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
                                                     <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
                                                        target="_blank" rel="noopener noreferrer"
-                                                       class="hover:underline truncate max-w-[9rem]" title="{{ $file->original_name }}">
-                                                        {{ $file->original_name }}
+                                                       class="hover:underline" title="{{ $examLabel }}">
+                                                        {{ $examLabel }}
                                                     </a>
                                                 </div>
                                             @endforeach

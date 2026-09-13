@@ -26,12 +26,9 @@
             <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
                target="_blank" rel="noopener noreferrer"
                class="text-xs text-[#8B4513] hover:underline inline-flex items-center gap-1 w-fit"
-               title="{{ $file->original_name }}">
+               title="{{ \App\Models\GradeReportFile::examReportLabel($loop->iteration) }}">
                 <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
-                {{ $file->attachmentLinkLabel('แบบรายงานผลการสอบไล่', $report) }}
-                @if ($examFiles->count() > 1)
-                    <span class="text-[10px] text-[#7A4A3A]/80 font-normal">{{ $file->original_name }}</span>
-                @endif
+                {{ \App\Models\GradeReportFile::examReportLabel($loop->iteration) }}
             </a>
         @empty
             {{-- ไม่แสดงถ้าไม่มี --}}

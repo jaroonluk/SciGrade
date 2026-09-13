@@ -243,9 +243,12 @@ class GradeReportAttachmentSourceTest extends TestCase
             'original_name' => '2568_2_SC203001_01.pdf',
         ]);
         $this->assertSame(
-            'แบบรายงานผลการสอบไล่-Sec1',
+            'แบบรายงานผลการสอบไล่',
             $examFile->attachmentLinkLabel('แบบรายงานผลการสอบไล่', $report),
         );
+        $this->assertSame('แบบรายงานผลการสอบไล่(1)', GradeReportFile::examReportLabel(1));
+        $this->assertSame('แบบรายงานผลการสอบไล่(2)', GradeReportFile::examReportLabel(2));
+        $this->assertStringNotContainsString('Sec', GradeReportFile::examReportLabel(1));
         $this->assertSame(
             'ใบส่งผลการศึกษา (REG)-Sec1',
             $instructorFile->attachmentLinkLabel('ใบส่งผลการศึกษา (REG)', $report),
