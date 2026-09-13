@@ -1,8 +1,23 @@
 @php
-    $examFiles = $report->sortedExamFiles();
-    $registrarFiles = $report->sortedRegistrarFiles();
-    $regDeptFiles = $registrarFiles->filter(fn ($f) => $f->isDeptAdminUpload($report));
-    $hasAnyFile = $examFiles->isNotEmpty() || $registrarFiles->isNotEmpty();
+    use App\Models\GradeReportFile;
+    $sortBySection = function ($files) use ($report) {
+        return $files->sortBy(function ($file) use ($report) {
+            $section = $file->resolvedSection($report);
+
+            return sprintf('%05d-%010d', $section !== null ? (int) $section : 999, (int) $file->file_id);
+        })->values();
+    };
+    $examFiles = $report->files
+        ->filter(fn ($f) => $f->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT)
+        ->sortBy(fn ($f) => (int) $f->file_id)
+        ->values();
+    $regInstructorFiles = $sortBySection($report->files->filter(
+        fn ($f) => $f->resolvedType() === GradeReportFile::TYPE_REGISTRAR && $f->isInstructorUpload($report)
+    ));
+    $regDeptFiles = $sortBySection($report->files->filter(
+        fn ($f) => $f->isDeptAdminUpload($report)
+    ));
+    $hasAnyFile = $examFiles->isNotEmpty() || $regInstructorFiles->isNotEmpty() || $regDeptFiles->isNotEmpty();
     $canDeleteRegAdmin = ($allowDeptRegDelete ?? false) && $report->canDeptDeleteRegistrar();
 @endphp
 <div class="space-y-1.5 min-w-[12rem]">
@@ -14,14 +29,27 @@
                title="{{ $file->original_name }}">
                 <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
                 {{ $file->attachmentLinkLabel('แบบรายงานผลการสอบไล่', $report) }}
+                @if ($examFiles->count() > 1)
+                    <span class="text-[10px] text-[#7A4A3A]/80 font-normal">{{ $file->original_name }}</span>
+                @endif
             </a>
         @empty
             {{-- ไม่แสดงถ้าไม่มี --}}
         @endforelse
 
-        @foreach ($registrarFiles as $file)
-            @if ($file->isDeptAdminUpload($report))
-                <div class="js-reg-admin-file-row js-registrar-dept-item inline-flex items-center gap-1 w-fit" data-file-id="{{ $file->file_id }}">
+        @foreach ($regInstructorFiles as $file)
+            <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
+               target="_blank" rel="noopener noreferrer"
+               class="text-xs text-[#8B4513] hover:underline inline-flex items-center gap-1 w-fit js-registrar-instructor-item"
+               title="{{ $file->original_name }}">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
+                {{ $file->attachmentLinkLabel('ใบส่งผลการศึกษา (REG)', $report) }}
+            </a>
+        @endforeach
+
+        <div class="js-registrar-dept-list js-registrar-list flex flex-col gap-0.5" data-grade-id="{{ $report->grade_id }}">
+            @forelse ($regDeptFiles as $file)
+                <div class="js-reg-admin-file-row inline-flex items-center gap-1 w-fit" data-file-id="{{ $file->file_id }}">
                     <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
                        target="_blank" rel="noopener noreferrer"
                        class="text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 font-medium js-reg-admin-file-link"
@@ -40,21 +68,9 @@
                         </button>
                     @endif
                 </div>
-            @else
-                <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
-                   target="_blank" rel="noopener noreferrer"
-                   class="text-xs text-[#8B4513] hover:underline inline-flex items-center gap-1 w-fit js-registrar-instructor-item"
-                   title="{{ $file->original_name }}">
-                    <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
-                    {{ $file->attachmentLinkLabel('ใบส่งผลการศึกษา (REG)', $report) }}
-                </a>
-            @endif
-        @endforeach
-
-        <div class="js-registrar-dept-list js-registrar-list flex flex-col gap-0.5" data-grade-id="{{ $report->grade_id }}">
-            @if ($regDeptFiles->isEmpty())
+            @empty
                 <span class="js-registrar-empty js-registrar-dept-empty hidden"></span>
-            @endif
+            @endforelse
         </div>
 
         @unless ($hasAnyFile)

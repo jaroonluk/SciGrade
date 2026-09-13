@@ -95,41 +95,6 @@ class GradeReport extends Model
             ->orderByDesc('file_id');
     }
 
-    /**
-     * ใบขวางทั้งหมด เรียงจากไฟล์เก่าไปใหม่
-     *
-     * @return Collection<int, GradeReportFile>
-     */
-    public function sortedExamFiles(): Collection
-    {
-        $this->loadMissing('files');
-
-        return $this->files
-            ->filter(fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT)
-            ->sortBy(fn (GradeReportFile $file) => (int) $file->file_id)
-            ->values();
-    }
-
-    /**
-     * ใบ มข.11 / REG เรียงตาม Section แล้วตามแหล่งอัปโหลด (อาจารย์ก่อน Admin สาขา)
-     *
-     * @return Collection<int, GradeReportFile>
-     */
-    public function sortedRegistrarFiles(): Collection
-    {
-        $this->loadMissing(['files', 'gradeStds']);
-
-        return $this->files
-            ->filter(fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_REGISTRAR)
-            ->sortBy(function (GradeReportFile $file) {
-                $section = $file->resolvedSection($this);
-                $kind = $file->isDeptAdminUpload($this) ? 1 : 0;
-
-                return sprintf('%05d-%d-%010d', $section ?? 999, $kind, (int) $file->file_id);
-            })
-            ->values();
-    }
-
     public function approvalLogs(): HasMany
     {
         return $this->hasMany(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
