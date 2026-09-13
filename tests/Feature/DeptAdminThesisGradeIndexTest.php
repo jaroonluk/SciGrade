@@ -1,0 +1,93 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\ThesisGrade;
+use App\Models\ThesisGradeFile;
+use App\Models\ThesisGradeStudent;
+use App\Models\User;
+use Illuminate\Pagination\LengthAwarePaginator;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class DeptAdminThesisGradeIndexTest extends TestCase
+{
+    #[Test]
+    public function list_shows_receive_button_and_department_files_without_opening_detail(): void
+    {
+        $this->actingAs(new User(['name' => 'Admin สาขา', 'email' => 'dept@kku.ac.th']));
+
+        $report = new ThesisGrade([
+            'subject_code' => 'SC899001',
+            'subject' => 'THESIS',
+            'section' => '1',
+            'term' => 2,
+            'year' => 2568,
+            'teacher' => 'อ. ทดสอบ',
+            'status' => ThesisGrade::STATUS_SUBMITTED,
+        ]);
+        $report->thesis_grade_id = 22;
+        $report->setRelation('students', collect([
+            new ThesisGradeStudent(['student_code' => '677020018-0', 'student_name' => 'ทดสอบ']),
+        ]));
+
+        $ts = new ThesisGradeFile([
+            'thesis_grade_id' => 22,
+            'file_type' => ThesisGradeFile::TYPE_TS_REPORT,
+            'original_name' => 'TS-SC899001-01-2-2568.pdf',
+        ]);
+        $ts->file_id = 11;
+        $chair = new ThesisGradeFile([
+            'thesis_grade_id' => 22,
+            'file_type' => ThesisGradeFile::TYPE_CHAIR_SIGNED,
+            'original_name' => 'chair-signed.pdf',
+        ]);
+        $chair->file_id = 21;
+        $report->setRelation('files', collect([$ts, $chair]));
+
+        $html = view('dept-admin.thesis-grades.index', [
+            'reports' => new LengthAwarePaginator(collect([$report]), 1, 20, 1, [
+                'path' => '/dept-admin/thesis-grades',
+            ]),
+            'departments' => collect(),
+            'filters' => ['term' => 2, 'year' => 2568, 'status' => ''],
+            'years' => [2568],
+        ])->render();
+
+        $this->assertStringContainsString('ผ่านที่ประชุมสาขาวิชา', $html);
+        $this->assertStringContainsString('เอกสารสาขาวิชา · Admin สาขาอัปโหลด', $html);
+        $this->assertStringContainsString('ไฟล์อาจารย์', $html);
+        $this->assertStringContainsString('TS-SC899001-01-2-2568.pdf', $html);
+        $this->assertStringContainsString('chair-signed.pdf', $html);
+        $this->assertStringContainsString(route('dept-admin.thesis-grades.receive', $report), $html);
+        $this->assertStringContainsString('อัปโหลด PDF จากสาขา', $html);
+    }
+
+    #[Test]
+    public function received_row_does_not_show_receive_button(): void
+    {
+        $this->actingAs(new User(['name' => 'Admin สาขา', 'email' => 'dept@kku.ac.th']));
+
+        $report = new ThesisGrade([
+            'subject_code' => 'SC899001',
+            'subject' => 'THESIS',
+            'section' => '1',
+            'status' => ThesisGrade::STATUS_RECEIVED,
+        ]);
+        $report->thesis_grade_id = 23;
+        $report->setRelation('students', collect());
+        $report->setRelation('files', collect());
+
+        $html = view('dept-admin.thesis-grades.index', [
+            'reports' => new LengthAwarePaginator(collect([$report]), 1, 20, 1, [
+                'path' => '/dept-admin/thesis-grades',
+            ]),
+            'departments' => collect(),
+            'filters' => ['term' => 2, 'year' => 2568, 'status' => ''],
+            'years' => [2568],
+        ])->render();
+
+        $this->assertStringContainsString('ผ่านที่ประชุมสาขาฯ แล้ว', $html);
+        $this->assertStringNotContainsString('ยืนยันผ่านที่ประชุมสาขาวิชา', $html);
+    }
+}

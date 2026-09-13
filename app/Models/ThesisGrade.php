@@ -99,6 +99,28 @@ class ThesisGrade extends Model
         return $this->files->filter(fn (ThesisGradeFile $file) => $file->isS0Letter())->values();
     }
 
+    public function chairFiles(): Collection
+    {
+        return $this->files->filter(fn (ThesisGradeFile $file) => $file->isChairSigned())->values();
+    }
+
+    public function instructorFiles(): Collection
+    {
+        return $this->files
+            ->filter(fn (ThesisGradeFile $file) => in_array($file->resolvedType(), ThesisGradeFile::instructorUploadTypes(), true))
+            ->values();
+    }
+
+    public function canDeptReceive(): bool
+    {
+        return $this->normalizedStatus() === self::STATUS_SUBMITTED;
+    }
+
+    public function canDeptUploadChairFiles(): bool
+    {
+        return in_array($this->normalizedStatus(), [self::STATUS_SUBMITTED, self::STATUS_RECEIVED], true);
+    }
+
     public function normalizedStatus(): string
     {
         return strtolower(trim((string) $this->status));

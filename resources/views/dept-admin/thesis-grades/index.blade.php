@@ -7,13 +7,30 @@
 <span class="text-[#5C2E1F] font-medium">รับผลการเรียนวิทยานิพนธ์</span>
 @endsection
 
+@push('styles')
+<style>
+    .thesis-dept-card { background: #fff; border: 1px solid #fde68a; border-radius: 1rem; }
+    .thesis-dept-card:hover { border-color: #eab308; box-shadow: 0 8px 22px rgba(161, 98, 7, .08); }
+    .thesis-file-panel { border-radius: .75rem; padding: .75rem .85rem; min-height: 7.5rem; }
+    .thesis-file-instructor { background: #fffbeb; border: 1px solid #fde68a; }
+    .thesis-file-dept { background: #f0fdfa; border: 1px solid #99f6e4; }
+    .thesis-file-chip {
+        display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+        background: #fff; border-radius: .5rem; padding: .35rem .55rem;
+        font-size: .75rem; line-height: 1.3;
+    }
+    .thesis-file-chip a { color: #854d0e; font-weight: 600; min-width: 0; }
+    .thesis-file-dept .thesis-file-chip a { color: #0f766e; }
+</style>
+@endpush
+
 @section('content')
 <div>
     <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">THESIS · DISSERTATION · INDEPENDENT STUDY</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">รับผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจไฟล์ TS หนังสือ S=0 แล้วกดผ่านที่ประชุมสาขาฯ หรือส่งกลับ</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจไฟล์ ผ่านที่ประชุมสาขาวิชา และดูเอกสารที่สาขาอัปโหลดได้จากหน้ารายการนี้</p>
         </div>
     </div>
 
@@ -70,7 +87,7 @@
         </form>
     </div>
 
-    <form method="POST" action="{{ route('dept-admin.thesis-grades.download') }}" id="bulk-zip">
+    <form method="POST" action="{{ route('dept-admin.thesis-grades.download') }}" id="bulk-zip" class="flex flex-wrap justify-end gap-2 mb-3">
         @csrf
         <input type="hidden" name="term" value="{{ $filters['term'] ?? '' }}">
         <input type="hidden" name="year" value="{{ $filters['year'] ?? '' }}">
@@ -78,57 +95,120 @@
         <input type="hidden" name="department_id" value="{{ $filters['department_id'] ?? '' }}">
         <input type="hidden" name="subject_code" value="{{ $filters['subject_code'] ?? '' }}">
         <input type="hidden" name="q" value="{{ $filters['q'] ?? '' }}">
-        <div class="flex flex-wrap justify-end gap-2 mb-3">
-            <button type="submit" name="all_filtered" value="1" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดทั้งหมดตามเงื่อนไข</button>
-            <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดไฟล์ที่เลือก</button>
-        </div>
-
-        <div class="bg-white rounded-xl border border-amber-200 overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="bg-[#fdf6f0] text-[#5C2E1F]">
-                        <th class="p-3 text-left"><input type="checkbox" id="check-all"></th>
-                        <th class="p-3 text-left">รายวิชา</th>
-                        <th class="p-3 text-left">อาจารย์</th>
-                        <th class="p-3 text-left">นักศึกษา</th>
-                        <th class="p-3 text-left">เอกสาร</th>
-                        <th class="p-3 text-left">สถานะ</th>
-                        <th class="p-3 text-left"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($reports as $report)
-                        <tr class="border-t border-amber-100 hover:bg-amber-50/40">
-                            <td class="p-3"><input type="checkbox" name="ids[]" value="{{ $report->thesis_grade_id }}" class="row-check"></td>
-                            <td class="p-3">
-                                <p class="font-semibold text-[#5C2E1F]">{{ $report->displayCode() }} · กลุ่ม {{ $report->paddedSection() }}</p>
-                                <p class="text-xs text-[#7A4A3A]">{{ $report->subject }}</p>
-                                <p class="text-xs text-[#7A4A3A]/70">{{ $report->tsFilename() }}</p>
-                            </td>
-                            <td class="p-3">{{ $report->teacher ?: $report->username }}</td>
-                            <td class="p-3">
-                                {{ $report->students->count() }} คน
-                                @if ($report->overdueStudentCount())
-                                    <p class="text-xs text-red-700">เลยกำหนด {{ $report->overdueStudentCount() }}</p>
-                                @endif
-                            </td>
-                            <td class="p-3 text-xs">
-                                TS {{ $report->tsFiles()->count() }}
-                                · S=0 {{ $report->s0Files()->count() }}
-                                @if ($report->missingS0Count())
-                                    <p class="text-red-700">ขาดหนังสือ {{ $report->missingS0Count() }}</p>
-                                @endif
-                            </td>
-                            <td class="p-3"><span class="text-xs px-2 py-0.5 rounded-full {{ $report->statusChipClass() }}">{{ $report->statusLabel() }}</span></td>
-                            <td class="p-3"><a href="{{ route('dept-admin.thesis-grades.show', $report) }}" class="text-[#a16207] font-semibold hover:underline">เปิดดู</a></td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="7" class="p-8 text-center text-[#7A4A3A]/70">ไม่มีรายการตามตัวกรอง</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <label class="inline-flex items-center gap-2 text-sm text-[#5C2E1F] mr-auto">
+            <input type="checkbox" id="check-all">
+            เลือกทั้งหมด
+        </label>
+        <button type="submit" name="all_filtered" value="1" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดทั้งหมดตามเงื่อนไข</button>
+        <button type="submit" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ดาวน์โหลดไฟล์ที่เลือก</button>
     </form>
+
+    <div class="space-y-4">
+        @forelse ($reports as $report)
+            @php
+                $instructorFiles = $report->instructorFiles();
+                $chairFiles = $report->chairFiles();
+                $canReceive = $report->canDeptReceive();
+                $canUploadChair = $report->canDeptUploadChairFiles();
+            @endphp
+            <article class="thesis-dept-card p-4 sm:p-5">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div class="flex items-start gap-3 min-w-0">
+                        <input type="checkbox" form="bulk-zip" name="ids[]" value="{{ $report->thesis_grade_id }}" class="row-check mt-1.5">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="font-bold text-[#5C2E1F]">{{ $report->displayCode() }} · กลุ่ม {{ $report->paddedSection() }}</h3>
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">{{ $report->courseKindLabel() }}</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full {{ $report->statusChipClass() }}">{{ $report->statusLabel() }}</span>
+                            </div>
+                            <p class="text-sm text-[#7A4A3A] mt-0.5">{{ $report->subject }}</p>
+                            <p class="text-xs text-[#7A4A3A]/70 mt-1">
+                                {{ $report->teacher ?: $report->username }}
+                                · นักศึกษา {{ $report->students->count() }} คน
+                                · {{ $report->tsFilename() }}
+                            </p>
+                            @if ($report->overdueStudentCount() || $report->missingS0Count())
+                                <p class="text-xs text-red-700 mt-1">
+                                    @if ($report->overdueStudentCount()) เลยกำหนดเค้าโครง {{ $report->overdueStudentCount() }} คน @endif
+                                    @if ($report->missingS0Count()) · ขาดหนังสือ S=0 {{ $report->missingS0Count() }} คน @endif
+                                </p>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if ($canReceive)
+                            <form method="POST" action="{{ route('dept-admin.thesis-grades.receive', $report) }}"
+                                  onsubmit="return confirm('ยืนยันผ่านที่ประชุมสาขาวิชาสำหรับ {{ $report->displayCode() }} กลุ่ม {{ $report->paddedSection() }} ?')">
+                                @csrf
+                                <button type="submit" class="px-3.5 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">
+                                    ผ่านที่ประชุมสาขาวิชา
+                                </button>
+                            </form>
+                        @elseif ($report->normalizedStatus() === 'received')
+                            <span class="px-3 py-2 rounded-lg text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">ผ่านที่ประชุมสาขาฯ แล้ว</span>
+                        @endif
+                        <a href="{{ route('dept-admin.thesis-grades.show', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm font-semibold text-[#5C2E1F] hover:bg-amber-50">รายละเอียด</a>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-3">
+                    <section class="thesis-file-panel thesis-file-instructor">
+                        <p class="text-xs font-bold tracking-wide text-[#854d0e] mb-2">ไฟล์อาจารย์</p>
+                        <div class="space-y-1.5">
+                            @forelse ($instructorFiles as $file)
+                                <div class="thesis-file-chip">
+                                    <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="truncate" title="{{ $file->original_name }}">
+                                        {{ $file->typeLabel() }} · {{ $file->original_name }}
+                                    </a>
+                                    <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="shrink-0">เปิด</a>
+                                </div>
+                            @empty
+                                <p class="text-xs text-[#7A4A3A]/70">ยังไม่มีใบ TS หรือหนังสือ S=0</p>
+                            @endforelse
+                        </div>
+                    </section>
+
+                    <section class="thesis-file-panel thesis-file-dept">
+                        <p class="text-xs font-bold tracking-wide text-teal-800 mb-2">เอกสารสาขาวิชา · Admin สาขาอัปโหลด</p>
+                        <div class="space-y-1.5">
+                            @forelse ($chairFiles as $file)
+                                <div class="thesis-file-chip">
+                                    <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="truncate" title="{{ $file->original_name }}">
+                                        {{ $file->original_name }}
+                                    </a>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener">เปิด</a>
+                                        @if ($canUploadChair)
+                                            <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.destroy', [$report, $file]) }}" onsubmit="return confirm('ลบไฟล์นี้หรือไม่?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-700">ลบ</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </div>
+                            @empty
+                                <p class="text-xs text-teal-800/70">ยังไม่มีไฟล์ที่สาขาอัปโหลด</p>
+                            @endforelse
+                            @if ($canUploadChair)
+                                <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.store', $report) }}" enctype="multipart/form-data" class="pt-1">
+                                    @csrf
+                                    <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed border-teal-300 bg-white px-3 py-2 text-xs font-semibold text-teal-800 cursor-pointer hover:bg-teal-50">
+                                        <span>อัปโหลด PDF จากสาขา</span>
+                                        <input type="file" name="files[]" accept="application/pdf" multiple required class="sr-only" onchange="this.form.submit()">
+                                    </label>
+                                </form>
+                            @endif
+                        </div>
+                    </section>
+                </div>
+            </article>
+        @empty
+            <div class="rounded-2xl border border-dashed border-amber-300 bg-white px-6 py-14 text-center">
+                <p class="text-base font-semibold text-[#854d0e]">ไม่มีรายการตามตัวกรอง</p>
+            </div>
+        @endforelse
+    </div>
 
     <div class="mt-4">{{ $reports->links() }}</div>
 </div>
