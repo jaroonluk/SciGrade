@@ -15,7 +15,7 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">สรุปผลการเรียน</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">สรุปผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตารางสรุปตามภาค/ปี — ส่งออก .docx เพื่อกรอกเพิ่มนอกระบบได้</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตารางสรุปตามภาค/ปี — ส่งออก .docx สำหรับเสนอที่ประชุมได้</p>
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('faculty-admin.thesis-grades.summary.docx', request()->query()) }}"

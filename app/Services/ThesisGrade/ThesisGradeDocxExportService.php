@@ -4,7 +4,6 @@ namespace App\Services\ThesisGrade;
 
 use App\Models\ThesisGrade;
 use App\Models\ThesisGradeStudent;
-use App\Support\ThaiDateTime;
 use App\Support\ThesisGradeS0Letter;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpWord\PhpWord;
@@ -129,11 +128,12 @@ class ThesisGradeDocxExportService
         $phpWord->setDefaultFontSize(16);
 
         $section = $phpWord->addSection([
-            'orientation' => 'landscape',
-            'marginTop' => 800,
-            'marginBottom' => 800,
-            'marginLeft' => 800,
-            'marginRight' => 800,
+            'paperSize' => 'A4',
+            'orientation' => 'portrait',
+            'marginTop' => 1134,
+            'marginBottom' => 1134,
+            'marginLeft' => 1134,
+            'marginRight' => 1134,
         ]);
 
         $termLabel = match ($term) {
@@ -150,14 +150,15 @@ class ThesisGradeDocxExportService
             'borderSize' => 6,
             'borderColor' => '000000',
             'cellMargin' => 60,
-            'width' => 14000,
+            'width' => 9638,
             'unit' => TblWidth::TWIP,
         ]);
 
-        $header = ['ที่', 'รหัส-ชื่อวิชา', 'ภาค/ปีการศึกษา', 'กลุ่มที่', 'จำนวน (คน)', 'หมายเหตุ (กรอกเพิ่ม)'];
+        $widths = [800, 4038, 1800, 1500, 1500];
+        $header = ['ที่', 'รหัส-ชื่อวิชา', 'ภาค/ปีการศึกษา', 'กลุ่มที่', 'จำนวน (คน)'];
         $table->addRow();
-        foreach ($header as $label) {
-            $table->addCell(2000)->addText($label, ['bold' => true]);
+        foreach ($header as $index => $label) {
+            $table->addCell($widths[$index])->addText($label, ['bold' => true]);
         }
 
         $i = 1;
@@ -170,17 +171,20 @@ class ThesisGradeDocxExportService
             }
 
             $table->addRow();
-            $table->addCell(800)->addText((string) $i++);
-            $table->addCell(4500)->addText($codeLabel);
-            $table->addCell(1800)->addText($report->term.'/'.$report->year);
-            $table->addCell(1200)->addText($report->paddedSection());
-            $table->addCell(1200)->addText((string) $report->students->count());
-            $table->addCell(3500)->addText('');
+            $table->addCell($widths[0])->addText((string) $i++);
+            $table->addCell($widths[1])->addText($codeLabel);
+            $table->addCell($widths[2])->addText($report->term.'/'.$report->year);
+            $table->addCell($widths[3])->addText($report->paddedSection());
+            $table->addCell($widths[4])->addText((string) $report->students->count());
         }
 
+        $dots = str_repeat('.', 90);
+        $font = ['name' => 'TH Sarabun New', 'size' => 16];
         $section->addTextBreak(1);
-        $section->addText('หมายเหตุ: คอลัมน์หมายเหตุเว้นว่างไว้ให้ Admin กลางกรอกเพิ่มนอกระบบ', ['italic' => true, 'size' => 12]);
-        $section->addText('ส่งออกจาก SciGrade เมื่อ '.ThaiDateTime::formatDateTime(now()), ['size' => 12]);
+        $section->addText('จึงเสนอที่ประชุมเพื่อโปรดพิจารณา', $font);
+        $section->addText($dots, $font);
+        $section->addText('มติที่ประชุม'.$dots, $font);
+        $section->addText($dots, $font);
 
         return $this->streamDocx($phpWord, sprintf('thesis-summary-%d-%d.docx', $term, $year));
     }

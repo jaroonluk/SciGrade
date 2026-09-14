@@ -164,6 +164,10 @@ class ThesisGradeS0LetterTest extends TestCase
         $this->assertStringContainsString('ผลการเรียนวิทยานิพนธ์', $xml);
         $this->assertStringContainsString('SC899001', $xml);
         $this->assertStringContainsString('w:type="dxa"', $xml);
-        $this->assertStringNotContainsString('w:type="twip"', $xml);
+        $this->assertStringNotContainsString('w:orient="landscape"', $xml);
+        $this->assertStringNotContainsString('หมายเหตุ (กรอกเพิ่ม)', $xml);
+        $this->assertStringNotContainsString('คอลัมน์หมายเหตุเว้นว่างไว้ให้ Admin กลางกรอกเพิ่มนอกระบบ', $xml);
+        $this->assertStringContainsString('จึงเสนอที่ประชุมเพื่อโปรดพิจารณา', $xml);
+        $this->assertStringContainsString('มติที่ประชุม', $xml);
     }
 }
