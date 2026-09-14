@@ -399,18 +399,18 @@
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-3 mt-5">
-            <button type="button" id="prev-step" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ย้อนกลับ</button>
+            <button type="button" id="prev-step" class="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-semibold hover:bg-sky-700">ย้อนกลับ</button>
             <div class="flex flex-wrap gap-2">
                 @if ($editable)
-                    <button type="submit" class="px-4 py-2 border border-amber-300 rounded-lg text-sm font-medium text-[#5C2E1F] hover:bg-amber-50" data-intent="draft">บันทึกร่าง</button>
-                    <button type="button" id="next-step" class="px-4 py-2 bg-white border border-amber-300 rounded-lg text-sm font-semibold text-[#854d0e] hover:bg-amber-50">ถัดไป</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700" data-intent="draft">บันทึกร่าง</button>
+                    <button type="button" id="next-step" class="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-semibold hover:bg-sky-700">ถัดไป</button>
                     <div class="flex flex-col items-end gap-1">
                         <button type="submit" id="submit-to-dept" class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e] {{ (int) $step === 3 ? '' : 'hidden' }}" data-intent="submit">ส่งเข้าสาขา</button>
                         <p id="submit-btn-hint" class="hidden max-w-sm text-right text-xs text-red-700 leading-snug"></p>
                     </div>
                 @endif
                 @if ($report?->isDeletable())
-                    <button type="button" id="delete-draft" class="px-4 py-2 text-sm text-red-700 hover:underline">
+                    <button type="button" id="delete-draft" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">
                         {{ $report->normalizedStatus() === 'draft' ? 'ลบร่าง' : 'ลบรายการ' }}
                     </button>
                 @endif
