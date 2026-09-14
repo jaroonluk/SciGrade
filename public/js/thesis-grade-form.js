@@ -427,12 +427,10 @@
 
     function renderSummary() {
         if (!summaryEl) return;
-        const overdue = students.filter(isOverdue).length;
         const s0 = students.filter((s) => needsS0(s) && !hasS0(s)).length;
         const defense = students.filter((s) => s.completed && !s.defense_date).length;
         summaryEl.innerHTML = `
             <div class="rounded-lg bg-white border border-amber-200 px-3 py-2"><p class="text-xs text-[#7A4A3A]">นักศึกษา</p><p class="font-semibold text-[#5C2E1F]">${students.length} คน</p></div>
-            <div class="rounded-lg ${overdue ? 'bg-red-50 border-red-200' : 'bg-white border-amber-200'} border px-3 py-2"><p class="text-xs text-[#7A4A3A]">เลยกำหนดเค้าโครง</p><p class="font-semibold ${overdue ? 'text-red-700' : 'text-[#5C2E1F]'}">${overdue} คน</p></div>
             <div class="rounded-lg ${s0 || defense ? 'bg-amber-50 border-amber-200' : 'bg-white border-amber-200'} border px-3 py-2"><p class="text-xs text-[#7A4A3A]">เอกสารที่ยังขาด</p><p class="font-semibold text-[#854d0e]">S=0 ${s0} · วันที่สอบ ${defense}</p></div>
         `;
     }

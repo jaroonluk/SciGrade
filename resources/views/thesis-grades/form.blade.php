@@ -310,7 +310,7 @@
                 <p class="mt-1">ช่องที่มีกรอบสีแดง — กรุณาตรวจสอบหรือกรอกเองให้ถูกต้อง</p>
             </div>
 
-            <div id="student-summary" class="grid sm:grid-cols-3 gap-3 mb-4 text-sm"></div>
+            <div id="student-summary" class="grid sm:grid-cols-2 gap-3 mb-4 text-sm"></div>
             <div id="student-list" class="space-y-3"></div>
 
             @if ($editable)
@@ -510,5 +510,5 @@
         uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=14"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=15"></script>
 @endpush

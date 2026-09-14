@@ -29,5 +29,7 @@ class ThesisGradeFormSubmitStepTest extends TestCase
         $this->assertStringContainsString('missingSubmitChecks', $js);
         $this->assertStringContainsString('e.preventDefault()', $js);
         $this->assertStringContainsString('ติ๊ก «', $js);
+        $this->assertStringNotContainsString('เลยกำหนดเค้าโครง</p>', $js);
+        $this->assertStringContainsString('เอกสารที่ยังขาด', $js);
     }
 }
