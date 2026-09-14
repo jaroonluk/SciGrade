@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="SciGrade graduate grade submission">
+  <rect width="32" height="32" rx="8" fill="#8B4513"/>
+  <path fill="#FFF8F0" d="M8 12.2h10.2c.9 0 1.6.7 1.6 1.6V24.8c0 .9-.7 1.6-1.6 1.6H8c-.9 0-1.6-.7-1.6-1.6V13.8c0-.9.7-1.6 1.6-1.6z"/>
+  <path stroke="#C4725C" stroke-width="1.35" stroke-linecap="round" d="M9.4 16.6h7.2M9.4 19.6h7.2M9.4 22.6h4.4"/>
+  <path fill="#F3D27A" d="M16.2 4.1 29 9.3 16.2 14.5 3.4 9.3z"/>
+  <path fill="none" stroke="#F3D27A" stroke-width="1.55" stroke-linecap="round" d="M26.4 10.1v6.1c0 1.5-4.5 2.7-10.2 2.7"/>
+  <circle cx="26.4" cy="17.1" r="1.45" fill="#FFE9A8"/>
+</svg>

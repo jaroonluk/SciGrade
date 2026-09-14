@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>รายงานสรุปผลการสอบ — SciGrade</title>
+    @include('partials.favicon')
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Noto Sans Thai', sans-serif; font-size: 11px; margin: 20px; }

@@ -11,6 +11,7 @@
 <head>
     <meta charset="UTF-8">
     <title>รายงานผลการสอบไล่ — {{ $department->department_name }}</title>
+    @include('partials.favicon')
     @if (($format ?? 'pdf') === 'word')
         <meta name="ProgId" content="Word.Document">
         <meta name="Generator" content="Microsoft Word 15">

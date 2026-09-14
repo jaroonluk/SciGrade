@@ -29,6 +29,22 @@ class FacultyThesisGradeMenuVisibilityTest extends TestCase
         $this->assertStringContainsString('รับผลการเรียนวิทยานิพนธ์', $html);
         $this->assertStringContainsString('faculty-admin/thesis-grades', $html);
         $this->assertStringContainsString('งานบริการ ป.บัณฑิต', $html);
+        $this->assertStringContainsString('favicon.svg', $html);
+    }
+
+    #[Test]
+    public function layout_uses_graduate_grade_favicon(): void
+    {
+        $this->assertFileExists(public_path('favicon.svg'));
+        $this->assertFileExists(public_path('favicon.ico'));
+        $this->assertFileExists(public_path('favicon-32x32.png'));
+        $this->assertFileExists(public_path('apple-touch-icon.png'));
+        $svg = (string) file_get_contents(public_path('favicon.svg'));
+        $this->assertStringContainsString('graduate grade submission', $svg);
+        $this->assertStringContainsString('#8B4513', $svg);
+        $this->assertStringContainsString('#F3D27A', $svg);
+        $this->assertStringContainsString("partials.favicon", (string) file_get_contents(resource_path('views/layouts/scigrad.blade.php')));
+        $this->assertStringContainsString("partials.favicon", (string) file_get_contents(resource_path('views/layouts/app.blade.php')));
     }
 
     private function homeHtml(bool $canReviewThesisGrades): string

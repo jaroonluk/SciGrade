@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>บันทึกข้อความ — {{ $fields['subject_line'] }}</title>
+    @include('partials.favicon')
     <style>
         @font-face {
             font-family: "TH Sarabun Local";

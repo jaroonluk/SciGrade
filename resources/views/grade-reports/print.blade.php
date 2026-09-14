@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>แบบรายงานผลการสอบไล่ — {{ $gradeReport->subject_code }}</title>
+    @include('partials.favicon')
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         @page { size: A4 landscape; margin: 10mm 12mm; }
