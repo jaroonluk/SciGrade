@@ -20,15 +20,52 @@
 
 @push('styles')
 <style>
-    .thesis-stepper { display: flex; gap: .5rem; }
-    .thesis-step { flex: 1; text-align: center; }
-    .thesis-step .dot {
-        width: 2rem; height: 2rem; border-radius: 9999px; margin: 0 auto .35rem;
-        display: flex; align-items: center; justify-content: center;
-        font-size: .8rem; font-weight: 700; border: 2px solid #fde68a; background: #fff; color: #a16207;
+    .wizard-trail {
+        display: flex; flex-wrap: nowrap; align-items: stretch;
+        list-style: none; padding: 0; margin: 0;
     }
-    .thesis-step.active .dot { background: #a16207; border-color: #a16207; color: #fff; }
-    .thesis-step.done .dot { background: #166534; border-color: #166534; color: #fff; }
+    .wizard-step-item {
+        flex: 1 1 0; min-width: 0;
+        display: flex; flex-direction: column; align-items: center;
+        position: relative; margin-left: -10px;
+        cursor: pointer; background: transparent; border: 0; padding: 0;
+        --arrow: #d1d5db; --ink: #6b7280; --label: #9ca3af;
+    }
+    .wizard-step-item:nth-child(1) { z-index: 3; margin-left: 0; }
+    .wizard-step-item:nth-child(2) { z-index: 2; }
+    .wizard-step-item:nth-child(3) { z-index: 1; }
+    .wizard-chevron {
+        width: 100%; min-height: 2.35rem;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--arrow); color: var(--ink);
+        font-size: 0.8rem; font-weight: 800;
+        clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+        transition: background .25s ease, color .25s ease, filter .25s ease, transform .25s ease;
+    }
+    .wizard-step-item:first-child .wizard-chevron {
+        clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+    }
+    .wizard-step-item:last-child .wizard-chevron {
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+    }
+    .wizard-arrow-num { position: relative; z-index: 1; }
+    .wizard-label {
+        font-size: .62rem; line-height: 1.2; color: var(--label);
+        max-width: 7.2rem; text-align: center; margin-top: 0.28rem;
+    }
+    .wizard-step-item.is-current[data-tone="1"],
+    .wizard-step-item.is-done[data-tone="1"] { --arrow: #dc2626; --ink: #fff; --label: #b91c1c; }
+    .wizard-step-item.is-current[data-tone="2"],
+    .wizard-step-item.is-done[data-tone="2"] { --arrow: #ea580c; --ink: #fff; --label: #c2410c; }
+    .wizard-step-item.is-current[data-tone="3"],
+    .wizard-step-item.is-done[data-tone="3"] { --arrow: #f97316; --ink: #fff; --label: #c2410c; }
+    .wizard-step-item.is-current .wizard-chevron { transform: scale(1.04); filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }
+    .wizard-step-item.is-current .wizard-label { font-weight: 700; }
+    .wizard-step-item:hover:not(.is-current) .wizard-chevron { filter: brightness(0.96); }
+    @@media (min-width: 640px) {
+        .wizard-label { font-size: .7rem; }
+        .wizard-chevron { min-height: 2.5rem; font-size: .9rem; }
+    }
     .thesis-panel { display: none; }
     .thesis-panel.active { display: block; }
     .student-card { border: 1px solid #fde68a; background: #fffbeb; border-radius: .9rem; }
@@ -58,6 +95,10 @@
         font-size: .7rem;
         line-height: 1.35;
         color: #b91c1c;
+    }
+    label.confirm-missing {
+        background: #fef2f2;
+        outline: 1px solid #fca5a5;
     }
 </style>
 @endpush
@@ -152,19 +193,21 @@
         </div>
     @endif
 
-    <div class="thesis-stepper mb-5">
-        <button type="button" class="thesis-step" data-go-step="1">
-            <div class="dot">1</div>
-            <div class="text-xs text-[#7A4A3A]">รายวิชา</div>
-        </button>
-        <button type="button" class="thesis-step" data-go-step="2">
-            <div class="dot">2</div>
-            <div class="text-xs text-[#7A4A3A]">ตรวจความครบถ้วน</div>
-        </button>
-        <button type="button" class="thesis-step" data-go-step="3">
-            <div class="dot">3</div>
-            <div class="text-xs text-[#7A4A3A]">ไฟล์และส่ง</div>
-        </button>
+    <div class="form-section rounded-lg p-5 mb-5">
+        <ol id="wizard-stepper" class="wizard-trail" aria-label="ขั้นตอนการส่งผลการเรียนวิทยานิพนธ์">
+            <li class="wizard-step-item {{ (int) $step === 1 ? 'is-current' : ((int) $step > 1 ? 'is-done' : '') }}" data-wizard-dot="1" data-tone="1" data-go-step="1" role="button" tabindex="0">
+                <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">1</span></span>
+                <span class="wizard-label">รายวิชา</span>
+            </li>
+            <li class="wizard-step-item {{ (int) $step === 2 ? 'is-current' : ((int) $step > 2 ? 'is-done' : '') }}" data-wizard-dot="2" data-tone="2" data-go-step="2" role="button" tabindex="0">
+                <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">2</span></span>
+                <span class="wizard-label">ตรวจความครบถ้วน</span>
+            </li>
+            <li class="wizard-step-item {{ (int) $step === 3 ? 'is-current' : '' }}" data-wizard-dot="3" data-tone="3" data-go-step="3" role="button" tabindex="0">
+                <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">3</span></span>
+                <span class="wizard-label">ไฟล์และส่ง</span>
+            </li>
+        </ol>
     </div>
 
     <form method="POST" action="{{ $report ? route('thesis-grades.update', $report) : route('thesis-grades.store') }}" id="thesis-form">
@@ -337,15 +380,21 @@
                 </div>
             @endif
 
-            <div class="form-section rounded-xl p-5 space-y-3">
-                <label class="flex items-start gap-2 text-sm text-[#5C2E1F]">
+            <div class="form-section rounded-xl p-5 space-y-3" id="submit-confirmations">
+                <p class="font-semibold text-[#5C2E1F]">ก่อนส่งเข้าสาขา กรุณาติ๊กยืนยันให้ครบทั้ง 2 ข้อ</p>
+                <label data-confirm-check="checked_proposal" class="flex items-start gap-2 text-sm text-[#5C2E1F] rounded-lg p-2 -mx-2">
                     <input type="checkbox" name="checked_proposal" value="1" class="mt-1" @checked(old('checked_proposal', $report?->checked_proposal ?? false)) @disabled(! $editable)>
-                    <span>ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว (ป.โท ภายใน 2 ภาค / ป.เอก ภายใน 4 ภาค)</span>
+                    <span data-confirm-label>ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว (ป.โท ภายใน 2 ภาค / ป.เอก ภายใน 4 ภาค)</span>
                 </label>
-                <label class="flex items-start gap-2 text-sm text-[#5C2E1F]">
+                <label data-confirm-check="checked_signed" class="flex items-start gap-2 text-sm text-[#5C2E1F] rounded-lg p-2 -mx-2">
                     <input type="checkbox" name="checked_signed" value="1" class="mt-1" @checked(old('checked_signed', $report?->checked_signed ?? false)) @disabled(! $editable)>
-                    <span>ไฟล์ใบส่งเกรดได้ลงนามด้วยลายมือชื่อดิจิทัลแล้ว</span>
+                    <span data-confirm-label>ไฟล์ใบส่งเกรดได้ลงนามด้วยลายมือชื่อดิจิทัลแล้ว</span>
                 </label>
+                <div id="submit-checklist-hint" class="hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+                    <p class="font-semibold">ยังส่งเข้าสาขาไม่ได้ — กรุณาติ๊กยืนยันข้อที่ยังขาด:</p>
+                    <ul id="submit-checklist-items" class="list-disc pl-5 mt-1 space-y-0.5"></ul>
+                </div>
+                <p id="submit-ready-hint" class="hidden text-sm font-medium text-green-800">ติ๊กยืนยันครบแล้ว กด «ส่งเข้าสาขา» ได้</p>
             </div>
         </div>
 
@@ -355,7 +404,10 @@
                 @if ($editable)
                     <button type="submit" class="px-4 py-2 border border-amber-300 rounded-lg text-sm font-medium text-[#5C2E1F] hover:bg-amber-50" data-intent="draft">บันทึกร่าง</button>
                     <button type="button" id="next-step" class="px-4 py-2 bg-white border border-amber-300 rounded-lg text-sm font-semibold text-[#854d0e] hover:bg-amber-50">ถัดไป</button>
-                    <button type="submit" class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]" data-intent="submit">ส่งเข้าสาขา</button>
+                    <div class="flex flex-col items-end gap-1">
+                        <button type="submit" id="submit-to-dept" class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e] {{ (int) $step === 3 ? '' : 'hidden' }}" data-intent="submit">ส่งเข้าสาขา</button>
+                        <p id="submit-btn-hint" class="hidden max-w-sm text-right text-xs text-red-700 leading-snug"></p>
+                    </div>
                 @endif
                 @if ($report?->isDeletable())
                     <button type="button" id="delete-draft" class="px-4 py-2 text-sm text-red-700 hover:underline">
@@ -458,5 +510,5 @@
         uncertainCourse: @json($uncertainCourse),
     };
 </script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=12"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=14"></script>
 @endpush

@@ -52,8 +52,8 @@ class ThesisGradeComplianceServiceTest extends TestCase
 
         $this->assertNotEmpty($errors);
         $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'ไฟล์ TS')));
-        $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'เค้าโครง')));
-        $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'ลายมือชื่อดิจิทัล')));
+        $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว')));
+        $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'ไฟล์ใบส่งเกรดได้ลงนามด้วยลายมือชื่อดิจิทัลแล้ว')));
         $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'หนังสือชี้แจง')));
         $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'วันที่สอบ')));
     }

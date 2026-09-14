@@ -191,17 +191,66 @@
         document.querySelectorAll('.thesis-panel').forEach((p) => {
             p.classList.toggle('active', Number(p.dataset.step) === step);
         });
-        document.querySelectorAll('.thesis-step').forEach((el) => {
-            const s = Number(el.dataset.goStep);
-            el.classList.toggle('active', s === step);
-            el.classList.toggle('done', s < step);
+        document.querySelectorAll('[data-wizard-dot]').forEach((el) => {
+            const n = Number(el.dataset.wizardDot);
+            el.classList.toggle('is-current', n === step);
+            el.classList.toggle('is-done', n < step);
         });
         document.getElementById('prev-step').style.visibility = step === 1 ? 'hidden' : 'visible';
         const next = document.getElementById('next-step');
         if (next) next.style.display = step === 3 ? 'none' : '';
+        const submitBtn = document.getElementById('submit-to-dept');
+        if (submitBtn) submitBtn.classList.toggle('hidden', step !== 3);
         renderTsName();
         renderFiles();
         updateCourseContext();
+        updateSubmitChecklist(false);
+    }
+
+    function confirmChecks() {
+        if (!form) return [];
+        return Array.from(form.querySelectorAll('[data-confirm-check]')).map((wrap) => ({
+            name: wrap.dataset.confirmCheck,
+            label: (wrap.querySelector('[data-confirm-label]')?.textContent || '').replace(/\s+/g, ' ').trim(),
+            input: wrap.querySelector('input[type="checkbox"]'),
+            wrap,
+        }));
+    }
+
+    function missingSubmitChecks() {
+        return confirmChecks().filter((item) => item.input && !item.input.checked);
+    }
+
+    function updateSubmitChecklist(forceShow) {
+        const missing = missingSubmitChecks();
+        const hint = document.getElementById('submit-checklist-hint');
+        const items = document.getElementById('submit-checklist-items');
+        const ready = document.getElementById('submit-ready-hint');
+        const btnHint = document.getElementById('submit-btn-hint');
+        const showMissing = step === 3 && missing.length > 0;
+
+        confirmChecks().forEach((item) => {
+            item.wrap?.classList.toggle('confirm-missing', showMissing && !item.input?.checked);
+        });
+        if (forceShow && missing[0]?.input) {
+            missing[0].input.focus({ preventScroll: true });
+        }
+
+        if (hint) hint.classList.toggle('hidden', !showMissing);
+        if (items && showMissing) {
+            items.innerHTML = missing
+                .map((item) => `<li>ติ๊ก «${escapeHtml(item.label)}»</li>`)
+                .join('');
+        }
+        if (ready) ready.classList.toggle('hidden', !(step === 3 && missing.length === 0 && editable));
+        if (btnHint) {
+            btnHint.classList.toggle('hidden', !showMissing);
+            if (showMissing) {
+                btnHint.textContent = missing.length === 2
+                    ? 'กรุณาติ๊กยืนยันทั้ง 2 ข้อด้านบนก่อนส่งเข้าสาขา'
+                    : `กรุณาติ๊ก «${missing[0].label}» ก่อนส่งเข้าสาขา`;
+            }
+        }
     }
 
     function collectFromDom() {
@@ -540,9 +589,16 @@
     }
 
     document.querySelectorAll('[data-go-step]').forEach((el) => {
-        el.addEventListener('click', () => {
+        const go = () => {
             collectFromDom();
             goStep(Number(el.dataset.goStep));
+        };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                go();
+            }
         });
     });
     document.getElementById('prev-step')?.addEventListener('click', () => {
@@ -575,13 +631,26 @@
             document.getElementById('form-intent').value = btn.dataset.intent;
         });
     });
-    form?.addEventListener('submit', () => {
+    form?.querySelectorAll('[data-confirm-check] input[type="checkbox"]').forEach((box) => {
+        box.addEventListener('change', () => updateSubmitChecklist(false));
+    });
+    form?.addEventListener('submit', (e) => {
         collectFromDom();
         const intent = document.getElementById('form-intent')?.value;
-        const submitBtn = form.querySelector('[data-intent="submit"]');
-        if (intent === 'submit' && submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'กำลังส่งเข้าสาขา...';
+        const submitBtn = document.getElementById('submit-to-dept') || form.querySelector('[data-intent="submit"]');
+        if (intent === 'submit') {
+            const missing = missingSubmitChecks();
+            if (missing.length) {
+                e.preventDefault();
+                goStep(3);
+                updateSubmitChecklist(true);
+                document.getElementById('submit-confirmations')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'กำลังส่งเข้าสาขา...';
+            }
         }
     });
 
