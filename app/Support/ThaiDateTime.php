@@ -33,6 +33,26 @@ class ThaiDateTime
     }
 
     /**
+     * รูปแบบ: 14 กันยายน 2568
+     */
+    public static function formatLongDate(CarbonInterface|string|null $date = null): string
+    {
+        $dt = $date instanceof CarbonInterface
+            ? $date->copy()->timezone('Asia/Bangkok')
+            : ($date === null || $date === ''
+                ? now()->timezone('Asia/Bangkok')
+                : \Carbon\Carbon::parse($date, 'Asia/Bangkok'));
+
+        $months = [
+            1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม', 4 => 'เมษายน',
+            5 => 'พฤษภาคม', 6 => 'มิถุนายน', 7 => 'กรกฎาคม', 8 => 'สิงหาคม',
+            9 => 'กันยายน', 10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม',
+        ];
+
+        return ((int) $dt->format('j')).' '.$months[(int) $dt->format('n')].' '.((int) $dt->format('Y') + 543);
+    }
+
+    /**
      * รูปแบบ: 1/ก.ค./2569
      */
     public static function formatDate(CarbonInterface|string|null $date): string

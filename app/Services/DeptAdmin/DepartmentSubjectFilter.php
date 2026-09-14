@@ -3,6 +3,7 @@
 namespace App\Services\DeptAdmin;
 
 use App\Models\DepartmentSubjectPattern;
+use App\Models\TblDepartment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
 
@@ -183,6 +184,27 @@ class DepartmentSubjectFilter
         }
 
         return array_values(array_unique($matched));
+    }
+
+    public function departmentNameForSubject(string $subjectCode): ?string
+    {
+        $ids = $this->departmentIdsMatchingSubject($subjectCode);
+        if ($ids === []) {
+            return null;
+        }
+
+        try {
+            $name = TblDepartment::query()
+                ->whereIn('department_id', $ids)
+                ->orderBy('department_id')
+                ->value('department_name');
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $name = trim((string) $name);
+
+        return $name !== '' ? $name : null;
     }
 
     public function describePattern(string $pattern): string

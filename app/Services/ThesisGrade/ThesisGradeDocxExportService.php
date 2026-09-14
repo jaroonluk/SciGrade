@@ -16,73 +16,95 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class ThesisGradeDocxExportService
 {
     /**
-     * Export S=0 explanation letter for one student.
+     * Export S=0 explanation letter matching the official 2023 memo template.
      */
     public function downloadS0Letter(ThesisGrade $report, ?ThesisGradeStudent $student = null): BinaryFileResponse
     {
         $phpWord = new PhpWord();
-        $phpWord->setDefaultFontName('TH Sarabun New');
+        $phpWord->setDefaultFontName('TH SarabunPSK');
         $phpWord->setDefaultFontSize(16);
 
         $section = $phpWord->addSection([
-            'marginTop' => 1000,
-            'marginBottom' => 1000,
-            'marginLeft' => 1200,
-            'marginRight' => 1200,
+            'paperSize' => 'A4',
+            'marginTop' => 1008,
+            'marginBottom' => 1440,
+            'marginLeft' => 1440,
+            'marginRight' => 1440,
         ]);
 
         $fields = ThesisGradeS0Letter::fields($report, $student);
-        $studentName = $fields['student_name'] !== '' ? $fields['student_name'] : '(นาย/นาง/นางสาว)......................................';
-        $studentCode = $fields['student_code'] !== '' ? $fields['student_code'] : '....................';
-        $proposal = $fields['proposal_status'] !== '' ? $fields['proposal_status'] : 'ได้รับอนุมัติเค้าโครงแล้ว / ยังไม่ได้รับอนุมัติเค้าโครง';
+        $font = ['name' => 'TH SarabunPSK', 'size' => 16];
+        $bold = ['name' => 'TH SarabunPSK', 'size' => 16, 'bold' => true];
+        $title = ['name' => 'TH SarabunPSK', 'size' => 22];
 
-        $section->addText('บันทึกข้อความ', ['bold' => true, 'size' => 20], ['alignment' => Jc::CENTER]);
-        $section->addTextBreak(1);
-
-        $section->addText('ส่วนราชการ  คณะวิทยาศาสตร์');
-        $section->addText('ที่  ศบ  ................../........    วันที่ ......................');
-        $section->addText('เรื่อง  '.$fields['subject_line']);
-        $section->addTextBreak(1);
-        $section->addText('เรียน  คณบดีคณะวิทยาศาสตร์ (ผ่านหัวหน้าสาขาวิชา)');
-        $section->addTextBreak(1);
-
-        $section->addText(
-            'ด้วยข้าพเจ้า '.$studentName
-            .' รหัสประจำตัวนักศึกษา '.$studentCode
-            .' นักศึกษาหลักสูตร '.$fields['course_kind_th']
-            .($fields['degree'] !== '' ? ' ระดับ '.$fields['degree'] : '')
-            .' '.$proposal
-            .' และได้ลงทะเบียนรายวิชา '.$fields['subject_code'].' '.$fields['subject']
-            .' กลุ่มที่ '.$fields['section']
-            .' '.$fields['term_label'].' ปีการศึกษา '.$fields['year']
-            .' ได้เกรด '.$fields['grade']
-            .' หน่วยกิตที่ผ่าน '.$fields['credits_passed']
-            .($fields['note'] !== '' ? ' หมายเหตุ '.$fields['note'] : ''),
-            [],
-            ['alignment' => Jc::BOTH]
-        );
-        $section->addTextBreak(1);
-        $section->addText('จึงเรียนมาเพื่อโปรดพิจารณา', [], ['alignment' => Jc::BOTH]);
-        $section->addTextBreak(2);
-
-        $section->addText('('.($fields['teacher'] !== '' ? $fields['teacher'] : '..........................................................').')');
-        $section->addText('อาจารย์ที่ปรึกษาวิทยานิพนธ์');
-        $section->addTextBreak(1);
-        $section->addText('(..........................................................)');
-        $section->addText('หัวหน้าสาขาวิชา');
-        $section->addTextBreak(1);
-
-        $section->addText('ข้อมูลรายวิชาที่กำลังรายงานใน SciGrade', ['bold' => true, 'size' => 14]);
-        $section->addText('รหัส/ชื่อวิชา: '.$fields['subject_code'].' '.$fields['subject']);
-        $section->addText('กลุ่มที่ '.$fields['section'].' · '.$fields['term_label'].' ปีการศึกษา '.$fields['year']);
-        $section->addText('อาจารย์ผู้ส่ง: '.($fields['teacher'] !== '' ? $fields['teacher'] : '—'));
-        $section->addText('นักศึกษา: '.trim($fields['student_code'].' '.$fields['student_name']));
-        $section->addText('ระดับ: '.$fields['degree'].' · ภาคสะสม: '.$fields['thesis_terms']);
-        $section->addText('เกรด/หน่วยกิตที่ผ่าน: '.$fields['grade'].' / '.$fields['credits_passed']);
-        if ($fields['note'] !== '') {
-            $section->addText('หมายเหตุ: '.$fields['note']);
+        $header = $section->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF', 'cellMargin' => 0]);
+        $header->addRow();
+        $logoCell = $header->addCell(1400, ['valign' => 'center', 'borderSize' => 0, 'borderColor' => 'FFFFFF']);
+        if (is_file($fields['emblem_path'])) {
+            $logoCell->addImage($fields['emblem_path'], [
+                'width' => 41,
+                'height' => 71,
+            ]);
         }
-        $section->addText('พิมพ์เมื่อ: '.ThaiDateTime::formatDateTime(now()));
+        $titleCell = $header->addCell(8600, ['valign' => 'center', 'borderSize' => 0, 'borderColor' => 'FFFFFF']);
+        $titleCell->addText('บันทึกข้อความ', $title, ['spaceAfter' => 0]);
+
+        $section->addTextBreak(1);
+
+        $office = $section->addTextRun(['spaceAfter' => 0]);
+        $office->addText('ส่วนงาน', $bold);
+        $office->addText('      คณะวิทยาศาสตร์   สาขาวิชา'.($fields['department'] !== '' ? $fields['department'] : '..........'), $font);
+        $office->addText('      หมายเลขโทรศัพท์  .....................', $font);
+
+        $meta = $section->addTextRun(['spaceAfter' => 0]);
+        $meta->addText('ที่', $bold);
+        $meta->addText('  '.$fields['memo_no'], $font);
+        $meta->addText('                      วันที่  '.$fields['letter_date'], $font);
+
+        $subject = $section->addTextRun(['spaceAfter' => 120]);
+        $subject->addText('เรื่อง', $bold);
+        $subject->addText('  '.$fields['subject_line'], $font);
+
+        $to = $section->addTextRun(['spaceAfter' => 200]);
+        $to->addText('เรียน', $bold);
+        $to->addText('  '.$fields['to_line'], $font);
+
+        $section->addText($fields['body'], $font, [
+            'alignment' => Jc::BOTH,
+            'indentation' => ['firstLine' => 1080],
+            'spaceAfter' => 200,
+        ]);
+
+        $section->addText('จึงเรียนมาเพื่อโปรดพิจารณา', $font, [
+            'alignment' => Jc::BOTH,
+            'indentation' => ['firstLine' => 1080],
+            'spaceAfter' => 400,
+        ]);
+
+        $sign = $section->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF', 'cellMargin' => 40]);
+        $emptyCell = ['borderSize' => 0, 'borderColor' => 'FFFFFF'];
+        $right = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
+        $teacher = $fields['teacher'] !== '' ? $fields['teacher'] : '..........................................................';
+
+        $sign->addRow();
+        $sign->addCell(4200, $emptyCell);
+        $sign->addCell(5000, $emptyCell)->addText('('.$teacher.')', $font, $right);
+
+        $sign->addRow();
+        $sign->addCell(4200, $emptyCell);
+        $sign->addCell(5000, $emptyCell)->addText($fields['advisor_title'], $font, $right);
+
+        $sign->addRow();
+        $sign->addCell(4200, $emptyCell)->addText('', $font, ['spaceAfter' => 400]);
+        $sign->addCell(5000, $emptyCell)->addText('', $font, ['spaceAfter' => 400]);
+
+        $sign->addRow();
+        $sign->addCell(4200, $emptyCell);
+        $sign->addCell(5000, $emptyCell)->addText('(..........................................................)', $font, $right);
+
+        $sign->addRow();
+        $sign->addCell(4200, $emptyCell);
+        $sign->addCell(5000, $emptyCell)->addText($fields['chair_title'], $font, $right);
 
         $suffix = $student?->student_code
             ? preg_replace('/\W+/', '', (string) $student->student_code)

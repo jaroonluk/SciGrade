@@ -64,6 +64,45 @@ class DeptAdminThesisGradeIndexTest extends TestCase
     }
 
     #[Test]
+    public function list_shows_s0_print_buttons_for_zero_credit_students(): void
+    {
+        $this->actingAs(new User(['name' => 'Admin สาขา', 'email' => 'dept@kku.ac.th']));
+
+        $report = new ThesisGrade([
+            'subject_code' => 'SC899001',
+            'subject' => 'THESIS',
+            'section' => '1',
+            'term' => 2,
+            'year' => 2568,
+            'teacher' => 'อ. ทดสอบ',
+            'status' => ThesisGrade::STATUS_SUBMITTED,
+        ]);
+        $report->thesis_grade_id = 24;
+        $student = new ThesisGradeStudent([
+            'student_code' => '677020018-0',
+            'student_name' => 'ทดสอบ ระบบ',
+            'grade' => 'S',
+            'credits_passed' => 0,
+        ]);
+        $student->student_id = 91;
+        $report->setRelation('students', collect([$student]));
+        $report->setRelation('files', collect());
+
+        $html = view('dept-admin.thesis-grades.index', [
+            'reports' => new LengthAwarePaginator(collect([$report]), 1, 20, 1, [
+                'path' => '/dept-admin/thesis-grades',
+            ]),
+            'departments' => collect(),
+            'filters' => ['term' => 2, 'year' => 2568, 'status' => ''],
+            'years' => [2568],
+        ])->render();
+
+        $this->assertStringContainsString('พิมพ์บันทึกข้อความ S=0', $html);
+        $this->assertStringContainsString(route('dept-admin.thesis-grades.s0-letter', [$report, $student]), $html);
+        $this->assertStringContainsString(route('dept-admin.thesis-grades.s0.docx', [$report, $student]), $html);
+    }
+
+    #[Test]
     public function received_row_does_not_show_receive_button(): void
     {
         $this->actingAs(new User(['name' => 'Admin สาขา', 'email' => 'dept@kku.ac.th']));

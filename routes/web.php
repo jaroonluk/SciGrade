@@ -97,6 +97,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/thesis-grades/{thesisGrade}/receive', [ThesisGradeReviewController::class, 'receive'])->name('thesis-grades.receive');
         Route::post('/thesis-grades/{thesisGrade}/chair-files', [ThesisGradeReviewController::class, 'storeChairFiles'])->name('thesis-grades.chair-files.store');
         Route::delete('/thesis-grades/{thesisGrade}/chair-files/{file}', [ThesisGradeReviewController::class, 'destroyChairFile'])->name('thesis-grades.chair-files.destroy');
+        Route::get('/thesis-grades/{thesisGrade}/students/{student}/s0-letter', [ThesisGradeReviewController::class, 's0Letter'])->name('thesis-grades.s0-letter');
         Route::get('/thesis-grades/{thesisGrade}/students/{student}/s0.docx', [ThesisGradeReviewController::class, 'exportS0'])->name('thesis-grades.s0.docx');
         Route::get('/thesis-grades/{thesisGrade}/files-zip', [ThesisGradeReviewController::class, 'downloadReport'])->name('thesis-grades.files.zip');
         Route::get('/thesis-grades/{thesisGrade}/files/{file}', [ThesisGradeReviewController::class, 'showFile'])->name('thesis-grades.files.show');

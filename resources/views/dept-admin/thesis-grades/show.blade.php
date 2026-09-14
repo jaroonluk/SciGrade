@@ -95,9 +95,11 @@
                                 @endif
                             </td>
                             <td class="py-2 whitespace-nowrap">
-                                @if ($student->requiresS0Letter() || strtoupper((string) $student->grade) === 'S')
+                                @if ($student->isS0())
+                                    <a href="{{ route('dept-admin.thesis-grades.s0-letter', [$report, $student]) }}" target="_blank" rel="noopener"
+                                       class="text-xs font-semibold text-[#a16207] underline">พิมพ์</a>
                                     <a href="{{ route('dept-admin.thesis-grades.s0.docx', [$report, $student]) }}"
-                                       class="text-xs font-semibold text-[#a16207] underline">พิมพ์ S=0</a>
+                                       class="text-xs font-semibold text-[#a16207] underline ml-2">.docx</a>
                                 @endif
                             </td>
                         </tr>

@@ -15,6 +15,7 @@ use App\Services\ThesisGrade\ThesisGradeDocxExportService;
 use App\Services\ThesisGrade\ThesisGradeQueryService;
 use App\Services\ThesisGrade\ThesisGradeZipService;
 use App\Support\AcademicTerm;
+use App\Support\ThesisGradeS0Letter;
 use App\Support\UploadStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -223,6 +224,25 @@ class ThesisGradeReviewController extends Controller
         $file->delete();
 
         return back()->with('status', 'ลบไฟล์ประธานหลักสูตรแล้ว');
+    }
+
+    public function s0Letter(Request $request, ThesisGrade $thesisGrade, ThesisGradeStudent $student): View
+    {
+        $this->authorize('reviewDept', $thesisGrade);
+        abort_unless((int) $student->thesis_grade_id === (int) $thesisGrade->thesis_grade_id, 404);
+
+        $back = (string) $request->headers->get('referer', '');
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $backUrl = $back !== '' && str_starts_with($back, $appUrl)
+            ? $back
+            : route('dept-admin.thesis-grades.show', $thesisGrade);
+
+        return view('thesis-grades.s0-letter', [
+            'fields' => ThesisGradeS0Letter::fields($thesisGrade, $student),
+            'backUrl' => $backUrl,
+            'officialFormUrl' => (string) config('scigrade.s0_letter_form_url'),
+            'docxUrl' => route('dept-admin.thesis-grades.s0.docx', [$thesisGrade, $student]),
+        ]);
     }
 
     public function exportS0(ThesisGrade $thesisGrade, ThesisGradeStudent $student): BinaryFileResponse

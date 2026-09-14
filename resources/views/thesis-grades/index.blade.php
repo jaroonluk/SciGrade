@@ -121,6 +121,7 @@
                             {{ $report->isEditable() ? 'แก้ไขรายการ' : 'เปิดรายการ' }}
                         </a>
                     </div>
+                    @include('thesis-grades.partials.s0-print-buttons', ['report' => $report, 'role' => 'instructor'])
 
                     <div class="grid md:grid-cols-2 gap-3 mt-4">
                         <section class="thesis-file-panel thesis-file-instructor">

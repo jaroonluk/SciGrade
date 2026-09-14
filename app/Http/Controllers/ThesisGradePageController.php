@@ -453,16 +453,22 @@ class ThesisGradePageController extends Controller
         }
     }
 
-    public function s0Letter(ThesisGrade $thesisGrade, ?ThesisGradeStudent $student = null): View
+    public function s0Letter(Request $request, ThesisGrade $thesisGrade, ?ThesisGradeStudent $student = null): View
     {
         $this->authorize('view', $thesisGrade);
         if ($student !== null) {
             abort_unless((int) $student->thesis_grade_id === (int) $thesisGrade->thesis_grade_id, 404);
         }
 
+        $back = (string) $request->headers->get('referer', '');
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $backUrl = $back !== '' && str_starts_with($back, $appUrl)
+            ? $back
+            : route('thesis-grades.edit', ['thesisGrade' => $thesisGrade, 'step' => 2]);
+
         return view('thesis-grades.s0-letter', [
             'fields' => ThesisGradeS0Letter::fields($thesisGrade, $student),
-            'backUrl' => route('thesis-grades.edit', ['thesisGrade' => $thesisGrade, 'step' => 2]),
+            'backUrl' => $backUrl,
             'officialFormUrl' => (string) config('scigrade.s0_letter_form_url'),
             'docxUrl' => $student
                 ? route('thesis-grades.s0.docx.student', [$thesisGrade, $student])

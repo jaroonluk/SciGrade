@@ -59,6 +59,44 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
     }
 
     #[Test]
+    public function instructor_list_shows_s0_print_buttons_for_zero_credit_students(): void
+    {
+        $this->actingAs(new User(['name' => 'อาจารย์ ทดสอบ', 'email' => 'teacher@kku.ac.th']));
+
+        $report = new ThesisGrade([
+            'subject_code' => 'SC899001',
+            'subject' => 'THESIS',
+            'section' => '1',
+            'term' => 2,
+            'year' => 2568,
+            'status' => ThesisGrade::STATUS_DRAFT,
+        ]);
+        $report->thesis_grade_id = 24;
+        $student = new ThesisGradeStudent([
+            'student_code' => '677020018-0',
+            'student_name' => 'ทดสอบ ระบบ',
+            'grade' => 'S',
+            'credits_passed' => 0,
+        ]);
+        $student->student_id = 91;
+        $report->setRelation('students', collect([$student]));
+        $report->setRelation('files', collect());
+
+        $html = view('thesis-grades.index', [
+            'reports' => collect([$report]),
+            'term' => 2,
+            'year' => 2568,
+            'years' => [2568],
+            'staffDisplayName' => 'อาจารย์ ทดสอบ',
+        ])->render();
+
+        $this->assertStringContainsString('พิมพ์บันทึกข้อความ S=0', $html);
+        $this->assertStringContainsString('677020018-0', $html);
+        $this->assertStringContainsString(route('thesis-grades.s0-letter.student', [$report, $student]), $html);
+        $this->assertStringContainsString(route('thesis-grades.s0.docx.student', [$report, $student]), $html);
+    }
+
+    #[Test]
     public function instructor_list_says_department_upload_is_optional_when_missing(): void
     {
         $this->actingAs(new User(['name' => 'อาจารย์ ทดสอบ', 'email' => 'teacher@kku.ac.th']));

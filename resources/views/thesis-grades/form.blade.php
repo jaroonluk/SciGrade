@@ -75,6 +75,7 @@
     data-s0-form-url="{{ $s0FormUrl }}"
     data-s0-letter-url="{{ $report ? route('thesis-grades.s0-letter', $report) : '' }}"
     data-s0-letter-student-tpl="{{ $report ? url('/thesis-grades/'.$report->thesis_grade_id.'/students/__SID__/s0-letter') : '' }}"
+    data-s0-docx-student-tpl="{{ $report ? url('/thesis-grades/'.$report->thesis_grade_id.'/students/__SID__/s0.docx') : '' }}"
 >
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
@@ -258,7 +259,7 @@
                 <p class="font-semibold">ตัวช่วยตรวจเค้าโครง</p>
                 <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากเลยกำหนดและให้ S=0 ต้องแนบหนังสือชี้แจง — ระเบียบ พ.ศ. 2566 ยกเลิกการตกออกจาก S=0 สองภาคติดแล้ว</p>
                 @if ($report)
-                    <p class="mt-2">กด «เปิดแบบฟอร์มบันทึกข้อความ» ที่นักศึกษา S=0 เพื่อพิมพ์บันทึกที่มีรหัสวิชา ชื่อวิชา กลุ่ม และภาค/ปีของรายการนี้เติมไว้แล้ว</p>
+                    <p class="mt-2">กด «พิมพ์บันทึก S=0» ที่นักศึกษาที่ได้ S=0 เพื่อพิมพ์หรือดาวน์โหลด Word ตามแบบฟอร์มชี้แจง โดยระบบเติมรหัสวิชา ชื่อวิชา กลุ่ม และภาค/ปีให้อัตโนมัติ</p>
                 @endif
             </div>
             <div id="uncertain-review-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -304,7 +305,10 @@
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <h3 class="font-semibold text-[#5C2E1F]">หนังสือชี้แจง S=0</h3>
                     @if ($report)
-                        <a href="{{ route('thesis-grades.s0-letter', $report) }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">เปิดแบบฟอร์มบันทึกข้อความ (เติมข้อมูลรายวิชาแล้ว)</a>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <a href="{{ route('thesis-grades.s0-letter', $report) }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">พิมพ์บันทึกข้อความ</a>
+                            <a href="{{ route('thesis-grades.s0.docx', $report) }}" class="text-sm text-[#a16207] underline">ดาวน์โหลด Word</a>
+                        </div>
                     @else
                         <a href="{{ $s0FormUrl }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">เปิดแบบฟอร์มบันทึกชี้แจง</a>
                     @endif

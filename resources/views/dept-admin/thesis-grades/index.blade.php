@@ -150,6 +150,7 @@
                         <a href="{{ route('dept-admin.thesis-grades.show', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm font-semibold text-[#5C2E1F] hover:bg-amber-50">รายละเอียด</a>
                     </div>
                 </div>
+                @include('thesis-grades.partials.s0-print-buttons', ['report' => $report, 'role' => 'dept'])
 
                 <div class="grid md:grid-cols-2 gap-3">
                     <section class="thesis-file-panel thesis-file-instructor">

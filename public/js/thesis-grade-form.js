@@ -173,6 +173,14 @@
         return root.dataset.s0LetterUrl || '';
     }
 
+    function s0DocxUrlFor(s) {
+        const tpl = root.dataset.s0DocxStudentTpl || '';
+        if (s?.id && tpl) {
+            return tpl.replace('__SID__', encodeURIComponent(s.id));
+        }
+        return '';
+    }
+
     function tsFiles() {
         return files.filter((f) => f.file_type === 'ts_report');
     }
@@ -241,14 +249,16 @@
 
         listEl.innerHTML = students.map((s, i) => {
             const overdue = isOverdue(s);
-            const s0 = needsS0(s);
+            const s0 = isS0(s);
+            const needsLetter = needsS0(s);
             const cls = s.completed && s.defense_date ? 'is-ready' : (overdue ? 'is-overdue' : '');
             const s0LetterUrl = s0LetterUrlFor(s);
+            const s0DocxUrl = s0DocxUrlFor(s);
             const badge = overdue
-                ? `<span class="text-xs font-semibold text-red-700">เลยกำหนดเค้าโครง${s0 ? ' · ควรพิจารณา S=0' : ''}</span>`
+                ? `<span class="text-xs font-semibold text-red-700">เลยกำหนดเค้าโครง${needsLetter ? ' · ควรพิจารณา S=0' : ''}</span>`
                 : (s.proposal_approved ? '<span class="text-xs font-semibold text-green-700">อนุมัติเค้าโครงแล้ว</span>' : '');
             const s0LetterLink = s0 && s0LetterUrl
-                ? `<a href="${escapeHtml(s0LetterUrl)}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline">เปิดแบบฟอร์มบันทึกข้อความ</a>`
+                ? `<a href="${escapeHtml(s0LetterUrl)}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline" title="พิมพ์บันทึกข้อความ">พิมพ์บันทึก S=0</a>${s0DocxUrl ? ` <a href="${escapeHtml(s0DocxUrl)}" class="text-xs font-semibold text-[#a16207] underline">.docx</a>` : ''}`
                 : '';
             const ro = editable ? '' : 'disabled';
             const u = s.uncertain_fields || {};
@@ -408,7 +418,8 @@
                         return `<div class="rounded-lg border border-red-200 bg-white px-3 py-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <p class="text-sm font-medium text-red-800">${escapeHtml(s.student_code)} ${escapeHtml(s.student_name)}</p>
-                                ${s0LetterUrlFor(s) ? `<a href="${escapeHtml(s0LetterUrlFor(s))}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline">เปิดแบบฟอร์มบันทึกข้อความ</a>` : ''}
+                                ${s0LetterUrlFor(s) ? `<a href="${escapeHtml(s0LetterUrlFor(s))}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline">พิมพ์บันทึกข้อความ</a>` : ''}
+                                ${s0DocxUrlFor(s) ? `<a href="${escapeHtml(s0DocxUrlFor(s))}" class="text-xs font-semibold text-[#a16207] underline">ดาวน์โหลด Word</a>` : ''}
                                 ${editable && root.dataset.uploadUrl ? `<label class="text-xs font-semibold text-[#a16207] cursor-pointer">แนบ PDF
                                     <input type="file" accept="application/pdf" class="hidden" data-s0="${escapeHtml(s.id)}">
                                 </label>` : ''}

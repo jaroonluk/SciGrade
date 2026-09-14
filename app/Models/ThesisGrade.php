@@ -241,6 +241,14 @@ class ThesisGrade extends Model
         );
     }
 
+    /**
+     * @return Collection<int, ThesisGradeStudent>
+     */
+    public function s0Students(): Collection
+    {
+        return $this->students->filter(fn (ThesisGradeStudent $student) => $student->isS0())->values();
+    }
+
     public function overdueStudentCount(): int
     {
         return $this->students->filter(fn (ThesisGradeStudent $student) => $student->isProposalOverdue())->count();
