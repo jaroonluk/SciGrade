@@ -25,6 +25,61 @@
     }
     .thesis-file-chip a { color: #854d0e; font-weight: 600; min-width: 0; }
     .thesis-file-dept .thesis-file-chip a { color: #0f766e; }
+    .thesis-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .28rem;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: .9rem;
+        box-shadow: 0 1px 2px rgba(120, 53, 15, .06);
+    }
+    .thesis-icon-btn {
+        position: relative;
+        width: 2.4rem;
+        height: 2.4rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: .65rem;
+        border: 1px solid transparent;
+        background: #fff;
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+    }
+    .thesis-icon-btn svg { width: 1.05rem; height: 1.05rem; }
+    .thesis-icon-edit { color: #854d0e; border-color: #fde68a; }
+    .thesis-icon-edit:hover { background: #a16207; color: #fff; border-color: #a16207; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(161, 98, 7, .28); }
+    .thesis-icon-view { color: #7A4A3A; border-color: #e8cdb5; }
+    .thesis-icon-view:hover { background: #5C2E1F; color: #fff; border-color: #5C2E1F; transform: translateY(-1px); }
+    .thesis-icon-delete { color: #b91c1c; border-color: #fecaca; }
+    .thesis-icon-delete:hover { background: #dc2626; color: #fff; border-color: #dc2626; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(220, 38, 38, .22); }
+    .thesis-icon-btn::after {
+        content: attr(data-tip);
+        position: absolute;
+        top: calc(100% + .4rem);
+        left: 50%;
+        transform: translateX(-50%) translateY(.15rem);
+        white-space: nowrap;
+        background: #3f2a1d;
+        color: #fff;
+        font-size: .7rem;
+        font-weight: 600;
+        letter-spacing: .01em;
+        padding: .28rem .55rem;
+        border-radius: .4rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .12s ease, transform .12s ease;
+        z-index: 20;
+        box-shadow: 0 6px 16px rgba(63, 42, 29, .2);
+    }
+    .thesis-icon-btn:hover::after,
+    .thesis-icon-btn:focus-visible::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 </style>
 @endpush
 
@@ -118,16 +173,32 @@
                                 <p class="text-xs text-red-700 mt-1">สาขาส่งกลับ: {{ $report->return_reason }}</p>
                             @endif
                         </div>
-                        <div class="flex flex-col items-end gap-2 shrink-0">
-                            <a href="{{ route('thesis-grades.edit', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm font-semibold text-[#a16207] hover:bg-amber-50">
-                                {{ $report->isEditable() ? 'แก้ไขรายการ' : 'เปิดรายการ' }}
-                            </a>
+                        <div class="thesis-actions shrink-0">
+                            @if ($report->isEditable())
+                                <a href="{{ route('thesis-grades.edit', $report) }}"
+                                   class="thesis-icon-btn thesis-icon-edit"
+                                   data-tip="แก้ไขรายการ"
+                                   aria-label="แก้ไขรายการ">
+                                    <i data-lucide="pencil"></i>
+                                </a>
+                            @else
+                                <a href="{{ route('thesis-grades.edit', $report) }}"
+                                   class="thesis-icon-btn thesis-icon-view"
+                                   data-tip="เปิดรายการ"
+                                   aria-label="เปิดรายการ">
+                                    <i data-lucide="eye"></i>
+                                </a>
+                            @endif
                             @if ($report->isDeletable())
-                                <form method="POST" action="{{ route('thesis-grades.destroy', $report) }}" onsubmit="return confirm('ต้องการลบรายการนี้หรือไม่? การลบจะลบไฟล์แนบด้วย')">
+                                <form method="POST" action="{{ route('thesis-grades.destroy', $report) }}" class="inline-flex"
+                                      onsubmit="return confirm('ต้องการลบรายการนี้หรือไม่? การลบจะลบไฟล์แนบด้วย')">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="px-3 py-1.5 text-sm text-red-700 hover:underline">
-                                        {{ $status === 'draft' ? 'ลบร่าง' : 'ลบรายการ' }}
+                                    <button type="submit"
+                                            class="thesis-icon-btn thesis-icon-delete"
+                                            data-tip="ลบรายการ"
+                                            aria-label="ลบรายการ">
+                                        <i data-lucide="trash-2"></i>
                                     </button>
                                 </form>
                             @endif

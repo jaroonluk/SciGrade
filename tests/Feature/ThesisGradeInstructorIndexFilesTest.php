@@ -58,6 +58,8 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
         $this->assertStringContainsString('รอสาขากดผ่านที่ประชุมสาขาวิชา', $html);
         $this->assertStringContainsString('แก้ไขรายการ', $html);
         $this->assertStringContainsString('ลบรายการ', $html);
+        $this->assertStringContainsString('data-lucide="pencil"', $html);
+        $this->assertStringContainsString('data-lucide="trash-2"', $html);
         $this->assertStringContainsString(route('thesis-grades.destroy', $report), $html);
         $this->assertStringContainsString('ยังแก้ไขหรือลบได้จนกว่าสาขาหรือ Admin กลางจะเปลี่ยนสถานะ', $html);
     }
