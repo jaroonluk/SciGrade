@@ -55,27 +55,34 @@ class SciGradeRole
 
     /**
      * เมนูรับผลการเรียนวิทยานิพนธ์ระดับคณะ — เฉพาะเจ้าหน้าที่งานบริการ (ป.บัณฑิต)
-     * และ Super Admin
+     * เมื่อใช้บทบาท Admin กลาง และ Super Admin เมื่อใช้บทบาท Super Admin
+     * Admin กลาง (ป.ตรี) และเจ้าหน้าที่งานบริการทั่วไปไม่เห็นเมนูนี้
      */
     public static function canReviewThesisGrades(): bool
     {
-        if (! self::isFacultyCapable()) {
-            return false;
-        }
-
         return self::allowsThesisGradeFacultyReview(
             self::staffPrivilegeLevel(),
             self::staffHasSuperPrivilege(),
+            self::current(),
         );
     }
 
-    public static function allowsThesisGradeFacultyReview(?int $privilegeLevel, bool $hasSuperPrivilege): bool
-    {
-        if ($hasSuperPrivilege) {
-            return true;
+    public static function allowsThesisGradeFacultyReview(
+        ?int $privilegeLevel,
+        bool $hasSuperPrivilege,
+        ?string $role = null,
+    ): bool {
+        $role = $role ?? self::current();
+
+        if ($role === self::SUPER_ADMIN) {
+            return $hasSuperPrivilege;
         }
 
-        return $privilegeLevel === TblPrivilege::LEVEL_SERVICE_GRADUATE;
+        if ($role === self::FACULTY_ADMIN) {
+            return $privilegeLevel === TblPrivilege::LEVEL_SERVICE_GRADUATE;
+        }
+
+        return false;
     }
 
     public static function isDeptAdmin(?string $role = null): bool

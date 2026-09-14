@@ -62,6 +62,8 @@ class FacultyAdminThesisGradeIndexTest extends TestCase
         $this->assertStringContainsString('ดาวน์โหลดเอกสารสมบูรณ์', $html);
         $this->assertStringContainsString('ชุดสมบูรณ์มาจากไฟล์ Admin สาขา', $html);
         $this->assertStringContainsString(route('faculty-admin.thesis-grades.receive', $report), $html);
+        $this->assertStringContainsString('สรุปผลการเรียน', $html);
+        $this->assertStringNotContainsString('สรุปผลตาราง 3.1', $html);
     }
 
     #[Test]

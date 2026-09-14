@@ -135,4 +135,35 @@ class ThesisGradeS0LetterTest extends TestCase
         $this->assertStringContainsString('SC899001', $xml);
         $this->assertTrue($hasImage || is_file(public_path(ThesisGradeS0Letter::EMBLEM_RELATIVE)));
     }
+
+    #[Test]
+    public function summary_docx_uses_valid_table_width_unit(): void
+    {
+        $report = new ThesisGrade([
+            'subject_code' => 'SC899001',
+            'subject' => 'THESIS',
+            'section' => '1',
+            'term' => 2,
+            'year' => 2568,
+            'status' => ThesisGrade::STATUS_RECEIVED,
+        ]);
+        $report->setRelation('students', collect([
+            new ThesisGradeStudent(['student_code' => '677020018-0']),
+        ]));
+
+        $response = (new ThesisGradeDocxExportService)->downloadSummary(collect([$report]), 2, 2568);
+        $path = $response->getFile()->getPathname();
+        $this->assertFileExists($path);
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($path));
+        $xml = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+        @unlink($path);
+
+        $this->assertStringContainsString('ผลการเรียนวิทยานิพนธ์', $xml);
+        $this->assertStringContainsString('SC899001', $xml);
+        $this->assertStringContainsString('w:type="dxa"', $xml);
+        $this->assertStringNotContainsString('w:type="twip"', $xml);
+    }
 }

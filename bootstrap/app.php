@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'dept.admin' => \App\Http\Middleware\EnsureDeptAdmin::class,
             'faculty.admin' => \App\Http\Middleware\EnsureFacultyAdmin::class,
             'super.admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+            'thesis.faculty' => \App\Http\Middleware\EnsureThesisGradeFacultyReview::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

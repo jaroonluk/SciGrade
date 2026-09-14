@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', 'รับผลการเรียนวิทยานิพนธ์ — Admin กลาง')
+@section('title', 'รับผลการเรียนวิทยานิพนธ์ — งานบริการ ป.บัณฑิต')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
@@ -39,7 +39,7 @@
             </p>
         </div>
         <a href="{{ route('faculty-admin.thesis-grades.summary', ['term' => $filters['term'] ?? null, 'year' => $filters['year'] ?? null]) }}"
-           class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">สรุปผลตาราง 3.1</a>
+           class="px-4 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">สรุปผลการเรียน</a>
     </div>
 
     <div class="form-section rounded-xl p-5 mb-5">

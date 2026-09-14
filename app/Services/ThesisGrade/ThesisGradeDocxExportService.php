@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\SimpleType\Jc;
+use PhpOffice\PhpWord\SimpleType\TblWidth;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -150,7 +151,7 @@ class ThesisGradeDocxExportService
             'borderColor' => '000000',
             'cellMargin' => 60,
             'width' => 14000,
-            'unit' => 'twip',
+            'unit' => TblWidth::TWIP,
         ]);
 
         $header = ['ที่', 'รหัส-ชื่อวิชา', 'ภาค/ปีการศึกษา', 'กลุ่มที่', 'จำนวน (คน)', 'หมายเหตุ (กรอกเพิ่ม)'];

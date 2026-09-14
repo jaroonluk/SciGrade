@@ -15,12 +15,18 @@ class ThesisGradeFacultyReviewPermissionTest extends TestCase
         $this->assertTrue(SciGradeRole::allowsThesisGradeFacultyReview(
             TblPrivilege::LEVEL_SERVICE_GRADUATE,
             false,
+            SciGradeRole::FACULTY_ADMIN,
         ));
         $this->assertTrue(SciGradeRole::allowsThesisGradeFacultyReview(
             TblPrivilege::LEVEL_SUPER,
             true,
+            SciGradeRole::SUPER_ADMIN,
         ));
-        $this->assertTrue(SciGradeRole::allowsThesisGradeFacultyReview(null, true));
+        $this->assertTrue(SciGradeRole::allowsThesisGradeFacultyReview(
+            null,
+            true,
+            SciGradeRole::SUPER_ADMIN,
+        ));
     }
 
     #[Test]
@@ -29,15 +35,37 @@ class ThesisGradeFacultyReviewPermissionTest extends TestCase
         $this->assertFalse(SciGradeRole::allowsThesisGradeFacultyReview(
             TblPrivilege::LEVEL_SERVICE_BACHELOR,
             false,
+            SciGradeRole::FACULTY_ADMIN,
         ));
         $this->assertFalse(SciGradeRole::allowsThesisGradeFacultyReview(
             TblPrivilege::LEVEL_SERVICE,
             false,
+            SciGradeRole::FACULTY_ADMIN,
         ));
         $this->assertFalse(SciGradeRole::allowsThesisGradeFacultyReview(
             TblPrivilege::LEVEL_DEPT,
             false,
+            SciGradeRole::FACULTY_ADMIN,
         ));
-        $this->assertFalse(SciGradeRole::allowsThesisGradeFacultyReview(null, false));
+        $this->assertFalse(SciGradeRole::allowsThesisGradeFacultyReview(
+            null,
+            false,
+            SciGradeRole::FACULTY_ADMIN,
+        ));
+    }
+
+    #[Test]
+    public function super_privilege_does_not_show_the_menu_while_acting_as_faculty_admin(): void
+    {
+        $this->assertFalse(SciGradeRole::allowsThesisGradeFacultyReview(
+            TblPrivilege::LEVEL_SUPER,
+            true,
+            SciGradeRole::FACULTY_ADMIN,
+        ));
+        $this->assertFalse(SciGradeRole::allowsThesisGradeFacultyReview(
+            TblPrivilege::LEVEL_SERVICE_BACHELOR,
+            true,
+            SciGradeRole::FACULTY_ADMIN,
+        ));
     }
 }
