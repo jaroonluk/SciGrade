@@ -411,7 +411,7 @@
                 @endif
                 @if ($report?->isDeletable())
                     <button type="button" id="delete-draft" class="px-4 py-2 text-sm text-red-700 hover:underline">
-                        {{ $report->normalizedStatus() === 'returned' ? 'ลบรายการ' : 'ลบร่าง' }}
+                        {{ $report->normalizedStatus() === 'draft' ? 'ลบร่าง' : 'ลบรายการ' }}
                     </button>
                 @endif
             </div>

@@ -56,6 +56,10 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
         $this->assertStringContainsString('เอกสารจาก Admin สาขา', $html);
         $this->assertStringContainsString('dept-admin-signed.pdf', $html);
         $this->assertStringContainsString('รอสาขากดผ่านที่ประชุมสาขาวิชา', $html);
+        $this->assertStringContainsString('แก้ไขรายการ', $html);
+        $this->assertStringContainsString('ลบรายการ', $html);
+        $this->assertStringContainsString(route('thesis-grades.destroy', $report), $html);
+        $this->assertStringContainsString('ยังแก้ไขหรือลบได้จนกว่าสาขาหรือ Admin กลางจะเปลี่ยนสถานะ', $html);
     }
 
     #[Test]
@@ -123,5 +127,37 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
 
         $this->assertStringContainsString('สาขายังไม่ได้อัปโหลดเอกสารเพิ่ม — ไม่บังคับ', $html);
         $this->assertStringContainsString('รอสาขากดผ่านที่ประชุมสาขาวิชา', $html);
+        $this->assertStringContainsString('แก้ไขรายการ', $html);
+        $this->assertStringContainsString('ลบรายการ', $html);
+    }
+
+    #[Test]
+    public function instructor_list_is_read_only_after_department_receives(): void
+    {
+        $this->actingAs(new User(['name' => 'อาจารย์ ทดสอบ', 'email' => 'teacher@kku.ac.th']));
+
+        $report = new ThesisGrade([
+            'subject_code' => 'SC899001',
+            'subject' => 'THESIS',
+            'section' => '1',
+            'term' => 2,
+            'year' => 2568,
+            'status' => ThesisGrade::STATUS_RECEIVED,
+        ]);
+        $report->thesis_grade_id = 26;
+        $report->setRelation('students', collect());
+        $report->setRelation('files', collect());
+
+        $html = view('thesis-grades.index', [
+            'reports' => collect([$report]),
+            'term' => 2,
+            'year' => 2568,
+            'years' => [2568],
+            'staffDisplayName' => 'อาจารย์ ทดสอบ',
+        ])->render();
+
+        $this->assertStringContainsString('เปิดรายการ', $html);
+        $this->assertStringNotContainsString('แก้ไขรายการ', $html);
+        $this->assertStringNotContainsString('name="_method" value="DELETE"', $html);
     }
 }

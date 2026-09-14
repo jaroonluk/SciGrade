@@ -37,7 +37,8 @@
                 <h2 class="text-xl font-bold text-[#854d0e] mt-1">ส่งผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
                 <p class="text-sm text-[#7A4A3A]/80 mt-1.5 max-w-2xl leading-relaxed">
                     ให้เกรดที่ REG ตาม มข.30 แล้วอัปโหลดใบส่งเกรดที่ลงนามแล้วเข้าที่นี่ — รายวิชานี้ส่งได้ตลอด ไม่ผูกปฏิทินสอบไล่
-                    หลังส่งเข้าสาขา ทุกรายการต้องรอสาขากดผ่านที่ประชุมสาขาวิชา (สาขาไม่จำเป็นต้องอัปโหลดไฟล์เพิ่ม)
+                    หลังส่งเข้าสาขา หากสาขาหรือ Admin กลางยังไม่เปลี่ยนสถานะ อาจารย์แก้ไขหรือลบรายการนั้นได้
+                    เมื่อสาขากดผ่านที่ประชุมสาขาวิชาแล้ว จะแก้หรือลบไม่ได้ (สาขาไม่จำเป็นต้องอัปโหลดไฟล์เพิ่ม)
                 </p>
             </div>
             <a href="{{ route('thesis-grades.create', ['term' => $term, 'year' => $year]) }}"
@@ -102,7 +103,7 @@
                                 {{ $report->termLabel() }} {{ $report->year }} · นักศึกษา {{ $report->students->count() }} คน
                             </p>
                             @if ($status === 'submitted')
-                                <p class="text-xs text-amber-800 mt-1.5">รอสาขากดผ่านที่ประชุมสาขาวิชา — สาขาไม่จำเป็นต้องอัปโหลดไฟล์เพิ่ม</p>
+                                <p class="text-xs text-amber-800 mt-1.5">รอสาขากดผ่านที่ประชุมสาขาวิชา — ยังแก้ไขหรือลบได้จนกว่าสาขาหรือ Admin กลางจะเปลี่ยนสถานะ</p>
                             @elseif ($status === 'received')
                                 <p class="text-xs text-emerald-800 mt-1.5">สาขาผ่านที่ประชุมสาขาวิชาแล้ว@if ($chairFiles->isEmpty()) โดยไม่มีไฟล์เพิ่มจากสาขา@endif</p>
                             @endif
@@ -117,9 +118,20 @@
                                 <p class="text-xs text-red-700 mt-1">สาขาส่งกลับ: {{ $report->return_reason }}</p>
                             @endif
                         </div>
-                        <a href="{{ route('thesis-grades.edit', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm font-semibold text-[#a16207] hover:bg-amber-50 shrink-0">
-                            {{ $report->isEditable() ? 'แก้ไขรายการ' : 'เปิดรายการ' }}
-                        </a>
+                        <div class="flex flex-col items-end gap-2 shrink-0">
+                            <a href="{{ route('thesis-grades.edit', $report) }}" class="px-3 py-2 border border-amber-300 rounded-lg text-sm font-semibold text-[#a16207] hover:bg-amber-50">
+                                {{ $report->isEditable() ? 'แก้ไขรายการ' : 'เปิดรายการ' }}
+                            </a>
+                            @if ($report->isDeletable())
+                                <form method="POST" action="{{ route('thesis-grades.destroy', $report) }}" onsubmit="return confirm('ต้องการลบรายการนี้หรือไม่? การลบจะลบไฟล์แนบด้วย')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="px-3 py-1.5 text-sm text-red-700 hover:underline">
+                                        {{ $status === 'draft' ? 'ลบร่าง' : 'ลบรายการ' }}
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
                     </div>
                     @include('thesis-grades.partials.s0-print-buttons', ['report' => $report, 'role' => 'instructor'])
 

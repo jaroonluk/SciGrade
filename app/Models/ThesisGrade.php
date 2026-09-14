@@ -169,17 +169,22 @@ class ThesisGrade extends Model
 
     public function isEditable(): bool
     {
-        return in_array($this->normalizedStatus(), [
-            self::STATUS_DRAFT,
-            self::STATUS_RETURNED,
-        ], true);
+        return $this->instructorCanChange();
     }
 
     public function isDeletable(): bool
     {
-        // ร่าง และรายการที่สาขา/คณะส่งกลับแก้ไข — อาจารย์ลบได้
+        return $this->instructorCanChange();
+    }
+
+    /**
+     * อาจารย์แก้หรือลบได้จนกว่า Admin สาขาหรือ Admin กลางจะเปลี่ยนสถานะ
+     */
+    public function instructorCanChange(): bool
+    {
         return in_array($this->normalizedStatus(), [
             self::STATUS_DRAFT,
+            self::STATUS_SUBMITTED,
             self::STATUS_RETURNED,
         ], true);
     }
