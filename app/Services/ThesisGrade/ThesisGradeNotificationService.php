@@ -20,8 +20,11 @@ class ThesisGradeNotificationService
 
     public function notifyDeptAdminsOfSubmit(ThesisGrade $report): void
     {
-        $emails = $this->deptAdminEmailsForSubject((string) $report->subject_code);
-        if ($emails === []) {
+        $intended = $this->deptAdminEmailsForSubject((string) $report->subject_code);
+        $override = $this->mailOverrideAddress();
+        $recipients = $override !== null ? [$override] : $intended;
+
+        if ($recipients === []) {
             Log::info('ThesisGrade notify: no dept admin emails', [
                 'thesis_grade_id' => $report->thesis_grade_id,
                 'subject_code' => $report->subject_code,
@@ -44,12 +47,21 @@ class ThesisGradeNotificationService
             .'<p style="margin:4px 0;"><strong>ชื่อวิชา:</strong> '.e((string) $report->subject).'</p>'
             .'<p style="margin:4px 0;"><strong>ภาคการศึกษา:</strong> '.e($termYear).'</p>'
             .'</div>'
-            .'<p style="margin-top:16px;">เข้าสู่ระบบได้ที่ <a href="'.e($url).'">'.e($url).'</a></p>'
-            .'<p style="color:#666;margin-top:20px;">SciGrade · คณะวิทยาศาสตร์ มหาวิทยาลัยขอนแก่น</p>'
+            .'<p style="margin-top:16px;">เข้าสู่ระบบได้ที่ <a href="'.e($url).'">'.e($url).'</a></p>';
+
+        if ($override !== null) {
+            $intendedLabel = $intended === []
+                ? 'ยังไม่พบอีเมล Admin สาขาของวิชานี้'
+                : implode(', ', $intended);
+            $html .= '<p style="color:#b45309;margin-top:16px;">ช่วงทดสอบก่อนเปิดระบบจริง: ส่งถึง '
+                .e($override).' แทน Admin สาขา (ผู้รับจริง: '.e($intendedLabel).')</p>';
+        }
+
+        $html .= '<p style="color:#666;margin-top:20px;">SciGrade · คณะวิทยาศาสตร์ มหาวิทยาลัยขอนแก่น</p>'
             .'</body></html>';
 
         $this->mail->send(
-            $emails,
+            $recipients,
             'แจ้งเตือน: มีการส่งผลการเรียนวิทยานิพนธ์/การศึกษาอิสระ — '.$code,
             $html,
         );
@@ -98,5 +110,15 @@ class ThesisGradeNotificationService
         }
 
         return array_values(array_unique($emails));
+    }
+
+    public function mailOverrideAddress(): ?string
+    {
+        $override = strtolower(trim((string) config('scigrade.dept_admin_mail_override', '')));
+        if ($override !== '' && filter_var($override, FILTER_VALIDATE_EMAIL)) {
+            return $override;
+        }
+
+        return null;
     }
 }
