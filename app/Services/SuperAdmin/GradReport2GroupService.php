@@ -2,7 +2,9 @@
 
 namespace App\Services\SuperAdmin;
 
+use App\Exceptions\GradReport2CodeConflictException;
 use App\Models\GradReport2;
+use App\Models\TblPrivilege;
 use App\Services\GradReport2Service;
 use App\Support\ThesisCourse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -56,7 +58,17 @@ class GradReport2GroupService
                 ->get()
                 ->groupBy(fn (GradReport2 $row) => GradReport2::normalizeCode((string) $row->subject_code2));
 
-        $groups = $codes->map(function (string $groupCode) use ($rowsByGroup) {
+        $actorUsernames = $rowsByGroup
+            ->flatten(1)
+            ->map(fn (GradReport2 $row) => trim((string) ($row->username ?? '')))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $adminActorKeys = $this->adminActorUsernameKeys($actorUsernames);
+
+        $groups = $codes->map(function (string $groupCode) use ($rowsByGroup, $adminActorKeys) {
             /** @var Collection<int, GradReport2> $members */
             $members = $rowsByGroup->get($groupCode, collect())
                 ->unique(fn (GradReport2 $row) => GradReport2::normalizeCode((string) $row->subject_code))
@@ -65,23 +77,76 @@ class GradReport2GroupService
                 fn (GradReport2 $row) => GradReport2::normalizeCode((string) $row->subject_code) === $groupCode
             ) ?? $members->first();
 
+            $mappedMembers = $members->map(fn (GradReport2 $row) => (object) [
+                'subject_code2' => $groupCode,
+                'subject_code' => GradReport2::normalizeCode((string) $row->subject_code),
+                'subject' => trim((string) $row->subject),
+                'username' => trim((string) ($row->username ?? '')),
+                'is_group_key' => GradReport2::normalizeCode((string) $row->subject_code) === $groupCode,
+            ])->values();
+
+            $enteredBy = $mappedMembers
+                ->pluck('username')
+                ->map(fn ($u) => trim((string) $u))
+                ->filter()
+                ->unique()
+                ->values();
+
             return (object) [
                 'group_code' => $groupCode,
                 'subject' => trim((string) ($primary?->subject ?? '')),
                 'member_count' => $members->count(),
-                'members' => $members->map(fn (GradReport2 $row) => (object) [
-                    'subject_code2' => $groupCode,
-                    'subject_code' => GradReport2::normalizeCode((string) $row->subject_code),
-                    'subject' => trim((string) $row->subject),
-                    'username' => trim((string) ($row->username ?? '')),
-                    'is_group_key' => GradReport2::normalizeCode((string) $row->subject_code) === $groupCode,
-                ])->values(),
+                'source' => $this->resolveGroupSource($enteredBy->all(), $adminActorKeys),
+                'entered_by' => $enteredBy->implode(', '),
+                'members' => $mappedMembers,
             ];
         });
 
         $paginator->setCollection($groups);
 
         return $paginator;
+    }
+
+    /**
+     * @param  list<string>  $usernames
+     * @return array<string, true> uppercase username keys that have staff privilege
+     */
+    private function adminActorUsernameKeys(array $usernames): array
+    {
+        if ($usernames === []) {
+            return [];
+        }
+
+        return TblPrivilege::query()
+            ->where('system_id', TblPrivilege::SYSTEM_GRADE_REPORT)
+            ->whereIn('username', $usernames)
+            ->pluck('username')
+            ->mapWithKeys(fn ($username) => [strtoupper(trim((string) $username)) => true])
+            ->all();
+    }
+
+    /**
+     * ไม่มีรหัสผู้กรอก = ข้อมูลเดิมจาก Admin
+     * มีรหัสผู้กรอกที่เป็นสิทธิ์เจ้าหน้าที่ = Admin
+     * นอกนั้น = อาจารย์
+     *
+     * @param  list<string>  $enteredBy
+     * @param  array<string, true>  $adminActorKeys
+     */
+    private function resolveGroupSource(array $enteredBy, array $adminActorKeys): string
+    {
+        if ($enteredBy === []) {
+            return 'admin';
+        }
+
+        foreach ($enteredBy as $username) {
+            $key = strtoupper(trim($username));
+            if ($key === '' || ! isset($adminActorKeys[$key])) {
+                return 'instructor';
+            }
+        }
+
+        return 'admin';
     }
 
     public function stats(?string $q = null): array
@@ -285,9 +350,17 @@ class GradReport2GroupService
             $existing = GradReport2::query()->whereNormalizedCode('subject_code', $subjectCode)->first();
             $inGroup = GradReport2::normalizeCode((string) ($existing?->subject_code2 ?? ''));
 
-            throw ValidationException::withMessages([
-                'subject_code' => "รหัส {$subjectCode} อยู่ในกลุ่ม {$inGroup} แล้ว (เงื่อนไขเดิม: ไม่อนุญาตรหัสซ้ำ)",
-            ]);
+            if ($inGroup === $groupCode) {
+                throw ValidationException::withMessages([
+                    'subject_code' => "รหัส {$subjectCode} อยู่ในกลุ่มนี้แล้ว",
+                ]);
+            }
+
+            $this->throwCodeConflicts([[
+                'code' => $subjectCode,
+                'group_code' => $inGroup,
+                'subject' => trim((string) ($existing?->subject ?? '')),
+            ]], 'subject_code', $groupCode);
         }
 
         // dump: ถ้ารหัสที่จะเพิ่มถูกใช้เป็นรหัสกลุ่มของกลุ่มอื่นอยู่แล้ว → ต้องเข้ากลุ่มนั้น
@@ -348,9 +421,14 @@ class GradReport2GroupService
         }
 
         if ($newSubjectCode !== $subjectCode && $this->memberExists($newSubjectCode)) {
-            throw ValidationException::withMessages([
-                'subject_code' => "รหัส {$newSubjectCode} มีอยู่ในระบบแล้ว",
-            ]);
+            $existing = GradReport2::query()->whereNormalizedCode('subject_code', $newSubjectCode)->first();
+            $inGroup = GradReport2::normalizeCode((string) ($existing?->subject_code2 ?? ''));
+
+            $this->throwCodeConflicts([[
+                'code' => $newSubjectCode,
+                'group_code' => $inGroup,
+                'subject' => trim((string) ($existing?->subject ?? '')),
+            ]], 'new_subject_code', $groupCode);
         }
 
         GradReport2::query()
@@ -472,23 +550,53 @@ class GradReport2GroupService
      */
     private function assertCodesAvailableForGroup(array $codes, string $groupCode): void
     {
-        $conflicts = GradReport2::query()
-            ->whereNormalizedCodeIn('subject_code', $codes)
-            ->get(['subject_code', 'subject_code2'])
-            ->filter(fn (GradReport2 $row) => GradReport2::normalizeCode((string) $row->subject_code2) !== $groupCode);
-
-        if ($conflicts->isEmpty()) {
+        $conflicts = $this->findCodeConflicts($codes, $groupCode);
+        if ($conflicts === []) {
             return;
         }
 
-        $messages = $conflicts->map(
-            fn (GradReport2 $row) => GradReport2::normalizeCode((string) $row->subject_code)
-                .' (กลุ่ม '.GradReport2::normalizeCode((string) $row->subject_code2).')'
-        )->unique()->all();
+        $this->throwCodeConflicts($conflicts, 'member_codes', $groupCode);
+    }
 
-        throw ValidationException::withMessages([
-            'member_codes' => 'รหัสต่อไปนี้มีในระบบแล้ว — ตามเงื่อนไขเดิมไม่อนุญาตรหัสซ้ำ: '.implode(', ', $messages),
-        ]);
+    /**
+     * @param  list<string>  $codes
+     * @return list<array{code: string, group_code: string, subject: string}>
+     */
+    public function findCodeConflicts(array $codes, string $forGroupCode): array
+    {
+        $forGroupCode = GradReport2::normalizeCode($forGroupCode);
+        $normalized = [];
+        foreach ($codes as $code) {
+            $n = GradReport2::normalizeCode((string) $code);
+            if ($n !== '') {
+                $normalized[$n] = true;
+            }
+        }
+
+        if ($normalized === []) {
+            return [];
+        }
+
+        return GradReport2::query()
+            ->whereNormalizedCodeIn('subject_code', array_keys($normalized))
+            ->get(['subject_code', 'subject_code2', 'subject'])
+            ->filter(fn (GradReport2 $row) => GradReport2::normalizeCode((string) $row->subject_code2) !== $forGroupCode)
+            ->map(fn (GradReport2 $row) => [
+                'code' => GradReport2::normalizeCode((string) $row->subject_code),
+                'group_code' => GradReport2::normalizeCode((string) $row->subject_code2),
+                'subject' => trim((string) $row->subject),
+            ])
+            ->unique('code')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<array{code: string, group_code: string, subject: string}>  $conflicts
+     */
+    private function throwCodeConflicts(array $conflicts, string $errorKey, string $attemptedGroup = ''): never
+    {
+        throw new GradReport2CodeConflictException($conflicts, $errorKey, $attemptedGroup);
     }
 
     /**
@@ -651,7 +759,9 @@ class GradReport2GroupService
     /**
      * @return array{
      *     created: list<array{group_code: string, inserted: list<string>, was_existing: bool}>,
-     *     errors: list<string>
+     *     errors: list<string>,
+     *     conflicts: list<array{code: string, group_code: string, subject: string}>,
+     *     conflict_focus: string|null
      * }
      */
     public function importPasteGroups(string $raw, string $username): array
@@ -659,6 +769,8 @@ class GradReport2GroupService
         $parsed = $this->parsePasteIntoGroups($raw);
         $created = [];
         $errors = [];
+        $conflicts = [];
+        $conflictFocus = null;
 
         foreach ($parsed as $group) {
             try {
@@ -673,6 +785,10 @@ class GradReport2GroupService
                     'inserted' => $result['inserted'],
                     'was_existing' => $result['was_existing'],
                 ];
+            } catch (GradReport2CodeConflictException $e) {
+                $errors[] = 'กลุ่ม '.$group['group_code'].":\n".$e->getMessage();
+                $conflicts = array_merge($conflicts, $e->conflicts);
+                $conflictFocus ??= $e->focusGroup();
             } catch (ValidationException $e) {
                 $messages = collect($e->errors())->flatten()->all();
                 $errors[] = 'กลุ่ม '.$group['group_code'].': '.implode(' ', $messages);
@@ -680,6 +796,13 @@ class GradReport2GroupService
         }
 
         if ($created === [] && $errors !== []) {
+            if ($conflicts !== []) {
+                throw new GradReport2CodeConflictException(
+                    collect($conflicts)->unique('code')->values()->all(),
+                    'paste_text',
+                );
+            }
+
             throw ValidationException::withMessages([
                 'paste_text' => implode("\n", $errors),
             ]);
@@ -688,6 +811,8 @@ class GradReport2GroupService
         return [
             'created' => $created,
             'errors' => $errors,
+            'conflicts' => collect($conflicts)->unique('code')->values()->all(),
+            'conflict_focus' => $conflictFocus,
         ];
     }
 

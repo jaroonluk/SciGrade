@@ -210,6 +210,44 @@
         align-items: center;
         gap: 0.35rem;
     }
+    .sheet-source {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+        max-width: 9.5rem;
+    }
+    .sheet-source-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    .sheet-source-badge svg {
+        width: 0.75rem;
+        height: 0.75rem;
+    }
+    .sheet-source-admin {
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+    .sheet-source-instructor {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+    }
+    .sheet-source-user {
+        font-size: 0.65rem;
+        color: #7A4A3A;
+        word-break: break-all;
+        line-height: 1.25;
+    }
     .member-chip {
         display: inline-flex;
         align-items: center;
@@ -454,6 +492,45 @@
     @if (session('status'))
         <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm">{{ session('status') }}</div>
     @endif
+    @if (session('duplicate_notice'))
+        @php $dup = session('duplicate_notice'); @endphp
+        <div id="duplicate-notice" class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-2"
+            data-notice='@json($dup)'>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p class="font-semibold flex items-center gap-2">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-700"></i>
+                        พบรหัสวิชาซ้ำ — ต้องตรวจสอบก่อนบันทึก
+                    </p>
+                    <p class="mt-1 whitespace-pre-line text-amber-900/90">{{ $dup['message'] ?? '' }}</p>
+                </div>
+                @if (!empty($dup['focus_url']))
+                    <a href="{{ $dup['focus_url'] }}"
+                        class="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#8B4513] text-white text-xs font-semibold hover:bg-[#6B3410]">
+                        <i data-lucide="corner-down-right" class="w-3.5 h-3.5"></i>
+                        ไปที่กลุ่ม {{ $dup['focus_group'] ?? '' }}
+                    </a>
+                @endif
+            </div>
+            @if (!empty($dup['conflicts']) && is_array($dup['conflicts']))
+                <ul class="list-disc pl-5 space-y-1 text-xs">
+                    @foreach ($dup['conflicts'] as $c)
+                        <li>
+                            รหัส <span class="font-mono font-semibold">{{ $c['code'] ?? '' }}</span>
+                            อยู่ในกลุ่ม
+                            <a class="font-semibold text-[#8B4513] underline"
+                                href="{{ route('faculty-admin.grad-report2-groups.index', ['q' => $c['group_code'] ?? '', 'group' => $c['group_code'] ?? '']) }}">
+                                {{ $c['group_code'] ?? '' }}
+                            </a>
+                            @if (!empty($c['subject']))
+                                <span class="text-amber-800/80">({{ $c['subject'] }})</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </div>
+    @endif
     @foreach (['group_code', 'subject', 'member_codes', 'subject_code', 'new_subject_code', 'paste_text'] as $errKey)
         @error($errKey)
             <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm whitespace-pre-line">{{ $message }}</div>
@@ -629,6 +706,8 @@
                 <span class="sheet-legend-item"><i data-lucide="plus" class="w-3.5 h-3.5 text-sky-700"></i> เพิ่มรหัส</span>
                 <span class="sheet-legend-item"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-red-700"></i> ลบกลุ่ม / ลบรหัส</span>
                 <span class="sheet-legend-item"><span class="sheet-key-badge">กลุ่ม</span> รหัสตัวแทนกลุ่ม</span>
+                <span class="sheet-legend-item"><span class="sheet-source-badge sheet-source-admin"><i data-lucide="shield"></i> Admin</span> เจ้าหน้าที่ / ข้อมูลเดิมไม่มีรหัสผู้กรอก</span>
+                <span class="sheet-legend-item"><span class="sheet-source-badge sheet-source-instructor"><i data-lucide="user"></i> อาจารย์</span> ผู้กรอกที่เป็นอาจารย์</span>
             </div>
         </div>
 
@@ -641,6 +720,7 @@
                                 <th style="width:8.5rem">รหัสกลุ่ม</th>
                                 <th>ชื่อวิชา (ENG)</th>
                                 <th style="min-width:11rem">รหัสวิชาในกลุ่ม</th>
+                                <th style="width:8.5rem">สถานะ</th>
                                 <th style="width:9.5rem">จัดการ</th>
                             </tr>
                         </thead>
@@ -728,6 +808,24 @@
                                         </td>
                                         <td>
                                             @if ($index === 0)
+                                                <div class="sheet-source">
+                                                    @if ($group->source === 'instructor')
+                                                        <span class="sheet-source-badge sheet-source-instructor" title="อาจารย์เป็นคนกรอก">
+                                                            <i data-lucide="user"></i> อาจารย์
+                                                        </span>
+                                                    @else
+                                                        <span class="sheet-source-badge sheet-source-admin" title="Admin / เจ้าหน้าที่เป็นผู้นำเข้า หรือข้อมูลเดิม">
+                                                            <i data-lucide="shield"></i> Admin
+                                                        </span>
+                                                    @endif
+                                                    @if ($group->entered_by !== '')
+                                                        <span class="sheet-source-user" title="รหัสผู้กรอก">{{ $group->entered_by }}</span>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($index === 0)
                                                 <div class="sheet-actions">
                                                     <button type="button"
                                                         class="sheet-icon-btn sheet-icon-edit"
@@ -764,7 +862,7 @@
                                 @endforeach
 
                                 <tr id="edit-name-{{ $group->group_code }}" class="sheet-inline-panel hidden">
-                                    <td colspan="4">
+                                    <td colspan="5">
                                         <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.update') }}" class="flex flex-wrap items-end gap-2">
                                             @csrf
                                             @method('PUT')
@@ -783,7 +881,7 @@
                                 </tr>
 
                                 <tr id="add-member-{{ $group->group_code }}" class="sheet-inline-panel hidden">
-                                    <td colspan="4">
+                                    <td colspan="5">
                                         <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.store') }}" class="flex flex-wrap items-end gap-2">
                                             @csrf
                                             <input type="hidden" name="group_code" value="{{ $group->group_code }}">
@@ -994,6 +1092,23 @@ function togglePanel(id) {
     });
 
     document.addEventListener('DOMContentLoaded', () => {
+        const notice = document.getElementById('duplicate-notice');
+        if (notice) {
+            let payload = {};
+            try {
+                payload = JSON.parse(notice.getAttribute('data-notice') || '{}');
+            } catch (e) {
+                payload = {};
+            }
+            const message = payload.message || 'พบรหัสวิชาซ้ำในระบบ';
+            const focusUrl = payload.focus_url || '';
+            if (focusUrl && window.confirm(message)) {
+                window.location.href = focusUrl;
+                return;
+            }
+            notice.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         const focus = document.querySelector('.sheet-table tr.is-focus, .sheet-wrap.is-focus');
         if (focus) focus.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\SuperAdmin;
 
+use App\Exceptions\GradReport2CodeConflictException;
 use App\Http\Controllers\Controller;
 use App\Services\SuperAdmin\GradReport2GroupExcelExportService;
 use App\Services\SuperAdmin\GradReport2GroupService;
@@ -55,6 +56,8 @@ class GradReport2GroupController extends Controller
                 $memberCodes,
                 $this->username(),
             );
+        } catch (GradReport2CodeConflictException $e) {
+            return $this->redirectDuplicateConflict($e);
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }
@@ -84,6 +87,8 @@ class GradReport2GroupController extends Controller
                 $validated['paste_text'],
                 $this->username(),
             );
+        } catch (GradReport2CodeConflictException $e) {
+            return $this->redirectDuplicateConflict($e, pasteOpen: true);
         } catch (ValidationException $e) {
             return back()
                 ->withInput()
@@ -108,6 +113,15 @@ class GradReport2GroupController extends Controller
 
         if ($result['errors'] !== []) {
             $redirect->with('paste_partial_errors', $result['errors']);
+        }
+
+        if (($result['conflicts'] ?? []) !== []) {
+            $focus = (string) ($result['conflict_focus'] ?? ($result['conflicts'][0]['group_code'] ?? ''));
+            $redirect->with('duplicate_notice', $this->duplicateNoticePayload(
+                "บางรหัสซ้ำกับกลุ่มที่มีอยู่แล้ว — กดตกลงเพื่อไปตรวจสอบกลุ่ม {$focus}",
+                $focus,
+                $result['conflicts'],
+            ));
         }
 
         return $redirect;
@@ -166,6 +180,8 @@ class GradReport2GroupController extends Controller
                 $validated['subject'] ?? null,
                 $this->username(),
             );
+        } catch (GradReport2CodeConflictException $e) {
+            return $this->redirectDuplicateConflict($e);
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }
@@ -194,6 +210,8 @@ class GradReport2GroupController extends Controller
                 $validated['new_subject_code'],
                 $validated['subject'],
             );
+        } catch (GradReport2CodeConflictException $e) {
+            return $this->redirectDuplicateConflict($e);
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }
@@ -233,6 +251,45 @@ class GradReport2GroupController extends Controller
             ->with('status', 'ลบรหัส '.$validated['subject_code'].' ออกจากกลุ่มเรียบร้อย');
     }
 
+    private function redirectDuplicateConflict(
+        GradReport2CodeConflictException $e,
+        bool $pasteOpen = false,
+    ): RedirectResponse {
+        $redirect = back()
+            ->withInput()
+            ->withErrors([$e->errorKey => $e->getMessage()])
+            ->with('duplicate_notice', $this->duplicateNoticePayload(
+                $e->getMessage(),
+                $e->focusGroup(),
+                $e->conflicts,
+            ));
+
+        if ($pasteOpen) {
+            $redirect->with('paste_open', true);
+        }
+
+        return $redirect;
+    }
+
+    /**
+     * @param  list<array{code: string, group_code: string, subject: string}>  $conflicts
+     * @return array{message: string, focus_group: string, focus_url: string, conflicts: list<array{code: string, group_code: string, subject: string}>}
+     */
+    private function duplicateNoticePayload(string $message, string $focusGroup, array $conflicts): array
+    {
+        $focusGroup = strtoupper(trim($focusGroup));
+
+        return [
+            'message' => $message,
+            'focus_group' => $focusGroup,
+            'focus_url' => route('faculty-admin.grad-report2-groups.index', [
+                'q' => $focusGroup,
+                'group' => $focusGroup,
+            ]),
+            'conflicts' => $conflicts,
+        ];
+    }
+
     /**
      * @return list<string>
      */
@@ -246,6 +303,6 @@ class GradReport2GroupController extends Controller
 
     private function username(): string
     {
-        return (string) session('staff_username', '');
+        return trim((string) session('staff_username', ''));
     }
 }

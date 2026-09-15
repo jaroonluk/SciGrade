@@ -7,6 +7,7 @@ use App\Services\SuperAdmin\GradReport2GroupExcelExportService;
 use App\Services\SuperAdmin\GradReport2GroupService;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+use ZipArchive;
 
 class GradReport2GroupExcelExportTest extends TestCase
 {
@@ -17,7 +18,7 @@ class GradReport2GroupExcelExportTest extends TestCase
             new GradReport2GroupService(new GradReport2Service),
         );
 
-        $spreadsheet = $service->buildSpreadsheet([
+        $binary = $service->buildXlsxBinary([
             [
                 'group_code' => '300109',
                 'subject' => 'PHYSICAL SCIENCE',
@@ -30,18 +31,29 @@ class GradReport2GroupExcelExportTest extends TestCase
             ],
         ]);
 
-        $sheet = $spreadsheet->getActiveSheet();
+        $this->assertNotSame('', $binary);
+        $this->assertSame('PK', substr($binary, 0, 2));
 
-        $this->assertSame('รหัสกลุ่ม', $sheet->getCell('A1')->getValue());
-        $this->assertSame('ชื่อวิชา (ENG)', $sheet->getCell('B1')->getValue());
-        $this->assertSame('รหัสวิชาในกลุ่ม', $sheet->getCell('C1')->getValue());
-        $this->assertSame('300109', $sheet->getCell('A2')->getValue());
-        $this->assertSame('PHYSICAL SCIENCE', $sheet->getCell('B2')->getValue());
-        $this->assertSame('SC002104', $sheet->getCell('C2')->getValue());
-        $this->assertSame('SC002105', $sheet->getCell('C3')->getValue());
-        $this->assertSame('TH Sarabun New', $sheet->getStyle('A1')->getFont()->getName());
-        $this->assertSame('TH Sarabun New', $sheet->getStyle('A2')->getFont()->getName());
-        $this->assertSame('TH Sarabun New', $spreadsheet->getDefaultStyle()->getFont()->getName());
+        $tmp = tempnam(sys_get_temp_dir(), 'gr2test');
+        $this->assertNotFalse($tmp);
+        file_put_contents($tmp, $binary);
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tmp) === true);
+
+        $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $styles = (string) $zip->getFromName('xl/styles.xml');
+        $zip->close();
+        @unlink($tmp);
+
+        $this->assertStringContainsString('รหัสกลุ่ม', $sheet);
+        $this->assertStringContainsString('ชื่อวิชา (ENG)', $sheet);
+        $this->assertStringContainsString('รหัสวิชาในกลุ่ม', $sheet);
+        $this->assertStringContainsString('300109', $sheet);
+        $this->assertStringContainsString('PHYSICAL SCIENCE', $sheet);
+        $this->assertStringContainsString('SC002104', $sheet);
+        $this->assertStringContainsString('SC002105', $sheet);
+        $this->assertStringContainsString('TH Sarabun New', $styles);
     }
 
     #[Test]
@@ -59,5 +71,7 @@ class GradReport2GroupExcelExportTest extends TestCase
         $this->assertStringContainsString('data-tip="แก้ไขชื่อ"', $blade);
         $this->assertStringContainsString('data-tip="เพิ่มรหัส"', $blade);
         $this->assertStringContainsString('data-tip="ลบกลุ่ม"', $blade);
+        $this->assertStringContainsString('sheet-source-badge', $blade);
+        $this->assertStringContainsString('สถานะ', $blade);
     }
 }
