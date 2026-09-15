@@ -1029,24 +1029,60 @@ function defaultAvailableSections() {
     return Array.from({ length: 20 }, (_, i) => i + 1);
 }
 
-function rebuildSectionSelectOptions(availableSections) {
+function availableSectionNums() {
+    const fromCtx = window.courseContext?.available_sections;
+    if (Array.isArray(fromCtx) && fromCtx.length) {
+        return fromCtx.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0);
+    }
+    return defaultAvailableSections();
+}
+
+function coveredSectionNums() {
+    const fromForm = (sectionStdRows || [])
+        .map((row) => Number(row?.sec))
+        .filter((n) => Number.isFinite(n) && n > 0);
+    const fromPrior = (window.priorReportedSections || [])
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0);
+    return new Set([...fromForm, ...fromPrior]);
+}
+
+function remainingAvailableSections() {
+    const covered = coveredSectionNums();
+    return availableSectionNums().filter((n) => !covered.has(n));
+}
+
+function areAllAvailableSectionsFilled() {
+    const available = availableSectionNums();
+    if (!available.length) return false;
+    const covered = coveredSectionNums();
+    return available.every((n) => covered.has(n));
+}
+
+function rebuildSectionSelectOptions(availableSections, options = {}) {
     const select = document.getElementById('section-input');
     if (!select) return;
 
+    const strict = Boolean(options.strict);
     const base = (Array.isArray(availableSections) ? availableSections : [])
         .map((n) => Number(n))
         .filter((n) => Number.isFinite(n) && n > 0);
 
     const list = base.length ? base : defaultAvailableSections();
-    const extras = [
-        Number(select.value) || 0,
-        ...((sectionStdRows || []).map((row) => Number(row?.sec) || 0)),
-    ].filter((n) => n > 0);
+    const extras = strict
+        ? []
+        : [
+            Number(select.value) || 0,
+            ...((sectionStdRows || []).map((row) => Number(row?.sec) || 0)),
+        ].filter((n) => n > 0);
 
     const secs = Array.from(new Set([...list, ...extras])).sort((a, b) => a - b);
-    const previous = Number(select.value) || 0;
+    const previous = options.lockValue != null
+        ? Number(options.lockValue)
+        : (Number(select.value) || 0);
 
     select.innerHTML = secs.map((sec) => `<option value="${sec}">${sec}</option>`).join('');
+    select.disabled = Boolean(options.lockValue);
 
     if (previous > 0 && secs.includes(previous)) {
         select.value = String(previous);
@@ -1056,16 +1092,56 @@ function rebuildSectionSelectOptions(availableSections) {
 
     const hint = document.getElementById('section-available-hint');
     if (hint) {
-        const fromReg = Boolean(window.courseContext?.available_sections_from_reg);
-        hint.textContent = fromReg
-            ? `แสดง Section ที่เปิดจริงในภาคนี้ (${secs.filter((n) => list.includes(n)).length} กลุ่ม)`
-            : 'ไม่พบรายวิชาในรายการที่กำหนด — แสดง Section 1–20';
+        if (options.lockValue != null) {
+            hint.textContent = `กำลังแก้ไข Section ${options.lockValue} — ไม่สามารถเปลี่ยนกลุ่มในโหมดนี้`;
+        } else {
+            const fromReg = Boolean(window.courseContext?.available_sections_from_reg);
+            const remain = remainingAvailableSections();
+            hint.textContent = fromReg
+                ? (remain.length
+                    ? `แสดง Section ที่เปิดจริงในภาคนี้ — เหลือให้กรอก ${remain.join(', ')}`
+                    : `แสดง Section ที่เปิดจริงในภาคนี้ (${list.length} กลุ่ม)`)
+                : 'ไม่พบรายวิชาในรายการที่กำหนด — แสดง Section 1–20';
+        }
     }
+}
+
+function syncSectionEntryVisibility() {
+    const entry = document.getElementById('section-std-entry-fields');
+    const completeBox = document.getElementById('section-all-complete-box');
+    const editing = editingSectionIndex !== null;
+    const allFilled = areAllAvailableSectionsFilled();
+
+    if (completeBox) {
+        completeBox.classList.toggle('hidden', !allFilled || editing);
+    }
+    if (entry) {
+        entry.classList.toggle('hidden', allFilled && !editing);
+    }
+
+    if (editing) {
+        const sec = Number(sectionStdRows[editingSectionIndex]?.sec) || 0;
+        rebuildSectionSelectOptions(sec > 0 ? [sec] : availableSectionNums(), {
+            strict: true,
+            lockValue: sec > 0 ? sec : null,
+        });
+    } else if (!allFilled) {
+        const remain = remainingAvailableSections();
+        // แสดงเฉพาะ Section ที่ยังว่าง (คง Section ที่กำลังเลือกอยู่ถ้ายังว่าง)
+        rebuildSectionSelectOptions(remain.length ? remain : availableSectionNums(), { strict: true });
+        refreshSectionSelectOptions();
+    } else {
+        const select = document.getElementById('section-input');
+        if (select) select.disabled = false;
+    }
+
+    updateSectionFormHint();
+    applySectionStdFormLayout();
 }
 
 function refreshSectionSelectOptions() {
     const select = document.getElementById('section-input');
-    if (!select) return;
+    if (!select || select.disabled) return;
 
     const excludeIndex = editingSectionIndex;
     let firstAvailable = null;
@@ -1129,6 +1205,15 @@ function updateSectionFormHint() {
         hint.textContent = `กำลังแก้ไข Section ${sectionStdRows[editingSectionIndex]?.sec ?? ''} — กด «บันทึก Section นี้» เพื่อยืนยัน`;
         return;
     }
+    if (areAllAvailableSectionsFilled()) {
+        hint.textContent = 'กรอกครบทุก Section แล้ว — กด «แก้ไข» ที่รายการหากต้องการเปลี่ยนข้อมูล';
+        return;
+    }
+    const remain = remainingAvailableSections();
+    if (remain.length && window.courseContext?.available_sections_from_reg) {
+        hint.textContent = `เหลือ Section ที่ยังไม่กรอก: ${remain.join(', ')} — กรอกแล้วกด «บันทึก Section นี้»`;
+        return;
+    }
     hint.textContent = window.priorReportedSections?.length
         ? 'รายวิชานี้มีผู้กรอก Section บางส่วนแล้ว — กรอกเฉพาะ Section ที่ยังไม่มี ระบบจะเพิ่มเข้าในรายงานเดิมอัตโนมัติ'
         : 'กรอกข้อมูล Section แล้วกด «บันทึก Section นี้» — Section ที่บันทึกแล้วจะไม่แสดงในรายการ';
@@ -1137,15 +1222,13 @@ function updateSectionFormHint() {
 function cancelSectionEdit() {
     editingSectionIndex = null;
     clearGradeStdFormCounts();
-    document.getElementById('section-input').value = '1';
     document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
     renderFacTags();
     setRadio('type_course', 1);
     applyGraduateFacultyDefault({ resetForm: true });
-    updateSectionFormHint();
     const cancelBtn = document.getElementById('btn-cancel-section-edit');
     if (cancelBtn) cancelBtn.classList.add('hidden');
-    refreshSectionSelectOptions();
+    syncSectionEntryVisibility();
 }
 
 function applyParsedSectionFromPdf(parsed) {
@@ -1381,16 +1464,16 @@ function addOrUpdateSectionFromForm() {
         sectionStdRows.push(row);
     }
 
+    const cancelBtn = document.getElementById('btn-cancel-section-edit');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+
     renderSectionStdList();
     clearGradeStdFormCounts();
-    document.getElementById('section-input').value = '1';
     document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
     renderFacTags();
     setRadio('type_course', 1);
     applyGraduateFacultyDefault({ resetForm: true });
-    updateSectionFormHint();
-    const cancelBtn = document.getElementById('btn-cancel-section-edit');
-    if (cancelBtn) cancelBtn.classList.add('hidden');
+    syncSectionEntryVisibility();
 
     return { ok: true };
 }
@@ -1398,21 +1481,28 @@ function addOrUpdateSectionFromForm() {
 function editSectionStd(index) {
     editingSectionIndex = index;
     loadGradeStdToForm(sectionStdRows[index]);
-    updateSectionFormHint();
     const cancelBtn = document.getElementById('btn-cancel-section-edit');
     if (cancelBtn) cancelBtn.classList.remove('hidden');
+    syncSectionEntryVisibility();
     document.getElementById('section-std-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('section-std-entry-fields')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function removeSectionStd(index) {
     sectionStdRows.splice(index, 1);
     if (editingSectionIndex === index) {
-        cancelSectionEdit();
+        editingSectionIndex = null;
+        const cancelBtn = document.getElementById('btn-cancel-section-edit');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+        clearGradeStdFormCounts();
+        document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
+        renderFacTags();
+        setRadio('type_course', 1);
+        applyGraduateFacultyDefault({ resetForm: true });
     } else if (editingSectionIndex !== null && editingSectionIndex > index) {
         editingSectionIndex -= 1;
     }
     renderSectionStdList();
-    updateSectionFormHint();
 }
 
 function resetSectionStdRows() {
@@ -1446,7 +1536,7 @@ function setSectionStdRows(rows) {
     }));
     editingSectionIndex = null;
     renderSectionStdList();
-    updateSectionFormHint();
+    syncSectionEntryVisibility();
 }
 
 function renderSectionStdList() {
@@ -1459,7 +1549,7 @@ function renderSectionStdList() {
         tbody.innerHTML = '';
         empty?.classList.remove('hidden');
         wrap?.classList.add('hidden');
-        applySectionStdFormLayout();
+        syncSectionEntryVisibility();
         renderSectionEvaList();
         return;
     }
@@ -1512,9 +1602,8 @@ function renderSectionStdList() {
         });
     });
 
-    applySectionStdFormLayout();
+    syncSectionEntryVisibility();
     renderSectionEvaList();
-    refreshSectionSelectOptions();
 }
 
 function setupSectionStdManager() {
@@ -1927,6 +2016,7 @@ function applySectionStdFormLayout() {
     const header = document.getElementById('section-std-header');
     const results = document.getElementById('section-std-results');
     const prior = document.getElementById('prior-sections-box');
+    const complete = document.getElementById('section-all-complete-box');
     const entry = document.getElementById('section-std-entry-fields');
     const resultsTitle = document.getElementById('section-std-results-title');
     if (!form || !header || !results || !entry) return;
@@ -1937,15 +2027,17 @@ function applySectionStdFormLayout() {
     }
 
     if (viaUpload) {
-        // header → รายการจำนวนนักศึกษา → Section ที่รายงานไปแล้ว → ฟอร์มกรอก/อัปโหลด
+        // header → รายการจำนวนนักศึกษา → Section ที่รายงานไปแล้ว → ครบแล้ว → ฟอร์มกรอก/อัปโหลด
         form.appendChild(header);
         form.appendChild(results);
         if (prior) form.appendChild(prior);
+        if (complete) form.appendChild(complete);
         form.appendChild(entry);
     } else {
-        // กรอกเอง: header → Section ที่รายงานไปแล้ว → ฟอร์ม → รายการ (เหมือนเดิม)
+        // กรอกเอง: header → Section ที่รายงานไปแล้ว → ครบแล้ว → ฟอร์ม → รายการ
         form.appendChild(header);
         if (prior) form.appendChild(prior);
+        if (complete) form.appendChild(complete);
         form.appendChild(entry);
         form.appendChild(results);
     }
@@ -2337,9 +2429,7 @@ function applyCourseContext(data) {
         groupLocked: window.courseGroupLocked,
     });
     updateReasonFieldsState();
-    updateSectionFormHint();
-    rebuildSectionSelectOptions(data?.available_sections);
-    refreshSectionSelectOptions();
+    syncSectionEntryVisibility();
 }
 
 function renderCourseThesisBanner(blocked, message) {

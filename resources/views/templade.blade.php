@@ -552,6 +552,13 @@
                             <div id="prior-sections-list" class="flex flex-wrap gap-1.5 mt-2"></div>
                         </div>
 
+                        <div id="section-all-complete-box" class="hidden rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                            <p class="text-sm font-semibold text-green-900">กรอกครบทุก Section แล้ว</p>
+                            <p class="text-xs text-green-800/80 mt-0.5">
+                                ไม่ต้องเพิ่ม Section อีก — หากต้องการแก้ไข ให้กด «แก้ไข» ที่รายการด้านล่าง ระบบจะเปิดเฉพาะ Section ที่กำลังแก้
+                            </p>
+                        </div>
+
                         <div id="section-std-entry-fields" class="space-y-5">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
