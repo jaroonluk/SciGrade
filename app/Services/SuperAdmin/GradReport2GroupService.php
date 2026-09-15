@@ -5,8 +5,10 @@ namespace App\Services\SuperAdmin;
 use App\Exceptions\GradReport2CodeConflictException;
 use App\Models\GradReport2;
 use App\Models\TblPrivilege;
+use App\Models\TblUser;
 use App\Services\GradReport2Service;
 use App\Support\ThesisCourse;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -67,8 +69,9 @@ class GradReport2GroupService
             ->all();
 
         $adminActorKeys = $this->adminActorUsernameKeys($actorUsernames);
+        $actorDisplayNames = $this->actorDisplayNames($actorUsernames);
 
-        $groups = $codes->map(function (string $groupCode) use ($rowsByGroup, $adminActorKeys) {
+        $groups = $codes->map(function (string $groupCode) use ($rowsByGroup, $adminActorKeys, $actorDisplayNames) {
             /** @var Collection<int, GradReport2> $members */
             $members = $rowsByGroup->get($groupCode, collect())
                 ->unique(fn (GradReport2 $row) => GradReport2::normalizeCode((string) $row->subject_code))
@@ -92,12 +95,25 @@ class GradReport2GroupService
                 ->unique()
                 ->values();
 
+            $source = $this->resolveGroupSource($enteredBy->all(), $adminActorKeys);
+            $enteredByNames = $enteredBy
+                ->map(function (string $username) use ($actorDisplayNames) {
+                    $key = strtoupper($username);
+
+                    return trim((string) ($actorDisplayNames[$key] ?? ''));
+                })
+                ->filter()
+                ->unique()
+                ->values();
+
             return (object) [
                 'group_code' => $groupCode,
                 'subject' => trim((string) ($primary?->subject ?? '')),
                 'member_count' => $members->count(),
-                'source' => $this->resolveGroupSource($enteredBy->all(), $adminActorKeys),
+                'source' => $source,
                 'entered_by' => $enteredBy->implode(', '),
+                'entered_by_names' => $enteredByNames->implode(', '),
+                'entered_at' => $this->resolveGroupEnteredAt($members),
                 'members' => $mappedMembers,
             ];
         });
@@ -105,6 +121,66 @@ class GradReport2GroupService
         $paginator->setCollection($groups);
 
         return $paginator;
+    }
+
+    /**
+     * @param  list<string>  $usernames
+     * @return array<string, string> uppercase username => display name
+     */
+    private function actorDisplayNames(array $usernames): array
+    {
+        if ($usernames === []) {
+            return [];
+        }
+
+        return TblUser::query()
+            ->with('titleRelation')
+            ->whereIn('username', $usernames)
+            ->get()
+            ->mapWithKeys(function (TblUser $user) {
+                $key = strtoupper(trim((string) $user->username));
+                $name = trim($user->displayName());
+
+                return [$key => $name];
+            })
+            ->filter()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, GradReport2>  $members
+     */
+    private function resolveGroupEnteredAt(Collection $members): ?string
+    {
+        $latest = null;
+
+        foreach ($members as $row) {
+            $at = $this->rowEnteredAt($row);
+            if ($at && ($latest === null || $at->gt($latest))) {
+                $latest = $at;
+            }
+        }
+
+        return $latest?->timezone(config('app.timezone'))->format('d/m/Y H:i');
+    }
+
+    private function rowEnteredAt(GradReport2 $row): ?Carbon
+    {
+        $attrs = $row->getAttributes();
+
+        foreach (['created_at', 'updated_at', 'entry_date', 'datetime', 'stamp'] as $column) {
+            if (! array_key_exists($column, $attrs) || $attrs[$column] === null || $attrs[$column] === '') {
+                continue;
+            }
+
+            try {
+                return Carbon::parse($attrs[$column]);
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     /**

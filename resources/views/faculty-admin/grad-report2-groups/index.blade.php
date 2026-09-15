@@ -245,8 +245,13 @@
     .sheet-source-user {
         font-size: 0.65rem;
         color: #7A4A3A;
-        word-break: break-all;
+        word-break: break-word;
         line-height: 1.25;
+    }
+    .sheet-source-date {
+        font-size: 0.62rem;
+        color: #9a6a58;
+        line-height: 1.2;
     }
     .member-chip {
         display: inline-flex;
@@ -813,13 +818,24 @@
                                                         <span class="sheet-source-badge sheet-source-instructor" title="อาจารย์เป็นคนกรอก">
                                                             <i data-lucide="user"></i> อาจารย์
                                                         </span>
+                                                        @if (($group->entered_by_names ?? '') !== '')
+                                                            <span class="sheet-source-user" title="ชื่อผู้กรอก">{{ $group->entered_by_names }}</span>
+                                                        @endif
+                                                        @if (!empty($group->entered_at))
+                                                            <span class="sheet-source-date" title="วันที่กรอก">{{ $group->entered_at }}</span>
+                                                        @endif
                                                     @else
                                                         <span class="sheet-source-badge sheet-source-admin" title="Admin / เจ้าหน้าที่เป็นผู้นำเข้า หรือข้อมูลเดิม">
                                                             <i data-lucide="shield"></i> Admin
                                                         </span>
-                                                    @endif
-                                                    @if ($group->entered_by !== '')
-                                                        <span class="sheet-source-user" title="รหัสผู้กรอก">{{ $group->entered_by }}</span>
+                                                        @if (($group->entered_by_names ?? '') !== '')
+                                                            <span class="sheet-source-user" title="ชื่อผู้กรอก">{{ $group->entered_by_names }}</span>
+                                                        @elseif (($group->entered_by ?? '') !== '')
+                                                            <span class="sheet-source-user" title="รหัสผู้กรอก">{{ $group->entered_by }}</span>
+                                                        @endif
+                                                        @if (!empty($group->entered_at))
+                                                            <span class="sheet-source-date" title="วันที่กรอก">{{ $group->entered_at }}</span>
+                                                        @endif
                                                     @endif
                                                 </div>
                                             @endif
