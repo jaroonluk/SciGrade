@@ -91,7 +91,13 @@
     .admin-trail-item[data-tone="docs"] .admin-chevron { --arrow: #ccfbf1; --ink: #0f766e; }
     .admin-trail-item[data-tone="status"] .admin-chevron { --arrow: #fde68a; --ink: #854d0e; }
     .admin-trail-item[data-tone="approve"] .admin-chevron { --arrow: #bbf7d0; --ink: #166534; }
-    .admin-trail-item[data-tone="report"] .admin-chevron { --arrow: #fed7aa; --ink: #9a3412; }
+    .admin-trail-item[data-tone="thesis"] .admin-chevron { --arrow: #fef08a; --ink: #854d0e; }
+    .admin-tone-thesis .admin-section-head {
+        background: linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fff 100%);
+        border-bottom-color: #fde68a;
+    }
+    .admin-tone-thesis .admin-section-head h4 { color: #854d0e; }
+    .admin-tone-thesis .menu-icon { background: #fef08a; color: #a16207; }
     @@media (min-width: 768px) {
         .admin-trail { flex-wrap: nowrap; }
         .admin-trail-item { flex: 1 1 0; min-width: 0; margin-left: -10px; }
@@ -554,153 +560,232 @@
     @endif
 
     @if ($role === 'dept_admin')
+        @php
+            $deptTermLabel = match ((int) $term) {
+                1 => 'ภาคต้น',
+                2 => 'ภาคปลาย',
+                default => 'ภาคการศึกษาพิเศษ',
+            };
+            $deptName = optional($departments->firstWhere('department_id', $deptDepartmentId))->department_name;
+        @endphp
+
         <div class="mb-5">
             <h3 class="text-lg font-bold text-[#5C2E1F] flex items-center gap-2">
                 <i data-lucide="shield-check" class="w-5 h-5"></i> เมนู Admin สาขา
             </h3>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ส่งเอกสารสาขา ตรวจสอบรายวิชา และพิมพ์รายงาน ตามลำดับงาน</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">
+                ทำตามลำดับ 1 → 4 สำหรับงานสอบไล่{{ $deptName ? ' ของสาขา'.$deptName : '' }}
+                แล้วค่อยพิมพ์รายงาน — วิทยานิพนธ์แยกเป็นคิวต่างหาก
+            </p>
         </div>
 
-        <section class="role-panel role-tone-dept-docs">
-            <div class="role-panel-head">
-                <p class="role-kicker">เอกสารสาขา</p>
-                <h4 class="role-title">อัปโหลดเอกสารสาขา</h4>
-                <p class="role-desc">
-                    ส่งเอกสารรายงานตามภาคการศึกษา — แยกช่องทางปริญญาตรี และบัณฑิตศึกษา
-                    อัปโหลดได้ทันทีในช่องที่ต้องการ แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสาร
-                </p>
-            </div>
-            <div class="role-panel-body">
-            @php
-                $deptTermLabel = match ((int) $term) {
-                    1 => 'ภาคต้น',
-                    2 => 'ภาคปลาย',
-                    default => 'ภาคการศึกษาพิเศษ',
-                };
-                $deptName = optional($departments->firstWhere('department_id', $deptDepartmentId))->department_name;
-            @endphp
-            <form method="GET" action="{{ route('dashboard') }}" id="dept-docs-filter" class="flex flex-wrap items-end gap-4 mb-4">
-                @if ($departments->count() > 1)
+        <div class="no-print mb-6">
+            <p class="admin-phase-label">ก. งานสอบไล่ประจำภาค — ตามลำดับการใช้งาน</p>
+            <ol class="admin-trail" aria-label="งานสอบไล่ประจำภาค">
+                <li class="admin-trail-item" data-tone="approve">
+                    <a href="#dept-step-1" class="admin-chevron"><span class="step-no">1</span><span class="step-title">ตรวจสอบรายวิชา</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="status">
+                    <a href="#dept-step-2" class="admin-chevron"><span class="step-no">2</span><span class="step-title">ตรวจสถานะส่งผล</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="docs">
+                    <a href="#dept-step-3" class="admin-chevron"><span class="step-no">3</span><span class="step-title">ส่งเอกสารสาขา</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="report">
+                    <a href="#dept-step-4" class="admin-chevron"><span class="step-no">4</span><span class="step-title">พิมพ์รายงาน</span></a>
+                </li>
+            </ol>
+            <p class="admin-phase-label">ข. วิทยานิพนธ์ / การศึกษาอิสระ — คิวแยกจากสอบไล่</p>
+            <ol class="admin-trail" aria-label="วิทยานิพนธ์">
+                <li class="admin-trail-item" data-tone="thesis" style="flex: 0 1 12rem;">
+                    <a href="#dept-step-5" class="admin-chevron"><span class="step-no">5</span><span class="step-title">รับผลวิทยานิพนธ์</span></a>
+                </li>
+            </ol>
+        </div>
+
+        <div class="space-y-6 mb-8">
+            {{-- 1. ตรวจสอบรายวิชา --}}
+            <section id="dept-step-1" class="admin-section admin-tone-approve">
+                <div class="admin-section-head">
                     <div>
-                        <label class="block text-sm font-medium text-[#134e4a] mb-1">สาขาวิชา</label>
-                        <select name="dept_department_id" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]" onchange="this.form.submit()">
-                            @foreach ($departments as $dept)
-                                <option value="{{ $dept->department_id }}" @selected($deptDepartmentId == $dept->department_id)>
-                                    {{ $dept->department_name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold">1</span>
+                            <h4 class="text-base font-bold text-green-950">ตรวจสอบรายวิชา</h4>
+                        </div>
+                        <p class="text-xs text-green-900/70 ml-9">เริ่มจากอนุมัติรายการที่อาจารย์ส่งมา พร้อมเปิดดูไฟล์แนบ</p>
                     </div>
-                @endif
-                <div>
-                    <label class="block text-sm font-medium text-[#134e4a] mb-1">ภาคการศึกษา</label>
-                    <select name="term" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]" onchange="this.form.submit()">
-                        <option value="1" @selected($term === 1)>ภาคต้น</option>
-                        <option value="2" @selected($term === 2)>ภาคปลาย</option>
-                        <option value="3" @selected($term === 3)>ภาคการศึกษาพิเศษ</option>
-                    </select>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-[#134e4a] mb-1">ปีการศึกษา</label>
-                    <select name="year" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]" onchange="this.form.submit()">
-                        @foreach ($years as $y)
-                            <option value="{{ $y }}" @selected($year === $y)>{{ $y }}</option>
-                        @endforeach
-                    </select>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('dept-admin.reviews.index') }}" class="menu-card tone-review rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">1.1</p>
+                                    <p class="font-semibold text-green-950">ตรวจสอบรายวิชา</p>
+                                    <p class="text-sm text-green-900/65 mt-1">อนุมัติ / ไม่อนุมัติรายวิชาที่อาจารย์ส่งมา</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
                 </div>
-            </form>
+            </section>
 
-            <div class="rounded-lg border border-teal-100 bg-teal-50/70 px-4 py-3 mb-4">
-                <p class="text-sm font-semibold text-[#134e4a]">
-                    กำลังส่งเอกสาร{{ $deptName ? ' สาขา'.$deptName : '' }} — {{ $deptTermLabel }} ปีการศึกษา {{ $year }}
-                </p>
-                <p class="text-xs text-teal-900/75 mt-0.5">เลือกช่องทางด้านล่างแล้วอัปโหลดได้เลย ไม่ต้องกดแสดงรายการก่อนส่ง</p>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4" data-dept-submission-board>
-                @include('dept-admin.partials.dept-submission-lane', [
-                    'educationLevel' => \App\Models\DeptSubmission::EDUCATION_BACHELOR,
-                    'submission' => $deptSubmissions[\App\Models\DeptSubmission::EDUCATION_BACHELOR] ?? null,
-                    'departmentId' => $deptDepartmentId,
-                    'term' => $term,
-                    'year' => $year,
-                ])
-                @include('dept-admin.partials.dept-submission-lane', [
-                    'educationLevel' => \App\Models\DeptSubmission::EDUCATION_GRADUATE,
-                    'submission' => $deptSubmissions[\App\Models\DeptSubmission::EDUCATION_GRADUATE] ?? null,
-                    'departmentId' => $deptDepartmentId,
-                    'term' => $term,
-                    'year' => $year,
-                ])
-            </div>
-            </div>
-        </section>
-
-        <section class="role-panel role-tone-list role-tone-dept-work mb-6">
-            <div class="role-panel-head">
-                <p class="role-kicker">งานประจำ</p>
-                <h4 class="role-title">ตรวจสอบและรายงาน</h4>
-                <p class="role-desc">อนุมัติรายวิชา ดูสถานะการส่ง และพิมพ์ใบรายงานสาขา</p>
-            </div>
-            <div class="role-panel-body">
-                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <a href="{{ route('dept-admin.reviews.index') }}" class="menu-card tone-review rounded-xl p-5 block">
-                        <div class="flex items-start gap-3">
-                            <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
-                            <div>
-                                <p class="menu-step">1 · อนุมัติ</p>
-                                <p class="font-semibold text-green-950">ตรวจสอบรายวิชา</p>
-                                <p class="text-sm text-green-900/65 mt-1">อนุมัติ/ไม่อนุมัติรายการที่อาจารย์ส่งมา พร้อมดูไฟล์แนบ</p>
-                            </div>
+            {{-- 2. สถานะการส่งผล --}}
+            <section id="dept-step-2" class="admin-section admin-tone-status">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-700 text-white text-xs font-bold">2</span>
+                            <h4 class="text-base font-bold text-amber-950">ตรวจสอบสถานะการส่งผลการสอบ</h4>
                         </div>
-                    </a>
-                    <a href="{{ route('dept-admin.reg-grade-status.index') }}" class="menu-card tone-status rounded-xl p-5 block">
-                        <div class="flex items-start gap-3">
-                            <div class="menu-icon"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
-                            <div>
-                                <p class="menu-step">2 · สถานะ</p>
-                                <p class="font-semibold text-orange-950">ตรวจสอบสถานะการส่งผลการสอบ</p>
-                                <p class="text-sm text-orange-900/65 mt-1">ดูสถานะตามรายวิชา REG และติกผ่านสาขาฯ ได้ทันที</p>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="{{ route('dept-admin.reports.form') }}" class="menu-card tone-print rounded-xl p-5 block">
-                        <div class="flex items-start gap-3">
-                            <div class="menu-icon"><i data-lucide="printer" class="w-5 h-5"></i></div>
-                            <div>
-                                <p class="menu-step">3 · รายงาน</p>
-                                <p class="font-semibold text-sky-950">พิมพ์ใบรายงานสาขา</p>
-                                <p class="text-sm text-sky-900/65 mt-1">Export PDF/Word ตามสาขา ระดับการศึกษา และสถานะ</p>
-                            </div>
-                        </div>
-                    </a>
+                        <p class="text-xs text-amber-900/70 ml-9">ดูสถานะตามรายวิชา REG และติกผ่านสาขาฯ หลังตรวจแล้ว</p>
+                    </div>
                 </div>
-            </div>
-        </section>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('dept-admin.reg-grade-status.index') }}" class="menu-card tone-status rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">2.1</p>
+                                    <p class="font-semibold text-orange-950">ตรวจสอบสถานะการส่งผลการสอบ</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">ติดตามสถานะ REG และยืนยันผ่านสาขาฯ</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </section>
 
-        <section class="role-panel mb-6" style="border-color:#facc15;background:linear-gradient(180deg,#fffbeb 0%,#fff 55%);">
-            <div class="role-panel-head">
-                <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ</p>
-                <h4 class="role-title" style="color:#854d0e;">รับผลการเรียนจากอาจารย์</h4>
-                <p class="role-desc">ตรวจไฟล์ TS หนังสือชี้แจง S=0 แล้วกดผ่านที่ประชุมสาขาฯ — แยกจากคิวสอบไล่</p>
-            </div>
-            <div class="role-panel-body">
-                <a href="{{ route('dept-admin.thesis-grades.index') }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
-                    <div class="flex items-start gap-4">
-                        <div class="entry-icon p-2">
-                            <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
+            {{-- 3. ส่งเอกสารสาขา --}}
+            <section id="dept-step-3" class="admin-section admin-tone-docs">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-teal-700 text-white text-xs font-bold">3</span>
+                            <h4 class="text-base font-bold text-teal-950">ส่งเอกสารสาขา</h4>
+                        </div>
+                        <p class="text-xs text-teal-900/70 ml-9">
+                            อัปโหลดเอกสารรายงานตามภาค — แยกช่องทางปริญญาตรี และบัณฑิตศึกษา
+                            แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสาร
+                        </p>
+                    </div>
+                </div>
+                <div class="admin-section-body space-y-4">
+                    <form method="GET" action="{{ route('dashboard') }}" id="dept-docs-filter" class="flex flex-wrap items-end gap-4">
+                        @if ($departments->count() > 1)
+                            <div>
+                                <label class="block text-sm font-medium text-[#134e4a] mb-1">สาขาวิชา</label>
+                                <select name="dept_department_id" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]" onchange="this.form.submit()">
+                                    @foreach ($departments as $dept)
+                                        <option value="{{ $dept->department_id }}" @selected($deptDepartmentId == $dept->department_id)>
+                                            {{ $dept->department_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+                        <div>
+                            <label class="block text-sm font-medium text-[#134e4a] mb-1">ภาคการศึกษา</label>
+                            <select name="term" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]" onchange="this.form.submit()">
+                                <option value="1" @selected($term === 1)>ภาคต้น</option>
+                                <option value="2" @selected($term === 2)>ภาคปลาย</option>
+                                <option value="3" @selected($term === 3)>ภาคการศึกษาพิเศษ</option>
+                            </select>
                         </div>
                         <div>
-                            <p class="text-base font-bold text-[#854d0e]">รับผลการเรียนวิทยานิพนธ์</p>
-                            <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
-                                ดูรายการที่อาจารย์ส่งมา เปิดไฟล์ และดาวน์โหลดรวมชื่อมาตรฐาน TS
-                            </p>
-                            <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปตรวจสอบ →</span>
+                            <label class="block text-sm font-medium text-[#134e4a] mb-1">ปีการศึกษา</label>
+                            <select name="year" class="border border-teal-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]" onchange="this.form.submit()">
+                                @foreach ($years as $y)
+                                    <option value="{{ $y }}" @selected($year === $y)>{{ $y }}</option>
+                                @endforeach
+                            </select>
                         </div>
+                    </form>
+
+                    <div class="rounded-lg border border-teal-100 bg-teal-50/70 px-4 py-3">
+                        <p class="text-sm font-semibold text-[#134e4a]">
+                            กำลังส่งเอกสาร{{ $deptName ? ' สาขา'.$deptName : '' }} — {{ $deptTermLabel }} ปีการศึกษา {{ $year }}
+                        </p>
+                        <p class="text-xs text-teal-900/75 mt-0.5">เลือกช่องทางด้านล่างแล้วอัปโหลดได้เลย</p>
                     </div>
-                </a>
-            </div>
-        </section>
+
+                    <div class="grid md:grid-cols-2 gap-4" data-dept-submission-board>
+                        @include('dept-admin.partials.dept-submission-lane', [
+                            'educationLevel' => \App\Models\DeptSubmission::EDUCATION_BACHELOR,
+                            'submission' => $deptSubmissions[\App\Models\DeptSubmission::EDUCATION_BACHELOR] ?? null,
+                            'departmentId' => $deptDepartmentId,
+                            'term' => $term,
+                            'year' => $year,
+                        ])
+                        @include('dept-admin.partials.dept-submission-lane', [
+                            'educationLevel' => \App\Models\DeptSubmission::EDUCATION_GRADUATE,
+                            'submission' => $deptSubmissions[\App\Models\DeptSubmission::EDUCATION_GRADUATE] ?? null,
+                            'departmentId' => $deptDepartmentId,
+                            'term' => $term,
+                            'year' => $year,
+                        ])
+                    </div>
+                </div>
+            </section>
+
+            {{-- 4. พิมพ์รายงาน --}}
+            <section id="dept-step-4" class="admin-section admin-tone-report">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-700 text-white text-xs font-bold">4</span>
+                            <h4 class="text-base font-bold text-orange-950">พิมพ์ใบรายงานสาขา</h4>
+                        </div>
+                        <p class="text-xs text-orange-900/70 ml-9">Export PDF/Word ตามสาขา ระดับการศึกษา และสถานะ เมื่อสรุปงานแล้ว</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('dept-admin.reports.form') }}" class="menu-card tone-print rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="printer" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">4.1</p>
+                                    <p class="font-semibold text-sky-950">พิมพ์ใบรายงานสาขา</p>
+                                    <p class="text-sm text-sky-900/65 mt-1">ดาวน์โหลดรายงานสรุปของสาขา</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            {{-- 5. วิทยานิพนธ์ --}}
+            <section id="dept-step-5" class="admin-section admin-tone-thesis">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-600 text-white text-xs font-bold">5</span>
+                            <h4 class="text-base font-bold text-amber-950">รับผลการเรียนวิทยานิพนธ์</h4>
+                        </div>
+                        <p class="text-xs text-amber-900/70 ml-9">คิวแยกจากสอบไล่ — ตรวจไฟล์ TS / หนังสือชี้แจง S=0 แล้วผ่านที่ประชุมสาขาฯ</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <a href="{{ route('dept-admin.thesis-grades.index') }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
+                        <div class="flex items-start gap-4">
+                            <div class="entry-icon p-2">
+                                <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
+                            </div>
+                            <div>
+                                <p class="text-base font-bold text-[#854d0e]">รับผลการเรียนวิทยานิพนธ์</p>
+                                <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
+                                    ดูรายการที่อาจารย์ส่งมา เปิดไฟล์ และดาวน์โหลดรวมชื่อมาตรฐาน TS
+                                </p>
+                                <span class="entry-cta inline-block mt-3 text-sm font-semibold">ไปตรวจสอบ →</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </section>
+        </div>
     @endif
 
     @if (in_array($role, ['faculty_admin', 'super_admin'], true))

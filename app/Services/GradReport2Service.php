@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\GradReport2;
+use App\Support\GradeReportRemarks;
 
 class GradReport2Service
 {
@@ -300,13 +301,21 @@ class GradReport2Service
             return [];
         }
 
-        $prefixes = ['ตัดเกรดร่วมกับ :', 'ตัดเกรดร่วมกับ:', 'ซ้อนวิชากับ :', 'ซ้อนวิชากับ:'];
-        $rest = trim($reason);
-
-        foreach ($prefixes as $prefix) {
-            if (str_starts_with($rest, $prefix)) {
-                $rest = trim(substr($rest, strlen($prefix)));
-                break;
+        $parsed = GradeReportRemarks::parse($reason, null);
+        $rest = trim((string) ($parsed['joint_line'] ?? ''));
+        if ($rest === '') {
+            $prefixes = ['ตัดเกรดร่วมกับ :', 'ตัดเกรดร่วมกับ:', 'ซ้อนวิชากับ :', 'ซ้อนวิชากับ:'];
+            $rest = trim($reason);
+            foreach ($prefixes as $prefix) {
+                if (str_starts_with($rest, $prefix)) {
+                    $rest = trim(substr($rest, strlen($prefix)));
+                    break;
+                }
+            }
+            // ตัดบรรทัดหมายเหตุอื่นออก
+            $nl = strpos($rest, "\n");
+            if ($nl !== false) {
+                $rest = trim(substr($rest, 0, $nl));
             }
         }
 

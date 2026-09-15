@@ -241,8 +241,8 @@
                         1 => 'ข้อมูลรายวิชา',
                         2 => 'หมายเหตุ',
                         3 => 'ช่วงคะแนน',
-                        4 => 'ประเมินรายวิชา',
-                        5 => 'จำนวนนักศึกษา',
+                        4 => 'จำนวนนักศึกษา',
+                        5 => 'ประเมินรายวิชา',
                         6 => 'แนบ มข.11',
                         7 => 'พิมพ์ใบขวาง',
                         8 => 'อัปโหลดใบขวาง',
@@ -340,13 +340,16 @@
                     </div>
 
                     <div class="wizard-step space-y-5" data-wizard-step="2">
-                    <div class="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
-                        <p class="text-sm font-semibold text-[#5C2E1F]">หมายเหตุ</p>
-                        <p id="remark-help-text" class="text-xs text-[#7A4A3A]/80">ข้ามขั้นตอนนี้ได้หากไม่มีหมายเหตุ</p>
+                    <div class="bg-white border border-amber-200 rounded-lg p-4 space-y-4">
+                        <div>
+                            <p class="text-sm font-semibold text-[#5C2E1F]">หมายเหตุ</p>
+                            <p id="remark-help-text" class="text-xs text-[#7A4A3A]/80 mt-0.5">เลือกได้หลายข้อ — ข้ามได้หากไม่มีหมายเหตุ</p>
+                        </div>
+
                         <label class="flex items-start gap-2 text-sm">
-                            <input type="radio" name="reasonid" value="1" class="accent-amber-700 mt-1 shrink-0">
+                            <input type="checkbox" id="remark-joint" name="remark_joint" value="1" class="accent-amber-700 mt-1 shrink-0">
                             <div class="flex-1 min-w-0">
-                                <span class="text-[#5C2E1F]">ตัดเกรดร่วมกับ</span>
+                                <span class="text-[#5C2E1F] font-medium">ตัดเกรดร่วมกับ</span>
                                 <div id="joint-grade-panel" class="mt-2 relative">
                                     <input id="joint-subject-search" type="text" maxlength="20" autocomplete="off"
                                         class="w-full border border-amber-200 rounded px-2 py-1.5 text-sm bg-white"
@@ -363,12 +366,44 @@
                                 </div>
                             </div>
                         </label>
-                        <label class="flex items-center gap-2 text-sm"><input type="radio" name="reasonid" value="2" class="accent-amber-700"> ได้ I เนื่องจาก <input id="std-i2" type="text" class="border border-amber-200 rounded px-2 py-1 text-sm flex-1"></label>
-                        <label class="flex items-center gap-2 text-sm"><input type="radio" name="reasonid" value="3" class="accent-amber-700"> อื่นๆ <input id="std-i3" type="text" class="border border-amber-200 rounded px-2 py-1 text-sm flex-1"></label>
+
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-2 text-sm">
+                                <input type="checkbox" id="remark-i" name="remark_i" value="1" class="accent-amber-700 mt-1 shrink-0">
+                                <span class="text-[#5C2E1F] font-medium pt-0.5">ได้ I เนื่องจาก</span>
+                            </label>
+                            <div id="prior-i-box" class="hidden ml-6 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
+                                <p class="text-[0.7rem] font-semibold text-[#854d0e] mb-1">ข้อความจากผู้กรอก Sec ก่อนหน้า (รหัสวิชาเดียวกัน)</p>
+                                <ul id="prior-i-list" class="list-disc pl-4 space-y-0.5 text-xs text-[#5C2E1F]"></ul>
+                            </div>
+                            <div class="ml-6">
+                                <input id="std-i2" type="text" maxlength="400"
+                                    class="w-full border border-amber-200 rounded px-2 py-1.5 text-sm"
+                                    placeholder="กรอกเหตุผลเพิ่มเติม (บังคับเมื่อติ๊กข้อนี้)" disabled>
+                                <p class="text-[0.65rem] text-[#7A4A3A]/75 mt-1">ข้อความใหม่จะถูกเพิ่มต่อท้าย โดยไม่ทับข้อมูลเดิม</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-2 text-sm">
+                                <input type="checkbox" id="remark-other" name="remark_other" value="1" class="accent-amber-700 mt-1 shrink-0">
+                                <span class="text-[#5C2E1F] font-medium pt-0.5">อื่นๆ</span>
+                            </label>
+                            <div id="prior-other-box" class="hidden ml-6 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                                <p class="text-[0.7rem] font-semibold text-[#57534e] mb-1">ข้อความจากผู้กรอก Sec ก่อนหน้า (รหัสวิชาเดียวกัน)</p>
+                                <ul id="prior-other-list" class="list-disc pl-4 space-y-0.5 text-xs text-[#5C2E1F]"></ul>
+                            </div>
+                            <div class="ml-6">
+                                <input id="std-i3" type="text" maxlength="400"
+                                    class="w-full border border-amber-200 rounded px-2 py-1.5 text-sm"
+                                    placeholder="กรอกข้อความเพิ่มเติม (บังคับเมื่อติ๊กข้อนี้)" disabled>
+                                <p class="text-[0.65rem] text-[#7A4A3A]/75 mt-1">ข้อความใหม่จะถูกเพิ่มต่อท้าย โดยไม่ทับข้อมูลเดิม</p>
+                            </div>
+                        </div>
                     </div>
                     </div>
 
-                    <div class="wizard-step space-y-5" data-wizard-step="4">
+                    <div class="wizard-step space-y-5" data-wizard-step="5">
                     <div class="bg-white border border-amber-200 rounded-lg p-4">
                         <p class="text-sm font-semibold text-[#5C2E1F] mb-2">เลือกรูปแบบการกรอกผลการประเมินรายวิชา</p>
                         <label class="flex items-center gap-2 text-sm mb-1"><input type="radio" name="statuseva" value="1" class="accent-amber-700"> กรอกคะแนนประเมินรายวิชาตาม Section</label>
@@ -389,6 +424,17 @@
                                 class="eva-hint-field w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
                             <p class="text-xs text-[#7A4A3A]/80 mt-1">คะแนนเฉลี่ย 0–5 เท่านั้น — ไม่ใช่จำนวนนักศึกษา — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
                         </div>
+                    </div>
+
+                    <div id="section-eva-panel" class="hidden space-y-3">
+                        <div class="rounded-lg border border-amber-200 bg-amber-50/50 px-3 py-2">
+                            <p class="text-sm font-semibold text-[#5C2E1F]">กรอกผลประเมินแยกตาม Section</p>
+                            <p class="text-xs text-[#7A4A3A]/80 mt-0.5">แสดงตาม Section ที่บันทึกในขั้นตอนจำนวนนักศึกษา — กรอกในหน้านี้ ไม่ต้องกรอกตอนบันทึก Section</p>
+                        </div>
+                        <div id="section-eva-empty" class="hidden rounded-lg border border-dashed border-amber-300 bg-white px-4 py-5 text-center text-sm text-[#7A4A3A]/80">
+                            ยังไม่มี Section — กรุณาย้อนกลับไปขั้นตอนที่ 4 กรอกจำนวนนักศึกษาก่อน
+                        </div>
+                        <div id="section-eva-list" class="space-y-3"></div>
                     </div>
                     </div>
 
@@ -488,9 +534,9 @@
                     </div>
                     </div>
 
-                    <div class="wizard-step space-y-5" data-wizard-step="5">
+                    <div class="wizard-step space-y-5" data-wizard-step="4">
                     <div id="section-std-form" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-5 space-y-5 shadow-sm">
-                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-3">
+                        <div id="section-std-header" class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-3">
                             <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2 text-base">
                                 <i data-lucide="users" class="w-5 h-5 text-[#8B4513]"></i>
                                 กรอกจำนวนนักศึกษา
@@ -506,6 +552,7 @@
                             <div id="prior-sections-list" class="flex flex-wrap gap-1.5 mt-2"></div>
                         </div>
 
+                        <div id="section-std-entry-fields" class="space-y-5">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label for="section-input" class="block text-sm font-medium mb-1 text-[#5C2E1F]">กลุ่ม (Section)</label>
@@ -605,23 +652,6 @@
                             </div>
                         </div>
 
-                        <div id="section-eva-fields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 mt-2 border-t border-amber-200">
-                            <div class="relative">
-                                <label for="numstdevz" class="block text-sm font-medium mb-1 text-[#5C2E1F]">จำนวนนักศึกษาที่เข้าประเมิน</label>
-                                <input id="numstdevz" type="number" min="0"
-                                    autocomplete="off"
-                                    class="eva-hint-field w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                                <p class="text-xs text-[#7A4A3A]/70 mt-1">กรอกจำนวนนักศึกษาที่เข้าประเมินรายวิชาใน Section นี้</p>
-                            </div>
-                            <div class="relative">
-                                <label for="evaluationscore" class="block text-sm font-medium mb-1 text-[#5C2E1F]">ผลการประเมินรายวิชาโดยนักศึกษา</label>
-                                <input id="evaluationscore" type="number" min="0" max="5" step="0.01"
-                                    autocomplete="off" inputmode="decimal"
-                                    class="eva-hint-field w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                                <p class="text-xs text-[#7A4A3A]/80 mt-1">คะแนนเฉลี่ย 0–5 เท่านั้น — ไม่ใช่จำนวนนักศึกษา — ดูผลประเมินได้ที่ <a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline hover:text-[#5C2E1F]">reg.kku.ac.th</a></p>
-                            </div>
-                        </div>
-
                         <div class="flex flex-wrap gap-2 pt-2 border-t border-amber-200">
                             <button type="button" id="btn-save-section"
                                 class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
@@ -632,36 +662,37 @@
                                 ยกเลิกแก้ไข
                             </button>
                         </div>
-
-                        <div id="section-std-list-empty" class="rounded-lg border border-dashed border-amber-300 bg-white px-4 py-6 text-center text-sm text-[#7A4A3A]/80">
-                            ยังไม่มีข้อมูล Section — กรอกด้านบนแล้วกด «บันทึก Section นี้»
                         </div>
 
-                        <div id="section-std-list-wrap" class="hidden overflow-x-auto rounded-lg border border-amber-200 bg-white">
-                            <table class="w-full text-xs min-w-[900px]">
-                                <thead>
-                                    <tr class="bg-gradient-to-b from-[#fdf6f0] to-[#f5e6d8]">
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">ดำเนินการ</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">กลุ่ม</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">คณะ</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">รวม</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">A</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">B+</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">B</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">C+</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">C</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">D+</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">D</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">F</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">I</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">S</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">U</th>
-                                        <th class="px-2 py-2 text-center border-b border-amber-200">W</th>
-                                        <th id="section-list-eva-col" class="px-2 py-2 text-center border-b border-amber-200 hidden">คะแนนประเมิน</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="section-std-list-body"></tbody>
-                            </table>
+                        <div id="section-std-results" class="space-y-3">
+                            <div id="section-std-list-empty" class="rounded-lg border border-dashed border-amber-300 bg-white px-4 py-6 text-center text-sm text-[#7A4A3A]/80">
+                                ยังไม่มีข้อมูล Section — กรอกด้านบนแล้วกด «บันทึก Section นี้»
+                            </div>
+                            <div id="section-std-list-wrap" class="hidden overflow-x-auto rounded-lg border border-amber-200 bg-white">
+                                <table class="w-full text-xs min-w-[900px]">
+                                    <thead>
+                                        <tr class="bg-gradient-to-b from-[#fdf6f0] to-[#f5e6d8]">
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">ดำเนินการ</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">กลุ่ม</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">คณะ</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">รวม</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">A</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">B+</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">B</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">C+</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">C</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">D+</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">D</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">F</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">I</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">S</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">U</th>
+                                            <th class="px-2 py-2 text-center border-b border-amber-200">W</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="section-std-list-body"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                     </div>
@@ -672,7 +703,7 @@
                             <p id="wizard-reg-help" class="text-sm text-[#7A4A3A]/80 leading-relaxed">
                                 ต้องอัปโหลดไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียน
                                 (<a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>)
-                                ให้ครบเท่าจำนวน Section ที่กรอกในขั้นตอนที่ 5
+                                ให้ครบเท่าจำนวน Section ที่กรอกในขั้นตอนที่ 4
                                 <strong class="font-semibold text-[#5C2E1F]">ตั้งชื่อไฟล์อย่างไรก็ได้</strong>
                                 — ระบบจะตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ
                                 (เช่น SC101011-01.pdf) จากรหัสวิชาและกลุ่มเรียนในไฟล์
@@ -819,7 +850,12 @@
         const examFileDetail = @json($examFileDetail ?? null);
         const pendingRegistrarSections = @json($pendingRegistrarSections ?? []);
 
-        window.wizardConfig = { currentReportId: reportId, openedAsEdit: Boolean(reportId) };
+        window.wizardConfig = {
+            currentReportId: reportId,
+            openedAsEdit: Boolean(reportId),
+            createdInSession: false,
+            boundSubjectCode: null,
+        };
         initTempladeForm({ teacherHelpImageUrl });
 
         if (prefillReport) {

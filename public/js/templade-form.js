@@ -160,6 +160,137 @@ function serializeJointGradeReason(subjects) {
     return reason;
 }
 
+const REMARK_FLAG_JOINT = 1;
+const REMARK_FLAG_I = 2;
+const REMARK_FLAG_OTHER = 4;
+const REMARK_ENTRY_SEP = ' || ';
+
+window.priorRemarkFlags = 0;
+window.priorIEntries = [];
+window.priorOtherEntries = [];
+
+function splitRemarkEntries(chunk) {
+    return String(chunk || '')
+        .split(/\s*\|\|\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+}
+
+function parseRemarks(reason, reasonid) {
+    const text = String(reason || '').trim();
+    let jointLine = null;
+    const iEntries = [];
+    const otherEntries = [];
+
+    if (text) {
+        const jointMatch = text.match(/ตัดเกรดร่วมกับ\s*:?\s*([\s\S]*?)(?=\nได้ I เนื่องจาก|\nอื่นๆ\s*:|$)/)
+            || text.match(/ซ้อนวิชากับ\s*:?\s*([\s\S]*?)(?=\nได้ I เนื่องจาก|\nอื่นๆ\s*:|$)/);
+        if (jointMatch) jointLine = jointMatch[1].trim() || null;
+
+        const iRe = /ได้ I เนื่องจาก\s*:?\s*([\s\S]*?)(?=\nตัดเกรดร่วมกับ|\nซ้อนวิชากับ|\nอื่นๆ\s*:|$)/g;
+        let m;
+        while ((m = iRe.exec(text)) !== null) {
+            splitRemarkEntries(m[1]).forEach((entry) => iEntries.push(entry));
+        }
+
+        const oRe = /(?:^|\n)อื่นๆ\s*:?\s*([\s\S]*?)(?=\nตัดเกรดร่วมกับ|\nซ้อนวิชากับ|\nได้ I เนื่องจาก|$)/g;
+        while ((m = oRe.exec(text)) !== null) {
+            splitRemarkEntries(m[1]).forEach((entry) => otherEntries.push(entry));
+        }
+
+        const rid = Number(reasonid) || 0;
+        if (!jointLine && !iEntries.length && !otherEntries.length && rid > 0) {
+            if (rid === 2) {
+                const body = text.replace(/^ได้ I เนื่องจาก\s*:?\s*/u, '').trim();
+                if (body) iEntries.push(body);
+            } else if (rid === 3 && !text.startsWith('ตัดเกรดร่วมกับ') && !text.startsWith('ซ้อนวิชากับ')) {
+                otherEntries.push(text);
+            }
+        }
+    }
+
+    let flags = 0;
+    if (jointLine) flags |= REMARK_FLAG_JOINT;
+    if (iEntries.length) flags |= REMARK_FLAG_I;
+    if (otherEntries.length) flags |= REMARK_FLAG_OTHER;
+
+    const rid = Number(reasonid) || 0;
+    if (rid > 0) {
+        flags |= reasonidToFlags(rid);
+    }
+
+    return {
+        joint_line: jointLine,
+        i_entries: [...new Set(iEntries)],
+        other_entries: [...new Set(otherEntries)],
+        flags,
+    };
+}
+
+function reasonidToFlags(reasonid) {
+    const rid = Number(reasonid) || 0;
+    if (rid <= 0) return 0;
+    if ((rid & 8) === 8) return rid & (REMARK_FLAG_JOINT | REMARK_FLAG_I | REMARK_FLAG_OTHER);
+    if (rid === 1) return REMARK_FLAG_JOINT;
+    if (rid === 2) return REMARK_FLAG_I;
+    if (rid === 3) return REMARK_FLAG_OTHER;
+    return rid & (REMARK_FLAG_JOINT | REMARK_FLAG_I | REMARK_FLAG_OTHER);
+}
+
+function flagsToReasonid(flags) {
+    const f = Number(flags) & (REMARK_FLAG_JOINT | REMARK_FLAG_I | REMARK_FLAG_OTHER);
+    if (!f) return null;
+    if (f === REMARK_FLAG_JOINT) return 1;
+    if (f === REMARK_FLAG_I) return 2;
+    if (f === REMARK_FLAG_OTHER) return 3;
+    return 8 | f;
+}
+
+function renderPriorRemarkLists(iEntries, otherEntries) {
+    const iBox = document.getElementById('prior-i-box');
+    const iList = document.getElementById('prior-i-list');
+    const oBox = document.getElementById('prior-other-box');
+    const oList = document.getElementById('prior-other-list');
+
+    const iItems = Array.isArray(iEntries) ? iEntries.filter(Boolean) : [];
+    const oItems = Array.isArray(otherEntries) ? otherEntries.filter(Boolean) : [];
+
+    if (iList) {
+        iList.innerHTML = iItems.map((t) => `<li>${escapeHtml(t)}</li>`).join('');
+    }
+    if (iBox) iBox.classList.toggle('hidden', !iItems.length);
+
+    if (oList) {
+        oList.innerHTML = oItems.map((t) => `<li>${escapeHtml(t)}</li>`).join('');
+    }
+    if (oBox) oBox.classList.toggle('hidden', !oItems.length);
+}
+
+function setRemarkCheckboxes(flags) {
+    const f = Number(flags) || 0;
+    const joint = document.getElementById('remark-joint');
+    if (joint) joint.checked = (f & REMARK_FLAG_JOINT) === REMARK_FLAG_JOINT;
+}
+
+function clearRemarkInputs() {
+    const i2 = document.getElementById('std-i2');
+    const i3 = document.getElementById('std-i3');
+    if (i2) i2.value = '';
+    if (i3) i3.value = '';
+}
+
+function resetRemarkUi() {
+    ['remark-joint', 'remark-i', 'remark-other'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+    });
+    clearRemarkInputs();
+    window.priorRemarkFlags = 0;
+    window.priorIEntries = [];
+    window.priorOtherEntries = [];
+    renderPriorRemarkLists([], []);
+}
+
 function setJointGradeSubjects(subjects) {
     jointGradeSubjects = subjects.filter((s) => s.code);
     renderJointGradeTags();
@@ -200,8 +331,8 @@ async function commitJointGradeSubjectInput(rawCode) {
     const code = String(rawCode).trim().replace(/\s+/g, '');
     if (!code) return false;
 
-    const radio = document.querySelector('input[name="reasonid"][value="1"]');
-    if (radio) radio.checked = true;
+    const joint = document.getElementById('remark-joint');
+    if (joint) joint.checked = true;
     updateReasonFieldsState();
 
     if (jointGradeSubjects.some((s) => s.code === code)) return false;
@@ -250,34 +381,51 @@ function renderJointGradeTags() {
 }
 
 function updateReasonFieldsState() {
-    const isJoint = document.querySelector('input[name="reasonid"]:checked')?.value === '1';
-    const remarksLocked = Boolean(window.courseGroupLocked || window.sharedFieldsLocked);
+    const isJoint = Boolean(document.getElementById('remark-joint')?.checked || window.courseGroupLocked);
+    const hasI = Boolean(document.getElementById('remark-i')?.checked);
+    const hasOther = Boolean(document.getElementById('remark-other')?.checked);
+    const jointLocked = Boolean(window.courseGroupLocked || window.sharedFieldsLocked);
     const search = document.getElementById('joint-subject-search');
     const panel = document.getElementById('joint-grade-panel');
     const help = document.getElementById('remark-help-text');
     const searchHint = document.getElementById('joint-search-hint');
+    const jointCb = document.getElementById('remark-joint');
+
+    if (jointCb) {
+        jointCb.disabled = jointLocked && isJoint;
+        if (window.courseGroupLocked) jointCb.checked = true;
+    }
     if (search) {
-        search.disabled = !isJoint || remarksLocked;
-        search.classList.toggle('field-locked', remarksLocked);
+        search.disabled = !isJoint || jointLocked;
+        search.classList.toggle('field-locked', jointLocked);
         search.classList.toggle('hidden', Boolean(window.courseGroupLocked));
     }
     if (searchHint) searchHint.classList.toggle('hidden', Boolean(window.courseGroupLocked));
     if (panel) panel.classList.toggle('opacity-50', !isJoint && !window.courseGroupLocked);
-    document.querySelectorAll('input[name="reasonid"]').forEach((el) => {
-        el.disabled = remarksLocked;
-    });
-    ['std-i2', 'std-i3'].forEach((id) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.readOnly = Boolean(window.sharedFieldsLocked);
-        el.classList.toggle('field-locked', Boolean(window.sharedFieldsLocked));
-    });
+
+    const i2 = document.getElementById('std-i2');
+    if (i2) {
+        i2.disabled = !hasI;
+        i2.readOnly = false;
+        i2.classList.toggle('field-locked', false);
+    }
+    const i3 = document.getElementById('std-i3');
+    if (i3) {
+        i3.disabled = !hasOther;
+        i3.readOnly = false;
+        i3.classList.toggle('field-locked', false);
+    }
+
+    renderJointGradeTags();
+
     if (help) {
-        help.textContent = window.courseGroupLocked
-            ? 'รายวิชานี้มีกลุ่มตัดเกรดร่วมอยู่แล้ว — ไม่ต้องกรอกรหัสซ้ำ'
-            : (window.sharedFieldsLocked
-                ? 'หมายเหตุถูกดึงจากผู้กรอกก่อน และไม่สามารถแก้ไขได้'
-                : 'ข้ามขั้นตอนนี้ได้หากไม่มีหมายเหตุ');
+        if (window.courseGroupLocked) {
+            help.textContent = 'รายวิชานี้มีกลุ่มตัดเกรดร่วมอยู่แล้ว — ไม่ต้องกรอกรหัสซ้ำ · สามารถติ๊กได้ I / อื่นๆ และกรอกเพิ่มได้';
+        } else if (window.sharedFieldsLocked) {
+            help.textContent = 'เกณฑ์คะแนนดึงจากผู้กรอกก่อน · หมายเหตุ I / อื่นๆ แสดงข้อความเดิมด้านล่าง และสามารถกรอกเพิ่มได้';
+        } else {
+            help.textContent = 'เลือกได้หลายข้อ — ข้ามได้หากไม่มีหมายเหตุ';
+        }
     }
 }
 
@@ -294,8 +442,8 @@ function setupJointGradeSubjectSearch() {
     };
 
     const selectFromList = async (code, name) => {
-        const radio = document.querySelector('input[name="reasonid"][value="1"]');
-        if (radio) radio.checked = true;
+        const joint = document.getElementById('remark-joint');
+        if (joint) joint.checked = true;
         updateReasonFieldsState();
         if (addJointGradeSubject(code, name)) {
             input.value = '';
@@ -390,9 +538,26 @@ function setupJointGradeSubjectSearch() {
 }
 
 function setupReasonIdFields() {
-    document.querySelectorAll('input[name="reasonid"]').forEach((radio) => {
-        radio.addEventListener('change', () => {
+    ['remark-joint', 'remark-i', 'remark-other'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.bound === '1') return;
+        el.dataset.bound = '1';
+        el.addEventListener('change', () => {
             updateReasonFieldsState();
+            if (id === 'remark-i' && el.checked) {
+                document.getElementById('std-i2')?.focus();
+            }
+            if (id === 'remark-other' && el.checked) {
+                document.getElementById('std-i3')?.focus();
+            }
+            if (id === 'remark-i' && !el.checked) {
+                const i2 = document.getElementById('std-i2');
+                if (i2) i2.value = '';
+            }
+            if (id === 'remark-other' && !el.checked) {
+                const i3 = document.getElementById('std-i3');
+                if (i3) i3.value = '';
+            }
         });
     });
     updateReasonFieldsState();
@@ -703,23 +868,45 @@ function setupIntflagMode() {
 }
 
 function buildReason() {
-    const reasonid = parseInt(document.querySelector('input[name="reasonid"]:checked')?.value || '0', 10);
-    if (reasonid === 1) {
-        return { reasonid, reason: serializeJointGradeReason(jointGradeSubjects) };
+    let flags = 0;
+    const parts = [];
+
+    const isJoint = Boolean(document.getElementById('remark-joint')?.checked || window.courseGroupLocked);
+    const hasI = Boolean(document.getElementById('remark-i')?.checked);
+    const hasOther = Boolean(document.getElementById('remark-other')?.checked);
+
+    if (isJoint) {
+        flags |= REMARK_FLAG_JOINT;
+        const jointReason = serializeJointGradeReason(jointGradeSubjects);
+        if (jointReason) parts.push(jointReason);
     }
-    if (reasonid === 2) {
+
+    if (hasI) {
+        flags |= REMARK_FLAG_I;
         const text = document.getElementById('std-i2')?.value?.trim();
-        return { reasonid, reason: text ? `ได้ I เนื่องจาก :${text}` : null };
+        if (text) parts.push(`ได้ I เนื่องจาก :${text}`);
     }
-    if (reasonid === 3) {
-        return { reasonid, reason: document.getElementById('std-i3')?.value?.trim() || null };
+
+    if (hasOther) {
+        flags |= REMARK_FLAG_OTHER;
+        const text = document.getElementById('std-i3')?.value?.trim();
+        if (text) parts.push(`อื่นๆ :${text}`);
     }
-    return { reasonid: null, reason: null };
+
+    // คง flag จากข้อมูลเดิมเมื่อมีข้อความก่อนหน้า เพื่อไม่ให้หายตอน merge ฝั่งเซิร์ฟเวอร์
+    if ((Number(window.priorRemarkFlags) || 0) > 0) {
+        flags |= (Number(window.priorRemarkFlags) || 0);
+    }
+
+    return {
+        reasonid: flagsToReasonid(flags),
+        reason: parts.length ? parts.join('\n') : null,
+    };
 }
 
 function collectGradeStd() {
-    const statuseva = parseInt(document.querySelector('input[name="statuseva"]:checked')?.value || '2', 10);
     const fac = Array.from(document.querySelectorAll('.fac-checkbox:checked')).map((c) => c.value).join(',');
+    const existing = editingSectionIndex !== null ? sectionStdRows[editingSectionIndex] : null;
 
     return {
         sec: parseInt(document.getElementById('section-input')?.value || '1', 10),
@@ -738,12 +925,9 @@ function collectGradeStd() {
         num_v: parseInt(document.getElementById('count-u')?.value || '0', 10),
         num_w: parseInt(document.getElementById('count-w')?.value || '0', 10),
         num_out: 0,
-        numstdevz: statuseva === 1 && document.getElementById('numstdevz')?.value
-            ? parseInt(document.getElementById('numstdevz').value, 10)
-            : null,
-        evaluationscore: statuseva === 1 && document.getElementById('evaluationscore')?.value
-            ? document.getElementById('evaluationscore').value
-            : null,
+        // คะแนนประเมินกรอกในขั้นตอนประเมินรายวิชา — คงค่าเดิมเมื่อแก้จำนวนนักศึกษา
+        numstdevz: existing?.numstdevz ?? null,
+        evaluationscore: existing?.evaluationscore ?? null,
     };
 }
 
@@ -773,17 +957,6 @@ function validateSectionStdForm() {
     const fac = Array.from(document.querySelectorAll('.fac-checkbox:checked'));
     if (!fac.length) {
         return 'กรุณาเลือกคณะก่อนบันทึก Section';
-    }
-
-    const statuseva = parseInt(document.querySelector('input[name="statuseva"]:checked')?.value || '2', 10);
-    if (statuseva === 1) {
-        const scoreRaw = document.getElementById('evaluationscore')?.value?.trim();
-        if (scoreRaw !== '') {
-            const score = Number(scoreRaw);
-            if (Number.isNaN(score) || score < 0 || score > 5) {
-                return 'ผลการประเมินรายวิชาโดยนักศึกษาต้องอยู่ระหว่าง 0–5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)';
-            }
-        }
     }
 
     return null;
@@ -880,10 +1053,6 @@ function clearGradeStdFormCounts() {
         const el = document.getElementById(`count-${key}`);
         if (el) el.value = '0';
     });
-    const numstdevz = document.getElementById('numstdevz');
-    const evaluationscore = document.getElementById('evaluationscore');
-    if (numstdevz) numstdevz.value = '';
-    if (evaluationscore) evaluationscore.value = '';
 }
 
 function loadGradeStdToForm(row) {
@@ -912,10 +1081,6 @@ function loadGradeStdToForm(row) {
         if (el) el.value = val ?? 0;
     });
 
-    const numstdevz = document.getElementById('numstdevz');
-    const evaluationscore = document.getElementById('evaluationscore');
-    if (numstdevz) numstdevz.value = row.numstdevz ?? '';
-    if (evaluationscore) evaluationscore.value = row.evaluationscore ?? '';
     refreshSectionSelectOptions();
 }
 
@@ -989,6 +1154,10 @@ function applyParsedSectionFromPdf(parsed) {
     const saved = addOrUpdateSectionFromForm();
     if (!saved.ok) {
         showToast(saved.error || 'อ่านไฟล์แล้ว แต่บันทึก Section ไม่สำเร็จ — กรุณาตรวจสอบคณะ/ข้อมูล', 'error');
+    } else {
+        window.sectionEntryViaUpload = true;
+        applySectionStdFormLayout();
+        renderSectionEvaList();
     }
 }
 
@@ -1115,7 +1284,7 @@ async function uploadSectionRegistrarPdf(file, options = {}) {
             window.wizardConfig.hasPendingRegistrar = true;
             window.wizardConfig.regFilledFromPdf = true;
             if (!options.skipRender) {
-                persistWizardState(window.wizardConfig, attachOnly ? 6 : 5);
+                persistWizardState(window.wizardConfig, attachOnly ? 6 : 4);
                 updateAttachmentChecklist(window.wizardConfig);
                 renderRegUploadSlots(window.wizardConfig);
                 syncWizardRegStatus(window.wizardConfig);
@@ -1252,23 +1421,19 @@ function renderSectionStdList() {
         tbody.innerHTML = '';
         empty?.classList.remove('hidden');
         wrap?.classList.add('hidden');
+        applySectionStdFormLayout();
+        renderSectionEvaList();
         return;
     }
 
     empty?.classList.add('hidden');
     wrap?.classList.remove('hidden');
 
-    const statuseva = document.querySelector('input[name="statuseva"]:checked')?.value || '2';
-    const showEva = statuseva === '1';
-
     tbody.innerHTML = sectionStdRows.map((row, index) => {
         const facMissing = !String(row.fac || '').trim();
         const facLabel = facMissing
             ? '<span class="text-red-700 font-semibold">ยังไม่เลือกคณะ</span>'
             : `${String(row.fac || '').toUpperCase()}${TYPE_COURSE_SUFFIX[row.type_course] || ''}`;
-        const evaCell = showEva
-            ? `<td class="px-2 py-2 text-center border-t border-amber-100">${row.evaluationscore ?? '—'}</td>`
-            : '';
         const rowClass = [
             editingSectionIndex === index ? 'bg-amber-50' : '',
             facMissing ? 'bg-red-50' : '',
@@ -1294,7 +1459,6 @@ function renderSectionStdList() {
                 <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_s}</td>
                 <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_v}</td>
                 <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_w}</td>
-                ${evaCell}
             </tr>
         `;
     }).join('');
@@ -1310,9 +1474,8 @@ function renderSectionStdList() {
         });
     });
 
-    const evaHeader = document.getElementById('section-list-eva-col');
-    if (evaHeader) evaHeader.classList.toggle('hidden', !showEva);
-
+    applySectionStdFormLayout();
+    renderSectionEvaList();
     refreshSectionSelectOptions();
 }
 
@@ -1326,12 +1489,14 @@ function setupSectionStdManager() {
     });
     document.getElementById('btn-cancel-section-edit')?.addEventListener('click', cancelSectionEdit);
     document.querySelectorAll('input[name="statuseva"]').forEach((el) => {
-        el.addEventListener('change', renderSectionStdList);
+        el.addEventListener('change', toggleEvaFields);
     });
     updateSectionFormHint();
+    applySectionStdFormLayout();
 }
 
 function collectGradeReportPayload() {
+    syncSectionEvaFromInputs();
     const { reasonid, reason } = buildReason();
     const statuseva = parseInt(document.querySelector('input[name="statuseva"]:checked')?.value || '2', 10);
 
@@ -1404,7 +1569,7 @@ function validateEvaluationScores(payload) {
     if (statuseva === 2) {
         const total = payload.totalevaluationscore;
         if (total !== null && total !== '' && Number(total) > 5) {
-            return 'ขั้นตอนที่ 4: ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)';
+            return 'ขั้นตอนที่ 5: ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ช่องนี้ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)';
         }
         return null;
     }
@@ -1435,10 +1600,26 @@ function validateGradeReportBeforeSave(payload) {
     if (!payload.year || Number(payload.year) < 2500) {
         return 'ขั้นตอนที่ 1: กรุณาระบุปีการศึกษา (พ.ศ.)';
     }
-    if (Number(payload.reasonid) === 1 && !(payload.joint_subject_codes || []).length && !window.courseGroupLocked) {
+    if ((reasonidToFlags(payload.reasonid) & REMARK_FLAG_JOINT) === REMARK_FLAG_JOINT
+        && !(payload.joint_subject_codes || []).length
+        && !window.courseGroupLocked) {
         return 'ขั้นตอนที่ 2: กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
     }
-    if (payload.reason && String(payload.reason).length > 500) {
+    if ((reasonidToFlags(payload.reasonid) & REMARK_FLAG_I) === REMARK_FLAG_I) {
+        const newI = document.getElementById('std-i2')?.value?.trim();
+        const checkedI = Boolean(document.getElementById('remark-i')?.checked);
+        if (checkedI && !newI) {
+            return 'ขั้นตอนที่ 2: กรุณากรอกเหตุผลในช่อง «ได้ I เนื่องจาก»';
+        }
+    }
+    if ((reasonidToFlags(payload.reasonid) & REMARK_FLAG_OTHER) === REMARK_FLAG_OTHER) {
+        const newOther = document.getElementById('std-i3')?.value?.trim();
+        const checkedOther = Boolean(document.getElementById('remark-other')?.checked);
+        if (checkedOther && !newOther) {
+            return 'ขั้นตอนที่ 2: กรุณากรอกข้อความในช่อง «อื่นๆ»';
+        }
+    }
+    if (payload.reason && String(payload.reason).length > 2000) {
         return 'ขั้นตอนที่ 2: ข้อความหมายเหตุ/วิชาตัดเกรดร่วมยาวเกินไป — ลดจำนวนวิชาหรือชื่อวิชา';
     }
 
@@ -1449,20 +1630,20 @@ function validateGradeReportBeforeSave(payload) {
     if (evaError) return evaError;
 
     if (!payload.grade_stds?.length) {
-        return 'ขั้นตอนที่ 5: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อน)';
+        return 'ขั้นตอนที่ 4: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อน)';
     }
 
     for (let i = 0; i < payload.grade_stds.length; i += 1) {
         const row = payload.grade_stds[i];
         const sec = row?.sec ?? (i + 1);
         if (isPriorReportedSection(sec)) {
-            return `ขั้นตอนที่ 5: ${priorSectionConflictMessage(sec)}`;
+            return `ขั้นตอนที่ 4: ${priorSectionConflictMessage(sec)}`;
         }
         if (!String(row?.fac || '').trim()) {
-            return `ขั้นตอนที่ 5: Section ${sec} ยังไม่ได้เลือกคณะ — เปิดแก้ไข Section แล้วเลือกคณะก่อนบันทึก`;
+            return `ขั้นตอนที่ 4: Section ${sec} ยังไม่ได้เลือกคณะ — เปิดแก้ไข Section แล้วเลือกคณะก่อนบันทึก`;
         }
         if (String(row.fac).length > 255) {
-            return `ขั้นตอนที่ 5: Section ${sec} เลือกคณะมากเกินไป — แบ่งเป็นหลาย Section หรือลดจำนวนคณะ`;
+            return `ขั้นตอนที่ 4: Section ${sec} เลือกคณะมากเกินไป — แบ่งเป็นหลาย Section หรือลดจำนวนคณะ`;
         }
     }
 
@@ -1663,29 +1844,26 @@ function chainGradeRanges() {
     });
 }
 
-function toggleEvaFields() {
+function updateEvaFieldsVisibility() {
     const statuseva = document.querySelector('input[name="statuseva"]:checked')?.value;
     const reportEva = document.getElementById('report-eva-fields');
-    const sectionEva = document.getElementById('section-eva-fields');
+    const sectionPanel = document.getElementById('section-eva-panel');
 
     if (reportEva) reportEva.classList.toggle('hidden', statuseva === '1');
-    if (sectionEva) sectionEva.classList.toggle('hidden', statuseva === '2');
+    if (sectionPanel) sectionPanel.classList.toggle('hidden', statuseva !== '1');
+    renderSectionEvaList();
+}
 
-    // เคลียร์ค่าโหมดที่ไม่ได้ใช้ เพื่อกันค่าค้างจาก autofill / สลับโหมด
+function toggleEvaFields() {
+    const statuseva = document.querySelector('input[name="statuseva"]:checked')?.value;
+
+    // เคลียร์ค่าโหมดที่ไม่ได้ใช้ เมื่อผู้ใช้สลับตัวเลือกเท่านั้น
     if (statuseva === '1') {
         const totalNum = document.getElementById('totalnumstdevz');
         const totalScore = document.getElementById('totalevaluationscore');
         if (totalNum) totalNum.value = '';
         if (totalScore) totalScore.value = '';
-        sectionStdRows = sectionStdRows.map((row) => ({
-            ...row,
-            // คงค่าเดิมของ section ที่บันทึกไว้แล้วในโหมด 1
-        }));
     } else if (statuseva === '2') {
-        const num = document.getElementById('numstdevz');
-        const score = document.getElementById('evaluationscore');
-        if (num) num.value = '';
-        if (score) score.value = '';
         sectionStdRows = sectionStdRows.map((row) => ({
             ...row,
             evaluationscore: null,
@@ -1693,7 +1871,107 @@ function toggleEvaFields() {
         }));
     }
 
-    renderSectionStdList();
+    updateEvaFieldsVisibility();
+}
+
+window.sectionEntryViaUpload = false;
+
+/** โหมดอัปโหลด PDF: แสดงรายการจำนวนนักศึกษาก่อน แล้วค่อย Section ที่รายงานไปแล้ว */
+function applySectionStdFormLayout() {
+    const form = document.getElementById('section-std-form');
+    const header = document.getElementById('section-std-header');
+    const results = document.getElementById('section-std-results');
+    const prior = document.getElementById('prior-sections-box');
+    const entry = document.getElementById('section-std-entry-fields');
+    if (!form || !header || !results || !entry) return;
+
+    const viaUpload = Boolean(window.sectionEntryViaUpload);
+    if (viaUpload) {
+        // header → รายการจำนวนนักศึกษา → prior sections → ฟอร์มกรอก/อัปโหลด
+        form.appendChild(header);
+        form.appendChild(results);
+        if (prior) form.appendChild(prior);
+        form.appendChild(entry);
+    } else {
+        // เหมือนเดิม: header → prior → ฟอร์ม → รายการ
+        form.appendChild(header);
+        if (prior) form.appendChild(prior);
+        form.appendChild(entry);
+        form.appendChild(results);
+    }
+}
+
+function syncSectionEvaFromInputs() {
+    document.querySelectorAll('[data-section-eva-index]').forEach((box) => {
+        const index = parseInt(box.dataset.sectionEvaIndex, 10);
+        if (!Number.isFinite(index) || !sectionStdRows[index]) return;
+        const numEl = box.querySelector('[data-section-eva-num]');
+        const scoreEl = box.querySelector('[data-section-eva-score]');
+        const numRaw = numEl?.value?.trim() ?? '';
+        const scoreRaw = scoreEl?.value?.trim() ?? '';
+        sectionStdRows[index] = {
+            ...sectionStdRows[index],
+            numstdevz: numRaw === '' ? null : parseInt(numRaw, 10),
+            evaluationscore: scoreRaw === '' ? null : scoreRaw,
+        };
+    });
+}
+
+function renderSectionEvaList() {
+    const list = document.getElementById('section-eva-list');
+    const empty = document.getElementById('section-eva-empty');
+    const panel = document.getElementById('section-eva-panel');
+    if (!list) return;
+
+    const statuseva = document.querySelector('input[name="statuseva"]:checked')?.value || '2';
+    if (panel) panel.classList.toggle('hidden', statuseva !== '1');
+    if (statuseva !== '1') {
+        list.innerHTML = '';
+        empty?.classList.add('hidden');
+        return;
+    }
+
+    if (!sectionStdRows.length) {
+        list.innerHTML = '';
+        empty?.classList.remove('hidden');
+        return;
+    }
+
+    empty?.classList.add('hidden');
+    const sorted = sectionStdRows
+        .map((row, index) => ({ row, index }))
+        .sort((a, b) => Number(a.row.sec) - Number(b.row.sec));
+
+    list.innerHTML = sorted.map(({ row, index }) => `
+        <div class="rounded-lg border border-amber-200 bg-white p-4 space-y-3" data-section-eva-index="${index}">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 pb-2">
+                <p class="text-sm font-semibold text-[#5C2E1F]">Section ${row.sec}</p>
+                <p class="text-xs text-[#7A4A3A]/80">รวม ${row.total_std ?? 0} คน · คณะ ${escapeHtml(String(row.fac || '—').toUpperCase())}</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="relative">
+                    <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">จำนวนนักศึกษาที่เข้าประเมิน</label>
+                    <input type="number" min="0" data-section-eva-num
+                        value="${row.numstdevz ?? ''}"
+                        autocomplete="off"
+                        class="eva-hint-field w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
+                </div>
+                <div class="relative">
+                    <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">ผลการประเมินรายวิชาโดยนักศึกษา</label>
+                    <input type="number" min="0" max="5" step="0.01" data-section-eva-score
+                        value="${row.evaluationscore ?? ''}"
+                        autocomplete="off" inputmode="decimal"
+                        class="eva-hint-field w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white">
+                    <p class="text-xs text-[#7A4A3A]/80 mt-1">คะแนนเฉลี่ย 0–5 เท่านั้น</p>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    list.querySelectorAll('[data-section-eva-num], [data-section-eva-score]').forEach((input) => {
+        input.addEventListener('change', syncSectionEvaFromInputs);
+        input.addEventListener('input', syncSectionEvaFromInputs);
+    });
 }
 
 function parseScoreRange(value, maxId, minId) {
@@ -1762,20 +2040,8 @@ function populateFormFromRecord(record) {
     if (record.totalnumstdevz != null) document.getElementById('totalnumstdevz').value = record.totalnumstdevz;
     if (record.totalevaluationscore != null) document.getElementById('totalevaluationscore').value = record.totalevaluationscore;
 
-    if (record.reasonid) {
-        setRadio('reasonid', record.reasonid);
-        if (record.reasonid === 1 && record.reason) {
-            const subjects = parseJointGradeReason(record.reason);
-            setJointGradeSubjects(subjects);
-            enrichJointGradeSubjectNames(subjects).then(setJointGradeSubjects);
-        } else if (record.reasonid === 2 && record.reason) {
-            const match = String(record.reason).match(/ได้ I เนื่องจาก\s*:?\s*(.*)/);
-            const el = document.getElementById('std-i2');
-            if (el) el.value = match?.[1]?.trim() || record.reason;
-        } else if (record.reasonid === 3 && record.reason) {
-            const el = document.getElementById('std-i3');
-            if (el) el.value = record.reason;
-        }
+    if (record.reasonid || record.reason) {
+        applyRemarksFromRecord(record);
     }
     updateReasonFieldsState();
 
@@ -1955,8 +2221,8 @@ function applyCourseContext(data) {
     renderPriorSectionsBox(window.priorReportedSections);
 
     if (grouped) {
-        const radio = document.querySelector('input[name="reasonid"][value="1"]');
-        if (radio) radio.checked = true;
+        const joint = document.getElementById('remark-joint');
+        if (joint) joint.checked = true;
         setJointGradeSubjects(members
             .filter((m) => !m.is_current)
             .map((m) => ({ code: m.subject_code, name: m.subject || '' })));
@@ -1973,6 +2239,31 @@ function applyCourseContext(data) {
         clearInheritedPriorCriteria();
         priorCriteriaApplied = false;
     }
+
+    // รวมข้อความหมายเหตุจากทุก Sec ก่อนหน้า — ใช้ทับรายการจาก payload ของรายงานแรก
+    const priorRemarks = data?.prior_remarks || prior?.remarks || null;
+    if (priorRemarks) {
+        window.priorIEntries = Array.isArray(priorRemarks.i_entries) ? priorRemarks.i_entries : [];
+        window.priorOtherEntries = Array.isArray(priorRemarks.other_entries) ? priorRemarks.other_entries : [];
+        window.priorRemarkFlags = Number(priorRemarks.flags)
+            || (Number(window.priorRemarkFlags) || 0);
+        renderPriorRemarkLists(window.priorIEntries, window.priorOtherEntries);
+        if ((window.priorRemarkFlags & REMARK_FLAG_JOINT) === REMARK_FLAG_JOINT) {
+            const joint = document.getElementById('remark-joint');
+            if (joint) joint.checked = true;
+        }
+        clearRemarkInputs();
+        const remarkI = document.getElementById('remark-i');
+        const remarkOther = document.getElementById('remark-other');
+        if (remarkI) remarkI.checked = false;
+        if (remarkOther) remarkOther.checked = false;
+    } else if (!prior?.payload) {
+        window.priorIEntries = [];
+        window.priorOtherEntries = [];
+        window.priorRemarkFlags = 0;
+        renderPriorRemarkLists([], []);
+    }
+
     applyPriorTeacherNames(prior);
 
     setSharedFieldsLocked(window.sharedFieldsLocked, {
@@ -2036,11 +2327,20 @@ function renderCoursePriorBanner(prior) {
     const name = prior.filled_by || prior.teacher || 'ผู้กรอกก่อน';
     const termLabel = prior.term_label || 'ภาคการศึกษานี้';
     const year = prior.year || '';
+
+    banner.classList.remove('hidden');
+
+    if (prior.can_append === false) {
+        body.textContent = `${termLabel} ปีการศึกษา ${year} มีรายงานของวิชานี้อยู่แล้ว `
+            + `(กรอกโดย ${name}) แต่ไม่สามารถเพิ่ม Section ได้ในขณะนี้ `
+            + 'เนื่องจากรายงานอาจอนุมัติแล้วหรืออยู่ระหว่างรอสาขาดำเนินการ — กรุณาติดต่อผู้กรอกเดิมหรือ Admin สาขา';
+        return;
+    }
+
     const sectionNote = Number(prior.statuseva) === 1
         ? ' ผู้กรอกก่อนเลือกให้กรอกคะแนนประเมินตาม Section — ท่านกรอกคะแนนประเมินของ Section ตนเองได้'
         : ' คะแนนประเมินรายวิชาแบบรวมถูกดึงมาให้แล้ว';
 
-    banner.classList.remove('hidden');
     body.textContent = `${termLabel} ปีการศึกษา ${year} มีผู้กรอกก่อนหน้าแล้ว โดย ${name} `
         + 'หากเพิ่ม Section อื่นที่ยังไม่ถูกบันทึก ระบบจะเพิ่มเข้าในรายงานรายวิชาเดิมให้อัตโนมัติ '
         + 'ช่วงคะแนนและเกณฑ์ถูกดึงมาให้แล้วและไม่สามารถแก้ไขได้ '
@@ -2107,7 +2407,7 @@ function applyPriorTeacherNames(prior) {
 function attachWizardToPriorReport(prior) {
     const config = window.wizardConfig;
     if (!config) {
-        window.appendingToPriorReport = Boolean(prior);
+        window.appendingToPriorReport = Boolean(prior?.grade_id && prior?.can_append !== false);
         return;
     }
 
@@ -2116,16 +2416,34 @@ function attachWizardToPriorReport(prior) {
         return;
     }
 
+    const formCode = document.getElementById('subject-code')?.value?.trim().replace(/\s+/g, '') || '';
+
     if (!prior?.grade_id) {
-        if (window.appendingToPriorReport) {
+        // ไม่มีรายงานเดิมของวิชานี้ — ล้าง reportId ค้างจาก session/วิชาอื่น
+        if (!config.createdInSession) {
             config.currentReportId = null;
+        } else if (config.boundSubjectCode && formCode && config.boundSubjectCode !== formCode) {
+            config.currentReportId = null;
+            config.createdInSession = false;
+            config.boundSubjectCode = null;
         }
         window.appendingToPriorReport = false;
         return;
     }
 
+    // รายงานเดิมถูกอนุมัติ/ล็อก — ห้ามผูกแล้วพยายาม append
+    if (prior.can_append === false) {
+        window.appendingToPriorReport = false;
+        if (!config.createdInSession) {
+            config.currentReportId = null;
+        }
+        return;
+    }
+
     window.appendingToPriorReport = true;
     config.currentReportId = String(prior.grade_id);
+    config.createdInSession = false;
+    config.boundSubjectCode = String(prior.subject_code || formCode || '').trim().replace(/\s+/g, '') || null;
 }
 
 function renderPriorSectionsBox(sections) {
@@ -2152,20 +2470,27 @@ function renderPriorSectionsBox(sections) {
 }
 
 function applyRemarksFromRecord(record) {
-    if (!record?.reasonid) return;
-    setRadio('reasonid', record.reasonid);
-    if (Number(record.reasonid) === 1 && record.reason) {
+    if (!record || (!record.reasonid && !record.reason)) return;
+    const parsed = parseRemarks(record.reason, record.reasonid);
+
+    window.priorRemarkFlags = parsed.flags;
+    window.priorIEntries = parsed.i_entries;
+    window.priorOtherEntries = parsed.other_entries;
+    renderPriorRemarkLists(parsed.i_entries, parsed.other_entries);
+    setRemarkCheckboxes(parsed.flags);
+
+    if ((parsed.flags & REMARK_FLAG_JOINT) === REMARK_FLAG_JOINT && (parsed.joint_line || record.reason)) {
         const subjects = parseJointGradeReason(record.reason);
         setJointGradeSubjects(subjects);
         enrichJointGradeSubjectNames(subjects).then(setJointGradeSubjects);
-    } else if (Number(record.reasonid) === 2 && record.reason) {
-        const match = String(record.reason).match(/ได้ I เนื่องจาก\s*:?\s*(.*)/);
-        const el = document.getElementById('std-i2');
-        if (el) el.value = match?.[1]?.trim() || record.reason;
-    } else if (Number(record.reasonid) === 3 && record.reason) {
-        const el = document.getElementById('std-i3');
-        if (el) el.value = record.reason;
     }
+
+    // ช่องกรอกใช้สำหรับข้อความใหม่เท่านั้น — ไม่ทับข้อมูลเดิม
+    clearRemarkInputs();
+    const remarkI = document.getElementById('remark-i');
+    const remarkOther = document.getElementById('remark-other');
+    if (remarkI) remarkI.checked = false;
+    if (remarkOther) remarkOther.checked = false;
 }
 
 function applyPriorSharedFields(record) {
@@ -2199,7 +2524,7 @@ function applyPriorSharedFields(record) {
 }
 
 function clearInheritedPriorCriteria() {
-    ['mean-score', 'sd-score', 'totalnumstdevz', 'totalevaluationscore', 'std-i2', 'std-i3'].forEach((id) => {
+    ['mean-score', 'sd-score', 'totalnumstdevz', 'totalevaluationscore'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -2212,7 +2537,7 @@ function clearInheritedPriorCriteria() {
     setGradeScheme('credit');
     setRadio('intflag', 0);
     setRadio('statuseva', 2);
-    document.querySelectorAll('input[name="reasonid"]').forEach((el) => { el.checked = false; });
+    resetRemarkUi();
     recalcAllGradeChains();
     toggleEvaFields();
     updateGradeBoundaryHint();
@@ -2382,7 +2707,7 @@ function renderRegUploadSlots(config) {
 
     const required = requiredRegSections();
     if (!required.length) {
-        list.innerHTML = '<p class="text-sm text-amber-800">ยังไม่มี Section จากขั้นตอนที่ 5 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน</p>';
+        list.innerHTML = '<p class="text-sm text-amber-800">ยังไม่มี Section จากขั้นตอนที่ 4 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน</p>';
         if (summary) summary.textContent = '';
         renderRegCompleteness(config);
         return;
@@ -2569,7 +2894,7 @@ async function uploadMultipleRegistrarPdfs(fileList, config = window.wizardConfi
 
     const required = requiredRegSections();
     if (!required.length) {
-        showToast('ยังไม่มี Section จากขั้นตอนที่ 5 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน', 'error');
+        showToast('ยังไม่มี Section จากขั้นตอนที่ 4 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน', 'error');
         return;
     }
 
@@ -2638,8 +2963,8 @@ function syncWizardRegStatus(config) {
 
     if (help) {
         help.innerHTML = progress.total === 0
-            ? 'กรุณาย้อนกลับไปขั้นตอนที่ 5 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section'
-            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 5 <strong>ตั้งชื่อไฟล์อย่างไรก็ได้</strong> — ระบบตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ สามารถเลือกหลายไฟล์พร้อมกันได้ หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้';
+            ? 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section'
+            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 4 <strong>ตั้งชื่อไฟล์อย่างไรก็ได้</strong> — ระบบตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ สามารถเลือกหลายไฟล์พร้อมกันได้ หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้';
     }
 
     if (!status) return;
@@ -2859,9 +3184,17 @@ function validateWizardStep(step, config) {
         return null;
     }
     if (step === 2) {
-        const reasonid = document.querySelector('input[name="reasonid"]:checked')?.value;
-        if (reasonid === '1' && !jointGradeSubjects.length && !window.courseGroupLocked) {
+        const isJoint = Boolean(document.getElementById('remark-joint')?.checked || window.courseGroupLocked);
+        const hasI = Boolean(document.getElementById('remark-i')?.checked);
+        const hasOther = Boolean(document.getElementById('remark-other')?.checked);
+        if (isJoint && !jointGradeSubjects.length && !window.courseGroupLocked) {
             return 'กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
+        }
+        if (hasI && !document.getElementById('std-i2')?.value?.trim()) {
+            return 'กรุณากรอกเหตุผลในช่อง «ได้ I เนื่องจาก»';
+        }
+        if (hasOther && !document.getElementById('std-i3')?.value?.trim()) {
+            return 'กรุณากรอกข้อความในช่อง «อื่นๆ»';
         }
         return null;
     }
@@ -2872,9 +3205,6 @@ function validateWizardStep(step, config) {
         return validateGradeRanges();
     }
     if (step === 4) {
-        return validateEvaluationScores(collectGradeReportPayload());
-    }
-    if (step === 5) {
         if (!sectionStdRows.length) {
             return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อนไปต่อ)';
         }
@@ -2884,12 +3214,18 @@ function validateWizardStep(step, config) {
                 return `Section ${row?.sec ?? (i + 1)} ยังไม่ได้เลือกคณะ — แก้ไข Section แล้วเลือกคณะก่อน`;
             }
         }
+        return null;
+    }
+    if (step === 5) {
+        if (!sectionStdRows.length) {
+            return 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อนกรอกผลประเมิน';
+        }
         return validateEvaluationScores(collectGradeReportPayload());
     }
     if (step === 6) {
         const missing = missingRegSections();
         if (!requiredRegSections().length) {
-            return 'กรุณาย้อนกลับไปขั้นตอนที่ 5 เพิ่ม Section ก่อนแนบแบบฟอร์ม มข.11';
+            return 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อนแนบแบบฟอร์ม มข.11';
         }
         if (missing.length) {
             return `กรุณาแนบแบบฟอร์ม มข.11 ให้ครบทุก Section — ยังขาด Section ${missing.join(', ')} (ต้องอัปโหลด ${requiredRegSections().length} ไฟล์ ตามจำนวน Section ที่กรอก)`;
@@ -2924,9 +3260,13 @@ function showWizardStep(step, config) {
     if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
 
     if (step === 2) refreshCourseContext();
-    if (step === 5) {
+    if (step === 4) {
         applyGraduateFacultyDefault();
         refreshCourseContext();
+        applySectionStdFormLayout();
+    }
+    if (step === 5) {
+        updateEvaFieldsVisibility();
     }
     if (step === 6) {
         renderRegUploadSlots(config);
@@ -2982,13 +3322,43 @@ async function saveWizardReport(config) {
     overlay?.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 
+    const subjectCode = String(payload.subject_code || '').trim().replace(/\s+/g, '');
+    // ถ้ารหัสวิชาเปลี่ยนจากที่ผูกไว้ และไม่ได้กำลัง append รายงานเดิม ให้สร้างใหม่
+    if (
+        !config.openedAsEdit
+        && !window.appendingToPriorReport
+        && config.boundSubjectCode
+        && subjectCode
+        && config.boundSubjectCode !== subjectCode
+    ) {
+        config.currentReportId = null;
+        config.createdInSession = false;
+        config.boundSubjectCode = null;
+    }
+
+    const useUpdate = Boolean(config.currentReportId) && (
+        Boolean(config.openedAsEdit)
+        || Boolean(window.appendingToPriorReport)
+        || Boolean(config.createdInSession)
+    );
+
     let result;
     try {
-        if (config.currentReportId) {
+        if (useUpdate) {
             payload.__backendId = String(config.currentReportId);
+            payload.append_sections = Boolean(window.appendingToPriorReport);
             result = await window.dataSdk.update(payload);
         } else {
+            // กัน reportId ค้างจาก session แล้วไป update รายงานคนอื่น/วิชาอื่น
+            config.currentReportId = null;
+            payload.append_sections = false;
+            delete payload.__backendId;
             result = await window.dataSdk.create(payload);
+            if (result.isOk) {
+                config.createdInSession = true;
+                config.boundSubjectCode = subjectCode || null;
+                window.appendingToPriorReport = false;
+            }
         }
     } catch (err) {
         result = { isOk: false, error: err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ' };
@@ -3001,6 +3371,9 @@ async function saveWizardReport(config) {
 
     const savedId = result.data?.__backendId || result.data?.grade_id || config.currentReportId;
     config.currentReportId = savedId ? String(savedId) : config.currentReportId;
+    if (!config.boundSubjectCode && subjectCode) {
+        config.boundSubjectCode = subjectCode;
+    }
     loading?.classList.add('hidden');
     overlay?.classList.add('hidden');
     document.body.style.overflow = '';
@@ -3031,7 +3404,7 @@ async function stageExamReport(config, file) {
 
 async function finalizeWizardAttachments(config) {
     if (!config.currentReportId) {
-        return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณาย้อนกลับไปกด «บันทึกแล้วไปต่อ» ที่ขั้นตอนที่ 5' };
+        return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณาย้อนกลับไปกด «บันทึกแล้วไปต่อ» ที่ขั้นตอนที่ 4' };
     }
 
     if (!hasRegistrarAttachment(config)) {
@@ -3161,8 +3534,11 @@ function wizardStorageKey(config = window.wizardConfig) {
 
 function persistWizardState(config, step) {
     try {
+        const subjectCode = document.getElementById('subject-code')?.value?.trim().replace(/\s+/g, '') || config.boundSubjectCode || null;
         sessionStorage.setItem(wizardStorageKey(config), JSON.stringify({
             reportId: config.currentReportId || null,
+            subjectCode,
+            createdInSession: Boolean(config.createdInSession),
             step,
             hasRegistrarFile: Boolean(config.hasRegistrarFile),
             hasPendingRegistrar: hasRegistrarAttachment(config) && !config.hasRegistrarFile,
@@ -3189,9 +3565,31 @@ function restoreWizardState(config) {
         if (config.currentReportId && saved.reportId && String(saved.reportId) !== String(config.currentReportId)) {
             return 1;
         }
-        if (!config.currentReportId && saved.reportId) {
+
+        const formCodeEl = document.getElementById('subject-code');
+        let formCode = formCodeEl?.value?.trim().replace(/\s+/g, '') || '';
+        const savedCode = String(saved.subjectCode || '').trim().replace(/\s+/g, '');
+
+        if (!config.openedAsEdit && saved.reportId) {
+            // resume ร่างเดิม: คืนรหัสวิชาจาก session ถ้าช่องว่าง แล้วผูก reportId เมื่อรหัสตรงกันเท่านั้น
+            if (savedCode && formCodeEl && !formCode) {
+                formCodeEl.value = savedCode;
+                formCode = savedCode;
+            }
+            if (savedCode && formCode && savedCode === formCode) {
+                config.currentReportId = String(saved.reportId);
+                config.createdInSession = true;
+                config.boundSubjectCode = savedCode;
+            } else {
+                // session เก่าคนละวิชา / ไม่มีรหัส — ไม่ใช้ reportId ค้าง
+                config.currentReportId = null;
+                config.createdInSession = false;
+                config.boundSubjectCode = null;
+            }
+        } else if (!config.currentReportId && saved.reportId && config.openedAsEdit) {
             config.currentReportId = String(saved.reportId);
         }
+
         if (saved.hasRegistrarFile) config.hasRegistrarFile = true;
         if (saved.hasPendingRegistrar && !config.openedAsEdit) {
             config.hasPendingRegistrar = true;

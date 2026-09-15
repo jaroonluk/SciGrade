@@ -10,6 +10,7 @@ use App\Services\AuditLogService;
 use App\Services\GradReport2Service;
 use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
+use App\Support\GradeReportRemarks;
 use App\Support\SubjectDegree;
 use App\Support\ThesisCourse;
 use Illuminate\Database\QueryException;
@@ -82,6 +83,7 @@ class GradeReportController extends Controller
         $members = $code !== '' ? $this->gradReport2->groupMembersForSubject($code) : [];
 
         $prior = null;
+        $priorRemarks = null;
         $reportedSections = [];
         $sectionDetails = [];
 
@@ -118,10 +120,14 @@ class GradeReportController extends Controller
                 }
             }
 
+            $priorRemarks = $this->aggregatePriorRemarks($reports);
+
             $first = $reports->first();
             if ($first) {
                 $filledBy = $this->resolveReportFillerName($first);
                 $teacherNames = $this->collectTeacherNames($reports);
+                $ownedByMe = $this->ownsReport($first);
+                $canAppend = $ownedByMe || $this->canContribute($first);
                 $prior = [
                     'exists' => true,
                     'grade_id' => $first->grade_id,
@@ -136,6 +142,10 @@ class GradeReportController extends Controller
                     'term_label' => $first->termLabel(),
                     'statuseva' => (int) $first->statuseva,
                     'payload' => $this->formPayload($first),
+                    'remarks' => $priorRemarks,
+                    'owned_by_me' => $ownedByMe,
+                    'can_append' => $canAppend,
+                    'approv' => (int) $first->approv,
                 ];
             }
         }
@@ -146,9 +156,60 @@ class GradeReportController extends Controller
             'grouped' => $members !== [],
             'members' => $members,
             'prior' => $prior,
+            'prior_remarks' => $priorRemarks ?? [
+                'joint_line' => null,
+                'i_entries' => [],
+                'other_entries' => [],
+                'flags' => 0,
+            ],
             'reported_sections' => array_values(array_map('intval', array_keys($reportedSections))),
             'reported_section_details' => array_values($sectionDetails),
         ]);
+    }
+
+    /**
+     * @param  Collection<int, GradeReport>  $reports
+     * @return array{joint_line: ?string, i_entries: list<string>, other_entries: list<string>, flags: int}
+     */
+    private function aggregatePriorRemarks(Collection $reports): array
+    {
+        $jointLine = null;
+        $iEntries = [];
+        $otherEntries = [];
+        $flags = 0;
+
+        foreach ($reports as $report) {
+            $parsed = GradeReportRemarks::parse($report->reason, $report->reasonid);
+            if ($jointLine === null && $parsed['joint_line']) {
+                $jointLine = $parsed['joint_line'];
+            }
+            foreach ($parsed['i_entries'] as $entry) {
+                $iEntries[] = $entry;
+            }
+            foreach ($parsed['other_entries'] as $entry) {
+                $otherEntries[] = $entry;
+            }
+            $flags |= $parsed['flags'];
+        }
+
+        $iEntries = array_values(array_unique($iEntries));
+        $otherEntries = array_values(array_unique($otherEntries));
+        if ($jointLine) {
+            $flags |= GradeReportRemarks::FLAG_JOINT;
+        }
+        if ($iEntries !== []) {
+            $flags |= GradeReportRemarks::FLAG_I;
+        }
+        if ($otherEntries !== []) {
+            $flags |= GradeReportRemarks::FLAG_OTHER;
+        }
+
+        return [
+            'joint_line' => $jointLine,
+            'i_entries' => $iEntries,
+            'other_entries' => $otherEntries,
+            'flags' => $flags,
+        ];
     }
 
     /**
@@ -184,6 +245,12 @@ class GradeReportController extends Controller
 
             $existing = $this->findExistingCourseReport($data);
             if ($existing) {
+                abort_unless(
+                    $this->ownsReport($existing) || $this->canContribute($existing),
+                    403,
+                    'ไม่มีสิทธิ์เพิ่ม Section ในรายงานวิชานี้ (อาจอนุมัติแล้วหรือรอสาขาดำเนินการ)'
+                );
+
                 return $this->appendSectionsToReport($request, $existing, $data);
             }
 
@@ -266,6 +333,14 @@ class GradeReportController extends Controller
 
             DB::connection('scigrad')->transaction(function () use ($gradeReport, $data, $stds, $request) {
                 $data = $this->applyGradReport2Rules($data);
+                $mergedRemarks = GradeReportRemarks::merge(
+                    $gradeReport->reason,
+                    $gradeReport->reasonid !== null ? (int) $gradeReport->reasonid : null,
+                    $data['reason'] ?? null,
+                    isset($data['reasonid']) ? (int) $data['reasonid'] : null,
+                );
+                $data['reason'] = $mergedRemarks['reason'];
+                $data['reasonid'] = $mergedRemarks['reasonid'];
 
                 $gradeReport->update($this->prepareReportAttributes($data, $request, isCreate: false));
 
@@ -469,7 +544,7 @@ class GradeReportController extends Controller
             if (str_contains($lower, 'data too long') || str_contains($lower, 'data truncated')) {
                 return response()->json([
                     'message' => 'ข้อมูลบางช่องยาวเกินที่ฐานข้อมูลรองรับ',
-                    'hint' => 'ตรวจชื่อวิชา / หมายเหตุตัดเกรดร่วม / คณะในขั้นตอนที่ 5 ให้สั้นลง หรือลดจำนวนคณะที่เลือกใน Section เดียว',
+                    'hint' => 'ตรวจชื่อวิชา / หมายเหตุตัดเกรดร่วม / คณะในขั้นตอนที่ 4 ให้สั้นลง หรือลดจำนวนคณะที่เลือกใน Section เดียว',
                 ], 422);
             }
 
@@ -627,9 +702,20 @@ class GradeReportController extends Controller
 
         DB::connection('scigrad')->transaction(function () use ($report, $toAdd, $data) {
             $teacher = trim((string) ($data['teacher'] ?? ''));
+            $mergedRemarks = GradeReportRemarks::merge(
+                $report->reason,
+                $report->reasonid !== null ? (int) $report->reasonid : null,
+                $data['reason'] ?? null,
+                isset($data['reasonid']) ? (int) $data['reasonid'] : null,
+            );
+            $updates = [
+                'reason' => $mergedRemarks['reason'],
+                'reasonid' => $mergedRemarks['reasonid'],
+            ];
             if ($teacher !== '') {
-                $report->update(['teacher' => mb_substr($teacher, 0, 250)]);
+                $updates['teacher'] = mb_substr($teacher, 0, 250);
             }
+            $report->update($updates);
             $this->mergeNewGradeStds($report, $toAdd);
         });
 
@@ -767,13 +853,13 @@ class GradeReportController extends Controller
             ),
         ));
 
-        if ($jointCodes === [] && (int) ($data['reasonid'] ?? 0) === 1 && ! empty($data['reason'])) {
+        if ($jointCodes === [] && GradeReportRemarks::hasJoint($data['reasonid'] ?? null, $data['reason'] ?? null) && ! empty($data['reason'])) {
             $jointCodes = $this->gradReport2->parseJointCodesFromReason($data['reason']);
         }
 
         $data['subject_code2'] = $this->gradReport2->resolveSubjectCode2Multi($subjectCode, $jointCodes);
 
-        if ((int) ($data['reasonid'] ?? 0) === 1 && $jointCodes !== []) {
+        if (GradeReportRemarks::hasJoint($data['reasonid'] ?? null, $data['reason'] ?? null) && $jointCodes !== []) {
             try {
                 $this->gradReport2->syncJointGradeSubjects(
                     $subjectCode,
@@ -811,7 +897,7 @@ class GradeReportController extends Controller
             'mean' => $data['mean'] !== null && $data['mean'] !== '' ? (string) $data['mean'] : '',
             'sd' => $data['sd'] !== null && $data['sd'] !== '' ? (string) $data['sd'] : '',
             'reasonid' => $data['reasonid'] ?? null,
-            'reason' => mb_substr((string) ($data['reason'] ?? ''), 0, 500),
+            'reason' => mb_substr((string) ($data['reason'] ?? ''), 0, 2000),
             'statuseva' => (int) ($data['statuseva'] ?? 2),
             'totalnumstdevz' => $data['totalnumstdevz'] ?? null,
             'totalevaluationscore' => $data['totalevaluationscore'] ?? null,
@@ -945,8 +1031,8 @@ class GradeReportController extends Controller
             'type_course' => ['nullable', 'integer', 'in:1,2,3,4,5'],
             'mean' => ['nullable', 'numeric'],
             'sd' => ['nullable', 'numeric'],
-            'reasonid' => ['nullable', 'integer', 'in:1,2,3'],
-            'reason' => ['nullable', 'string', 'max:500'],
+            'reasonid' => ['nullable', 'integer', 'min:1', 'max:15'],
+            'reason' => ['nullable', 'string', 'max:2000'],
             'joint_subject_codes' => ['nullable', 'array'],
             'joint_subject_codes.*' => ['string', 'max:50'],
             'statuseva' => ['nullable', 'integer', 'in:1,2'],
@@ -975,12 +1061,12 @@ class GradeReportController extends Controller
             'year.min' => 'ปีการศึกษาต้องเป็น พ.ศ. (เช่น 2568)',
             'year.max' => 'ปีการศึกษาต้องเป็น พ.ศ. ที่ถูกต้อง',
             'reason.max' => 'ขั้นตอนที่ 2: ข้อความหมายเหตุ/วิชาตัดเกรดร่วมยาวเกินไป — ลดจำนวนวิชาหรือชื่อวิชาให้สั้นลง',
-            'totalevaluationscore.max' => 'ขั้นตอนที่ 4: ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)',
-            'totalevaluationscore.numeric' => 'ขั้นตอนที่ 4: ผลการประเมินรายวิชาโดยนักศึกษาต้องเป็นตัวเลข',
-            'grade_stds.required' => 'ขั้นตอนที่ 5: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section',
-            'grade_stds.min' => 'ขั้นตอนที่ 5: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section',
-            'grade_stds.*.fac.required' => 'ขั้นตอนที่ 5: กรุณาเลือกคณะของนักศึกษาในแต่ละ Section ก่อนบันทึก',
-            'grade_stds.*.fac.max' => 'ขั้นตอนที่ 5: เลือกคณะใน Section เดียวมากเกินไป — แบ่งเป็นหลาย Section หรือลดจำนวนคณะ',
+            'totalevaluationscore.max' => 'ขั้นตอนที่ 5: ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)',
+            'totalevaluationscore.numeric' => 'ขั้นตอนที่ 5: ผลการประเมินรายวิชาโดยนักศึกษาต้องเป็นตัวเลข',
+            'grade_stds.required' => 'ขั้นตอนที่ 4: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section',
+            'grade_stds.min' => 'ขั้นตอนที่ 4: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section',
+            'grade_stds.*.fac.required' => 'ขั้นตอนที่ 4: กรุณาเลือกคณะของนักศึกษาในแต่ละ Section ก่อนบันทึก',
+            'grade_stds.*.fac.max' => 'ขั้นตอนที่ 4: เลือกคณะใน Section เดียวมากเกินไป — แบ่งเป็นหลาย Section หรือลดจำนวนคณะ',
             'grade_stds.*.evaluationscore.max' => 'ขั้นตอนที่ 5: ผลการประเมินรายวิชาโดยนักศึกษาต้องไม่เกิน 5 คะแนน (ไม่ใช่จำนวนนักศึกษาที่เข้าประเมิน)',
             'grade_stds.*.evaluationscore.numeric' => 'ขั้นตอนที่ 5: ผลการประเมินรายวิชาโดยนักศึกษาต้องเป็นตัวเลข',
             'score_a.max' => 'ขั้นตอนที่ 3: ช่วงคะแนนเกรด A ยาวเกินที่ระบบรองรับ',
