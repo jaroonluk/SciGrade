@@ -228,6 +228,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/grade-reports', [GradeReportController::class, 'store']);
     Route::put('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'update']);
     Route::delete('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'destroy']);
+    Route::delete('/api/grade-reports/{gradeReport}/sections/{gradeStd}', [GradeReportController::class, 'destroySection']);
     Route::post('/api/grade-reports/{gradeReport}/files', [GradeReportFileController::class, 'store']);
     Route::post('/api/grade-reports/{gradeReport}/finalize-wizard', [GradeReportFileController::class, 'finalizeWizard']);
     Route::delete('/api/grade-reports/{gradeReport}/files/{file}', [GradeReportFileController::class, 'destroy']);

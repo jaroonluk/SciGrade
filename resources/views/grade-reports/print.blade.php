@@ -9,12 +9,41 @@
     <style>
         @page { size: A4 landscape; margin: 10mm 12mm; }
         * { box-sizing: border-box; }
+        html { background: #d6d6d6; }
         body {
             font-family: 'Noto Sans Thai', sans-serif;
             font-size: 11px;
             margin: 0;
-            padding: 12px 16px 28px;
+            padding: 16px 12px 28px;
             color: #111;
+            overflow-x: auto;
+        }
+        .no-print {
+            width: 297mm;
+            max-width: 100%;
+            margin: 0 auto 12px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .no-print button, .no-print a {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            border-radius: 6px;
+            text-decoration: none;
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+        .no-print .primary { background: #8B4513; color: #fff; border-color: #8B4513; }
+        .sheet {
+            width: 297mm;
+            min-height: 210mm;
+            margin: 0 auto;
+            padding: 10mm 12mm 16mm;
+            background: #fff;
+            box-shadow: 0 2px 16px rgba(0,0,0,.18);
         }
         h1 { text-align: center; font-size: 18px; margin: 0 0 6px; }
         .subtitle { text-align: center; font-size: 13px; margin: 4px 0; }
@@ -50,18 +79,6 @@
             vertical-align: middle;
             line-height: 1.35;
         }
-        .no-print { margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-        .no-print button, .no-print a {
-            padding: 8px 16px;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 14px;
-            border-radius: 6px;
-            text-decoration: none;
-            border: 1px solid #ccc;
-            background: #fff;
-        }
-        .no-print .primary { background: #8B4513; color: #fff; border-color: #8B4513; }
         .sign-area {
             margin-top: 56px;
             padding-top: 8px;
@@ -83,8 +100,19 @@
             color: #444;
         }
         @media print {
+            html, body {
+                background: #fff;
+                width: 297mm;
+                padding: 0;
+            }
             .no-print { display: none !important; }
-            body { padding: 0 0 20px; }
+            .sheet {
+                width: auto;
+                min-height: auto;
+                margin: 0;
+                padding: 0 0 20px;
+                box-shadow: none;
+            }
             table.report th.th-order {
                 white-space: nowrap;
                 font-size: 10px;
@@ -110,7 +138,10 @@
         <button type="button" class="primary" onclick="window.print()">พิมพ์ / บันทึกเป็น PDF</button>
         <a href="{{ route('dashboard') }}">กลับหน้าหลัก</a>
         <button type="button" onclick="window.close()">ปิดหน้าต่าง</button>
+        <span style="align-self:center;font-size:13px;color:#5C2E1F">แสดงแบบแนวนอน (A4) — ตอนพิมพ์เลือก Landscape</span>
     </div>
+
+    <div class="sheet">
 
     @php
         $stds = isset($printStds) ? $printStds : $gradeReport->gradeStds->sortBy(fn ($r) => (int) $r->sec)->values();
@@ -266,5 +297,6 @@
     </div>
 
     <div class="print-footer">พิมพ์เมื่อ {{ $printedAt }}</div>
+    </div>
 </body>
 </html>

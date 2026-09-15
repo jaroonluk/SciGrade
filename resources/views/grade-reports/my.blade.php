@@ -129,12 +129,56 @@
                             $awaitingDept = $report->awaitingDeptResubmit();
                             $canEdit = $report->canEdit();
                             $canPrint = $report->canPrint();
+                            $ownsReport = $report->instructorOwns($staffUsername ?? null);
                             $enteredAt = $report->created_stamp ?: $report->created;
                         @endphp
                         <tr>
                             <td>
                                 <p class="font-semibold text-[#5C2E1F]">{{ $report->subject_code }}</p>
                                 <p class="text-gray-600 mt-0.5">{{ $report->subject }}</p>
+                                @php
+                                    $sectionRows = $report->gradeStds->sortBy(fn ($row) => (int) $row->sec)->values();
+                                @endphp
+                                @if ($sectionRows->isEmpty())
+                                    <p class="mt-2 text-xs text-red-700">ยังไม่ได้กรอกจำนวนนักศึกษา</p>
+                                    @if ($canEdit)
+                                        <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
+                                           class="inline-flex mt-1 text-xs font-semibold text-[#8B4513] hover:underline">
+                                            ไปกรอกจำนวนนักศึกษา
+                                        </a>
+                                    @endif
+                                @else
+                                    <ul class="mt-2 space-y-1.5">
+                                        @foreach ($sectionRows as $std)
+                                            @php
+                                                $canManageSection = $canEdit && ($ownsReport || $std->filledBy($staffUsername ?? null, $report));
+                                                $missingCounts = $std->isMissingStudentCounts();
+                                            @endphp
+                                            <li class="text-xs leading-relaxed {{ $missingCounts ? 'text-red-800' : 'text-[#5C2E1F]' }}">
+                                                <span class="font-semibold">กลุ่ม {{ $std->sec }}</span>
+                                                @if (trim((string) $std->fac) !== '')
+                                                    <span class="text-gray-600">· {{ strtoupper($std->fac) }}</span>
+                                                @endif
+                                                <span>· {{ $missingCounts ? 'ยังไม่มีจำนวนนักศึกษา' : ((int) $std->total_std).' คน' }}</span>
+                                                @if ($canManageSection)
+                                                    <span class="inline-flex gap-2 ml-1 whitespace-nowrap">
+                                                        <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
+                                                           class="font-semibold text-[#8B4513] hover:underline">แก้ไข</a>
+                                                        <button type="button"
+                                                            class="font-semibold text-red-700 hover:underline btn-delete-section"
+                                                            data-id="{{ $report->grade_id }}"
+                                                            data-std="{{ $std->grade_std_id }}"
+                                                            data-subject="{{ $report->subject_code }}"
+                                                            data-section="{{ $std->sec }}">ลบ</button>
+                                                    </span>
+                                                @endif
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                                @if (! $ownsReport && $canEdit)
+                                    <p class="mt-1 text-[11px] text-[#7A4A3A]/80">รายงานวิชาร่วม — แก้/ลบได้เฉพาะกลุ่มที่ท่านกรอก</p>
+                                @endif
                             </td>
                             <td class="whitespace-nowrap text-[#5C2E1F]">
                                 {{ \App\Support\ThaiDateTime::formatDate($enteredAt) }}
@@ -319,16 +363,18 @@
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </span>
                                         @endif
-                                        <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my']) }}"
+                                        <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
                                            class="action-btn border border-amber-300 text-[#5C2E1F] hover:bg-amber-50">
                                             <i data-lucide="pencil" class="w-3.5 h-3.5"></i> แก้ไข
                                         </a>
+                                        @if ($ownsReport)
                                         <button type="button" class="action-btn bg-red-600 text-white hover:bg-red-700 btn-delete-report"
                                             data-id="{{ $report->grade_id }}"
                                             data-subject="{{ $report->subject_code }}">
-                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ลบ
+                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ลบรายงาน
                                         </button>
-                                        @if ($canSubmitCorrections)
+                                        @endif
+                                        @if ($canSubmitCorrections && $ownsReport)
                                             <form method="POST" action="{{ route('grade-reports.submit-corrections', $report) }}" class="inline">
                                                 @csrf
                                                 <button type="submit" class="action-btn bg-[#8B4513] text-white hover:bg-[#6B3410]"
@@ -363,6 +409,7 @@
         </div>
         <p class="text-xs text-red-700 mt-3 leading-relaxed">
             ** เมื่อสร้างแบบรายงานแล้ว ต้องกรอกจำนวนนักศึกษาก่อนจึงจะพิมพ์แบบฟอร์มได้<br>
+            ** ถ้าเผลอบันทึกกลุ่มโดยยังไม่มีจำนวนนักศึกษา ให้กด «แก้ไข» หรือ «ลบ» ที่กลุ่มนั้น<br>
             ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด — กด «แก้ไข» เพื่ออัปโหลดหรือเปลี่ยนไฟล์ PDF
         </p>
     @endif
@@ -398,6 +445,32 @@
             } else {
                 const data = await res.json().catch(() => ({}));
                 alert(data.message || 'ลบไม่สำเร็จ');
+            }
+        });
+    });
+
+    document.querySelectorAll('.btn-delete-section').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const stdId = btn.dataset.std;
+            const subject = btn.dataset.subject;
+            const section = btn.dataset.section;
+            if (!confirm(`ต้องการลบกลุ่ม ${section} ของวิชา ${subject} หรือไม่?`)) return;
+
+            const res = await fetch(`/api/grade-reports/${id}/sections/${stdId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || 'ลบกลุ่มไม่สำเร็จ');
             }
         });
     });

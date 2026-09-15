@@ -3178,6 +3178,11 @@ function persistWizardState(config, step) {
 
 function restoreWizardState(config) {
     try {
+        const urlStep = Number(new URLSearchParams(window.location.search).get('wizard_step') || 0);
+        if (urlStep >= 1 && urlStep <= 8) {
+            return urlStep;
+        }
+
         const saved = JSON.parse(sessionStorage.getItem(wizardStorageKey(config)) || 'null');
         if (!saved || typeof saved !== 'object') return 1;
 

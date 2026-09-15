@@ -161,7 +161,7 @@ class GradeReportPageController extends Controller
     public function edit(Request $request, GradeReport $gradeReport, GradeReportController $gradeReports): View
     {
         $username = $this->resolveStaffUsername();
-        abort_unless($username && $gradeReport->username === $username, 403);
+        abort_unless($username && $gradeReport->instructorCanManage($username), 403);
         abort_if(ThesisCourse::isThesisSubject((string) $gradeReport->subject_code, (string) $gradeReport->subject), 404);
         abort_unless($gradeReport->canEdit(), 403, 'ไม่สามารถแก้ไขรายการนี้ได้');
 
@@ -206,7 +206,7 @@ class GradeReportPageController extends Controller
             $gradeReport->grade_id,
             $this->buildReturnContext($request, $gradeReport),
             null,
-            $gradeReports->formPayload($gradeReport),
+            $gradeReports->formPayload($gradeReport, $username),
             $hasRegistrarFile,
             $hasExamReportFile,
             $registrarFileDetails,
@@ -475,7 +475,7 @@ class GradeReportPageController extends Controller
             $reports = GradeReport::query()
                 ->examReportable()
                 ->with(['gradeStds', 'files', 'approvalLogs.approver'])
-                ->where('username', $username)
+                ->filledByInstructor($username)
                 ->where('term', (string) $term)
                 ->where('year', (string) $year)
                 ->orderByDesc('created_stamp')
@@ -488,6 +488,7 @@ class GradeReportPageController extends Controller
             'term' => $term,
             'year' => $year,
             'years' => AcademicTerm::yearOptions(),
+            'staffUsername' => $username,
         ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 
 class GradeStd extends Model
 {
@@ -39,6 +40,7 @@ class GradeStd extends Model
         'evaluationscore',
         'numstdevz',
         'type_course',
+        'username',
     ];
 
     protected function casts(): array
@@ -65,5 +67,41 @@ class GradeStd extends Model
     public function gradeReport(): BelongsTo
     {
         return $this->belongsTo(GradeReport::class, 'grade_id', 'grade_id');
+    }
+
+    public static function hasUsernameColumn(): bool
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        try {
+            $cached = Schema::connection('scigrad')->hasColumn('grade_std', 'username');
+        } catch (\Throwable) {
+            $cached = false;
+        }
+
+        return $cached;
+    }
+
+    public function isMissingStudentCounts(): bool
+    {
+        return (int) $this->total_std <= 0;
+    }
+
+    public function filledBy(?string $username, GradeReport $report): bool
+    {
+        $staff = trim((string) $username);
+        if ($staff === '') {
+            return false;
+        }
+
+        $rowUser = trim((string) ($this->getAttributes()['username'] ?? $this->username ?? ''));
+        if ($rowUser !== '') {
+            return $rowUser === $staff;
+        }
+
+        return trim((string) $report->username) === $staff;
     }
 }

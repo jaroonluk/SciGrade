@@ -44,7 +44,7 @@ class GradeReportController extends Controller
             ->orderByDesc('grade_id');
 
         if ($request->input('role', 'instructor') === 'instructor') {
-            $query->where('username', $this->staffUsername());
+            $query->filledByInstructor($this->staffUsername());
         }
 
         return response()->json($query->get()->map(fn (GradeReport $r) => $this->formatReport($r)));
@@ -55,7 +55,7 @@ class GradeReportController extends Controller
         abort_if(ThesisCourse::isThesisSubject((string) $gradeReport->subject_code, (string) $gradeReport->subject), 404);
 
         if ($request->input('role', 'instructor') === 'instructor') {
-            abort_unless($this->ownsReport($gradeReport), 403);
+            abort_unless($gradeReport->instructorCanManage($this->staffUsername()), 403);
         }
 
         return response()->json($this->formatReport($gradeReport->load('gradeStds')));
@@ -154,9 +154,25 @@ class GradeReportController extends Controller
     /**
      * @return array<string, mixed>
      */
-    public function formPayload(GradeReport $gradeReport): array
+    public function formPayload(GradeReport $gradeReport, ?string $forUsername = null): array
     {
-        return $this->formatReport($gradeReport->loadMissing('gradeStds'));
+        $payload = $this->formatReport($gradeReport->loadMissing('gradeStds'));
+        $staff = trim((string) $forUsername);
+        if ($staff === '' || $gradeReport->instructorOwns($staff)) {
+            return $payload;
+        }
+
+        $payload['grade_stds'] = array_values(array_filter(
+            $payload['grade_stds'] ?? [],
+            function ($row) use ($gradeReport, $staff) {
+                $id = (int) ($row['id'] ?? $row['grade_std_id'] ?? 0);
+                $std = $gradeReport->gradeStds->firstWhere('grade_std_id', $id);
+
+                return $std instanceof GradeStd && $std->filledBy($staff, $gradeReport);
+            },
+        ));
+
+        return $payload;
     }
 
     public function store(Request $request): JsonResponse
@@ -225,6 +241,10 @@ class GradeReportController extends Controller
                 $data = $this->validateReport($request, updating: true);
                 unset($data['append_sections']);
                 $this->assertExamReportable($data, $gradeReport);
+
+                if (! $this->ownsReport($gradeReport) && ! $request->boolean('append_sections')) {
+                    return $this->syncContributorSections($request, $gradeReport, $data);
+                }
 
                 return $this->appendSectionsToReport($request, $gradeReport, $data);
             }
@@ -319,6 +339,44 @@ class GradeReportController extends Controller
             'cleared_subject' => $subjectCode,
             'cleared_term' => $term,
             'cleared_year' => $year,
+        ]);
+    }
+
+    public function destroySection(Request $request, GradeReport $gradeReport, GradeStd $gradeStd): JsonResponse
+    {
+        abort_unless((int) $gradeStd->grade_id === (int) $gradeReport->grade_id, 404);
+        abort_unless($gradeReport->canEdit(), 403, 'ไม่สามารถแก้ไขรายการนี้ได้');
+
+        $username = $this->staffUsername();
+        abort_unless(
+            $this->ownsReport($gradeReport) || $gradeStd->filledBy($username, $gradeReport),
+            403,
+            'ไม่มีสิทธิ์ลบ Section นี้'
+        );
+
+        $sec = (int) $gradeStd->sec;
+        $stdId = (int) $gradeStd->grade_std_id;
+
+        DB::connection('scigrad')->transaction(function () use ($gradeReport, $gradeStd, $sec) {
+            $gradeStd->delete();
+            $this->pendingRegistrar->deleteInstructorRegistrarForSection($gradeReport, $sec);
+        });
+
+        $this->auditLog->record(
+            'grade_report.delete_section',
+            subjectType: 'grade_std',
+            subjectId: $stdId,
+            metadata: [
+                'grade_id' => $gradeReport->grade_id,
+                'subject_code' => $gradeReport->subject_code,
+                'sec' => $sec,
+            ],
+        );
+
+        return response()->json([
+            'ok' => true,
+            'grade_id' => $gradeReport->grade_id,
+            'deleted_section' => $sec,
         ]);
     }
 
@@ -596,6 +654,83 @@ class GradeReportController extends Controller
         return response()->json($this->formatReport($report->fresh('gradeStds')));
     }
 
+    /**
+     * อาจารย์ที่กรอกเพิ่มในรายงานวิชาร่วม — อัปเดต/ลบได้เฉพาะ Section ของตนเอง
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function syncContributorSections(Request $request, GradeReport $report, array $data): JsonResponse
+    {
+        if ((int) $report->approv > 0) {
+            return response()->json(['message' => 'ไม่สามารถแก้ไขรายการที่อนุมัติแล้ว'], 422);
+        }
+        if ($report->awaitingDeptResubmit()) {
+            return response()->json(['message' => 'รายการส่งการแก้ไขแล้ว รอสาขาวิชาดำเนินการ'], 422);
+        }
+
+        $stds = $data['grade_stds'] ?? [];
+        $username = $this->staffUsername();
+        $report->loadMissing('gradeStds');
+
+        DB::connection('scigrad')->transaction(function () use ($report, $stds, $username) {
+            $ownIds = $report->gradeStds
+                ->filter(fn (GradeStd $row) => $row->filledBy($username, $report))
+                ->pluck('grade_std_id')
+                ->all();
+            $existingSecs = $report->gradeStds
+                ->map(fn (GradeStd $row) => (int) $row->sec)
+                ->all();
+            $keptIds = [];
+
+            foreach ($stds as $std) {
+                $stdData = $this->normalizeStdData($std);
+                $stdData['total_std'] = (string) $this->calcTotalStd($stdData);
+                $sec = (int) ($stdData['sec'] ?? 0);
+
+                if (! empty($std['id'])) {
+                    $model = $report->gradeStds()->where('grade_std_id', $std['id'])->first();
+                    if ($model && $model->filledBy($username, $report)) {
+                        $model->update($stdData);
+                        $keptIds[] = $model->grade_std_id;
+                    }
+
+                    continue;
+                }
+
+                if ($sec > 0 && in_array($sec, $existingSecs, true)) {
+                    continue;
+                }
+
+                $created = $report->gradeStds()->create($this->stampNewStdUsername($stdData));
+                $keptIds[] = $created->grade_std_id;
+                $existingSecs[] = (int) $created->sec;
+            }
+
+            $toDelete = array_values(array_diff($ownIds, $keptIds));
+            if ($toDelete !== []) {
+                $removed = $report->gradeStds()->whereIn('grade_std_id', $toDelete)->get();
+                foreach ($removed as $row) {
+                    $sec = (int) $row->sec;
+                    $row->delete();
+                    $this->pendingRegistrar->deleteInstructorRegistrarForSection($report, $sec);
+                }
+            }
+        });
+
+        $this->auditLog->record(
+            'grade_report.contributor_sync_sections',
+            subjectType: 'grade_report',
+            subjectId: $report->grade_id,
+            metadata: [
+                'subject_code' => $report->subject_code,
+                'term' => $report->term,
+                'year' => $report->year,
+            ],
+        );
+
+        return response()->json($this->formatReport($report->fresh('gradeStds')));
+    }
+
     private function mergeNewGradeStds(GradeReport $report, array $stds): void
     {
         $existingSecs = $report->gradeStds()
@@ -611,6 +746,7 @@ class GradeReportController extends Controller
 
             $stdData = $this->normalizeStdData($std);
             $stdData['total_std'] = (string) $this->calcTotalStd($stdData);
+            $stdData = $this->stampNewStdUsername($stdData);
             $created = $report->gradeStds()->create($stdData);
             $existingSecs[] = (int) $created->sec;
         }
@@ -913,7 +1049,7 @@ class GradeReportController extends Controller
                 }
             }
 
-            $created = $report->gradeStds()->create($stdData);
+            $created = $report->gradeStds()->create($this->stampNewStdUsername($stdData));
             $keptIds[] = $created->grade_std_id;
         }
 
@@ -962,6 +1098,19 @@ class GradeReportController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $stdData
+     * @return array<string, mixed>
+     */
+    private function stampNewStdUsername(array $stdData): array
+    {
+        if (GradeStd::hasUsernameColumn()) {
+            $stdData['username'] = $this->staffUsername();
+        }
+
+        return $stdData;
     }
 
     private function calcTotalStd(array $std): int

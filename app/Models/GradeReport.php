@@ -83,6 +83,51 @@ class GradeReport extends Model
         return ThesisCourse::constrainExamReportable($query, $query->getModel()->qualifyColumn('subject'));
     }
 
+    /**
+     * รายงานที่อาจารย์กรอกเอง — ทั้งที่เป็นเจ้าของ และที่เพิ่ม Section / แนบไฟล์ในวิชาร่วม
+     */
+    public function scopeFilledByInstructor(Builder $query, string $username): Builder
+    {
+        $username = trim($username);
+
+        return $query->where(function (Builder $inner) use ($username) {
+            $inner->where('username', $username)
+                ->orWhereHas('files', fn ($files) => $files->where('username', $username));
+
+            if (GradeStd::hasUsernameColumn()) {
+                $inner->orWhereHas('gradeStds', fn ($stds) => $stds->where('username', $username));
+            }
+        });
+    }
+
+    public function instructorOwns(?string $username): bool
+    {
+        return trim((string) $username) !== ''
+            && trim((string) $this->username) === trim((string) $username);
+    }
+
+    public function instructorCanManage(?string $username): bool
+    {
+        if ($this->instructorOwns($username)) {
+            return true;
+        }
+
+        $staff = trim((string) $username);
+        if ($staff === '' || ! $this->canEdit()) {
+            return false;
+        }
+
+        $this->loadMissing(['files', 'gradeStds']);
+
+        if ($this->files->contains(fn ($file) => trim((string) $file->username) === $staff)) {
+            return true;
+        }
+
+        return $this->gradeStds->contains(
+            fn (GradeStd $row) => $row->filledBy($staff, $this)
+        );
+    }
+
     public function gradeStds(): HasMany
     {
         return $this->hasMany(GradeStd::class, 'grade_id', 'grade_id');
