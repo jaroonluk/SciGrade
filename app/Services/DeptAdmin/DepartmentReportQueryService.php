@@ -2,6 +2,7 @@
 
 namespace App\Services\DeptAdmin;
 
+use App\Models\DepartmentSubjectPattern;
 use App\Models\GradeReport;
 use App\Support\ThaiDateTime;
 use Illuminate\Database\Eloquent\Builder;
@@ -41,7 +42,11 @@ class DepartmentReportQueryService
             ->with(['gradeStds', 'files', 'latestDeptApprovalLog.approver', 'approvalLogs'])
             ->whereHas('gradeStds');
 
-        $this->subjectFilter->applyDepartmentsToQuery($query, $departmentIds);
+        $this->subjectFilter->applyDepartmentsToQuery(
+            $query,
+            $departmentIds,
+            DepartmentSubjectPattern::fromReportFilter($filters['education_level'] ?? null),
+        );
 
         if (! empty($filters['term'])) {
             $query->where('term', (string) $filters['term']);
@@ -104,7 +109,11 @@ class DepartmentReportQueryService
         }
 
         $query = GradeReport::query()->examReportable()->whereHas('gradeStds');
-        $this->subjectFilter->applyDepartmentsToQuery($query, $departmentIds);
+        $this->subjectFilter->applyDepartmentsToQuery(
+            $query,
+            $departmentIds,
+            DepartmentSubjectPattern::fromReportFilter($filters['education_level'] ?? null),
+        );
 
         if (! empty($filters['term'])) {
             $query->where('term', (string) $filters['term']);

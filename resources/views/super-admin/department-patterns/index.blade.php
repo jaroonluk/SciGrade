@@ -68,13 +68,16 @@
 @section('content')
 @php
     $focusId = (int) (session('focus_department_id') ?: ($focusDepartmentId ?? 0));
+    $educationLevel = \App\Models\DepartmentSubjectPattern::normalizeEducationLevel($educationLevel ?? null);
+    $educationLabel = \App\Models\DepartmentSubjectPattern::label($educationLevel);
 @endphp
 <div class="max-w-6xl mx-auto space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการรหัสสาขาที่ใช้กรอง</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                กำหนดเงื่อนไขรหัสวิชาของแต่ละสาขา ที่ใช้กรองหน้ารายงาน / REG / ตรวจสอบสถานะ
+                กำหนดเงื่อนไขรหัสวิชาของแต่ละสาขา แยกตามระดับการศึกษา (ปริญญาตรี / บัณฑิตศึกษา)
+                ที่ใช้กรองหน้ารายงาน / REG / ตรวจสอบสถานะ
                 — รองรับรูปแบบเช่น <code class="text-[#8B4513]">319%</code>, <code class="text-[#8B4513]">%SC9%</code>, หรือรหัสตรงทั้งหมด
             </p>
         </div>
@@ -93,13 +96,20 @@
 
     <div class="form-section rounded-xl p-4">
         <form method="GET" action="{{ route('faculty-admin.department-patterns.index') }}" class="flex flex-wrap items-end gap-3">
+            <div>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับการศึกษา</label>
+                <select name="education_level" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[12rem]">
+                    <option value="bachelor" @selected($educationLevel === 'bachelor')>ปริญญาตรี</option>
+                    <option value="graduate" @selected($educationLevel === 'graduate')>บัณฑิตศึกษา</option>
+                </select>
+            </div>
             <div class="flex-1 min-w-[16rem]">
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ค้นหา</label>
                 <input type="text" name="q" value="{{ $q }}" placeholder="ชื่อสาขา / รหัสเงื่อนไข เช่น SC9"
                     class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
             </div>
-            <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">ค้นหา</button>
-            @if ($q !== '')
+            <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">แสดง</button>
+            @if ($q !== '' || $educationLevel !== 'bachelor')
                 <a href="{{ route('faculty-admin.department-patterns.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
             @endif
         </form>
@@ -124,16 +134,20 @@
                             {{ $dept->department_name }}
                         </h3>
                         <p class="text-xs text-[#7A4A3A]/75 mt-0.5">
-                            ID {{ $dept->department_id }} · {{ $dept->patterns->count() }} เงื่อนไข
+                            ID {{ $dept->department_id }} · กำลังแก้ <strong>{{ $educationLabel }}</strong>
+                            ({{ $dept->patterns->count() }} เงื่อนไข)
+                            · ปริญญาตรี {{ $dept->bachelor_count ?? $dept->patterns->count() }}
+                            · บัณฑิตศึกษา {{ $dept->graduate_count ?? 0 }}
                         </p>
                     </div>
                     <form method="POST" action="{{ route('faculty-admin.department-patterns.restore') }}"
-                          onsubmit="return confirm('กู้คืนค่าเริ่มต้นของสาขา {{ $dept->department_name }}?\nเงื่อนไขปัจจุบันจะถูกแทนที่ทั้งหมด')">
+                          onsubmit="return confirm('กู้คืนค่าเริ่มต้นระดับ{{ $educationLabel }} ของสาขา {{ $dept->department_name }}?\nเงื่อนไขระดับนี้จะถูกแทนที่ (อีกระดับไม่ถูกเปลี่ยน)')">
                         @csrf
                         <input type="hidden" name="department_id" value="{{ $dept->department_id }}">
                         <input type="hidden" name="q" value="{{ $q }}">
+                        <input type="hidden" name="education_level" value="{{ $educationLevel }}">
                         <button type="submit" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs text-[#5C2E1F] hover:bg-amber-50">
-                            กู้คืนค่าเริ่มต้น
+                            กู้คืนค่าเริ่มต้น ({{ $educationLabel }})
                         </button>
                     </form>
                 </div>
@@ -146,7 +160,7 @@
                                 <span>{{ $item['label'] }}</span>
                             </div>
                         @empty
-                            <p class="text-sm text-amber-800">ยังไม่มีเงื่อนไข — สาขานี้จะไม่พบรายวิชาเมื่อกรองตามสาขา</p>
+                            <p class="text-sm text-amber-800">ยังไม่มีเงื่อนไขระดับ{{ $educationLabel }} — สาขานี้จะไม่พบรายวิชาเมื่อกรองตามสาขาในระดับนี้</p>
                         @endforelse
                     </div>
                 </div>
@@ -166,6 +180,7 @@
                                         @csrf
                                         @method('DELETE')
                                         <input type="hidden" name="q" value="{{ $q }}">
+                                        <input type="hidden" name="education_level" value="{{ $educationLevel }}">
                                         <button type="submit" class="px-2.5 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">ลบ</button>
                                     </form>
                                 </div>
@@ -174,6 +189,7 @@
                                 @csrf
                                 @method('PUT')
                                 <input type="hidden" name="q" value="{{ $q }}">
+                                <input type="hidden" name="education_level" value="{{ $educationLevel }}">
                                 <input type="text" name="pattern" value="{{ $row->pattern }}" required maxlength="100"
                                     class="flex-1 min-w-[12rem] border border-amber-300 rounded-lg px-3 py-1.5 text-sm bg-white uppercase font-mono">
                                 <button type="submit" class="px-3 py-1.5 bg-[#8B4513] text-white rounded text-xs hover:bg-[#6B3410]">บันทึก</button>
@@ -188,8 +204,9 @@
                         @csrf
                         <input type="hidden" name="department_id" value="{{ $dept->department_id }}">
                         <input type="hidden" name="q" value="{{ $q }}">
+                        <input type="hidden" name="education_level" value="{{ $educationLevel }}">
                         <div class="flex-1 min-w-[14rem]">
-                            <label class="block text-xs font-medium text-[#5C2E1F] mb-1">เพิ่มเงื่อนไขใหม่</label>
+                            <label class="block text-xs font-medium text-[#5C2E1F] mb-1">เพิ่มเงื่อนไขใหม่ ({{ $educationLabel }})</label>
                             <input type="text" name="pattern" required maxlength="100" placeholder="เช่น 319% หรือ %SC9% หรือ SC904491"
                                 class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white uppercase font-mono"
                                 value="{{ (int) old('department_id') === (int) $dept->department_id ? old('pattern') : '' }}">

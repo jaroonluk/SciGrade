@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 
 class DepartmentSubjectFilter
 {
-    /** @var array<int, list<string>> */
+    /** @var array<string, list<string>> */
     private array $runtimeCache = [];
 
     /**
@@ -45,9 +45,9 @@ class DepartmentSubjectFilter
     /**
      * @return list<callable(Builder): void>
      */
-    public function subjectMatchers(int $departmentId): array
+    public function subjectMatchers(int $departmentId, ?string $educationLevel = null): array
     {
-        $patterns = $this->patternsFor($departmentId);
+        $patterns = $this->patternsFor($departmentId, $educationLevel);
 
         if ($patterns === []) {
             return [];
@@ -65,9 +65,9 @@ class DepartmentSubjectFilter
         ];
     }
 
-    public function applyToQuery(Builder $query, int $departmentId): Builder
+    public function applyToQuery(Builder $query, int $departmentId, ?string $educationLevel = null): Builder
     {
-        foreach ($this->subjectMatchers($departmentId) as $matcher) {
+        foreach ($this->subjectMatchers($departmentId, $educationLevel) as $matcher) {
             $matcher($query);
         }
 
@@ -77,9 +77,9 @@ class DepartmentSubjectFilter
     /**
      * กรองคอลัมน์รหัสวิชาในตารางอื่น (เช่น grade_report_reg.COURSECODE)
      */
-    public function applyCourseCodeToQuery(Builder $query, int $departmentId, string $column = 'COURSECODE'): Builder
+    public function applyCourseCodeToQuery(Builder $query, int $departmentId, string $column = 'COURSECODE', ?string $educationLevel = null): Builder
     {
-        $patterns = $this->patternsFor($departmentId);
+        $patterns = $this->patternsFor($departmentId, $educationLevel);
         if ($patterns === []) {
             return $query->whereRaw('1 = 0');
         }
@@ -96,16 +96,16 @@ class DepartmentSubjectFilter
     /**
      * @param  list<int>  $departmentIds
      */
-    public function applyCourseCodeDepartmentsToQuery(Builder $query, array $departmentIds, string $column = 'COURSECODE'): Builder
+    public function applyCourseCodeDepartmentsToQuery(Builder $query, array $departmentIds, string $column = 'COURSECODE', ?string $educationLevel = null): Builder
     {
         if ($departmentIds === []) {
             return $query;
         }
 
-        return $query->where(function (Builder $outer) use ($departmentIds, $column): void {
+        return $query->where(function (Builder $outer) use ($departmentIds, $column, $educationLevel): void {
             foreach ($departmentIds as $departmentId) {
-                $outer->orWhere(function (Builder $inner) use ($departmentId, $column): void {
-                    $this->applyCourseCodeToQuery($inner, $departmentId, $column);
+                $outer->orWhere(function (Builder $inner) use ($departmentId, $column, $educationLevel): void {
+                    $this->applyCourseCodeToQuery($inner, $departmentId, $column, $educationLevel);
                 });
             }
         });
@@ -114,15 +114,15 @@ class DepartmentSubjectFilter
     /**
      * @return list<string>
      */
-    public function patternsForDepartment(int $departmentId): array
+    public function patternsForDepartment(int $departmentId, ?string $educationLevel = null): array
     {
-        return $this->patternsFor($departmentId);
+        return $this->patternsFor($departmentId, $educationLevel);
     }
 
     /**
      * @return list<array{pattern: string, label: string, kind: string}>
      */
-    public function patternDetailsForDepartment(int $departmentId): array
+    public function patternDetailsForDepartment(int $departmentId, ?string $educationLevel = null): array
     {
         return array_map(function (string $pattern): array {
             return [
@@ -130,17 +130,17 @@ class DepartmentSubjectFilter
                 'label' => $this->describePattern($pattern),
                 'kind' => $this->patternKind($pattern),
             ];
-        }, $this->patternsFor($departmentId));
+        }, $this->patternsFor($departmentId, $educationLevel));
     }
 
-    public function courseMatchesDepartment(string $courseCode, int $departmentId): bool
+    public function courseMatchesDepartment(string $courseCode, int $departmentId, ?string $educationLevel = null): bool
     {
         $code = strtoupper(trim($courseCode));
         if ($code === '') {
             return false;
         }
 
-        foreach ($this->patternsFor($departmentId) as $pattern) {
+        foreach ($this->patternsFor($departmentId, $educationLevel) as $pattern) {
             $regex = '/^'.str_replace('%', '.*', preg_quote($pattern, '/')).'$/i';
             if (preg_match($regex, $code)) {
                 return true;
@@ -248,14 +248,19 @@ class DepartmentSubjectFilter
     /**
      * @return list<string>
      */
-    private function patternsFor(int $departmentId): array
+    private function patternsFor(int $departmentId, ?string $educationLevel = null): array
     {
-        if (isset($this->runtimeCache[$departmentId])) {
-            return $this->runtimeCache[$departmentId];
+        $level = $educationLevel !== null
+            ? DepartmentSubjectPattern::normalizeEducationLevel($educationLevel)
+            : null;
+        $cacheKey = $departmentId.'|'.($level ?? '*');
+
+        if (isset($this->runtimeCache[$cacheKey])) {
+            return $this->runtimeCache[$cacheKey];
         }
 
-        $patterns = $this->loadPatterns($departmentId);
-        $this->runtimeCache[$departmentId] = $patterns;
+        $patterns = $this->loadPatterns($departmentId, $level);
+        $this->runtimeCache[$cacheKey] = $patterns;
 
         return $patterns;
     }
@@ -263,14 +268,20 @@ class DepartmentSubjectFilter
     /**
      * @return list<string>
      */
-    private function loadPatterns(int $departmentId): array
+    private function loadPatterns(int $departmentId, ?string $educationLevel = null): array
     {
         try {
             if (Schema::connection('scigrad')->hasTable('department_subject_pattern')) {
-                $fromDb = DepartmentSubjectPattern::query()
+                $query = DepartmentSubjectPattern::query()
                     ->where('department_id', $departmentId)
                     ->orderBy('sort_order')
-                    ->orderBy('id')
+                    ->orderBy('id');
+
+                if ($educationLevel && DepartmentSubjectPattern::hasEducationLevelColumn()) {
+                    $query->where('education_level', $educationLevel);
+                }
+
+                $fromDb = $query
                     ->pluck('pattern')
                     ->map(fn ($pattern) => (string) $pattern)
                     ->values()
@@ -292,16 +303,16 @@ class DepartmentSubjectFilter
     /**
      * @param  list<int>  $departmentIds
      */
-    public function applyDepartmentsToQuery(Builder $query, array $departmentIds): Builder
+    public function applyDepartmentsToQuery(Builder $query, array $departmentIds, ?string $educationLevel = null): Builder
     {
         if ($departmentIds === []) {
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->where(function (Builder $outer) use ($departmentIds): void {
+        return $query->where(function (Builder $outer) use ($departmentIds, $educationLevel): void {
             foreach ($departmentIds as $departmentId) {
-                $outer->orWhere(function (Builder $inner) use ($departmentId): void {
-                    $this->applyToQuery($inner, $departmentId);
+                $outer->orWhere(function (Builder $inner) use ($departmentId, $educationLevel): void {
+                    $this->applyToQuery($inner, $departmentId, $educationLevel);
                 });
             }
         });

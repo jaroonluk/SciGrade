@@ -2,6 +2,7 @@
 
 namespace App\Services\ThesisGrade;
 
+use App\Models\DepartmentSubjectPattern;
 use App\Models\ThesisGrade;
 use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,7 +32,11 @@ class ThesisGradeQueryService
                 : [];
         }
 
-        $this->subjectFilter->applyDepartmentsToQuery($query, $scopedIds);
+        $this->subjectFilter->applyDepartmentsToQuery(
+            $query,
+            $scopedIds,
+            DepartmentSubjectPattern::EDUCATION_GRADUATE,
+        );
 
         if (! empty($filters['term'])) {
             $query->where('term', (int) $filters['term']);
@@ -75,7 +80,7 @@ class ThesisGradeQueryService
             ->orderByDesc('thesis_grade_id');
 
         if (! empty($filters['department_id'])) {
-            $this->subjectFilter->applyToQuery($query, (int) $filters['department_id']);
+            $this->subjectFilter->applyToQuery($query, (int) $filters['department_id'], DepartmentSubjectPattern::EDUCATION_GRADUATE);
         }
 
         if (! empty($filters['term'])) {
