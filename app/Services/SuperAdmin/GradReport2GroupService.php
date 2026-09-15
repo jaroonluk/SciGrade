@@ -19,7 +19,7 @@ class GradReport2GroupService
     /**
      * @return LengthAwarePaginator<int, object>
      */
-    public function paginateGroups(?string $q = null, int $perPage = 15): LengthAwarePaginator
+    public function paginateGroups(?string $q = null, int $perPage = 50): LengthAwarePaginator
     {
         $q = trim((string) $q);
         $codeSql = GradReport2::normalizedCodeSql('subject_code2');

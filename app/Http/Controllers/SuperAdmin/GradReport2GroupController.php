@@ -24,7 +24,7 @@ class GradReport2GroupController extends Controller
         $focus = strtoupper(trim((string) $request->input('group', '')));
 
         return view('faculty-admin.grad-report2-groups.index', [
-            'groups' => $this->service->paginateGroups($q !== '' ? $q : null),
+            'groups' => $this->service->paginateGroups($q !== '' ? $q : null, 50),
             'stats' => $this->service->stats($q !== '' ? $q : null),
             'q' => $q,
             'focusGroup' => $focus,
