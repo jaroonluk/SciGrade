@@ -751,6 +751,51 @@
                     </div>
 
                     <div class="wizard-step space-y-4" data-wizard-step="8">
+                        <div id="wizard-section-overview" class="rounded-xl border border-amber-200 bg-white p-5 space-y-4 shadow-sm">
+                            <div>
+                                <h3 class="font-bold text-[#5C2E1F] text-base">สรุป Section ของรายวิชานี้</h3>
+                                <p id="wizard-section-overview-sub" class="text-sm text-[#7A4A3A]/80 mt-0.5">
+                                    ดูภาพรวมว่ากรอกไปแล้วกี่กลุ่ม และตอนนี้คุณกำลังกรอกกลุ่มไหน
+                                </p>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                                <div class="rounded-xl border border-amber-200 bg-[#FFFBF7] px-3 py-3 text-center">
+                                    <p id="wizard-sec-stat-total" class="text-2xl sm:text-3xl font-bold text-[#5C2E1F] tabular-nums">—</p>
+                                    <p class="text-xs sm:text-sm text-[#7A4A3A] mt-1">ทั้งหมด</p>
+                                </div>
+                                <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-center">
+                                    <p id="wizard-sec-stat-filled" class="text-2xl sm:text-3xl font-bold text-green-800 tabular-nums">—</p>
+                                    <p class="text-xs sm:text-sm text-green-900/80 mt-1">กรอกแล้ว</p>
+                                </div>
+                                <div class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-center">
+                                    <p id="wizard-sec-stat-remain" class="text-2xl sm:text-3xl font-bold text-amber-900 tabular-nums">—</p>
+                                    <p class="text-xs sm:text-sm text-amber-900/80 mt-1">ยังไม่กรอก</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between gap-2 text-xs text-[#7A4A3A] mb-1.5">
+                                    <span>ความคืบหน้า</span>
+                                    <span id="wizard-sec-progress-label" class="font-semibold text-[#5C2E1F]">—</span>
+                                </div>
+                                <div class="h-2.5 rounded-full bg-amber-100 overflow-hidden">
+                                    <div id="wizard-sec-progress-bar" class="h-full rounded-full bg-[#8B4513] transition-all duration-300" style="width:0%"></div>
+                                </div>
+                            </div>
+
+                            <div id="wizard-sec-current-box" class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
+                                <p class="text-xs font-semibold text-sky-900 uppercase tracking-wide">ตอนนี้คุณกำลังกรอก</p>
+                                <p id="wizard-sec-current-label" class="text-base font-bold text-sky-950 mt-1">—</p>
+                                <p id="wizard-sec-current-help" class="text-xs text-sky-900/75 mt-1"></p>
+                            </div>
+
+                            <div>
+                                <p class="text-xs font-semibold text-[#5C2E1F] mb-2">รายการกลุ่มเรียน</p>
+                                <div id="wizard-sec-chip-list" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+                        </div>
+
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
                             <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบก่อนเสร็จสิ้น</p>
                             <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบขวางของ Section ที่คุณกรอกเข้าสู่ระบบ</p>

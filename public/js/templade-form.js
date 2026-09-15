@@ -3399,7 +3399,138 @@ function fileChipHtml(file, label, { editable = false, pending = false } = {}) {
     return link;
 }
 
+function courseSectionProgressSummary(config = window.wizardConfig) {
+    const fromReg = Boolean(window.courseContext?.available_sections_from_reg);
+    const available = availableSectionNums();
+    const filledSet = coveredSectionNums();
+
+    (Array.isArray(window.sectionBoardData?.sections) ? window.sectionBoardData.sections : [])
+        .forEach((row) => {
+            const n = Number(row?.sec);
+            if (n > 0) filledSet.add(n);
+        });
+
+    let scope;
+    if (fromReg && available.length) {
+        scope = [...available];
+    } else {
+        const known = [
+            ...filledSet,
+            ...currentSessionSectionNums(),
+            ...(Array.isArray(window.sectionBoardData?.sections)
+                ? window.sectionBoardData.sections.map((row) => Number(row?.sec))
+                : []),
+        ].filter((n) => Number.isFinite(n) && n > 0);
+        scope = Array.from(new Set(known)).sort((a, b) => a - b);
+        // ยังไม่รู้กลุ่มใดเลย — ใช้รายการสำรอง 1–20 แต่จะบอกในคำอธิบาย
+        if (!scope.length) {
+            scope = [...available];
+        }
+    }
+
+    const filled = scope.filter((n) => filledSet.has(n));
+    const remaining = scope.filter((n) => !filledSet.has(n));
+    const current = currentSessionSectionNums();
+
+    return {
+        fromReg,
+        scope,
+        filled,
+        remaining,
+        current,
+        total: scope.length,
+        filledCount: filled.length,
+        remainCount: remaining.length,
+    };
+}
+
+function renderSectionOverview(config = window.wizardConfig) {
+    const root = document.getElementById('wizard-section-overview');
+    if (!root) return;
+
+    const summary = courseSectionProgressSummary(config);
+    const totalEl = document.getElementById('wizard-sec-stat-total');
+    const filledEl = document.getElementById('wizard-sec-stat-filled');
+    const remainEl = document.getElementById('wizard-sec-stat-remain');
+    const progressLabel = document.getElementById('wizard-sec-progress-label');
+    const progressBar = document.getElementById('wizard-sec-progress-bar');
+    const currentLabel = document.getElementById('wizard-sec-current-label');
+    const currentHelp = document.getElementById('wizard-sec-current-help');
+    const sub = document.getElementById('wizard-section-overview-sub');
+    const chips = document.getElementById('wizard-sec-chip-list');
+
+    if (totalEl) totalEl.textContent = String(summary.total);
+    if (filledEl) filledEl.textContent = String(summary.filledCount);
+    if (remainEl) remainEl.textContent = String(summary.remainCount);
+
+    const pct = summary.total > 0
+        ? Math.round((summary.filledCount / summary.total) * 100)
+        : 0;
+    if (progressLabel) {
+        progressLabel.textContent = summary.total > 0
+            ? `${summary.filledCount}/${summary.total} Section (${pct}%)`
+            : 'ยังไม่มีข้อมูล Section';
+    }
+    if (progressBar) {
+        progressBar.style.width = `${pct}%`;
+        progressBar.classList.toggle('bg-green-700', summary.remainCount === 0 && summary.total > 0);
+        progressBar.classList.toggle('bg-[#8B4513]', !(summary.remainCount === 0 && summary.total > 0));
+    }
+
+    if (sub) {
+        sub.textContent = summary.fromReg
+            ? 'นับตาม Section ที่เปิดสอนจริงในภาคนี้'
+            : 'นับตาม Section ที่มีในรายงานนี้ (ไม่พบรายการเปิดสอนในระบบ จึงใช้ข้อมูลที่กรอกแล้วเป็นหลัก)';
+    }
+
+    if (currentLabel && currentHelp) {
+        if (summary.current.length) {
+            currentLabel.textContent = summary.current.length === 1
+                ? `Section ${summary.current[0]}`
+                : `Section ${summary.current.join(', ')}`;
+            currentHelp.textContent = summary.current.length === 1
+                ? 'กลุ่มที่คุณกรอกในรอบนี้ — อัปโหลดใบขวางของกลุ่มนี้ด้านล่าง'
+                : 'กลุ่มที่คุณกรอกในรอบนี้ — อัปโหลดใบขวางไฟล์เดียวใช้ร่วมกันได้';
+        } else if (summary.filledCount > 0 && summary.remainCount === 0) {
+            currentLabel.textContent = 'กรอกครบทุก Section แล้ว';
+            currentHelp.textContent = 'ตรวจเอกสารด้านล่าง แล้วอัปโหลดใบขวางของ Section ที่เป็นของคุณให้ครบก่อนกดเสร็จสิ้น';
+        } else if (summary.remainCount > 0) {
+            currentLabel.textContent = 'ยังไม่ได้เลือก Section ในรอบนี้';
+            currentHelp.textContent = `ยังเหลือ Section ${summary.remaining.join(', ')} ที่ยังไม่กรอก — ย้อนกลับไปขั้นตอนที่ 4 หากต้องการเพิ่ม`;
+        } else {
+            currentLabel.textContent = 'ยังไม่มี Section';
+            currentHelp.textContent = 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพื่อกรอกจำนวนนักศึกษา';
+        }
+    }
+
+    if (chips) {
+        if (!summary.scope.length) {
+            chips.innerHTML = '<span class="text-sm text-[#7A4A3A]/70">ยังไม่มีรายการ Section</span>';
+        } else {
+            chips.innerHTML = summary.scope.map((sec) => {
+                const isCurrent = summary.current.includes(sec);
+                const isFilled = summary.filled.includes(sec);
+                let cls = 'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ';
+                let label = `Sec ${sec}`;
+                if (isCurrent) {
+                    cls += 'bg-sky-100 border-sky-300 text-sky-950';
+                    label += ' · กำลังกรอก';
+                } else if (isFilled) {
+                    cls += 'bg-green-50 border-green-200 text-green-900';
+                    label += ' · กรอกแล้ว';
+                } else {
+                    cls += 'bg-amber-50 border-amber-200 text-amber-950';
+                    label += ' · ยังไม่กรอก';
+                }
+                return `<span class="${cls}">${escapeHtml(label)}</span>`;
+            }).join('');
+        }
+    }
+}
+
 function renderSectionBoard(config = window.wizardConfig) {
+    renderSectionOverview(config);
+
     const boardEl = document.getElementById('wizard-section-board');
     const ownPanel = document.getElementById('wizard-exam-own-panel');
     const ownSecsEl = document.getElementById('wizard-exam-own-secs');
@@ -3496,6 +3627,7 @@ async function loadSectionBoard(config = window.wizardConfig) {
     const boardEl = document.getElementById('wizard-section-board');
     if (!config?.currentReportId) {
         window.sectionBoardData = { sections: [] };
+        renderSectionOverview(config);
         renderSectionBoard(config);
         updateAttachmentChecklist(config);
         return;
@@ -3504,6 +3636,7 @@ async function loadSectionBoard(config = window.wizardConfig) {
     if (boardEl) {
         boardEl.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">กำลังโหลดรายการ Section…</p>';
     }
+    renderSectionOverview(config);
 
     try {
         const res = await fetch(`/api/grade-reports/${config.currentReportId}/section-board`, {
