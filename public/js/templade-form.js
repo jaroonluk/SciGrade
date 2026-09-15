@@ -1439,6 +1439,30 @@ function setupSectionPdfUpload() {
     });
 }
 
+function sortSectionStdRows() {
+    const editingKey = editingSectionIndex !== null
+        ? {
+            sec: Number(sectionStdRows[editingSectionIndex]?.sec) || 0,
+            fac: String(sectionStdRows[editingSectionIndex]?.fac || ''),
+        }
+        : null;
+
+    sectionStdRows.sort((a, b) => {
+        const sa = Number(a?.sec) || 0;
+        const sb = Number(b?.sec) || 0;
+        if (sa !== sb) return sa - sb;
+        return String(a?.fac || '').localeCompare(String(b?.fac || ''), 'th');
+    });
+
+    if (editingKey) {
+        const nextIndex = sectionStdRows.findIndex((row) => (
+            Number(row?.sec) === editingKey.sec
+            && String(row?.fac || '') === editingKey.fac
+        ));
+        editingSectionIndex = nextIndex >= 0 ? nextIndex : null;
+    }
+}
+
 function addOrUpdateSectionFromForm() {
     const error = validateSectionStdForm();
     if (error) return { ok: false, error };
@@ -1463,6 +1487,8 @@ function addOrUpdateSectionFromForm() {
     } else {
         sectionStdRows.push(row);
     }
+
+    sortSectionStdRows();
 
     const cancelBtn = document.getElementById('btn-cancel-section-edit');
     if (cancelBtn) cancelBtn.classList.add('hidden');
@@ -1535,6 +1561,7 @@ function setSectionStdRows(rows) {
         evaluationscore: row.evaluationscore ?? null,
     }));
     editingSectionIndex = null;
+    sortSectionStdRows();
     renderSectionStdList();
     syncSectionEntryVisibility();
 }
@@ -1544,6 +1571,8 @@ function renderSectionStdList() {
     const empty = document.getElementById('section-std-list-empty');
     const wrap = document.getElementById('section-std-list-wrap');
     if (!tbody) return;
+
+    sortSectionStdRows();
 
     if (!sectionStdRows.length) {
         tbody.innerHTML = '';
@@ -4159,22 +4188,31 @@ function openWizardExamPrint(config, { autoPrint = false } = {}) {
     window.lastWizardPrintUrl = printReportUrl(config.currentReportId, null, { autoPrint: false });
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
     if (!opened) {
-        showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วลองอีกครั้ง หรือกด «เปิดไฟล์ที่ดาวน์โหลด»', 'error');
+        showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วกด «เปิดไฟล์» อีกครั้ง', 'error');
     }
     return opened;
 }
 
+/** ดาวน์โหลดใบขวาง (เปิดหน้าพิมพ์/บันทึก PDF) แล้วให้ผู้ใช้เลือกเปิดดูหรือยกเลิก */
+function prepareExamReportDownload(config) {
+    if (!config?.currentReportId) {
+        showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «บันทึกแล้วไปต่อ» อีกครั้ง', 'error');
+        return false;
+    }
+
+    window.lastWizardPrintUrl = printReportUrl(config.currentReportId, null, { autoPrint: false });
+    // เปิดแท็บพิมพ์เพื่อให้ผู้ใช้บันทึกเป็น PDF (= download)
+    openWizardExamPrint(config, { autoPrint: true });
+    return true;
+}
+
 function hideExamReportDownloadNotice() {
     document.getElementById('wizard-print-download-overlay')?.classList.add('hidden');
-    document.getElementById('wizard-print-download-banner')?.classList.add('hidden');
     document.body.style.overflow = '';
 }
 
 function showExamReportDownloadNotice(config) {
     const overlay = document.getElementById('wizard-print-download-overlay');
-    const banner = document.getElementById('wizard-print-download-banner');
-
-    if (banner) banner.classList.remove('hidden');
     if (overlay) {
         overlay.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -4185,20 +4223,23 @@ function showExamReportDownloadNotice(config) {
         e?.preventDefault?.();
         const viewUrl = window.lastWizardPrintUrl
             || (config?.currentReportId ? printReportUrl(config.currentReportId) : null);
-        if (!viewUrl) {
-            openWizardExamPrint(config, { autoPrint: false });
+        const opened = viewUrl
+            ? window.open(viewUrl, '_blank', 'noopener,noreferrer')
+            : openWizardExamPrint(config, { autoPrint: false });
+        if (!opened && viewUrl) {
+            showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วกด «เปิดไฟล์» อีกครั้ง', 'error');
             return;
         }
-        const opened = window.open(viewUrl, '_blank', 'noopener,noreferrer');
-        if (!opened) {
-            showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วลองอีกครั้ง', 'error');
-        }
+        hideExamReportDownloadNotice();
+    };
+
+    const cancelNotice = (e) => {
+        e?.preventDefault?.();
+        hideExamReportDownloadNotice();
     };
 
     const overlayOpen = document.getElementById('wizard-print-download-overlay-open');
     const overlayClose = document.getElementById('wizard-print-download-overlay-close');
-    const bannerOpen = document.getElementById('wizard-print-download-open');
-    const bannerDismiss = document.getElementById('wizard-print-download-dismiss');
 
     if (overlayOpen && overlayOpen.dataset.bound !== '1') {
         overlayOpen.dataset.bound = '1';
@@ -4206,20 +4247,7 @@ function showExamReportDownloadNotice(config) {
     }
     if (overlayClose && overlayClose.dataset.bound !== '1') {
         overlayClose.dataset.bound = '1';
-        overlayClose.addEventListener('click', () => {
-            document.getElementById('wizard-print-download-overlay')?.classList.add('hidden');
-            document.body.style.overflow = '';
-        });
-    }
-    if (bannerOpen && bannerOpen.dataset.bound !== '1') {
-        bannerOpen.dataset.bound = '1';
-        bannerOpen.addEventListener('click', openPrint);
-    }
-    if (bannerDismiss && bannerDismiss.dataset.bound !== '1') {
-        bannerDismiss.dataset.bound = '1';
-        bannerDismiss.addEventListener('click', () => {
-            banner?.classList.add('hidden');
-        });
+        overlayClose.addEventListener('click', cancelNotice);
     }
 }
 
@@ -4316,7 +4344,7 @@ function initGradeReportWizard(config) {
 
         if (step === 7) {
             persistWizardState(config, 7);
-            openWizardExamPrint(config, { autoPrint: true });
+            prepareExamReportDownload(config);
             go(8);
             showExamReportDownloadNotice(config);
             return;

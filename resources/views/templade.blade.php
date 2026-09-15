@@ -751,31 +751,6 @@
                     </div>
 
                     <div class="wizard-step space-y-4" data-wizard-step="8">
-                        <div id="wizard-print-download-banner" class="hidden rounded-xl border border-sky-300 bg-sky-50 p-4 space-y-3">
-                            <div class="flex items-start gap-3">
-                                <div class="shrink-0 w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center">
-                                    <i data-lucide="download" class="w-5 h-5 text-sky-800"></i>
-                                </div>
-                                <div class="min-w-0 flex-1 space-y-1">
-                                    <p class="text-sm font-bold text-sky-950">ดาวน์โหลดแบบรายงานผลการสอบไล่เรียบร้อยแล้ว</p>
-                                    <p class="text-sm text-sky-900/85 leading-relaxed">
-                                        กรุณากดตรวจสอบ แล้วคลิกไปยังไฟล์ที่ download เพื่อพิมพ์/ลงนามก่อนอัปโหลดกลับในขั้นตอนนี้
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" id="wizard-print-download-open"
-                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-semibold hover:bg-sky-900">
-                                    <i data-lucide="external-link" class="w-4 h-4"></i>
-                                    เปิดไฟล์ที่ดาวน์โหลด
-                                </button>
-                                <button type="button" id="wizard-print-download-dismiss"
-                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-sky-300 text-sky-900 text-sm font-medium hover:bg-white">
-                                    รับทราบ
-                                </button>
-                            </div>
-                        </div>
-
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
                             <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบก่อนเสร็จสิ้น</p>
                             <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบขวางของ Section ที่คุณกรอกเข้าสู่ระบบ</p>
@@ -890,20 +865,21 @@
                     <i data-lucide="download" class="w-12 h-12 text-sky-800"></i>
                 </div>
                 <h2 id="wizard-print-download-title" class="text-2xl sm:text-3xl font-bold text-sky-950 mb-3">
-                    ดาวน์โหลดแบบรายงานผลการสอบไล่เรียบร้อยแล้ว
+                    ระบบได้ทำการ download เอกสารให้เรียบร้อยแล้ว
                 </h2>
                 <p class="text-lg text-[#5C2E1F] leading-relaxed mb-6">
-                    กรุณากดตรวจสอบ แล้วคลิกไปยังไฟล์ที่ download
+                    กรุณากดเปิดไฟล์ เพื่อตรวจสอบแบบรายงานผลการสอบไล่ (ใบขวาง)<br>
+                    หรือกดยกเลิกเพื่อไปขั้นตอนที่ 8 ต่อโดยไม่เปิดไฟล์
                 </p>
                 <div class="flex flex-wrap justify-center gap-3">
                     <button type="button" id="wizard-print-download-overlay-open"
                         class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sky-800 text-white text-base font-semibold hover:bg-sky-900">
-                        <i data-lucide="external-link" class="w-5 h-5"></i>
-                        เปิดไฟล์ที่ดาวน์โหลด
+                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                        เปิดไฟล์
                     </button>
                     <button type="button" id="wizard-print-download-overlay-close"
                         class="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-amber-300 text-[#5C2E1F] text-base font-semibold hover:bg-amber-50">
-                        รับทราบ
+                        ยกเลิก
                     </button>
                 </div>
             </div>
