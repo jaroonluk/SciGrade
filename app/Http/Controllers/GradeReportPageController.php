@@ -13,6 +13,7 @@ use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
+use App\Support\GradeReportPrintAccess;
 use App\Support\GradeReportPrintStds;
 use App\Support\SciGradeRole;
 use App\Support\ThaiDateTime;
@@ -546,12 +547,16 @@ class GradeReportPageController extends Controller
     public function print(Request $request, GradeReport $gradeReport): View
     {
         abort_if(ThesisCourse::isThesisSubject((string) $gradeReport->subject_code, (string) $gradeReport->subject), 404);
+        abort_unless(
+            GradeReportPrintAccess::allows(
+                session('scigrade_role', 'instructor'),
+                $this->resolveStaffUsername(),
+                $gradeReport,
+            ),
+            403,
+        );
 
-        if (session('scigrade_role', 'instructor') === 'instructor') {
-            abort_unless($gradeReport->username === session('staff_username'), 403);
-        }
-
-        $gradeReport->load('gradeStds');
+        $gradeReport->loadMissing(['gradeStds', 'approvalLogs']);
 
         $staff = TblUser::query()
             ->with('titleRelation')
