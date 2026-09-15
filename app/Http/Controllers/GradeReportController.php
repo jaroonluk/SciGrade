@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\GradeReport;
+use App\Models\GradeReportFile;
+use App\Models\GradeReportReg;
 use App\Models\GradeStd;
 use App\Models\GradReport2;
 use App\Models\TblUser;
@@ -77,10 +79,13 @@ class GradeReportController extends Controller
                 'members' => [],
                 'prior' => null,
                 'reported_sections' => [],
+                'available_sections' => range(1, 20),
+                'available_sections_from_reg' => false,
             ]);
         }
 
         $members = $code !== '' ? $this->gradReport2->groupMembersForSubject($code) : [];
+        $availableSections = $this->resolveAvailableSections($code, $term, $year);
 
         $prior = null;
         $priorRemarks = null;
@@ -100,7 +105,6 @@ class GradeReportController extends Controller
                 ->get();
 
             foreach ($reports as $report) {
-                $filledBy = $this->resolveReportFillerName($report);
                 foreach ($report->gradeStds as $std) {
                     $sec = (int) $std->sec;
                     if ($sec <= 0) {
@@ -108,13 +112,19 @@ class GradeReportController extends Controller
                     }
                     $reportedSections[$sec] = true;
                     if (! isset($sectionDetails[$sec])) {
+                        $stdUsername = trim((string) ($std->getAttributes()['username'] ?? $std->username ?? ''));
+                        if ($stdUsername === '') {
+                            $stdUsername = trim((string) $report->username);
+                        }
                         $sectionDetails[$sec] = [
                             'sec' => $sec,
-                            'filled_by' => $filledBy,
-                            'username' => trim((string) $report->username),
+                            'filled_by' => $this->resolveStaffDisplayName($stdUsername)
+                                ?: $this->resolveReportFillerName($report),
+                            'username' => $stdUsername,
                             'grade_id' => $report->grade_id,
                             'subject_code' => trim((string) $report->subject_code),
                             'subject' => trim((string) $report->subject),
+                            'is_mine' => $stdUsername !== '' && $stdUsername === $this->staffUsername(),
                         ];
                     }
                 }
@@ -164,7 +174,59 @@ class GradeReportController extends Controller
             ],
             'reported_sections' => array_values(array_map('intval', array_keys($reportedSections))),
             'reported_section_details' => array_values($sectionDetails),
+            'available_sections' => $availableSections['sections'],
+            'available_sections_from_reg' => $availableSections['from_reg'],
         ]);
+    }
+
+    /**
+     * Section ที่เปิดจริงจาก grade_report_reg — ถ้าไม่มีรายวิชาในรายการให้ใช้ 1–20
+     *
+     * @return array{sections: list<int>, from_reg: bool}
+     */
+    private function resolveAvailableSections(string $code, int $term, int $year): array
+    {
+        $fallback = range(1, 20);
+
+        if ($code === '' || $term <= 0 || $year <= 0) {
+            return ['sections' => $fallback, 'from_reg' => false];
+        }
+
+        try {
+            $sections = GradeReportReg::query()
+                ->whereRaw(
+                    "UPPER(REPLACE(REPLACE(TRIM(`COURSECODE`), ' ', ''), UNHEX('C2A0'), '')) = ?",
+                    [$code],
+                )
+                ->where('ACADYEAR', (string) $year)
+                ->where('SEMESTER', (string) $term)
+                ->pluck('SECTION')
+                ->map(function ($raw) {
+                    $digits = preg_replace('/\D+/', '', (string) $raw) ?? '';
+
+                    return (int) $digits;
+                })
+                ->filter(fn (int $sec) => $sec > 0)
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+        } catch (Throwable $e) {
+            Log::warning('resolveAvailableSections failed', [
+                'code' => $code,
+                'term' => $term,
+                'year' => $year,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['sections' => $fallback, 'from_reg' => false];
+        }
+
+        if ($sections === []) {
+            return ['sections' => $fallback, 'from_reg' => false];
+        }
+
+        return ['sections' => $sections, 'from_reg' => true];
     }
 
     /**
@@ -567,14 +629,9 @@ class GradeReportController extends Controller
 
     private function resolveReportFillerName(GradeReport $report): string
     {
-        try {
-            $staff = TblUser::query()->with('titleRelation')->find($report->username);
-            $display = $staff?->displayName();
-            if (is_string($display) && trim($display) !== '') {
-                return trim($display);
-            }
-        } catch (\Throwable) {
-            // ใช้ชื่อจากรายงานหากดึงบุคลากรไม่ได้
+        $fromStaff = $this->resolveStaffDisplayName(trim((string) $report->username));
+        if ($fromStaff !== null) {
+            return $fromStaff;
         }
 
         $teacher = trim((string) $report->teacher);
@@ -589,6 +646,132 @@ class GradeReportController extends Controller
         $username = trim((string) $report->username);
 
         return $username !== '' ? $username : 'ผู้กรอกก่อนหน้า';
+    }
+
+    private function resolveStaffDisplayName(?string $username): ?string
+    {
+        $username = trim((string) $username);
+        if ($username === '') {
+            return null;
+        }
+
+        try {
+            $staff = TblUser::query()->with('titleRelation')->find($username);
+            $display = $staff?->displayName();
+            if (is_string($display) && trim($display) !== '') {
+                return trim($display);
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * ภาพรวม Section + ไฟล์แนบ สำหรับขั้นตอนอัปโหลดใบขวาง
+     */
+    public function sectionBoard(GradeReport $gradeReport): JsonResponse
+    {
+        abort_unless($this->ownsReport($gradeReport) || $this->canContribute($gradeReport), 403);
+
+        $gradeReport->loadMissing(['gradeStds', 'files']);
+        $me = $this->staffUsername();
+        $sections = [];
+
+        foreach ($gradeReport->gradeStds->sortBy(fn ($row) => (int) $row->sec) as $std) {
+            $sec = (int) $std->sec;
+            if ($sec <= 0) {
+                continue;
+            }
+            $stdUsername = trim((string) ($std->getAttributes()['username'] ?? $std->username ?? ''));
+            if ($stdUsername === '') {
+                $stdUsername = trim((string) $gradeReport->username);
+            }
+            $sections[$sec] = [
+                'sec' => $sec,
+                'fac' => trim((string) ($std->fac ?? '')),
+                'filled_by' => $this->resolveStaffDisplayName($stdUsername)
+                    ?: $this->resolveReportFillerName($gradeReport),
+                'username' => $stdUsername,
+                'is_mine' => $stdUsername !== '' && $stdUsername === $me,
+                'registrar' => null,
+                'exam' => null,
+            ];
+        }
+
+        foreach ($gradeReport->files as $file) {
+            $type = $file->resolvedType();
+            $sec = $file->resolvedSection($gradeReport);
+            $uploader = trim((string) ($file->username ?? ''));
+            $uploaderName = $this->resolveStaffDisplayName($uploader) ?: ($uploader !== '' ? $uploader : null);
+            $payload = [
+                'file_id' => (int) $file->file_id,
+                'name' => $type === GradeReportFile::TYPE_REGISTRAR
+                    ? (string) ($file->registrarDisplayName($gradeReport) ?: $file->original_name)
+                    : (string) $file->original_name,
+                'view_url' => route('grade-reports.files.show', [
+                    'gradeReport' => $gradeReport->grade_id,
+                    'file' => $file->file_id,
+                ]),
+                'username' => $uploader,
+                'uploaded_by' => $uploaderName,
+                'can_delete' => $uploader !== '' && $uploader === $me,
+            ];
+
+            if ($type === GradeReportFile::TYPE_REGISTRAR) {
+                if ($sec === null || (int) $sec <= 0) {
+                    continue;
+                }
+                $n = (int) $sec;
+                if (! isset($sections[$n])) {
+                    $sections[$n] = [
+                        'sec' => $n,
+                        'fac' => '',
+                        'filled_by' => $uploaderName ?: 'ผู้กรอกก่อนหน้า',
+                        'username' => $uploader,
+                        'is_mine' => $uploader === $me,
+                        'registrar' => null,
+                        'exam' => null,
+                    ];
+                }
+                $sections[$n]['registrar'] = $payload;
+            } elseif ($type === GradeReportFile::TYPE_EXAM_REPORT) {
+                // ใบขวาง 1 ไฟล์ของผู้อัปโหลด = ครอบคลุมทุก Section ที่ผู้นั้นกรอก
+                $targets = [];
+                foreach ($sections as $row) {
+                    if ($uploader !== '' && $row['username'] === $uploader) {
+                        $targets[] = (int) $row['sec'];
+                    }
+                }
+                if ($sec !== null && (int) $sec > 0) {
+                    $n = (int) $sec;
+                    if (! in_array($n, $targets, true)) {
+                        $targets[] = $n;
+                    }
+                }
+                if ($targets === [] && $sections !== []) {
+                    // ไฟล์เก่าไม่มี username — แสดงที่ทุก Sec เป็นข้อมูลอ้างอิง
+                    $targets = array_map('intval', array_keys($sections));
+                }
+                foreach ($targets as $n) {
+                    if (! isset($sections[$n])) {
+                        continue;
+                    }
+                    if ($sections[$n]['exam'] === null) {
+                        $sections[$n]['exam'] = $payload;
+                    }
+                }
+            }
+        }
+
+        ksort($sections);
+
+        return response()->json([
+            'grade_id' => $gradeReport->grade_id,
+            'current_username' => $me,
+            'sections' => array_values($sections),
+        ]);
     }
 
     /**

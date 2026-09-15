@@ -557,10 +557,13 @@
                             <div>
                                 <label for="section-input" class="block text-sm font-medium mb-1 text-[#5C2E1F]">กลุ่ม (Section)</label>
                                 <select id="section-input" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                                    @for ($i = 1; $i <= 50; $i++)
+                                    @for ($i = 1; $i <= 20; $i++)
                                         <option value="{{ $i }}">{{ $i }}</option>
                                     @endfor
                                 </select>
+                                <p id="section-available-hint" class="text-xs text-[#7A4A3A]/80 mt-1">
+                                    แสดง Section ตามที่เปิดสอนจริงในภาคนี้ — หากไม่พบในรายการระบบจะแสดง Section 1–20
+                                </p>
                             </div>
                             <div class="relative" id="fac-multi-select">
                                 <label class="block text-sm font-medium mb-1 text-[#5C2E1F]">คณะ (เลือกได้หลายคณะ)</label>
@@ -665,6 +668,7 @@
                         </div>
 
                         <div id="section-std-results" class="space-y-3">
+                            <p id="section-std-results-title" class="hidden text-sm font-semibold text-[#5C2E1F]">รายการจำนวนนักศึกษาที่กรอกแล้ว</p>
                             <div id="section-std-list-empty" class="rounded-lg border border-dashed border-amber-300 bg-white px-4 py-6 text-center text-sm text-[#7A4A3A]/80">
                                 ยังไม่มีข้อมูล Section — กรอกด้านบนแล้วกด «บันทึก Section นี้»
                             </div>
@@ -739,14 +743,31 @@
 
                     <div class="wizard-step space-y-4" data-wizard-step="8">
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
-                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบ 2 ส่วนก่อนเสร็จสิ้น</p>
-                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบอย่างแท้จริง</p>
+                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบก่อนเสร็จสิ้น</p>
+                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบขวางของ Section ที่คุณกรอกเข้าสู่ระบบ</p>
                             <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11 ครบทุก Section — ขั้นตอนที่ 6</p>
                             <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบรายงานผลการสอบไล่ / ใบขวาง — ขั้นตอนที่ 8</p>
                         </div>
-                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
-                            <h3 class="font-bold text-[#5C2E1F]">อัปโหลดใบรายงานผลการสอบไล่ (ใบขวาง)</h3>
-                            <p class="text-sm text-[#7A4A3A]/80">เลือกไฟล์ PDF ที่พิมพ์และลงนามแล้ว — เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดทั้ง มข.11 และใบขวางเข้าสู่ระบบพร้อมกัน</p>
+
+                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
+                            <div>
+                                <h3 class="font-bold text-[#5C2E1F]">สถานะเอกสารทุก Section</h3>
+                                <p class="text-sm text-[#7A4A3A]/80 mt-1">
+                                    ดูได้ว่าแต่ละ Section กรอกโดยใคร และมีเอกสารอะไรแล้วบ้าง
+                                    — อัปโหลดใบขวางได้เฉพาะ Section ของคุณ · Section ของผู้อื่นดูได้อย่างเดียว
+                                </p>
+                            </div>
+                            <div id="wizard-section-board" class="space-y-3">
+                                <p class="text-sm text-[#7A4A3A]/70">กำลังโหลดรายการ Section…</p>
+                            </div>
+                        </div>
+
+                        <div id="wizard-exam-own-panel" class="rounded-xl border border-sky-200 bg-sky-50/60 p-5 space-y-3">
+                            <h3 class="font-bold text-[#0c4a6e]">อัปโหลดใบขวาง — Section ของคุณ</h3>
+                            <p id="wizard-exam-own-help" class="text-sm text-[#0c4a6e]/80">
+                                หากคุณกรอกหลาย Section ในรอบนี้ สามารถอัปโหลดไฟล์เดียวใช้ร่วมกันได้
+                            </p>
+                            <p id="wizard-exam-own-secs" class="text-sm font-semibold text-[#0c4a6e]"></p>
                             <div id="wizard-exam-file-row" class="hidden"></div>
                             <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
                                 class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
@@ -849,12 +870,14 @@
         const registrarFileDetails = @json($registrarFileDetails ?? []);
         const examFileDetail = @json($examFileDetail ?? null);
         const pendingRegistrarSections = @json($pendingRegistrarSections ?? []);
+        const staffUsername = @json($staffUsername ?? null);
 
         window.wizardConfig = {
             currentReportId: reportId,
             openedAsEdit: Boolean(reportId),
             createdInSession: false,
             boundSubjectCode: null,
+            staffUsername,
         };
         initTempladeForm({ teacherHelpImageUrl });
 
@@ -879,6 +902,9 @@
             const rangeA = document.getElementById('range-a-max');
             if (rangeA && !rangeA.value) rangeA.value = '100';
             if (uploadParsed) {
+                window.wizardConfig.cameFromUpload = true;
+                window.sectionEntryViaUpload = true;
+                uploadParsed.__fromUpload = true;
                 populateFormFromRecord(uploadParsed);
             }
         }
@@ -892,6 +918,7 @@
             registrarFileDetails,
             examFileDetail,
             pendingRegistrarSections,
+            staffUsername,
             returnUrl,
             dashboardUrl,
         }));

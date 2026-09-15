@@ -109,6 +109,7 @@ class GradeReportPageController extends Controller
                 ],
                 $pendingReg,
             )),
+            'staffUsername' => $this->resolveStaffUsername(),
         ]);
     }
 
@@ -187,6 +188,10 @@ class GradeReportPageController extends Controller
                     ]),
                 ];
             } elseif ($type === GradeReportFile::TYPE_EXAM_REPORT && $examFileDetail === null) {
+                $uploader = trim((string) ($file->username ?? ''));
+                if ($uploader !== '' && $uploader !== $username) {
+                    continue;
+                }
                 $examFileDetail = [
                     'file_id' => (int) $file->file_id,
                     'name' => (string) $file->original_name,
@@ -559,16 +564,69 @@ class GradeReportPageController extends Controller
 
         $gradeReport->loadMissing(['gradeStds', 'approvalLogs']);
 
-        $staff = TblUser::query()
-            ->with('titleRelation')
-            ->find($gradeReport->username);
+        $printStds = GradeReportPrintStds::forRequest($request, $gradeReport);
 
         return view('grade-reports.print', [
             'gradeReport' => $gradeReport,
-            'printStds' => GradeReportPrintStds::forRequest($request, $gradeReport),
-            'teacherSignName' => $staff?->displayName() ?? $gradeReport->teacher,
+            'printStds' => $printStds,
+            'teacherSignName' => $this->resolvePrintSignName($gradeReport, $printStds),
             'printedAt' => ThaiDateTime::formatPrintFooter(),
         ]);
+    }
+
+    /**
+     * ชื่อในช่องลงชื่อ = อาจารย์ที่กรอก Section ที่พิมพ์ (ไม่ใช่เจ้าของรายงานโดยอัตโนมัติ)
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\GradeStd>  $printStds
+     */
+    private function resolvePrintSignName(GradeReport $gradeReport, $printStds): string
+    {
+        $usernames = [];
+        foreach ($printStds as $std) {
+            $u = trim((string) ($std->getAttributes()['username'] ?? $std->username ?? ''));
+            if ($u === '') {
+                $u = trim((string) $gradeReport->username);
+            }
+            if ($u !== '') {
+                $usernames[$u] = $u;
+            }
+        }
+
+        if ($usernames === []) {
+            $fallback = trim((string) $gradeReport->username);
+            if ($fallback !== '') {
+                $usernames[$fallback] = $fallback;
+            }
+        }
+
+        $names = [];
+        foreach ($usernames as $username) {
+            try {
+                $staff = TblUser::query()->with('titleRelation')->find($username);
+                $display = $staff?->displayName();
+                if (is_string($display) && trim($display) !== '') {
+                    $names[] = trim($display);
+                    continue;
+                }
+            } catch (\Throwable) {
+                // fall through
+            }
+            $names[] = $username;
+        }
+
+        $names = array_values(array_unique(array_filter($names)));
+        if ($names !== []) {
+            return implode(', ', $names);
+        }
+
+        $teacher = trim((string) $gradeReport->teacher);
+        if ($teacher !== '') {
+            $parts = preg_split('/[,;\/]+/u', $teacher) ?: [];
+
+            return trim((string) ($parts[0] ?? $teacher));
+        }
+
+        return 'อาจารย์ประจำวิชา';
     }
 
     private function resolveStaffUsername(): ?string

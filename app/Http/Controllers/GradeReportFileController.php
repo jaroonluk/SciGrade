@@ -109,13 +109,32 @@ class GradeReportFileController extends Controller
         }
         $registrarFiles = $this->pendingRegistrar->attachFromSession($gradeReport, $username);
 
+        $gradeReport->loadMissing('gradeStds');
+        $mySectionNums = [];
+        foreach ($gradeReport->gradeStds as $std) {
+            $sec = (int) $std->sec;
+            if ($sec <= 0) {
+                continue;
+            }
+            $stdUsername = trim((string) ($std->getAttributes()['username'] ?? $std->username ?? ''));
+            if ($stdUsername === '') {
+                $stdUsername = trim((string) $gradeReport->username);
+            }
+            if ($stdUsername !== '' && $stdUsername === $username) {
+                $mySectionNums[$sec] = $sec;
+            }
+        }
+        $mySectionNums = array_values($mySectionNums);
+        sort($mySectionNums);
+
         $examFile = null;
         if ($request->hasFile('attachment')) {
             $fileType = (string) ($request->input('file_type') ?: GradeReportFile::TYPE_EXAM_REPORT);
             $uploaded = $request->file('attachment');
+            $sectionOverride = $mySectionNums[0] ?? null;
 
-            $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType);
-            $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType);
+            $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType, $sectionOverride);
+            $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType, $sectionOverride);
 
             $examFile = GradeReportFile::query()->create([
                 'grade_id' => $gradeReport->grade_id,
@@ -135,6 +154,7 @@ class GradeReportFileController extends Controller
                     'file_type' => $fileType,
                     'original_name' => $examFile->original_name,
                     'source' => 'wizard_finalize',
+                    'covers_sections' => $mySectionNums,
                 ],
             );
         }
@@ -146,6 +166,30 @@ class GradeReportFileController extends Controller
         $hasExam = $gradeReport->files->contains(
             fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
         ) || $examFile !== null;
+
+        // Section ของผู้ใช้ปัจจุบันที่ยังไม่มีใบขวางครอบคลุม
+        $examCoveredByUploader = [];
+        foreach ($gradeReport->files as $file) {
+            if ($file->resolvedType() !== GradeReportFile::TYPE_EXAM_REPORT) {
+                continue;
+            }
+            $uploader = trim((string) ($file->username ?? ''));
+            if ($uploader === '' || $uploader !== $username) {
+                continue;
+            }
+            foreach ($mySectionNums as $sec) {
+                $examCoveredByUploader[$sec] = true;
+            }
+        }
+        if ($examFile !== null) {
+            foreach ($mySectionNums as $sec) {
+                $examCoveredByUploader[$sec] = true;
+            }
+        }
+        $myMissingExam = array_values(array_filter(
+            $mySectionNums,
+            fn (int $sec) => ! isset($examCoveredByUploader[$sec]),
+        ));
 
         $reportSections = $gradeReport->gradeStds
             ->map(fn ($row) => (int) $row->sec)
@@ -196,22 +240,26 @@ class GradeReportFileController extends Controller
             ], 422);
         }
 
-        if (! $hasRegistrar || ! $hasExam) {
+        $needsMyExam = $mySectionNums !== [] ? $myMissingExam !== [] : ! $hasExam;
+        if (! $hasRegistrar || $needsMyExam) {
             $missing = [];
             if (! $hasRegistrar) {
                 $missing[] = 'แบบฟอร์ม มข.11 (ใบส่งผลการศึกษา)';
             }
-            if (! $hasExam) {
-                $missing[] = 'ใบรายงานผลการสอบไล่ (ใบขวาง)';
+            if ($needsMyExam) {
+                $missing[] = $myMissingExam !== []
+                    ? 'ใบรายงานผลการสอบไล่ (ใบขวาง) สำหรับ Section '.implode(', ', $myMissingExam)
+                    : 'ใบรายงานผลการสอบไล่ (ใบขวาง)';
             }
 
             return response()->json([
                 'message' => 'ยังแนบไฟล์ไม่ครบ: '.implode(' และ ', $missing),
-                'hint' => 'เลือกแบบฟอร์ม มข.11 ในขั้นตอนที่ 6 และใบขวางในขั้นตอนที่ 8 แล้วกดเสร็จสิ้น — ระบบจะอัปโหลดทั้ง 2 ไฟล์เข้าสู่ระบบเมื่อทำครบเท่านั้น',
+                'hint' => 'เลือกแบบฟอร์ม มข.11 ในขั้นตอนที่ 6 และใบขวางในขั้นตอนที่ 8 สำหรับ Section ที่คุณกรอก แล้วกดเสร็จสิ้น',
                 'registrar_attached' => count($registrarFiles),
                 'exam_attached' => $examFile !== null,
                 'has_registrar' => $hasRegistrar,
                 'has_exam' => $hasExam,
+                'missing_exam_sections' => $myMissingExam,
             ], 422);
         }
 
@@ -226,7 +274,14 @@ class GradeReportFileController extends Controller
         );
 
         $examForResponse = $examFile ?? $gradeReport->files->first(
-            fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
+            function (GradeReportFile $file) use ($username) {
+                if ($file->resolvedType() !== GradeReportFile::TYPE_EXAM_REPORT) {
+                    return false;
+                }
+                $uploader = trim((string) ($file->username ?? ''));
+
+                return $uploader === '' || $uploader === $username;
+            }
         );
         $registrarForResponse = $registrarFiles !== []
             ? $registrarFiles
@@ -272,7 +327,12 @@ class GradeReportFileController extends Controller
 
     public function destroy(Request $request, GradeReport $gradeReport, GradeReportFile $file): JsonResponse
     {
-        abort_unless($this->ownsReport($gradeReport), 403);
+        abort_unless(
+            $this->ownsReport($gradeReport)
+            || trim((string) ($file->username ?? '')) === $this->staffUsername(),
+            403,
+            'ไม่มีสิทธิ์ลบไฟล์ของผู้อื่น'
+        );
         abort_unless((int) $file->grade_id === (int) $gradeReport->grade_id, 404);
 
         if (! $gradeReport->canUploadFiles()) {

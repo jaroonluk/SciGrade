@@ -225,6 +225,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/grade-reports', [GradeReportController::class, 'index']);
     Route::get('/api/grade-reports/course-context', [GradeReportController::class, 'courseContext']);
     Route::get('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'show']);
+    Route::get('/api/grade-reports/{gradeReport}/section-board', [GradeReportController::class, 'sectionBoard']);
     Route::post('/api/grade-reports', [GradeReportController::class, 'store']);
     Route::put('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'update']);
     Route::delete('/api/grade-reports/{gradeReport}', [GradeReportController::class, 'destroy']);
