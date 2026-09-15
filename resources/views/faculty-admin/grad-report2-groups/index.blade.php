@@ -762,7 +762,7 @@
                                                         data-tip="แก้ไขรหัสนี้"
                                                         aria-label="แก้ไขรหัส {{ $member->subject_code }}"
                                                         onclick="this.closest('.member-row').classList.add('is-editing'); if (window.lucide) lucide.createIcons();">
-                                                        <i data-lucide="square-pen"></i>
+                                                        <i data-lucide="pencil"></i>
                                                     </button>
                                                     <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.destroy') }}"
                                                         class="inline-flex"
