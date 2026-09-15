@@ -20,14 +20,20 @@ class DepartmentSubjectPatternService
      * @return Collection<int, object{
      *     department_id: int,
      *     department_name: string,
+     *     bachelor_patterns: Collection<int, DepartmentSubjectPattern>,
+     *     graduate_patterns: Collection<int, DepartmentSubjectPattern>,
+     *     bachelor_details: list<array{pattern: string, label: string, kind: string}>,
+     *     graduate_details: list<array{pattern: string, label: string, kind: string}>,
+     *     bachelor_count: int,
+     *     graduate_count: int,
      *     patterns: Collection<int, DepartmentSubjectPattern>,
      *     pattern_details: list<array{pattern: string, label: string, kind: string}>
      * }>
      */
-    public function departmentsWithPatterns(?string $q = null, ?string $educationLevel = null): Collection
+    public function departmentsWithPatterns(?string $q = null, ?string $viewFilter = null): Collection
     {
         $this->ensureSeeded();
-        $educationLevel = DepartmentSubjectPattern::normalizeEducationLevel($educationLevel);
+        $viewFilter = $this->normalizeViewFilter($viewFilter);
 
         $departmentIds = collect($this->defaultPatterns())
             ->keys()
@@ -52,42 +58,72 @@ class DepartmentSubjectPatternService
             ->get()
             ->groupBy('department_id');
 
-        $rows = $departmentIds->map(function (int $departmentId) use ($departments, $allPatterns, $educationLevel) {
+        $rows = $departmentIds->map(function (int $departmentId) use ($departments, $allPatterns) {
             $dept = $departments->get($departmentId);
             $deptPatterns = $allPatterns->get($departmentId, collect());
-            $visible = $this->patternsForLevel($deptPatterns, $educationLevel);
+            $bachelor = $this->patternsForLevel($deptPatterns, DepartmentSubjectPattern::EDUCATION_BACHELOR);
+            $graduate = $this->patternsForLevel($deptPatterns, DepartmentSubjectPattern::EDUCATION_GRADUATE);
 
             return (object) [
                 'department_id' => $departmentId,
                 'department_name' => $dept?->department_name ?? ('สาขา #'.$departmentId),
-                'education_level' => $educationLevel,
-                'patterns' => $visible,
-                'bachelor_count' => $this->patternsForLevel($deptPatterns, DepartmentSubjectPattern::EDUCATION_BACHELOR)->count(),
-                'graduate_count' => $this->patternsForLevel($deptPatterns, DepartmentSubjectPattern::EDUCATION_GRADUATE)->count(),
-                'pattern_details' => $this->subjectFilter->patternDetailsForDepartment($departmentId, $educationLevel),
+                'bachelor_patterns' => $bachelor,
+                'graduate_patterns' => $graduate,
+                'bachelor_count' => $bachelor->count(),
+                'graduate_count' => $graduate->count(),
+                'bachelor_details' => $this->subjectFilter->patternDetailsForDepartment(
+                    $departmentId,
+                    DepartmentSubjectPattern::EDUCATION_BACHELOR,
+                ),
+                'graduate_details' => $this->subjectFilter->patternDetailsForDepartment(
+                    $departmentId,
+                    DepartmentSubjectPattern::EDUCATION_GRADUATE,
+                ),
+                'patterns' => $bachelor,
+                'pattern_details' => $this->subjectFilter->patternDetailsForDepartment(
+                    $departmentId,
+                    DepartmentSubjectPattern::EDUCATION_BACHELOR,
+                ),
             ];
         });
 
         $q = trim((string) $q);
-        if ($q === '') {
-            return $rows->values();
+        if ($q !== '') {
+            $like = mb_strtolower($q);
+            $rows = $rows->filter(function (object $row) use ($like) {
+                if (str_contains(mb_strtolower($row->department_name), $like)) {
+                    return true;
+                }
+
+                if (str_contains((string) $row->department_id, $like)) {
+                    return true;
+                }
+
+                $matchPattern = fn (DepartmentSubjectPattern $pattern) => str_contains(mb_strtolower($pattern->pattern), $like);
+
+                return $row->bachelor_patterns->contains($matchPattern)
+                    || $row->graduate_patterns->contains($matchPattern);
+            })->values();
         }
 
-        $like = mb_strtolower($q);
+        // เก็บ viewFilter ไว้ที่แต่ละแถวให้ view ใช้ซ่อน/โชว์แผง
+        return $rows->map(function (object $row) use ($viewFilter) {
+            $row->view_filter = $viewFilter;
 
-        return $rows->filter(function (object $row) use ($like) {
-            if (str_contains(mb_strtolower($row->department_name), $like)) {
-                return true;
-            }
-
-            if (str_contains((string) $row->department_id, $like)) {
-                return true;
-            }
-
-            return $row->patterns->contains(
-                fn (DepartmentSubjectPattern $pattern) => str_contains(mb_strtolower($pattern->pattern), $like)
-            );
+            return $row;
         })->values();
+    }
+
+    /**
+     * ตัวกรองหน้าจอ: all | bachelor | graduate
+     */
+    public function normalizeViewFilter(?string $value): string
+    {
+        return match (strtolower(trim((string) $value))) {
+            DepartmentSubjectPattern::EDUCATION_BACHELOR => DepartmentSubjectPattern::EDUCATION_BACHELOR,
+            DepartmentSubjectPattern::EDUCATION_GRADUATE => DepartmentSubjectPattern::EDUCATION_GRADUATE,
+            default => 'all',
+        };
     }
 
     public function store(int $departmentId, string $pattern, ?string $educationLevel = null): DepartmentSubjectPattern

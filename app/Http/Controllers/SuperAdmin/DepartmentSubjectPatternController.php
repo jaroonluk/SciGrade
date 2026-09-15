@@ -20,13 +20,16 @@ class DepartmentSubjectPatternController extends Controller
     {
         $q = trim((string) $request->input('q', ''));
         $focus = $request->integer('department_id') ?: null;
-        $educationLevel = DepartmentSubjectPattern::normalizeEducationLevel($request->input('education_level'));
+        $viewFilter = $this->service->normalizeViewFilter($request->input('education_level'));
 
         return view('super-admin.department-patterns.index', [
-            'departments' => $this->service->departmentsWithPatterns($q, $educationLevel),
+            'departments' => $this->service->departmentsWithPatterns($q, $viewFilter),
             'q' => $q,
             'focusDepartmentId' => $focus,
-            'educationLevel' => $educationLevel,
+            'viewFilter' => $viewFilter,
+            'educationLevel' => $viewFilter === 'all'
+                ? DepartmentSubjectPattern::EDUCATION_BACHELOR
+                : $viewFilter,
         ]);
     }
 
@@ -115,10 +118,15 @@ class DepartmentSubjectPatternController extends Controller
      */
     private function indexQuery(Request $request, int $departmentId, string $educationLevel): array
     {
+        // คงโหมดการแสดงผลหน้าจอ (all/bachelor/graduate) ไม่สลับตามระดับที่เพิ่งแก้
+        $viewFilter = $this->service->normalizeViewFilter(
+            $request->input('view', $request->input('education_level'))
+        );
+
         return [
             'department_id' => $departmentId,
             'q' => $request->input('q'),
-            'education_level' => $educationLevel,
+            'education_level' => $viewFilter,
         ];
     }
 }

@@ -50,35 +50,88 @@
         border-color: #8B4513;
         box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.18);
     }
+    .level-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        padding: 0.85rem;
+    }
+    @media (min-width: 960px) {
+        .level-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .level-panel {
+        border-radius: 0.85rem;
+        overflow: hidden;
+        border: 1px solid #e8c4b8;
+        background: #fff;
+    }
+    .level-panel.is-bach { border-color: #e8c4b8; }
+    .level-panel.is-grad { border-color: #ddd6fe; }
+    .level-panel-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.7rem 0.85rem;
+    }
+    .level-panel.is-bach .level-panel-head {
+        background: linear-gradient(180deg, #fffbf7 0%, #faf0e6 100%);
+        border-bottom: 1px solid #e8c4b8;
+    }
+    .level-panel.is-grad .level-panel-head {
+        background: linear-gradient(180deg, #faf5ff 0%, #ede9fe 100%);
+        border-bottom: 1px solid #ddd6fe;
+    }
+    .level-panel-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.88rem;
+        font-weight: 700;
+    }
+    .level-panel.is-bach .level-panel-title { color: #5C2E1F; }
+    .level-panel.is-grad .level-panel-title { color: #4c1d95; }
+    .level-panel-hint {
+        margin-top: 0.2rem;
+        font-size: 0.68rem;
+        color: #7A4A3A;
+        opacity: 0.85;
+    }
     .pattern-row {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 0.5rem 0.75rem;
-        padding: 0.65rem 0.85rem;
+        padding: 0.55rem 0.75rem;
         border-top: 1px solid #f3e4d8;
     }
+    .level-panel.is-grad .pattern-row { border-top-color: #ede9fe; }
     .pattern-row:hover { background: #fffaf5; }
+    .level-panel.is-grad .pattern-row:hover { background: #faf5ff; }
     .pattern-edit-form { display: none; width: 100%; }
     .pattern-row.is-editing .pattern-view { display: none; }
     .pattern-row.is-editing .pattern-edit-form { display: flex; }
+    .guide-layer {
+        border: 1px solid #e8c4b8;
+        border-radius: 1rem;
+        background: linear-gradient(180deg, #fffdfb 0%, #faf0e6 100%);
+        padding: 1rem 1.15rem;
+    }
 </style>
 @endpush
 
 @section('content')
 @php
     $focusId = (int) (session('focus_department_id') ?: ($focusDepartmentId ?? 0));
-    $educationLevel = \App\Models\DepartmentSubjectPattern::normalizeEducationLevel($educationLevel ?? null);
-    $educationLabel = \App\Models\DepartmentSubjectPattern::label($educationLevel);
+    $viewFilter = $viewFilter ?? 'all';
 @endphp
 <div class="max-w-6xl mx-auto space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการรหัสสาขาที่ใช้กรอง</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                กำหนดเงื่อนไขรหัสวิชาของแต่ละสาขา แยกตามระดับการศึกษา (ปริญญาตรี / บัณฑิตศึกษา)
-                ที่ใช้กรองหน้ารายงาน / REG / ตรวจสอบสถานะ
-                — รองรับรูปแบบเช่น <code class="text-[#8B4513]">319%</code>, <code class="text-[#8B4513]">%SC9%</code>, หรือรหัสตรงทั้งหมด
+                แต่ละสาขาแยกชัดว่าใช้รหัสใดกรอง <strong>ปริญญาตรี</strong> และรหัสใดกรอง <strong>บัณฑิตศึกษา / ป.บัณฑิต</strong>
             </p>
         </div>
         <div class="rounded-xl border border-[#E8C4B8] bg-[#FFFBF7] px-4 py-3 text-center min-w-[8rem]">
@@ -87,6 +140,21 @@
         </div>
     </div>
 
+    <div class="guide-layer space-y-2 text-sm text-[#5C2E1F]">
+        <p class="font-semibold flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-[#8B4513]"></i>
+            ชั้นตัวกรองรหัสวิชา
+        </p>
+        <ul class="list-disc pl-5 space-y-1 text-[#7A4A3A] text-xs leading-relaxed">
+            <li><strong class="text-[#5C2E1F]">รหัสวิชาปริญญาตรี</strong> — เงื่อนไขจากฐานข้อมูลเดิมของสาขา ใช้เมื่อกรองระดับปริญญาตรี (และเป็นค่าเริ่มต้นเมื่อไม่ได้ระบุบัณฑิตศึกษา)</li>
+            <li><strong class="text-violet-900">รหัสวิชาบัณฑิตศึกษา / ป.บัณฑิต</strong> — เงื่อนไขเพิ่มเติมเฉพาะระดับบัณฑิตศึกษา</li>
+            <li>ถ้ารหัสวิชาไม่อยู่ในเงื่อนไขบัณฑิตศึกษาที่กำหนด จะจัดอยู่ในกลุ่มกรองด้วยเงื่อนไขปริญญาตรี</li>
+        </ul>
+    </div>
+
+    @if (session('status'))
+        <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm">{{ session('status') }}</div>
+    @endif
     @error('pattern')
         <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
     @enderror
@@ -97,19 +165,20 @@
     <div class="form-section rounded-xl p-4">
         <form method="GET" action="{{ route('faculty-admin.department-patterns.index') }}" class="flex flex-wrap items-end gap-3">
             <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับการศึกษา</label>
-                <select name="education_level" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[12rem]">
-                    <option value="bachelor" @selected($educationLevel === 'bachelor')>ปริญญาตรี</option>
-                    <option value="graduate" @selected($educationLevel === 'graduate')>บัณฑิตศึกษา</option>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">แสดงชั้นกรอง</label>
+                <select name="education_level" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
+                    <option value="all" @selected($viewFilter === 'all')>ทั้งหมด (ปริญญาตรี + บัณฑิตศึกษา)</option>
+                    <option value="bachelor" @selected($viewFilter === 'bachelor')>เฉพาะรหัสปริญญาตรี</option>
+                    <option value="graduate" @selected($viewFilter === 'graduate')>เฉพาะรหัสบัณฑิตศึกษา</option>
                 </select>
             </div>
             <div class="flex-1 min-w-[16rem]">
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ค้นหา</label>
-                <input type="text" name="q" value="{{ $q }}" placeholder="ชื่อสาขา / รหัสเงื่อนไข เช่น SC9"
+                <input type="text" name="q" value="{{ $q }}" placeholder="ชื่อสาขา / รหัสเงื่อนไข เช่น สถิติ หรือ SC9"
                     class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
             </div>
             <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">แสดง</button>
-            @if ($q !== '' || $educationLevel !== 'bachelor')
+            @if ($q !== '' || $viewFilter !== 'all')
                 <a href="{{ route('faculty-admin.department-patterns.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้าง</a>
             @endif
         </form>
@@ -124,97 +193,45 @@
         @forelse ($departments as $dept)
             @php
                 $isFocus = $focusId === (int) $dept->department_id;
+                $showBachelor = $viewFilter === 'all' || $viewFilter === 'bachelor';
+                $showGraduate = $viewFilter === 'all' || $viewFilter === 'graduate';
             @endphp
             <section id="dept-{{ $dept->department_id }}"
                      class="dept-pattern-card {{ $isFocus ? 'is-focus' : '' }}">
-                <div class="px-4 py-3 bg-gradient-to-r from-[#FFFBF7] to-[#FAF0E6]/60 border-b border-[#E8C4B8]/70 flex flex-wrap items-center justify-between gap-3">
-                    <div class="min-w-0">
-                        <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2">
-                            <i data-lucide="building-2" class="w-4 h-4 text-[#8B4513]"></i>
-                            {{ $dept->department_name }}
-                        </h3>
-                        <p class="text-xs text-[#7A4A3A]/75 mt-0.5">
-                            ID {{ $dept->department_id }} · กำลังแก้ <strong>{{ $educationLabel }}</strong>
-                            ({{ $dept->patterns->count() }} เงื่อนไข)
-                            · ปริญญาตรี {{ $dept->bachelor_count ?? $dept->patterns->count() }}
-                            · บัณฑิตศึกษา {{ $dept->graduate_count ?? 0 }}
-                        </p>
-                    </div>
-                    <form method="POST" action="{{ route('faculty-admin.department-patterns.restore') }}"
-                          onsubmit="return confirm('กู้คืนค่าเริ่มต้นระดับ{{ $educationLabel }} ของสาขา {{ $dept->department_name }}?\nเงื่อนไขระดับนี้จะถูกแทนที่ (อีกระดับไม่ถูกเปลี่ยน)')">
-                        @csrf
-                        <input type="hidden" name="department_id" value="{{ $dept->department_id }}">
-                        <input type="hidden" name="q" value="{{ $q }}">
-                        <input type="hidden" name="education_level" value="{{ $educationLevel }}">
-                        <button type="submit" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs text-[#5C2E1F] hover:bg-amber-50">
-                            กู้คืนค่าเริ่มต้น ({{ $educationLabel }})
-                        </button>
-                    </form>
+                <div class="px-4 py-3 bg-gradient-to-r from-[#FFFBF7] to-[#FAF0E6]/60 border-b border-[#E8C4B8]/70">
+                    <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2">
+                        <i data-lucide="building-2" class="w-4 h-4 text-[#8B4513]"></i>
+                        {{ $dept->department_name }}
+                    </h3>
+                    <p class="text-xs text-[#7A4A3A]/75 mt-0.5">
+                        ID {{ $dept->department_id }}
+                        · ปริญญาตรี <strong>{{ $dept->bachelor_count ?? 0 }}</strong> รหัส
+                        · บัณฑิตศึกษา <strong>{{ $dept->graduate_count ?? 0 }}</strong> รหัส
+                    </p>
                 </div>
 
-                <div class="px-4 py-3 border-b border-[#E8C4B8]/40 bg-[#FFFBF7]/40">
-                    <div class="flex flex-wrap gap-2">
-                        @forelse ($dept->pattern_details as $item)
-                            <div class="pattern-chip is-{{ $item['kind'] }}" title="{{ $item['label'] }}">
-                                <code>{{ $item['pattern'] }}</code>
-                                <span>{{ $item['label'] }}</span>
-                            </div>
-                        @empty
-                            <p class="text-sm text-amber-800">ยังไม่มีเงื่อนไขระดับ{{ $educationLabel }} — สาขานี้จะไม่พบรายวิชาเมื่อกรองตามสาขาในระดับนี้</p>
-                        @endforelse
-                    </div>
-                </div>
+                <div class="level-grid {{ $viewFilter !== 'all' ? '!grid-cols-1' : '' }}">
+                    @if ($showBachelor)
+                        @include('super-admin.department-patterns.partials.level-panel', [
+                            'dept' => $dept,
+                            'q' => $q,
+                            'viewFilter' => $viewFilter,
+                            'level' => \App\Models\DepartmentSubjectPattern::EDUCATION_BACHELOR,
+                            'patterns' => $dept->bachelor_patterns ?? collect(),
+                            'details' => $dept->bachelor_details ?? [],
+                        ])
+                    @endif
 
-                <div>
-                    @foreach ($dept->patterns as $row)
-                        <div class="pattern-row" data-pattern-row>
-                            <div class="pattern-view flex flex-wrap items-center gap-2 w-full justify-between">
-                                <div class="flex items-center gap-2 min-w-0">
-                                    <code class="text-sm font-bold text-[#8B4513]">{{ $row->pattern }}</code>
-                                    <span class="text-xs text-[#7A4A3A]/70">{{ app(\App\Services\DeptAdmin\DepartmentSubjectFilter::class)->describePattern($row->pattern) }}</span>
-                                </div>
-                                <div class="flex items-center gap-2 shrink-0">
-                                    <button type="button" class="btn-edit-pattern px-2.5 py-1 border border-amber-300 rounded text-xs hover:bg-amber-50">แก้ไข</button>
-                                    <form method="POST" action="{{ route('faculty-admin.department-patterns.destroy', $row) }}"
-                                          onsubmit="return confirm('ลบเงื่อนไข {{ $row->pattern }} หรือไม่?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <input type="hidden" name="q" value="{{ $q }}">
-                                        <input type="hidden" name="education_level" value="{{ $educationLevel }}">
-                                        <button type="submit" class="px-2.5 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">ลบ</button>
-                                    </form>
-                                </div>
-                            </div>
-                            <form method="POST" action="{{ route('faculty-admin.department-patterns.update', $row) }}" class="pattern-edit-form flex-wrap items-center gap-2">
-                                @csrf
-                                @method('PUT')
-                                <input type="hidden" name="q" value="{{ $q }}">
-                                <input type="hidden" name="education_level" value="{{ $educationLevel }}">
-                                <input type="text" name="pattern" value="{{ $row->pattern }}" required maxlength="100"
-                                    class="flex-1 min-w-[12rem] border border-amber-300 rounded-lg px-3 py-1.5 text-sm bg-white uppercase font-mono">
-                                <button type="submit" class="px-3 py-1.5 bg-[#8B4513] text-white rounded text-xs hover:bg-[#6B3410]">บันทึก</button>
-                                <button type="button" class="btn-cancel-edit px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ยกเลิก</button>
-                            </form>
-                        </div>
-                    @endforeach
-                </div>
-
-                <div class="px-4 py-3 bg-[#FAF0E6]/35">
-                    <form method="POST" action="{{ route('faculty-admin.department-patterns.store') }}" class="flex flex-wrap items-end gap-2">
-                        @csrf
-                        <input type="hidden" name="department_id" value="{{ $dept->department_id }}">
-                        <input type="hidden" name="q" value="{{ $q }}">
-                        <input type="hidden" name="education_level" value="{{ $educationLevel }}">
-                        <div class="flex-1 min-w-[14rem]">
-                            <label class="block text-xs font-medium text-[#5C2E1F] mb-1">เพิ่มเงื่อนไขใหม่ ({{ $educationLabel }})</label>
-                            <input type="text" name="pattern" required maxlength="100" placeholder="เช่น 319% หรือ %SC9% หรือ SC904491"
-                                class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white uppercase font-mono"
-                                value="{{ (int) old('department_id') === (int) $dept->department_id ? old('pattern') : '' }}">
-                        </div>
-                        <button type="submit" class="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800">
-                            เพิ่ม
-                        </button>
-                    </form>
+                    @if ($showGraduate)
+                        @include('super-admin.department-patterns.partials.level-panel', [
+                            'dept' => $dept,
+                            'q' => $q,
+                            'viewFilter' => $viewFilter,
+                            'level' => \App\Models\DepartmentSubjectPattern::EDUCATION_GRADUATE,
+                            'patterns' => $dept->graduate_patterns ?? collect(),
+                            'details' => $dept->graduate_details ?? [],
+                        ])
+                    @endif
                 </div>
             </section>
         @empty
