@@ -740,7 +740,9 @@
                     <div class="wizard-step space-y-4" data-wizard-step="7">
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
                             <h3 class="font-bold text-[#5C2E1F]">พิมพ์รายงานผลการสอบไล่ (ใบขวาง)</h3>
-                            <p class="text-sm text-[#7A4A3A]/80">ระบบบันทึกรายงานแล้ว — กดปุ่มด้านล่างเพื่อเปิดแบบพิมพ์ใบขวางในแท็บใหม่</p>
+                            <p class="text-sm text-[#7A4A3A]/80">
+                                กดปุ่มด้านล่างเพื่อเปิดแบบพิมพ์ใบขวาง หรือกด «ถัดไป» ระบบจะดาวน์โหลดใบขวางให้อัตโนมัติอีกครั้งก่อนเข้าขั้นตอนอัปโหลด
+                            </p>
                             <button type="button" id="wizard-print-link"
                                class="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-700 text-white rounded-lg text-sm font-semibold hover:bg-amber-800">
                                 <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์ใบขวาง
@@ -749,6 +751,31 @@
                     </div>
 
                     <div class="wizard-step space-y-4" data-wizard-step="8">
+                        <div id="wizard-print-download-banner" class="hidden rounded-xl border border-sky-300 bg-sky-50 p-4 space-y-3">
+                            <div class="flex items-start gap-3">
+                                <div class="shrink-0 w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center">
+                                    <i data-lucide="download" class="w-5 h-5 text-sky-800"></i>
+                                </div>
+                                <div class="min-w-0 flex-1 space-y-1">
+                                    <p class="text-sm font-bold text-sky-950">ดาวน์โหลดแบบรายงานผลการสอบไล่เรียบร้อยแล้ว</p>
+                                    <p class="text-sm text-sky-900/85 leading-relaxed">
+                                        กรุณากดตรวจสอบ แล้วคลิกไปยังไฟล์ที่ download เพื่อพิมพ์/ลงนามก่อนอัปโหลดกลับในขั้นตอนนี้
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" id="wizard-print-download-open"
+                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-semibold hover:bg-sky-900">
+                                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                                    เปิดไฟล์ที่ดาวน์โหลด
+                                </button>
+                                <button type="button" id="wizard-print-download-dismiss"
+                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-sky-300 text-sky-900 text-sm font-medium hover:bg-white">
+                                    รับทราบ
+                                </button>
+                            </div>
+                        </div>
+
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
                             <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบก่อนเสร็จสิ้น</p>
                             <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบขวางของ Section ที่คุณกรอกเข้าสู่ระบบ</p>
@@ -849,6 +876,34 @@
                     <button type="button" id="save-overlay-error-close"
                         class="px-8 py-3 bg-[#8B4513] text-white text-lg font-semibold rounded-xl hover:bg-[#6d3610] min-w-[10rem]">
                         ตกลง
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="wizard-print-download-overlay" class="hidden fixed inset-0 z-[100] no-print" role="dialog" aria-modal="true" aria-labelledby="wizard-print-download-title">
+        <div class="absolute inset-0 bg-[#3d2418]/70 backdrop-blur-[2px]"></div>
+        <div class="relative z-10 min-h-full flex items-center justify-center p-4 sm:p-6">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 sm:p-10 text-center border-4 border-sky-300">
+                <div class="w-20 h-20 mx-auto mb-5 rounded-full bg-sky-100 flex items-center justify-center">
+                    <i data-lucide="download" class="w-12 h-12 text-sky-800"></i>
+                </div>
+                <h2 id="wizard-print-download-title" class="text-2xl sm:text-3xl font-bold text-sky-950 mb-3">
+                    ดาวน์โหลดแบบรายงานผลการสอบไล่เรียบร้อยแล้ว
+                </h2>
+                <p class="text-lg text-[#5C2E1F] leading-relaxed mb-6">
+                    กรุณากดตรวจสอบ แล้วคลิกไปยังไฟล์ที่ download
+                </p>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <button type="button" id="wizard-print-download-overlay-open"
+                        class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sky-800 text-white text-base font-semibold hover:bg-sky-900">
+                        <i data-lucide="external-link" class="w-5 h-5"></i>
+                        เปิดไฟล์ที่ดาวน์โหลด
+                    </button>
+                    <button type="button" id="wizard-print-download-overlay-close"
+                        class="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-amber-300 text-[#5C2E1F] text-base font-semibold hover:bg-amber-50">
+                        รับทราบ
                     </button>
                 </div>
             </div>

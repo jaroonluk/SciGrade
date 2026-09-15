@@ -4130,18 +4130,97 @@ function clearWizardState(config = window.wizardConfig) {
     }
 }
 
-function printReportUrl(reportId, sections = null) {
+function printReportUrl(reportId, sections = null, options = {}) {
     const path = `/grade-reports/${encodeURIComponent(reportId)}/print`;
     const secs = [...new Set(
         (Array.isArray(sections) ? sections : requiredRegSections())
             .map((n) => Number(n))
             .filter((n) => n > 0)
     )];
+    const params = new URLSearchParams();
     if (!secs.length) {
-        return `${path}?sections=`;
+        params.set('sections', '');
+    } else {
+        secs.forEach((sec) => params.append('sections[]', String(sec)));
+    }
+    if (options.autoPrint) {
+        params.set('autoprint', '1');
     }
 
-    return `${path}?${secs.map((sec) => `sections[]=${encodeURIComponent(sec)}`).join('&')}`;
+    return `${path}?${params.toString()}`;
+}
+
+function openWizardExamPrint(config, { autoPrint = false } = {}) {
+    if (!config?.currentReportId) {
+        showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «บันทึกแล้วไปต่อ» อีกครั้ง', 'error');
+        return null;
+    }
+    const url = printReportUrl(config.currentReportId, null, { autoPrint });
+    window.lastWizardPrintUrl = printReportUrl(config.currentReportId, null, { autoPrint: false });
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+        showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วลองอีกครั้ง หรือกด «เปิดไฟล์ที่ดาวน์โหลด»', 'error');
+    }
+    return opened;
+}
+
+function hideExamReportDownloadNotice() {
+    document.getElementById('wizard-print-download-overlay')?.classList.add('hidden');
+    document.getElementById('wizard-print-download-banner')?.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function showExamReportDownloadNotice(config) {
+    const overlay = document.getElementById('wizard-print-download-overlay');
+    const banner = document.getElementById('wizard-print-download-banner');
+
+    if (banner) banner.classList.remove('hidden');
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const openPrint = (e) => {
+        e?.preventDefault?.();
+        const viewUrl = window.lastWizardPrintUrl
+            || (config?.currentReportId ? printReportUrl(config.currentReportId) : null);
+        if (!viewUrl) {
+            openWizardExamPrint(config, { autoPrint: false });
+            return;
+        }
+        const opened = window.open(viewUrl, '_blank', 'noopener,noreferrer');
+        if (!opened) {
+            showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วลองอีกครั้ง', 'error');
+        }
+    };
+
+    const overlayOpen = document.getElementById('wizard-print-download-overlay-open');
+    const overlayClose = document.getElementById('wizard-print-download-overlay-close');
+    const bannerOpen = document.getElementById('wizard-print-download-open');
+    const bannerDismiss = document.getElementById('wizard-print-download-dismiss');
+
+    if (overlayOpen && overlayOpen.dataset.bound !== '1') {
+        overlayOpen.dataset.bound = '1';
+        overlayOpen.addEventListener('click', openPrint);
+    }
+    if (overlayClose && overlayClose.dataset.bound !== '1') {
+        overlayClose.dataset.bound = '1';
+        overlayClose.addEventListener('click', () => {
+            document.getElementById('wizard-print-download-overlay')?.classList.add('hidden');
+            document.body.style.overflow = '';
+        });
+    }
+    if (bannerOpen && bannerOpen.dataset.bound !== '1') {
+        bannerOpen.dataset.bound = '1';
+        bannerOpen.addEventListener('click', openPrint);
+    }
+    if (bannerDismiss && bannerDismiss.dataset.bound !== '1') {
+        bannerDismiss.dataset.bound = '1';
+        bannerDismiss.addEventListener('click', () => {
+            banner?.classList.add('hidden');
+        });
+    }
 }
 
 function initGradeReportWizard(config) {
@@ -4235,10 +4314,19 @@ function initGradeReportWizard(config) {
             return;
         }
 
+        if (step === 7) {
+            persistWizardState(config, 7);
+            openWizardExamPrint(config, { autoPrint: true });
+            go(8);
+            showExamReportDownloadNotice(config);
+            return;
+        }
+
         go(nextWizardStep(step, config));
     });
 
     document.getElementById('wizard-back')?.addEventListener('click', () => {
+        hideExamReportDownloadNotice();
         go(prevWizardStep(step, config));
     });
 
@@ -4263,15 +4351,8 @@ function initGradeReportWizard(config) {
     document.getElementById('wizard-print-link')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!config.currentReportId) {
-            showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «บันทึกแล้วไปต่อ» อีกครั้ง', 'error');
-            return;
-        }
         persistWizardState(config, step);
-        const opened = window.open(printReportUrl(config.currentReportId), '_blank', 'noopener,noreferrer');
-        if (!opened) {
-            showToast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปแล้วกดพิมพ์อีกครั้ง', 'error');
-        }
+        openWizardExamPrint(config, { autoPrint: true });
     });
 
     document.getElementById('btn-cancel')?.addEventListener('click', () => {

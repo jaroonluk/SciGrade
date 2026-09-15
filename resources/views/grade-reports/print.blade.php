@@ -298,5 +298,14 @@
 
     <div class="print-footer">พิมพ์เมื่อ {{ $printedAt }}</div>
     </div>
+@if (request()->boolean('autoprint'))
+<script>
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            try { window.print(); } catch (e) { /* ignore */ }
+        }, 350);
+    });
+</script>
+@endif
 </body>
 </html>
