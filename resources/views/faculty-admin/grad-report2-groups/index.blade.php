@@ -125,6 +125,76 @@
         background: transparent;
         padding: 0.25rem 0.15rem;
     }
+    .paste-grid-head {
+        display: grid;
+        grid-template-columns: 8rem minmax(10rem, 1.2fr) minmax(12rem, 1.4fr);
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .paste-grid-head span {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #5C2E1F;
+        background: #FAF0E6;
+        border: 1px solid #e8c4b8;
+        border-radius: 0.5rem;
+        padding: 0.45rem 0.6rem;
+        text-align: center;
+    }
+    .paste-area {
+        width: 100%;
+        min-height: 9.5rem;
+        border: 1.5px dashed #d4a090;
+        border-radius: 0.75rem;
+        background: #fff;
+        padding: 0.75rem 0.9rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.8rem;
+        line-height: 1.45;
+        color: #5C2E1F;
+        resize: vertical;
+    }
+    .paste-area:focus {
+        outline: none;
+        border-color: #8B4513;
+        box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.12);
+        background: #fffdfb;
+    }
+    .paste-preview {
+        overflow-x: auto;
+        border: 1px solid #e8c4b8;
+        border-radius: 0.75rem;
+        background: #fff;
+    }
+    .paste-preview table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+    }
+    .paste-preview th {
+        background: #fdf6f0;
+        color: #5C2E1F;
+        text-align: left;
+        padding: 0.55rem 0.7rem;
+        border-bottom: 1px solid #e8c4b8;
+        white-space: nowrap;
+    }
+    .paste-preview td {
+        padding: 0.5rem 0.7rem;
+        border-bottom: 1px solid #f5e6d8;
+        vertical-align: top;
+    }
+    .paste-preview tr:last-child td { border-bottom: 0; }
+    .paste-code-chip {
+        display: inline-block;
+        margin: 0.1rem 0.2rem 0.1rem 0;
+        padding: 0.12rem 0.4rem;
+        border-radius: 9999px;
+        background: #FAF0E6;
+        border: 1px solid #e8c4b8;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
 </style>
 @endpush
 
@@ -214,11 +284,21 @@
     @if (session('status'))
         <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm">{{ session('status') }}</div>
     @endif
-    @foreach (['group_code', 'subject', 'member_codes', 'subject_code', 'new_subject_code'] as $errKey)
+    @foreach (['group_code', 'subject', 'member_codes', 'subject_code', 'new_subject_code', 'paste_text'] as $errKey)
         @error($errKey)
-            <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
+            <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm whitespace-pre-line">{{ $message }}</div>
         @enderror
     @endforeach
+    @if (session('paste_partial_errors'))
+        <div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-950 px-4 py-3 text-sm">
+            <p class="font-semibold">บางกลุ่มนำเข้าไม่ได้</p>
+            <ul class="list-disc pl-5 mt-1 space-y-0.5">
+                @foreach ((array) session('paste_partial_errors') as $err)
+                    <li>{{ $err }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     {{-- ฟอร์มสร้างกลุ่ม --}}
     <div class="form-section rounded-xl p-6 space-y-4">
@@ -267,6 +347,90 @@
             </button>
         </form>
     </div>
+
+    {{-- วางจาก Excel (เงื่อนไขเดียวกับฟอร์มด้านบน) --}}
+    <details class="form-section rounded-xl p-6" @if (session('paste_open') || old('paste_text') || $errors->has('paste_text')) open @endif>
+        <summary class="cursor-pointer select-none list-none flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h3 class="font-semibold text-[#5C2E1F] flex items-center gap-2">
+                    <i data-lucide="clipboard-paste" class="w-4 h-4"></i>
+                    เพิ่มแบบวางจาก Excel
+                </h3>
+                <p class="text-xs text-[#7A4A3A]/75 mt-1">
+                    คัดลอกเซลจาก Excel มาวาง — คอลัมน์ตรงกับฟอร์มด้านบน · การเพิ่มทีละกลุ่มแบบเดิมยังใช้ได้ตามปกติ
+                </p>
+            </div>
+            <span class="text-xs font-semibold text-[#8B4513] px-2.5 py-1 rounded-lg bg-[#FAF0E6] border border-[#e8c4b8]">คลิกเพื่อเปิด/ปิด</span>
+        </summary>
+
+        <div class="mt-4 space-y-4">
+            <div class="paste-grid-head" aria-hidden="true">
+                <span>1. รหัสกลุ่ม *</span>
+                <span>2. ชื่อวิชา (ENG) *</span>
+                <span>3. รหัสวิชาในกลุ่ม *</span>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-3 text-xs text-[#5C2E1F]">
+                <div class="example-box space-y-1.5">
+                    <p class="font-sans font-semibold text-xs">รูปแบบ A — หนึ่งแถวต่อสมาชิก</p>
+                    <p>300109<span class="text-[#A0522D]">[Tab]</span>PHYSICAL SCIENCE<span class="text-[#A0522D]">[Tab]</span>SC002104</p>
+                    <p>300109<span class="text-[#A0522D]">[Tab]</span>PHYSICAL SCIENCE<span class="text-[#A0522D]">[Tab]</span>SC002105</p>
+                    <p class="font-sans text-[#7A4A3A] pt-1">รหัสกลุ่มซ้ำได้ — ระบบรวมเข้ากลุ่มเดียวกัน</p>
+                </div>
+                <div class="example-box space-y-1.5">
+                    <p class="font-sans font-semibold text-xs">รูปแบบ B — หลายรหัสในคอลัมน์เดียว</p>
+                    <p>300109<span class="text-[#A0522D]">[Tab]</span>PHYSICAL SCIENCE<span class="text-[#A0522D]">[Tab]</span>SC002104, SC002105</p>
+                    <p class="font-sans text-[#7A4A3A] pt-1">แยกด้วยจุลภาค ช่องว่าง หรือขึ้นบรรทัดในเซลได้</p>
+                </div>
+            </div>
+
+            <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-950 flex gap-2">
+                <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <div>
+                    เงื่อนไขเดียวกับฟอร์มด้านบน: รหัสกลุ่มต้องเป็นรหัสจริง · แต่ละรหัสอยู่ได้กลุ่มเดียว ·
+                    ห้ามวิทยานิพนธ์/การศึกษาอิสระ · มีหัวตารางก็ได้ (ระบบข้ามให้อัตโนมัติ)
+                </div>
+            </div>
+
+            <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.paste') }}" id="form-paste-groups" class="space-y-3">
+                @csrf
+                <input type="hidden" name="q" value="{{ $q }}">
+                <label class="block text-sm font-medium text-[#5C2E1F]" for="paste-text">พื้นที่วางข้อมูล</label>
+                <textarea id="paste-text" name="paste_text" class="paste-area"
+                    placeholder="วางที่นี่ เช่น&#10;รหัสกลุ่ม&#9;ชื่อวิชา (ENG)&#9;รหัสวิชาในกลุ่ม&#10;300109&#9;PHYSICAL SCIENCE&#9;SC002104&#10;300109&#9;PHYSICAL SCIENCE&#9;SC002105"
+                    spellcheck="false">{{ old('paste_text') }}</textarea>
+
+                <div id="paste-preview-wrap" class="hidden space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-sm font-semibold text-[#5C2E1F]">ตัวอย่างก่อนบันทึก</p>
+                        <p id="paste-preview-meta" class="text-xs text-[#7A4A3A]"></p>
+                    </div>
+                    <div class="paste-preview">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>รหัสกลุ่ม</th>
+                                    <th>ชื่อวิชา (ENG)</th>
+                                    <th>รหัสวิชาในกลุ่ม</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paste-preview-body"></tbody>
+                        </table>
+                    </div>
+                    <p id="paste-preview-errors" class="hidden text-xs text-red-700 whitespace-pre-line"></p>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <button type="submit" id="paste-submit" class="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700">
+                        บันทึกข้อมูลที่วาง
+                    </button>
+                    <button type="button" id="paste-clear" class="px-4 py-2.5 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                        ล้างช่องวาง
+                    </button>
+                </div>
+            </form>
+        </div>
+    </details>
 
     {{-- ค้นหา --}}
     <div class="form-section rounded-xl p-4">
@@ -595,6 +759,115 @@ function togglePanel(id) {
         const focus = document.querySelector('.group-card.is-focus');
         if (focus) focus.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
+
+    // --- วางจาก Excel: พรีวิว ---
+    const pasteText = document.getElementById('paste-text');
+    const pastePreviewWrap = document.getElementById('paste-preview-wrap');
+    const pastePreviewBody = document.getElementById('paste-preview-body');
+    const pastePreviewMeta = document.getElementById('paste-preview-meta');
+    const pastePreviewErrors = document.getElementById('paste-preview-errors');
+    const pasteClear = document.getElementById('paste-clear');
+
+    const splitPasteCells = (line) => {
+        const trimmed = line.replace(/\s+$/g, '');
+        if (trimmed.includes('\t')) {
+            return trimmed.split('\t').map((c) => c.trim());
+        }
+        if ((trimmed.match(/;/g) || []).length >= 2) {
+            return trimmed.split(';').map((c) => c.trim());
+        }
+        if ((trimmed.match(/,/g) || []).length >= 2) {
+            const parts = trimmed.split(',').map((c) => c.trim());
+            return [parts[0], parts[1], parts.slice(2).join(',')];
+        }
+        return trimmed.split(/\s{2,}/).map((c) => c.trim()).filter((c, i, arr) => c || i < arr.length - 1);
+    };
+
+    const looksLikeHeader = (cells) => {
+        const joined = cells.join(' ').toLowerCase();
+        return /group|รหัสกลุ่ม|subject|ชื่อวิชา|member|รหัสวิชา/.test(joined);
+    };
+
+    const normalizeCode = (value) => String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+    const parseMemberCodes = (raw) => String(raw || '')
+        .replace(/[;|]/g, ',')
+        .split(/[\s,]+/)
+        .map(normalizeCode)
+        .filter(Boolean);
+
+    const renderPastePreview = () => {
+        if (!pasteText || !pastePreviewWrap || !pastePreviewBody) return;
+        const raw = pasteText.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+        if (!raw) {
+            pastePreviewWrap.classList.add('hidden');
+            return;
+        }
+
+        const lines = raw.split('\n').filter((line) => line.trim() !== '');
+        let start = 0;
+        if (lines.length && looksLikeHeader(splitPasteCells(lines[0]))) start = 1;
+
+        const groups = new Map();
+        const errors = [];
+
+        for (let i = start; i < lines.length; i++) {
+            const lineNo = i + 1;
+            const cells = splitPasteCells(lines[i]);
+            const groupCode = normalizeCode(cells[0] || '');
+            const subject = String(cells[1] || '').trim().toUpperCase();
+            const members = parseMemberCodes(cells.slice(2).join(' '));
+
+            if (!groupCode && !subject && members.length === 0) continue;
+            if (!groupCode) { errors.push(`แถว ${lineNo}: ขาดรหัสกลุ่ม`); continue; }
+            if (!subject) { errors.push(`แถว ${lineNo}: ขาดชื่อวิชา (ENG)`); continue; }
+            if (!members.length) { errors.push(`แถว ${lineNo}: ขาดรหัสวิชาในกลุ่ม`); continue; }
+
+            if (!groups.has(groupCode)) {
+                groups.set(groupCode, { subject, members: [] });
+            } else if (groups.get(groupCode).subject !== subject) {
+                errors.push(`แถว ${lineNo}: ชื่อวิชาของกลุ่ม ${groupCode} ไม่ตรงกับแถวก่อนหน้า`);
+                continue;
+            }
+            const bucket = groups.get(groupCode);
+            members.forEach((code) => {
+                if (!bucket.members.includes(code)) bucket.members.push(code);
+            });
+        }
+
+        pastePreviewWrap.classList.remove('hidden');
+        if (pastePreviewMeta) {
+            pastePreviewMeta.textContent = groups.size
+                ? `${groups.size} กลุ่ม · ${[...groups.values()].reduce((n, g) => n + g.members.length, 0)} รหัส`
+                : 'ยังไม่มีแถวที่ใช้ได้';
+        }
+
+        pastePreviewBody.innerHTML = [...groups.entries()].map(([code, row]) => `
+            <tr>
+                <td><code class="font-semibold text-[#8B4513]">${escapeHtml(code)}</code></td>
+                <td>${escapeHtml(row.subject)}</td>
+                <td>${row.members.map((m) => `<span class="paste-code-chip">${escapeHtml(m)}</span>`).join('')}</td>
+            </tr>
+        `).join('') || `<tr><td colspan="3" class="text-[#7A4A3A]">ยังอ่านแถวข้อมูลไม่ได้ — ตรวจคอลัมน์ 3 ช่อง</td></tr>`;
+
+        if (pastePreviewErrors) {
+            if (errors.length) {
+                pastePreviewErrors.textContent = errors.join('\n');
+                pastePreviewErrors.classList.remove('hidden');
+            } else {
+                pastePreviewErrors.textContent = '';
+                pastePreviewErrors.classList.add('hidden');
+            }
+        }
+    };
+
+    pasteText?.addEventListener('input', renderPastePreview);
+    pasteText?.addEventListener('paste', () => setTimeout(renderPastePreview, 0));
+    pasteClear?.addEventListener('click', () => {
+        if (pasteText) pasteText.value = '';
+        renderPastePreview();
+        pasteText?.focus();
+    });
+    if (pasteText?.value.trim()) renderPastePreview();
 })();
 </script>
 @endpush

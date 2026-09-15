@@ -61,6 +61,48 @@ class GradReport2GroupController extends Controller
             ->with('status', $msg);
     }
 
+    public function storePaste(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'paste_text' => ['required', 'string', 'max:100000'],
+        ], [
+            'paste_text.required' => 'กรุณาวางข้อมูลจาก Excel ก่อนบันทึก',
+        ]);
+
+        try {
+            $result = $this->service->importPasteGroups(
+                $validated['paste_text'],
+                $this->username(),
+            );
+        } catch (ValidationException $e) {
+            return back()
+                ->withInput()
+                ->withErrors($e->errors())
+                ->with('paste_open', true);
+        }
+
+        $parts = [];
+        foreach ($result['created'] as $row) {
+            $parts[] = ($row['was_existing'] ? 'เพิ่มเข้ากลุ่ม ' : 'สร้างกลุ่ม ')
+                .$row['group_code']
+                .' (+'.implode(', ', $row['inserted']).')';
+        }
+
+        $status = 'นำเข้าจาก Excel เรียบร้อย — '.implode(' · ', $parts);
+        $redirect = redirect()
+            ->route('faculty-admin.grad-report2-groups.index', [
+                'q' => $request->input('q'),
+                'group' => $result['created'][0]['group_code'] ?? null,
+            ])
+            ->with('status', $status);
+
+        if ($result['errors'] !== []) {
+            $redirect->with('paste_partial_errors', $result['errors']);
+        }
+
+        return $redirect;
+    }
+
     public function updateGroup(Request $request): RedirectResponse
     {
         $validated = $request->validate([

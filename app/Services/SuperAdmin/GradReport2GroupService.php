@@ -504,6 +504,207 @@ class GradReport2GroupService
                 ->first();
     }
 
+    /**
+     * แปลงข้อความที่วางจาก Excel ให้เป็นกลุ่มตามฟิลด์เดียวกับฟอร์มสร้างกลุ่ม
+     * คอลัมน์: รหัสกลุ่ม | ชื่อวิชา (ENG) | รหัสวิชาในกลุ่ม
+     * แถวที่มีรหัสกลุ่มเดียวกันจะถูกรวมสมาชิกเข้าด้วยกัน
+     *
+     * @return list<array{group_code: string, subject: string, member_codes: list<string>, lines: list<int>}>
+     */
+    public function parsePasteIntoGroups(string $raw): array
+    {
+        $raw = str_replace(["\r\n", "\r"], "\n", trim($raw));
+        if ($raw === '') {
+            throw ValidationException::withMessages([
+                'paste_text' => 'กรุณาวางข้อมูลจาก Excel อย่างน้อย 1 แถว',
+            ]);
+        }
+
+        $lines = array_values(array_filter(
+            explode("\n", $raw),
+            fn (string $line) => trim($line) !== '',
+        ));
+
+        $start = 0;
+        $firstCells = $this->splitPasteCells($lines[0] ?? '');
+        if ($this->looksLikePasteHeader($firstCells)) {
+            $start = 1;
+        }
+
+        /** @var array<string, array{group_code: string, subject: string, member_codes: list<string>, lines: list<int>}> $groups */
+        $groups = [];
+        $rowErrors = [];
+
+        for ($i = $start; $i < count($lines); $i++) {
+            $lineNo = $i + 1;
+            $cells = $this->splitPasteCells($lines[$i]);
+            $groupCode = $this->codes->normalizeSubjectCode((string) ($cells[0] ?? ''));
+            $subject = mb_strtoupper(trim((string) ($cells[1] ?? '')));
+            $memberRaw = trim(implode(' ', array_slice($cells, 2)));
+
+            if ($groupCode === '' && $subject === '' && $memberRaw === '') {
+                continue;
+            }
+
+            if ($groupCode === '') {
+                $rowErrors[] = "แถว {$lineNo}: ขาดรหัสกลุ่ม";
+                continue;
+            }
+            if ($subject === '') {
+                $rowErrors[] = "แถว {$lineNo}: ขาดชื่อวิชา (ENG)";
+                continue;
+            }
+
+            $members = $this->parseLooseCodes($memberRaw);
+            if ($members === []) {
+                $rowErrors[] = "แถว {$lineNo}: ขาดรหัสวิชาในกลุ่ม";
+                continue;
+            }
+
+            if (! isset($groups[$groupCode])) {
+                $groups[$groupCode] = [
+                    'group_code' => $groupCode,
+                    'subject' => $subject,
+                    'member_codes' => [],
+                    'lines' => [],
+                ];
+            } elseif ($groups[$groupCode]['subject'] !== $subject) {
+                $rowErrors[] = "แถว {$lineNo}: ชื่อวิชาของกลุ่ม {$groupCode} ไม่ตรงกับแถวก่อนหน้า («{$groups[$groupCode]['subject']}» vs «{$subject}»)";
+                continue;
+            }
+
+            foreach ($members as $code) {
+                if (! in_array($code, $groups[$groupCode]['member_codes'], true)) {
+                    $groups[$groupCode]['member_codes'][] = $code;
+                }
+            }
+            $groups[$groupCode]['lines'][] = $lineNo;
+        }
+
+        if ($rowErrors !== []) {
+            throw ValidationException::withMessages([
+                'paste_text' => implode("\n", $rowErrors),
+            ]);
+        }
+
+        if ($groups === []) {
+            throw ValidationException::withMessages([
+                'paste_text' => 'ไม่พบแถวข้อมูลที่ใช้ได้ — ต้องมี 3 คอลัมน์: รหัสกลุ่ม | ชื่อวิชา (ENG) | รหัสวิชาในกลุ่ม',
+            ]);
+        }
+
+        return array_values($groups);
+    }
+
+    /**
+     * @return array{
+     *     created: list<array{group_code: string, inserted: list<string>, was_existing: bool}>,
+     *     errors: list<string>
+     * }
+     */
+    public function importPasteGroups(string $raw, string $username): array
+    {
+        $parsed = $this->parsePasteIntoGroups($raw);
+        $created = [];
+        $errors = [];
+
+        foreach ($parsed as $group) {
+            try {
+                $result = $this->createGroup(
+                    $group['group_code'],
+                    $group['subject'],
+                    $group['member_codes'],
+                    $username,
+                );
+                $created[] = [
+                    'group_code' => $result['group_code'],
+                    'inserted' => $result['inserted'],
+                    'was_existing' => $result['was_existing'],
+                ];
+            } catch (ValidationException $e) {
+                $messages = collect($e->errors())->flatten()->all();
+                $errors[] = 'กลุ่ม '.$group['group_code'].': '.implode(' ', $messages);
+            }
+        }
+
+        if ($created === [] && $errors !== []) {
+            throw ValidationException::withMessages([
+                'paste_text' => implode("\n", $errors),
+            ]);
+        }
+
+        return [
+            'created' => $created,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function splitPasteCells(string $line): array
+    {
+        $line = rtrim($line, "\t ");
+        if (str_contains($line, "\t")) {
+            return array_map(static fn ($c) => trim((string) $c), explode("\t", $line));
+        }
+
+        // Excel ที่คัดลอกในบาง locale อาจใช้ ; เป็นตัวคั่นคอลัมน์
+        if (substr_count($line, ';') >= 2) {
+            return array_map(static fn ($c) => trim((string) $c), explode(';', $line));
+        }
+
+        // CSV แบบคั่นด้วยจุลภาค — ระวังว่าคอลัมน์สมาชิกอาจมีจุลภาคหลายรหัส
+        if (substr_count($line, ',') >= 2) {
+            $parts = array_map(static fn ($c) => trim((string) $c), explode(',', $line));
+            if (count($parts) >= 3) {
+                return [
+                    $parts[0],
+                    $parts[1],
+                    implode(',', array_slice($parts, 2)),
+                ];
+            }
+        }
+
+        $parts = preg_split('/\s{2,}/', trim($line)) ?: [];
+
+        return array_map(static fn ($c) => trim((string) $c), $parts);
+    }
+
+    /**
+     * @param  list<string>  $cells
+     */
+    private function looksLikePasteHeader(array $cells): bool
+    {
+        $joined = mb_strtolower(implode(' ', $cells));
+
+        return str_contains($joined, 'group')
+            || str_contains($joined, 'รหัสกลุ่ม')
+            || str_contains($joined, 'subject')
+            || str_contains($joined, 'ชื่อวิชา')
+            || str_contains($joined, 'member')
+            || str_contains($joined, 'รหัสวิชา');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function parseLooseCodes(string $raw): array
+    {
+        $raw = str_replace(["\r\n", "\r", ';', '|'], [',', ',', ',', ','], $raw);
+        $parts = preg_split('/[\s,]+/', $raw) ?: [];
+
+        $codes = [];
+        foreach ($parts as $part) {
+            $code = $this->codes->normalizeSubjectCode((string) $part);
+            if ($code !== '' && ! in_array($code, $codes, true)) {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
+    }
+
     private function insertRow(
         string $groupCode,
         string $subjectCode,
