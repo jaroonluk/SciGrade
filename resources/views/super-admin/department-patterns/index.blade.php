@@ -131,7 +131,7 @@
         <div>
             <h2 class="text-xl font-bold text-[#5C2E1F]">จัดการรหัสสาขาที่ใช้กรอง</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                แต่ละสาขาแยกชัดว่าใช้รหัสใดกรอง <strong>ปริญญาตรี</strong> และรหัสใดกรอง <strong>บัณฑิตศึกษา / ป.บัณฑิต</strong>
+                แต่ละสาขาแยกชัดว่าใช้รหัสใดกรอง <strong>ปริญญาตรี</strong> และรหัสใดกรอง <strong>บัณฑิตศึกษา</strong>
             </p>
         </div>
         <div class="rounded-xl border border-[#E8C4B8] bg-[#FFFBF7] px-4 py-3 text-center min-w-[8rem]">
@@ -147,7 +147,7 @@
         </p>
         <ul class="list-disc pl-5 space-y-1 text-[#7A4A3A] text-xs leading-relaxed">
             <li><strong class="text-[#5C2E1F]">รหัสวิชาปริญญาตรี</strong> — เงื่อนไขจากฐานข้อมูลเดิมของสาขา ใช้เมื่อกรองระดับปริญญาตรี (และเป็นค่าเริ่มต้นเมื่อไม่ได้ระบุบัณฑิตศึกษา)</li>
-            <li><strong class="text-violet-900">รหัสวิชาบัณฑิตศึกษา / ป.บัณฑิต</strong> — เงื่อนไขเพิ่มเติมเฉพาะระดับบัณฑิตศึกษา</li>
+            <li><strong class="text-violet-900">รหัสวิชาบัณฑิตศึกษา</strong> — เงื่อนไขเพิ่มเติมเฉพาะระดับบัณฑิตศึกษา</li>
             <li>ถ้ารหัสวิชาไม่อยู่ในเงื่อนไขบัณฑิตศึกษาที่กำหนด จะจัดอยู่ในกลุ่มกรองด้วยเงื่อนไขปริญญาตรี</li>
         </ul>
     </div>

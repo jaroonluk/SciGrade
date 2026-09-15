@@ -232,7 +232,7 @@ class ThesisGradeReviewController extends Controller
 
     private function requireReviewer(): void
     {
-        abort_unless(SciGradeRole::canReviewThesisGrades(), 403, 'เฉพาะเจ้าหน้าที่งานบริการ (ป.บัณฑิต) และ Super Admin เท่านั้น');
+        abort_unless(SciGradeRole::canReviewThesisGrades(), 403, 'เฉพาะเจ้าหน้าที่งานบริการ (บัณฑิตศึกษา) และ Super Admin เท่านั้น');
         $this->requireStaff();
     }
 

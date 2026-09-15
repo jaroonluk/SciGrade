@@ -31,8 +31,8 @@ class DeptSubmissionInboxScopeTest extends TestCase
     public function it_labels_new_service_privilege_levels(): void
     {
         $this->assertSame('เจ้าหน้าที่งานบริการ', TblPrivilege::labelForLevel(TblPrivilege::LEVEL_SERVICE));
-        $this->assertSame('เจ้าหน้าที่งานบริการ(ป.ตรี)', TblPrivilege::labelForLevel(TblPrivilege::LEVEL_SERVICE_BACHELOR));
-        $this->assertSame('เจ้าหน้าที่งานบริการ(ป.บัณฑิต)', TblPrivilege::labelForLevel(TblPrivilege::LEVEL_SERVICE_GRADUATE));
+        $this->assertSame('เจ้าหน้าที่งานบริการ(ปริญญาตรี)', TblPrivilege::labelForLevel(TblPrivilege::LEVEL_SERVICE_BACHELOR));
+        $this->assertSame('เจ้าหน้าที่งานบริการ(บัณฑิตศึกษา)', TblPrivilege::labelForLevel(TblPrivilege::LEVEL_SERVICE_GRADUATE));
     }
 
     #[Test]

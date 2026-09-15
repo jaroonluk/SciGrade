@@ -566,7 +566,7 @@
                 <p class="role-kicker">เอกสารสาขา</p>
                 <h4 class="role-title">อัปโหลดเอกสารสาขา</h4>
                 <p class="role-desc">
-                    ส่งเอกสารรายงานตามภาคการศึกษา — แยกช่องทางปริญญาตรี (ป.ตรี) และบัณฑิตศึกษา (ป.บัณฑิต)
+                    ส่งเอกสารรายงานตามภาคการศึกษา — แยกช่องทางปริญญาตรี และบัณฑิตศึกษา
                     อัปโหลดได้ทันทีในช่องที่ต้องการ แก้ไข/ลบได้จนกว่า Admin กลางจะกดรับเอกสาร
                 </p>
             </div>
@@ -983,7 +983,7 @@
             @if ($canReviewThesisGrades ?? false)
                 <section class="role-panel mb-6" style="border-color:#facc15;background:linear-gradient(180deg,#fffbeb 0%,#fff 55%);">
                     <div class="role-panel-head">
-                        <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ · งานบริการ ป.บัณฑิต</p>
+                        <p class="role-kicker" style="color:#a16207;">วิทยานิพนธ์ / การศึกษาอิสระ · งานบริการ บัณฑิตศึกษา</p>
                         <h4 class="role-title" style="color:#854d0e;">รับผลการเรียนระดับคณะ</h4>
                         <p class="role-desc">ดูและดาวน์โหลดไฟล์ TS ทุกสาขา แล้วกดผ่านที่ประชุมกรรมการคณะฯ หลังสาขาผ่านแล้ว</p>
                     </div>

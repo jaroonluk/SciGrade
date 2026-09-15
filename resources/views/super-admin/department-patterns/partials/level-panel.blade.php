@@ -13,7 +13,7 @@
         <div class="min-w-0">
             <p class="level-panel-title">
                 <i data-lucide="{{ $isGraduate ? 'graduation-cap' : 'book-open' }}" class="w-4 h-4"></i>
-                {{ $isGraduate ? 'รหัสวิชา บัณฑิตศึกษา / ป.บัณฑิต' : 'รหัสวิชา ปริญญาตรี' }}
+                {{ $isGraduate ? 'รหัสวิชา บัณฑิตศึกษา' : 'รหัสวิชา ปริญญาตรี' }}
             </p>
             <p class="level-panel-hint">
                 @if ($isGraduate)

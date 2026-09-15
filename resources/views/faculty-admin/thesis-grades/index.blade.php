@@ -1,6 +1,6 @@
 @extends('layouts.scigrad')
 
-@section('title', 'รับผลการเรียนวิทยานิพนธ์ — งานบริการ ป.บัณฑิต')
+@section('title', 'รับผลการเรียนวิทยานิพนธ์ — งานบริการ บัณฑิตศึกษา')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
@@ -31,7 +31,7 @@
 <div>
     <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">งานบริการ ป.บัณฑิต</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">งานบริการ บัณฑิตศึกษา</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">รับผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1 max-w-3xl leading-relaxed">
                 ดูไฟล์อาจารย์และไฟล์ Admin สาขาจากหน้ารายการนี้ แล้วกดผ่านที่ประชุมกรรมการคณะฯ หลังสาขาผ่านแล้ว

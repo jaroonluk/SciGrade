@@ -46,7 +46,7 @@ class DepartmentPatternEducationLevelViewTest extends TestCase
 
         $this->assertStringContainsString('สาขาวิชาสถิติ', $html);
         $this->assertStringContainsString('รหัสวิชา ปริญญาตรี', $html);
-        $this->assertStringContainsString('รหัสวิชา บัณฑิตศึกษา / ป.บัณฑิต', $html);
+        $this->assertStringContainsString('รหัสวิชา บัณฑิตศึกษา', $html);
         $this->assertStringContainsString('312%', $html);
         $this->assertStringContainsString('SC9%', $html);
         $this->assertStringContainsString('ทั้งหมด (ปริญญาตรี + บัณฑิตศึกษา)', $html);
@@ -84,7 +84,7 @@ class DepartmentPatternEducationLevelViewTest extends TestCase
             'educationLevel' => DepartmentSubjectPattern::EDUCATION_GRADUATE,
         ])->render();
 
-        $this->assertStringContainsString('รหัสวิชา บัณฑิตศึกษา / ป.บัณฑิต', $html);
+        $this->assertStringContainsString('รหัสวิชา บัณฑิตศึกษา', $html);
         $this->assertStringContainsString('SC9%', $html);
         $this->assertStringNotContainsString('รหัสวิชา ปริญญาตรี', $html);
     }

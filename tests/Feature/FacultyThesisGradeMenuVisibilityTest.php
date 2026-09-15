@@ -11,24 +11,24 @@ class FacultyThesisGradeMenuVisibilityTest extends TestCase
     #[Test]
     public function faculty_home_hides_thesis_menu_for_bachelor_admin(): void
     {
-        $this->actingAs(new User(['name' => 'งานบริการ ป.ตรี', 'email' => 'bachelor@kku.ac.th']));
+        $this->actingAs(new User(['name' => 'งานบริการ ปริญญาตรี', 'email' => 'bachelor@kku.ac.th']));
 
         $html = $this->homeHtml(canReviewThesisGrades: false);
 
         $this->assertStringNotContainsString('faculty-admin/thesis-grades', $html);
-        $this->assertStringNotContainsString('งานบริการ ป.บัณฑิต', $html);
+        $this->assertStringNotContainsString('งานบริการ บัณฑิตศึกษา', $html);
     }
 
     #[Test]
     public function faculty_home_shows_thesis_menu_for_graduate_service_and_super_admin(): void
     {
-        $this->actingAs(new User(['name' => 'งานบริการ ป.บัณฑิต', 'email' => 'graduate@kku.ac.th']));
+        $this->actingAs(new User(['name' => 'งานบริการ บัณฑิตศึกษา', 'email' => 'graduate@kku.ac.th']));
 
         $html = $this->homeHtml(canReviewThesisGrades: true);
 
         $this->assertStringContainsString('รับผลการเรียนวิทยานิพนธ์', $html);
         $this->assertStringContainsString('faculty-admin/thesis-grades', $html);
-        $this->assertStringContainsString('งานบริการ ป.บัณฑิต', $html);
+        $this->assertStringContainsString('งานบริการ บัณฑิตศึกษา', $html);
         $this->assertStringContainsString('favicon.svg', $html);
     }
 

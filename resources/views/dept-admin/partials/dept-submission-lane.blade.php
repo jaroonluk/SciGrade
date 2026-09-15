@@ -1,6 +1,6 @@
 @php
     $isGraduate = $educationLevel === \App\Models\DeptSubmission::EDUCATION_GRADUATE;
-    $shortLabel = $isGraduate ? 'ป.บัณฑิต' : 'ป.ตรี';
+    $shortLabel = $isGraduate ? 'บัณฑิตศึกษา' : 'ปริญญาตรี';
     $fullLabel = $isGraduate ? 'ระดับบัณฑิตศึกษา' : 'ระดับปริญญาตรี';
     $tone = $isGraduate ? 'graduate' : 'bachelor';
     $canModify = (bool) ($submission?->isOpen());

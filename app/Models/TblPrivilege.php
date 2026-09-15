@@ -56,8 +56,8 @@ class TblPrivilege extends Model
         return match ($level) {
             self::LEVEL_SUPER => 'Super Admin',
             self::LEVEL_DEPT => 'เจ้าหน้าที่สาขาวิชา',
-            self::LEVEL_SERVICE_BACHELOR => 'เจ้าหน้าที่งานบริการ(ป.ตรี)',
-            self::LEVEL_SERVICE_GRADUATE => 'เจ้าหน้าที่งานบริการ(ป.บัณฑิต)',
+            self::LEVEL_SERVICE_BACHELOR => 'เจ้าหน้าที่งานบริการ(ปริญญาตรี)',
+            self::LEVEL_SERVICE_GRADUATE => 'เจ้าหน้าที่งานบริการ(บัณฑิตศึกษา)',
             default => 'เจ้าหน้าที่งานบริการ',
         };
     }
