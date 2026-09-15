@@ -45,6 +45,171 @@
         border-color: #8B4513;
         box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.18);
     }
+    .sheet-wrap {
+        border: 1px solid #d4a090;
+        border-radius: 0.9rem;
+        background: #fff;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(92, 46, 31, 0.06);
+    }
+    .sheet-wrap.is-focus {
+        border-color: #8B4513;
+        box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.16);
+    }
+    .sheet-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+    .sheet-table thead th {
+        background: #FAF0E6;
+        color: #5C2E1F;
+        font-weight: 700;
+        text-align: left;
+        padding: 0.7rem 0.85rem;
+        border-bottom: 1px solid #d4a090;
+        border-right: 1px solid #e8c4b8;
+        white-space: nowrap;
+        font-size: 0.78rem;
+        letter-spacing: 0.01em;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    .sheet-table thead th:last-child { border-right: 0; }
+    .sheet-table td {
+        padding: 0.55rem 0.85rem;
+        border-bottom: 1px solid #f0e0d0;
+        border-right: 1px solid #f5e6d8;
+        vertical-align: middle;
+        color: #5C2E1F;
+        background: #fff;
+    }
+    .sheet-table td:last-child { border-right: 0; }
+    .sheet-table tbody tr.group-start td {
+        border-top: 3px solid #8B4513;
+        background: #fffdf9;
+    }
+    .sheet-table tbody tr.group-start:first-child td { border-top: 0; }
+    .sheet-table tbody tr:hover td { background: #fffaf5; }
+    .sheet-table tbody tr.group-start:hover td { background: #fdf6f0; }
+    .sheet-table tbody tr.is-focus td {
+        background: #fff4e8;
+        box-shadow: inset 0 0 0 2px rgba(139, 69, 19, 0.22);
+    }
+    .sheet-inline-panel td {
+        background: #fffbf7 !important;
+        border-top: 1px dashed #e8c4b8;
+        border-bottom: 1px solid #f0e0d0;
+        padding: 0.85rem 1rem;
+        vertical-align: top;
+    }
+    .sheet-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 700;
+        color: #8B4513;
+    }
+    .sheet-key-badge {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 0.35rem;
+        padding: 0.05rem 0.4rem;
+        border-radius: 9999px;
+        background: #8B4513;
+        color: #fff;
+        font-size: 0.62rem;
+        font-weight: 700;
+        vertical-align: middle;
+    }
+    .sheet-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .sheet-icon-btn {
+        width: 2rem;
+        height: 2rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        border: 1px solid transparent;
+        background: #fff;
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
+    }
+    .sheet-icon-btn svg { width: 0.95rem; height: 0.95rem; }
+    .sheet-icon-edit {
+        color: #854d0e;
+        border-color: #fde68a;
+    }
+    .sheet-icon-edit:hover {
+        background: #a16207;
+        border-color: #a16207;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+    .sheet-icon-add {
+        color: #0369a1;
+        border-color: #bae6fd;
+    }
+    .sheet-icon-add:hover {
+        background: #0284c7;
+        border-color: #0284c7;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+    .sheet-icon-delete {
+        color: #b91c1c;
+        border-color: #fecaca;
+    }
+    .sheet-icon-delete:hover {
+        background: #dc2626;
+        border-color: #dc2626;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+    .sheet-icon-btn[data-tip] { position: relative; }
+    .sheet-icon-btn[data-tip]::after {
+        content: attr(data-tip);
+        position: absolute;
+        top: calc(100% + 0.35rem);
+        left: 50%;
+        transform: translateX(-50%) translateY(0.1rem);
+        white-space: nowrap;
+        background: #3f2a1d;
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.35rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .12s ease, transform .12s ease;
+        z-index: 30;
+    }
+    .sheet-icon-btn[data-tip]:hover::after,
+    .sheet-icon-btn[data-tip]:focus-visible::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    .sheet-panel {
+        border-top: 1px dashed #e8c4b8;
+        background: #fffbf7;
+        padding: 0.85rem 1rem;
+    }
+    .sheet-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        font-size: 0.75rem;
+        color: #7A4A3A;
+    }
+    .sheet-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
     .member-chip {
         display: inline-flex;
         align-items: center;
@@ -211,7 +376,12 @@
                 <code class="text-[#8B4513]">pdcourse</code> แล้วเลือกใส่กลุ่มได้ทันที
             </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('faculty-admin.grad-report2-groups.export', array_filter(['q' => $q !== '' ? $q : null])) }}"
+               class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                Export Excel
+            </a>
             <div class="rounded-xl border border-[#E8C4B8] bg-[#FFFBF7] px-4 py-3 text-center min-w-[7rem]">
                 <p class="text-[0.65rem] text-[#A0522D]/70">กลุ่ม</p>
                 <p class="text-2xl font-bold text-[#8B4513] leading-none">{{ number_format($stats['groups'] ?? 0) }}</p>
@@ -357,7 +527,7 @@
                     เพิ่มแบบวางจาก Excel
                 </h3>
                 <p class="text-xs text-[#7A4A3A]/75 mt-1">
-                    คัดลอกเซลจาก Excel มาวาง — คอลัมน์ตรงกับฟอร์มด้านบน · การเพิ่มทีละกลุ่มแบบเดิมยังใช้ได้ตามปกติ
+                    คัดลอกเซลจาก Excel มาวาง — คอลัมน์ตรงกับฟอร์มด้านบนและไฟล์จากปุ่ม Export Excel · การเพิ่มทีละกลุ่มแบบเดิมยังใช้ได้ตามปกติ
                 </p>
             </div>
             <span class="text-xs font-semibold text-[#8B4513] px-2.5 py-1 rounded-lg bg-[#FAF0E6] border border-[#e8c4b8]">คลิกเพื่อเปิด/ปิด</span>
@@ -447,131 +617,199 @@
         </form>
     </div>
 
-    {{-- รายการกลุ่ม --}}
-    <div class="space-y-4">
-        @forelse ($groups as $group)
-            @php $isFocus = $focusGroup !== '' && $focusGroup === strtoupper($group->group_code); @endphp
-            <section id="group-{{ $group->group_code }}" class="group-card {{ $isFocus ? 'is-focus' : '' }}">
-                <div class="px-4 py-3 bg-gradient-to-r from-[#FFFBF7] to-[#FAF0E6]/60 border-b border-[#E8C4B8]/70 flex flex-wrap items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#8B4513] text-white text-sm font-bold tracking-wide">
-                                {{ $group->group_code }}
-                            </span>
-                            <span class="text-xs text-[#7A4A3A]/70">{{ $group->member_count }} รหัส</span>
-                        </div>
-                        <p class="text-sm text-[#5C2E1F] mt-1.5 font-medium">{{ $group->subject ?: '—' }}</p>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs hover:bg-amber-50"
-                            onclick="togglePanel('edit-name-{{ $group->group_code }}')">แก้ไขชื่อ</button>
-                        <button type="button" class="px-3 py-1.5 border border-amber-300 rounded-lg text-xs hover:bg-amber-50"
-                            onclick="togglePanel('add-member-{{ $group->group_code }}')">เพิ่มรหัส</button>
-                        <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.destroy') }}"
-                            onsubmit="return confirm('ลบกลุ่ม {{ $group->group_code }} ทั้งกลุ่ม ({{ $group->member_count }} รหัส)?')">
-                            @csrf
-                            @method('DELETE')
-                            <input type="hidden" name="group_code" value="{{ $group->group_code }}">
-                            <input type="hidden" name="q" value="{{ $q }}">
-                            <button type="submit" class="px-3 py-1.5 border border-red-300 text-red-700 rounded-lg text-xs hover:bg-red-50">ลบกลุ่ม</button>
-                        </form>
-                    </div>
-                </div>
+    {{-- รายการกลุ่มแบบตาราง Excel --}}
+    <div class="space-y-3">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h3 class="font-semibold text-[#5C2E1F]">รายการจัดกลุ่มรายวิชา</h3>
+                <p class="text-xs text-[#7A4A3A]/80 mt-0.5">แสดงแบบตารางเหมือน Excel — มีเส้นแบ่งระหว่างกลุ่มชัดเจน</p>
+            </div>
+            <div class="sheet-legend">
+                <span class="sheet-legend-item"><i data-lucide="pencil" class="w-3.5 h-3.5 text-[#854d0e]"></i> แก้ไขชื่อ</span>
+                <span class="sheet-legend-item"><i data-lucide="plus" class="w-3.5 h-3.5 text-sky-700"></i> เพิ่มรหัส</span>
+                <span class="sheet-legend-item"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-red-700"></i> ลบกลุ่ม / ลบรหัส</span>
+                <span class="sheet-legend-item"><span class="sheet-key-badge">กลุ่ม</span> รหัสตัวแทนกลุ่ม</span>
+            </div>
+        </div>
 
-                <div id="edit-name-{{ $group->group_code }}" class="hidden px-4 py-3 border-b border-amber-100 bg-white">
-                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.update') }}" class="flex flex-wrap items-end gap-2">
-                        @csrf
-                        @method('PUT')
-                        <input type="hidden" name="group_code" value="{{ $group->group_code }}">
-                        <input type="hidden" name="q" value="{{ $q }}">
-                        <div class="flex-1 min-w-[14rem]">
-                            <label class="block text-xs font-medium text-[#5C2E1F] mb-1">ชื่อวิชาทั้งกลุ่ม</label>
-                            <input type="text" name="subject" value="{{ $group->subject }}" required
-                                class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                        </div>
-                        <button type="submit" class="px-3 py-2 bg-[#8B4513] text-white rounded-lg text-xs">บันทึกชื่อ</button>
-                    </form>
-                </div>
+        @if ($groups->count())
+            <div class="sheet-wrap">
+                <div class="overflow-x-auto">
+                    <table class="sheet-table">
+                        <thead>
+                            <tr>
+                                <th style="width:8.5rem">รหัสกลุ่ม</th>
+                                <th>ชื่อวิชา (ENG)</th>
+                                <th style="min-width:11rem">รหัสวิชาในกลุ่ม</th>
+                                <th style="width:9.5rem">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($groups as $group)
+                                @php $isFocus = $focusGroup !== '' && $focusGroup === strtoupper($group->group_code); @endphp
+                                @foreach ($group->members as $index => $member)
+                                    <tr
+                                        @if ($index === 0) id="group-{{ $group->group_code }}" @endif
+                                        class="member-row {{ $index === 0 ? 'group-start' : '' }} {{ $isFocus && $index === 0 ? 'is-focus' : '' }}"
+                                    >
+                                        <td>
+                                            @if ($index === 0)
+                                                <span class="sheet-code">{{ $group->group_code }}</span>
+                                                <span class="ml-1 text-[0.68rem] text-[#7A4A3A]/70">{{ $group->member_count }} รหัส</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($index === 0)
+                                                <span class="font-medium">{{ $group->subject ?: '—' }}</span>
+                                            @else
+                                                <span class="text-[#7A4A3A]/55">{{ $member->subject ?: $group->subject }}</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="member-view flex flex-wrap items-center gap-2">
+                                                <span class="sheet-code">{{ $member->subject_code }}</span>
+                                                @if ($member->is_group_key)
+                                                    <span class="sheet-key-badge">กลุ่ม</span>
+                                                @endif
+                                                <div class="sheet-actions ml-auto sm:ml-2">
+                                                    <button type="button"
+                                                        class="sheet-icon-btn sheet-icon-edit"
+                                                        data-tip="แก้ไขรหัสนี้"
+                                                        aria-label="แก้ไขรหัส {{ $member->subject_code }}"
+                                                        onclick="this.closest('.member-row').classList.add('is-editing'); if (window.lucide) lucide.createIcons();">
+                                                        <i data-lucide="square-pen"></i>
+                                                    </button>
+                                                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.destroy') }}"
+                                                        class="inline-flex"
+                                                        onsubmit="return confirm('ลบรหัส {{ $member->subject_code }} ออกจากกลุ่ม?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <input type="hidden" name="group_code" value="{{ $group->group_code }}">
+                                                        <input type="hidden" name="subject_code" value="{{ $member->subject_code }}">
+                                                        <input type="hidden" name="q" value="{{ $q }}">
+                                                        <button type="submit"
+                                                            class="sheet-icon-btn sheet-icon-delete"
+                                                            data-tip="ลบรหัสนี้"
+                                                            aria-label="ลบรหัส {{ $member->subject_code }}">
+                                                            <i data-lucide="trash-2"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                            <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.update') }}"
+                                                class="member-edit hidden flex-wrap items-end gap-2 w-full bg-[#FFFBF7] rounded-lg p-2 border border-amber-100 mt-2">
+                                                @csrf
+                                                @method('PUT')
+                                                <input type="hidden" name="group_code" value="{{ $group->group_code }}">
+                                                <input type="hidden" name="subject_code" value="{{ $member->subject_code }}">
+                                                <input type="hidden" name="q" value="{{ $q }}">
+                                                <div class="relative">
+                                                    <label class="block text-[0.65rem] text-[#5C2E1F] mb-0.5">รหัสวิชา</label>
+                                                    <input type="text" name="new_subject_code" value="{{ $member->subject_code }}" required maxlength="20"
+                                                        autocomplete="off"
+                                                        data-subject-autocomplete
+                                                        data-fill-name="edit-name-{{ $group->group_code }}-{{ $member->subject_code }}"
+                                                        data-suggest-box="edit-suggest-{{ $group->group_code }}-{{ $member->subject_code }}"
+                                                        class="w-40 border border-amber-300 rounded px-2 py-1.5 text-sm uppercase">
+                                                    <div id="edit-suggest-{{ $group->group_code }}-{{ $member->subject_code }}" class="subject-suggest hidden absolute left-0 right-0 top-full mt-1 bg-white border border-amber-200 rounded-lg"></div>
+                                                </div>
+                                                <div class="flex-1 min-w-[12rem]">
+                                                    <label class="block text-[0.65rem] text-[#5C2E1F] mb-0.5">ชื่อวิชา</label>
+                                                    <input type="text" name="subject" id="edit-name-{{ $group->group_code }}-{{ $member->subject_code }}" value="{{ $member->subject }}" required
+                                                        class="w-full border border-amber-300 rounded px-2 py-1.5 text-sm">
+                                                </div>
+                                                <button type="submit" class="px-3 py-1.5 bg-[#8B4513] text-white rounded text-xs">บันทึก</button>
+                                                <button type="button" class="px-3 py-1.5 border border-amber-300 rounded text-xs"
+                                                    onclick="this.closest('.member-row').classList.remove('is-editing')">ยกเลิก</button>
+                                                @if ($member->is_group_key)
+                                                    <p class="w-full text-[0.65rem] text-amber-800">ถ้าแก้รหัสตัวแทนกลุ่ม ระบบจะเปลี่ยนรหัสกลุ่มของสมาชิกทั้งหมดตามด้วย</p>
+                                                @endif
+                                            </form>
+                                        </td>
+                                        <td>
+                                            @if ($index === 0)
+                                                <div class="sheet-actions">
+                                                    <button type="button"
+                                                        class="sheet-icon-btn sheet-icon-edit"
+                                                        data-tip="แก้ไขชื่อ"
+                                                        aria-label="แก้ไขชื่อกลุ่ม {{ $group->group_code }}"
+                                                        onclick="togglePanel('edit-name-{{ $group->group_code }}')">
+                                                        <i data-lucide="pencil"></i>
+                                                    </button>
+                                                    <button type="button"
+                                                        class="sheet-icon-btn sheet-icon-add"
+                                                        data-tip="เพิ่มรหัส"
+                                                        aria-label="เพิ่มรหัสเข้ากลุ่ม {{ $group->group_code }}"
+                                                        onclick="togglePanel('add-member-{{ $group->group_code }}')">
+                                                        <i data-lucide="plus"></i>
+                                                    </button>
+                                                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.destroy') }}"
+                                                        class="inline-flex"
+                                                        onsubmit="return confirm('ลบกลุ่ม {{ $group->group_code }} ทั้งกลุ่ม ({{ $group->member_count }} รหัส)?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <input type="hidden" name="group_code" value="{{ $group->group_code }}">
+                                                        <input type="hidden" name="q" value="{{ $q }}">
+                                                        <button type="submit"
+                                                            class="sheet-icon-btn sheet-icon-delete"
+                                                            data-tip="ลบกลุ่ม"
+                                                            aria-label="ลบกลุ่ม {{ $group->group_code }}">
+                                                            <i data-lucide="trash-2"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
 
-                <div id="add-member-{{ $group->group_code }}" class="hidden px-4 py-3 border-b border-amber-100 bg-white">
-                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.store') }}" class="flex flex-wrap items-end gap-2">
-                        @csrf
-                        <input type="hidden" name="group_code" value="{{ $group->group_code }}">
-                        <input type="hidden" name="q" value="{{ $q }}">
-                        <div class="relative">
-                            <label class="block text-xs font-medium text-[#5C2E1F] mb-1">รหัสวิชาที่จะเพิ่ม</label>
-                            <input type="text" name="subject_code" required maxlength="20" placeholder="พิมพ์ค้นหาจาก pdcourse"
-                                autocomplete="off"
-                                data-subject-autocomplete
-                                data-suggest-box="add-suggest-{{ $group->group_code }}"
-                                class="w-56 border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white uppercase">
-                            <div id="add-suggest-{{ $group->group_code }}" class="subject-suggest hidden absolute left-0 right-0 top-full mt-1 bg-white border border-amber-200 rounded-lg"></div>
-                        </div>
-                        <button type="submit" class="px-3 py-2 bg-[#8B4513] text-white rounded-lg text-xs">เพิ่ม</button>
-                    </form>
-                    <p class="field-hint">ค้นหาจาก pdcourse — รหัสต้องยังไม่มีในกลุ่มอื่น</p>
-                </div>
+                                <tr id="edit-name-{{ $group->group_code }}" class="sheet-inline-panel hidden">
+                                    <td colspan="4">
+                                        <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.update') }}" class="flex flex-wrap items-end gap-2">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="hidden" name="group_code" value="{{ $group->group_code }}">
+                                            <input type="hidden" name="q" value="{{ $q }}">
+                                            <div class="flex-1 min-w-[14rem]">
+                                                <label class="block text-xs font-medium text-[#5C2E1F] mb-1">ชื่อวิชาทั้งกลุ่ม — {{ $group->group_code }}</label>
+                                                <input type="text" name="subject" value="{{ $group->subject }}" required
+                                                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                                            </div>
+                                            <button type="submit" class="px-3 py-2 bg-[#8B4513] text-white rounded-lg text-xs font-semibold">บันทึกชื่อ</button>
+                                            <button type="button" class="px-3 py-2 border border-amber-300 rounded-lg text-xs"
+                                                onclick="togglePanel('edit-name-{{ $group->group_code }}')">ปิด</button>
+                                        </form>
+                                    </td>
+                                </tr>
 
-                <div class="px-4 py-3 space-y-2">
-                    <p class="text-[0.7rem] text-[#7A4A3A]/70 font-medium">รหัสในกลุ่ม</p>
-                    @foreach ($group->members as $member)
-                        <div class="member-row flex flex-wrap items-center gap-2 py-1.5 border-t border-amber-50 first:border-0">
-                            <div class="member-view flex flex-wrap items-center gap-2 w-full">
-                                <span class="member-chip {{ $member->is_group_key ? 'is-key' : '' }}">
-                                    @if ($member->is_group_key)
-                                        <span class="text-[0.6rem] uppercase tracking-wide text-[#8B4513]">กลุ่ม</span>
-                                    @endif
-                                    <code>{{ $member->subject_code }}</code>
-                                </span>
-                                <span class="text-xs text-gray-500 truncate max-w-[18rem]">{{ $member->subject }}</span>
-                                <div class="ml-auto flex gap-1">
-                                    <button type="button" class="px-2 py-1 text-xs border border-amber-200 rounded hover:bg-amber-50"
-                                        onclick="this.closest('.member-row').classList.add('is-editing')">แก้ไข</button>
-                                    <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.destroy') }}"
-                                        onsubmit="return confirm('ลบรหัส {{ $member->subject_code }} ออกจากกลุ่ม?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <input type="hidden" name="group_code" value="{{ $group->group_code }}">
-                                        <input type="hidden" name="subject_code" value="{{ $member->subject_code }}">
-                                        <input type="hidden" name="q" value="{{ $q }}">
-                                        <button type="submit" class="px-2 py-1 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50">ลบ</button>
-                                    </form>
-                                </div>
-                            </div>
-                            <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.update') }}"
-                                class="member-edit hidden flex-wrap items-end gap-2 w-full bg-[#FFFBF7] rounded-lg p-2 border border-amber-100">
-                                @csrf
-                                @method('PUT')
-                                <input type="hidden" name="group_code" value="{{ $group->group_code }}">
-                                <input type="hidden" name="subject_code" value="{{ $member->subject_code }}">
-                                <input type="hidden" name="q" value="{{ $q }}">
-                                <div class="relative">
-                                    <label class="block text-[0.65rem] text-[#5C2E1F] mb-0.5">รหัสวิชา</label>
-                                    <input type="text" name="new_subject_code" value="{{ $member->subject_code }}" required maxlength="20"
-                                        autocomplete="off"
-                                        data-subject-autocomplete
-                                        data-fill-name="edit-name-{{ $group->group_code }}-{{ $member->subject_code }}"
-                                        data-suggest-box="edit-suggest-{{ $group->group_code }}-{{ $member->subject_code }}"
-                                        class="w-40 border border-amber-300 rounded px-2 py-1.5 text-sm uppercase">
-                                    <div id="edit-suggest-{{ $group->group_code }}-{{ $member->subject_code }}" class="subject-suggest hidden absolute left-0 right-0 top-full mt-1 bg-white border border-amber-200 rounded-lg"></div>
-                                </div>
-                                <div class="flex-1 min-w-[12rem]">
-                                    <label class="block text-[0.65rem] text-[#5C2E1F] mb-0.5">ชื่อวิชา</label>
-                                    <input type="text" name="subject" id="edit-name-{{ $group->group_code }}-{{ $member->subject_code }}" value="{{ $member->subject }}" required
-                                        class="w-full border border-amber-300 rounded px-2 py-1.5 text-sm">
-                                </div>
-                                <button type="submit" class="px-3 py-1.5 bg-[#8B4513] text-white rounded text-xs">บันทึก</button>
-                                <button type="button" class="px-3 py-1.5 border border-amber-300 rounded text-xs"
-                                    onclick="this.closest('.member-row').classList.remove('is-editing')">ยกเลิก</button>
-                                @if ($member->is_group_key)
-                                    <p class="w-full text-[0.65rem] text-amber-800">ถ้าแก้รหัสตัวแทนกลุ่ม ระบบจะเปลี่ยนรหัสกลุ่มของสมาชิกทั้งหมดตามด้วย</p>
-                                @endif
-                            </form>
-                        </div>
-                    @endforeach
+                                <tr id="add-member-{{ $group->group_code }}" class="sheet-inline-panel hidden">
+                                    <td colspan="4">
+                                        <form method="POST" action="{{ route('faculty-admin.grad-report2-groups.members.store') }}" class="flex flex-wrap items-end gap-2">
+                                            @csrf
+                                            <input type="hidden" name="group_code" value="{{ $group->group_code }}">
+                                            <input type="hidden" name="q" value="{{ $q }}">
+                                            <div class="relative">
+                                                <label class="block text-xs font-medium text-[#5C2E1F] mb-1">เพิ่มรหัสเข้ากลุ่ม {{ $group->group_code }}</label>
+                                                <input type="text" name="subject_code" required maxlength="20" placeholder="พิมพ์ค้นหาจาก pdcourse"
+                                                    autocomplete="off"
+                                                    data-subject-autocomplete
+                                                    data-suggest-box="add-suggest-{{ $group->group_code }}"
+                                                    class="w-56 border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white uppercase">
+                                                <div id="add-suggest-{{ $group->group_code }}" class="subject-suggest hidden absolute left-0 right-0 top-full mt-1 bg-white border border-amber-200 rounded-lg"></div>
+                                            </div>
+                                            <button type="submit" class="px-3 py-2 bg-sky-600 text-white rounded-lg text-xs font-semibold hover:bg-sky-700">เพิ่ม</button>
+                                            <button type="button" class="px-3 py-2 border border-amber-300 rounded-lg text-xs"
+                                                onclick="togglePanel('add-member-{{ $group->group_code }}')">ปิด</button>
+                                        </form>
+                                        <p class="field-hint mt-1">ค้นหาจาก pdcourse — รหัสต้องยังไม่มีในกลุ่มอื่น</p>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-            </section>
-        @empty
+            </div>
+        @else
             <div class="rounded-xl border border-dashed border-amber-300 bg-white px-6 py-10 text-center text-sm text-[#7A4A3A]">
                 @if ($q !== '')
                     ไม่พบกลุ่มที่ตรงกับ «{{ $q }}»
@@ -579,7 +817,7 @@
                     ยังไม่มีข้อมูลจัดกลุ่มรายวิชา — เริ่มจากแบบฟอร์มด้านบน
                 @endif
             </div>
-        @endforelse
+        @endif
     </div>
 
     @if ($groups->hasPages())
@@ -756,7 +994,7 @@ function togglePanel(id) {
     });
 
     document.addEventListener('DOMContentLoaded', () => {
-        const focus = document.querySelector('.group-card.is-focus');
+        const focus = document.querySelector('.sheet-table tr.is-focus, .sheet-wrap.is-focus');
         if (focus) focus.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 

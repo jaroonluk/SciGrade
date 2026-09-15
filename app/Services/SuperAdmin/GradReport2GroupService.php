@@ -108,6 +108,58 @@ class GradReport2GroupService
     }
 
     /**
+     * แถวสำหรับ Export / วางกลับเข้า Excel — รูปแบบเดียวกับพื้นที่วาง
+     * (หนึ่งแถวต่อรหัสวิชาในกลุ่ม)
+     *
+     * @return list<array{group_code: string, subject: string, member_code: string}>
+     */
+    public function exportPasteRows(?string $q = null): array
+    {
+        $q = trim((string) $q);
+        $codeSql = GradReport2::normalizedCodeSql('subject_code2');
+
+        $rows = GradReport2::query()
+            ->whereNotNull('subject_code2')
+            ->whereRaw($codeSql." != ''")
+            ->when($q !== '', function ($query) use ($q) {
+                $like = '%'.$q.'%';
+                $query->where(function ($inner) use ($like) {
+                    $inner->where('subject_code2', 'like', $like)
+                        ->orWhere('subject_code', 'like', $like)
+                        ->orWhere('subject', 'like', $like);
+                });
+            })
+            ->orderByRaw($codeSql)
+            ->orderBy('subject_code')
+            ->get();
+
+        $out = [];
+        $seen = [];
+
+        foreach ($rows as $row) {
+            $groupCode = GradReport2::normalizeCode((string) $row->subject_code2);
+            $memberCode = GradReport2::normalizeCode((string) $row->subject_code);
+            if ($groupCode === '' || $memberCode === '') {
+                continue;
+            }
+
+            $key = $groupCode."\0".$memberCode;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            $out[] = [
+                'group_code' => $groupCode,
+                'subject' => mb_strtoupper(trim((string) $row->subject)),
+                'member_code' => $memberCode,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * สร้างกลุ่มใหม่ หรือเพิ่มสมาชิกเข้ากลุ่มที่มีอยู่แล้ว
      * เงื่อนไขหลักจาก dump_grade_report2.php: รหัสวิชา (subject_code) ต้องไม่ซ้ำในระบบ
      *

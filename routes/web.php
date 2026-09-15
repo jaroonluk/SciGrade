@@ -175,6 +175,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/dept-submission-history', [DeptSubmissionHistoryController::class, 'index'])->name('dept-submission-history.index');
 
         Route::get('/grad-report2-groups', [GradReport2GroupController::class, 'index'])->name('grad-report2-groups.index');
+        Route::get('/grad-report2-groups/export', [GradReport2GroupController::class, 'export'])->name('grad-report2-groups.export');
         Route::post('/grad-report2-groups', [GradReport2GroupController::class, 'store'])->name('grad-report2-groups.store');
         Route::post('/grad-report2-groups/paste', [GradReport2GroupController::class, 'storePaste'])->name('grad-report2-groups.paste');
         Route::put('/grad-report2-groups', [GradReport2GroupController::class, 'updateGroup'])->name('grad-report2-groups.update');

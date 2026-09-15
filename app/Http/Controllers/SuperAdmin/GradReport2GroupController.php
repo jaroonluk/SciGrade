@@ -3,16 +3,19 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Services\SuperAdmin\GradReport2GroupExcelExportService;
 use App\Services\SuperAdmin\GradReport2GroupService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GradReport2GroupController extends Controller
 {
     public function __construct(
         private readonly GradReport2GroupService $service,
+        private readonly GradReport2GroupExcelExportService $excelExport,
     ) {}
 
     public function index(Request $request): View
@@ -26,6 +29,13 @@ class GradReport2GroupController extends Controller
             'q' => $q,
             'focusGroup' => $focus,
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $q = trim((string) $request->input('q', ''));
+
+        return $this->excelExport->download($q !== '' ? $q : null);
     }
 
     public function store(Request $request): RedirectResponse
