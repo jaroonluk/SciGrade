@@ -575,7 +575,7 @@
             </h3>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
                 ทำตามลำดับ 1 → 4 สำหรับงานสอบไล่{{ $deptName ? ' ของสาขา'.$deptName : '' }}
-                แล้วค่อยพิมพ์รายงาน — วิทยานิพนธ์แยกเป็นคิวต่างหาก
+                — วิทยานิพนธ์แยกเป็นคิวต่างหาก
             </p>
         </div>
 
@@ -588,11 +588,11 @@
                 <li class="admin-trail-item" data-tone="status">
                     <a href="#dept-step-2" class="admin-chevron"><span class="step-no">2</span><span class="step-title">ตรวจสถานะส่งผล</span></a>
                 </li>
-                <li class="admin-trail-item" data-tone="docs">
-                    <a href="#dept-step-3" class="admin-chevron"><span class="step-no">3</span><span class="step-title">ส่งเอกสารสาขา</span></a>
-                </li>
                 <li class="admin-trail-item" data-tone="report">
-                    <a href="#dept-step-4" class="admin-chevron"><span class="step-no">4</span><span class="step-title">พิมพ์รายงาน</span></a>
+                    <a href="#dept-step-3" class="admin-chevron"><span class="step-no">3</span><span class="step-title">พิมพ์ใบรายงานสาขา</span></a>
+                </li>
+                <li class="admin-trail-item" data-tone="docs">
+                    <a href="#dept-step-4" class="admin-chevron"><span class="step-no">4</span><span class="step-title">ส่งเอกสารสาขา</span></a>
                 </li>
             </ol>
             <p class="admin-phase-label">ข. วิทยานิพนธ์ / การศึกษาอิสระ — คิวแยกจากสอบไล่</p>
@@ -658,12 +658,39 @@
                 </div>
             </section>
 
-            {{-- 3. ส่งเอกสารสาขา --}}
-            <section id="dept-step-3" class="admin-section admin-tone-docs">
+            {{-- 3. พิมพ์ใบรายงานสาขา --}}
+            <section id="dept-step-3" class="admin-section admin-tone-report">
                 <div class="admin-section-head">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-teal-700 text-white text-xs font-bold">3</span>
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-700 text-white text-xs font-bold">3</span>
+                            <h4 class="text-base font-bold text-orange-950">พิมพ์ใบรายงานสาขา</h4>
+                        </div>
+                        <p class="text-xs text-orange-900/70 ml-9">Export PDF/Word ตามสาขา ระดับการศึกษา และสถานะ เมื่อสรุปงานแล้ว</p>
+                    </div>
+                </div>
+                <div class="admin-section-body">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="{{ route('dept-admin.reports.form') }}" class="menu-card tone-print rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="printer" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">3.1</p>
+                                    <p class="font-semibold text-sky-950">พิมพ์ใบรายงานสาขา</p>
+                                    <p class="text-sm text-sky-900/65 mt-1">ดาวน์โหลดรายงานสรุปของสาขา</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            {{-- 4. ส่งเอกสารสาขา --}}
+            <section id="dept-step-4" class="admin-section admin-tone-docs">
+                <div class="admin-section-head">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-teal-700 text-white text-xs font-bold">4</span>
                             <h4 class="text-base font-bold text-teal-950">ส่งเอกสารสาขา</h4>
                         </div>
                         <p class="text-xs text-teal-900/70 ml-9">
@@ -726,33 +753,6 @@
                             'term' => $term,
                             'year' => $year,
                         ])
-                    </div>
-                </div>
-            </section>
-
-            {{-- 4. พิมพ์รายงาน --}}
-            <section id="dept-step-4" class="admin-section admin-tone-report">
-                <div class="admin-section-head">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-700 text-white text-xs font-bold">4</span>
-                            <h4 class="text-base font-bold text-orange-950">พิมพ์ใบรายงานสาขา</h4>
-                        </div>
-                        <p class="text-xs text-orange-900/70 ml-9">Export PDF/Word ตามสาขา ระดับการศึกษา และสถานะ เมื่อสรุปงานแล้ว</p>
-                    </div>
-                </div>
-                <div class="admin-section-body">
-                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('dept-admin.reports.form') }}" class="menu-card tone-print rounded-xl p-5 block">
-                            <div class="flex items-start gap-3">
-                                <div class="menu-icon"><i data-lucide="printer" class="w-5 h-5"></i></div>
-                                <div>
-                                    <p class="menu-step">4.1</p>
-                                    <p class="font-semibold text-sky-950">พิมพ์ใบรายงานสาขา</p>
-                                    <p class="text-sm text-sky-900/65 mt-1">ดาวน์โหลดรายงานสรุปของสาขา</p>
-                                </div>
-                            </div>
-                        </a>
                     </div>
                 </div>
             </section>
