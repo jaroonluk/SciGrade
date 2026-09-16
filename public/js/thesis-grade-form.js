@@ -279,7 +279,9 @@
             students[i].credits_passed = card.querySelector('[data-f="credits_passed"]')?.value ?? '';
             students[i].progress_credits = students[i].credits_passed;
             students[i].completed = !!card.querySelector('[data-f="completed"]')?.checked;
-            students[i].defense_date = card.querySelector('[data-f="defense_date"]')?.value || '';
+            students[i].defense_date = students[i].completed
+                ? (card.querySelector('[data-f="defense_date"]')?.value || '')
+                : '';
             const noteValue = card.querySelector('[data-f="note"]')?.value || '';
             students[i].note = isBlankNote(noteValue) ? '' : noteValue.trim();
         });
@@ -365,8 +367,9 @@
                         <input ${ro} type="checkbox" data-f="completed" name="students[${i}][completed]" value="1" ${s.completed ? 'checked' : ''}>
                         ครบตามหลักสูตร
                     </label>
-                    <label class="text-xs text-[#7A4A3A]">วันที่สอบวิทยานิพนธ์
-                        <input ${ro} type="date" data-f="defense_date" name="students[${i}][defense_date]" value="${escapeHtml(s.defense_date)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                    <label class="text-xs text-[#7A4A3A] ${s.completed ? '' : 'hidden'}" data-defense-date-wrap>
+                        วันที่สอบวิทยานิพนธ์
+                        <input ${ro} type="date" data-f="defense_date" name="students[${i}][defense_date]" value="${escapeHtml(s.completed ? s.defense_date : '')}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white" ${s.completed ? '' : 'disabled'}>
                     </label>
                 </div>
             </div>`;

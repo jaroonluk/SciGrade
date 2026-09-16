@@ -112,7 +112,9 @@ class ThesisGradeService
                 // คง sync กับ credits_passed เพื่อ logic S=0 เดิม
                 'progress_credits' => $this->nullableDecimal($row['credits_passed'] ?? $row['progress_credits'] ?? null),
                 'completed' => $this->toBool($row['completed'] ?? false),
-                'defense_date' => $this->nullableDate($row['defense_date'] ?? null),
+                'defense_date' => $this->toBool($row['completed'] ?? false)
+                    ? $this->nullableDate($row['defense_date'] ?? null)
+                    : null,
                 'note' => ThesisGradeStudent::sanitizeNote($row['note'] ?? null),
                 'sort_order' => $index + 1,
             ];

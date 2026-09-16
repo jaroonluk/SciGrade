@@ -514,7 +514,7 @@
     };
 </script>
 <script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=17"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=18"></script>
 @if (collect((array) session('pdf_warnings'))->contains(fn ($w) => \App\Support\ImageOnlyPdfMessage::matches((string) $w))
     || \App\Support\ImageOnlyPdfMessage::matches((string) session('error', '')))
 <script>
