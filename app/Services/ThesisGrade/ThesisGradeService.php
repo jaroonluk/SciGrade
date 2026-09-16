@@ -115,7 +115,7 @@ class ThesisGradeService
                 'defense_date' => $this->toBool($row['completed'] ?? false)
                     ? $this->nullableDate($row['defense_date'] ?? null)
                     : null,
-                'note' => ThesisGradeStudent::sanitizeNote($row['note'] ?? null),
+                'note' => null,
                 'sort_order' => $index + 1,
             ];
 
@@ -145,7 +145,7 @@ class ThesisGradeService
     }
 
     /**
-     * อัปเดตหน่วยกิตที่ลง / ผ่าน / หมายเหตุ / เกรด จากผลอ่าน PDF โดยจับคู่รหัสนักศึกษา
+     * อัปเดตหน่วยกิตที่ลง / ผ่าน / เกรด จากผลอ่าน PDF โดยจับคู่รหัสนักศึกษา
      *
      * @param  list<array<string, mixed>>  $parsedStudents
      * @return int จำนวนคนที่อัปเดต
@@ -175,9 +175,6 @@ class ThesisGradeService
             if (array_key_exists('credits_passed', $row) && $row['credits_passed'] !== null && $row['credits_passed'] !== '') {
                 $payload['credits_passed'] = $this->nullableDecimal($row['credits_passed']);
                 $payload['progress_credits'] = $payload['credits_passed'];
-            }
-            if (array_key_exists('note', $row)) {
-                $payload['note'] = ThesisGradeStudent::sanitizeNote($row['note'] ?? null);
             }
             if (array_key_exists('grade', $row) && trim((string) ($row['grade'] ?? '')) !== '') {
                 $payload['grade'] = strtoupper(trim((string) $row['grade']));

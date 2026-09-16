@@ -1166,10 +1166,9 @@ class ThesisGradePdfParser
                 $student['progress_credits'] = $row['credits_passed'];
                 unset($uncertain['credits_passed']);
             }
-            if (($row['note'] ?? null) !== null && trim((string) $row['note']) !== '') {
-                $student['note'] = trim((string) $row['note']);
-                unset($uncertain['note']);
-            }
+            // ไม่ใช้คอลัมน์หมายเหตุจาก PDF อีกต่อไป
+            unset($uncertain['note'], $student['note']);
+            $student['note'] = null;
             if (($row['grade'] ?? '') !== '') {
                 $student['grade'] = strtoupper((string) $row['grade']);
             }

@@ -18,11 +18,6 @@
     const s0SlotsEl = document.getElementById('s0-slots');
     const form = document.getElementById('thesis-form');
 
-    function isBlankNote(note) {
-        const text = String(note ?? '').trim();
-        return text === '' || /^(<>|&lt;&gt;|< >)$/i.test(text);
-    }
-
     function splitDisplayName(name) {
         let rest = String(name || '').replace(/\s+/g, ' ').trim();
         let prefix = '';
@@ -82,7 +77,7 @@
             progress_credits: row.progress_credits === null || row.progress_credits === undefined ? '' : row.progress_credits,
             completed: !!row.completed && row.completed !== '0',
             defense_date: row.defense_date || '',
-            note: isBlankNote(row.note) ? '' : String(row.note).trim(),
+            note: '',
             uncertain_fields: uncertain,
         };
     }
@@ -282,8 +277,7 @@
             students[i].defense_date = students[i].completed
                 ? (card.querySelector('[data-f="defense_date"]')?.value || '')
                 : '';
-            const noteValue = card.querySelector('[data-f="note"]')?.value || '';
-            students[i].note = isBlankNote(noteValue) ? '' : noteValue.trim();
+            students[i].note = '';
         });
     }
 
@@ -354,10 +348,6 @@
                     <label class="text-xs text-[#7A4A3A]">เกรด
                         <input ${ro} data-f="grade" name="students[${i}][grade]" value="${escapeHtml(s.grade)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'grade')}" placeholder="S / U / I">
                         ${reviewHintHtml(u, 'grade')}
-                    </label>
-                    <label class="text-xs text-[#7A4A3A] md:col-span-2">หมายเหตุ
-                        <input ${ro} data-f="note" name="students[${i}][note]" value="${escapeHtml(s.note)}" class="mt-1 w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white ${reviewClass(u, 'note')}" placeholder="กรอกได้หากมี หรือเว้นว่างไว้">
-                        ${reviewHintHtml(u, 'note')}
                     </label>
                     <label class="text-xs text-[#7A4A3A] flex items-center gap-2 mt-6">
                         <input ${ro} type="checkbox" data-f="proposal_approved" name="students[${i}][proposal_approved]" value="1" ${s.proposal_approved ? 'checked' : ''}>

@@ -325,7 +325,7 @@
                     <button type="button" id="add-student" class="px-3 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">+ เพิ่มนักศึกษา</button>
                     @if ($report && $report->files->contains(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT))
                         <button type="submit" form="reparse-ts-form" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
-                            อ่านหน่วยกิต/หมายเหตุจากใบส่งเกรดอีกครั้ง
+                            อ่านหน่วยกิตจากใบส่งเกรดอีกครั้ง
                         </button>
                     @endif
                 </div>
@@ -538,7 +538,7 @@
     };
 </script>
 <script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=19"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=20"></script>
 @if (collect((array) session('pdf_warnings'))->contains(fn ($w) => \App\Support\ImageOnlyPdfMessage::matches((string) $w))
     || \App\Support\ImageOnlyPdfMessage::matches((string) session('error', '')))
 <script>
