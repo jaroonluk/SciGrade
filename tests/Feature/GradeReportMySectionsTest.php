@@ -25,11 +25,13 @@ class GradeReportMySectionsTest extends TestCase
             'username' => 'teacher01',
         ]);
         $report->grade_id = 305955;
-        $empty = new GradeStd(['sec' => '1', 'fac' => 'SC', 'total_std' => 0]);
+        $empty = new GradeStd(['sec' => '1', 'fac' => 'SC', 'total_std' => 0, 'username' => 'teacher01']);
         $empty->grade_std_id = 11;
-        $filled = new GradeStd(['sec' => '5', 'fac' => 'SC', 'total_std' => 8]);
+        $filled = new GradeStd(['sec' => '5', 'fac' => 'SC', 'total_std' => 8, 'username' => 'teacher01']);
         $filled->grade_std_id = 12;
-        $report->setRelation('gradeStds', collect([$empty, $filled]));
+        $other = new GradeStd(['sec' => '7', 'fac' => 'SC', 'total_std' => 3, 'username' => 'teacher02']);
+        $other->grade_std_id = 13;
+        $report->setRelation('gradeStds', collect([$empty, $filled, $other]));
         $report->setRelation('files', collect());
         $report->setRelation('approvalLogs', collect());
 
@@ -39,14 +41,22 @@ class GradeReportMySectionsTest extends TestCase
             'year' => 2568,
             'years' => [2568],
             'staffUsername' => 'teacher01',
+            'fillerNames' => [
+                'teacher01' => 'อาจารย์ หนึ่ง',
+                'teacher02' => 'อาจารย์ สอง',
+            ],
         ])->render();
 
-        $this->assertStringContainsString('กลุ่ม 1', $html);
-        $this->assertStringContainsString('ยังไม่มีจำนวนนักศึกษา', $html);
-        $this->assertStringContainsString('กลุ่ม 5', $html);
-        $this->assertStringContainsString('8 คน', $html);
-        $this->assertStringContainsString('btn-delete-section', $html);
+        $this->assertStringContainsString('SC700001', $html);
+        $this->assertStringContainsString('SEMINAR', $html);
+        $this->assertStringNotContainsString('กลุ่ม 1', $html);
+        $this->assertStringContainsString('Section ของคุณ: 1, 5', $html);
+        $this->assertStringContainsString('Section อื่น:', $html);
+        $this->assertStringContainsString('อาจารย์ สอง', $html);
+        $this->assertStringContainsString('ลบ Section ของฉัน', $html);
+        $this->assertStringContainsString('btn-delete-report', $html);
         $this->assertStringContainsString('wizard_step=5', $html);
+        $this->assertStringContainsString('data-my-sections="1,5"', $html);
     }
 
     #[Test]

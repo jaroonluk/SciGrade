@@ -476,6 +476,7 @@ class GradeReportPageController extends Controller
 
         $reports = collect();
         $username = $this->resolveStaffUsername();
+        $fillerNames = [];
         if ($username) {
             $reports = GradeReport::query()
                 ->examReportable()
@@ -486,6 +487,8 @@ class GradeReportPageController extends Controller
                 ->orderByDesc('created_stamp')
                 ->orderByDesc('grade_id')
                 ->get();
+
+            $fillerNames = $this->resolveFillerDisplayNames($reports);
         }
 
         return view('grade-reports.my', [
@@ -494,7 +497,46 @@ class GradeReportPageController extends Controller
             'year' => $year,
             'years' => AcademicTerm::yearOptions(),
             'staffUsername' => $username,
+            'fillerNames' => $fillerNames,
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, GradeReport>  $reports
+     * @return array<string, string>
+     */
+    private function resolveFillerDisplayNames($reports): array
+    {
+        $usernames = [];
+        foreach ($reports as $report) {
+            foreach ($report->gradeStds as $std) {
+                $u = $report->sectionFillerUsername($std);
+                if ($u !== '') {
+                    $usernames[$u] = $u;
+                }
+            }
+            $owner = trim((string) $report->username);
+            if ($owner !== '') {
+                $usernames[$owner] = $owner;
+            }
+        }
+
+        $names = [];
+        foreach ($usernames as $username) {
+            try {
+                $staff = TblUser::query()->with('titleRelation')->find($username);
+                $display = $staff?->displayName();
+                if (is_string($display) && trim($display) !== '') {
+                    $names[$username] = trim($display);
+                    continue;
+                }
+            } catch (\Throwable) {
+                // fall through
+            }
+            $names[$username] = $username;
+        }
+
+        return $names;
     }
 
     public function approve(): RedirectResponse

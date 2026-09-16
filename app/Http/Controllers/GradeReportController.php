@@ -445,36 +445,107 @@ class GradeReportController extends Controller
 
     public function destroy(Request $request, GradeReport $gradeReport): JsonResponse
     {
-        abort_unless($this->ownsReport($gradeReport), 403);
+        abort_unless($gradeReport->canEdit(), 403, 'ไม่สามารถแก้ไขรายการนี้ได้');
+
+        $username = $this->staffUsername();
+        abort_unless(
+            $gradeReport->instructorCanManage($username),
+            403,
+            'ไม่มีสิทธิ์ลบรายการนี้'
+        );
 
         if ((int) $gradeReport->approv > 0) {
             return response()->json(['message' => 'ไม่สามารถลบรายการที่อนุมัติแล้ว'], 422);
         }
 
+        $gradeReport->loadMissing(['gradeStds', 'files']);
+        $mine = $gradeReport->sectionsFilledBy($username);
+        $others = $gradeReport->sectionsFilledByOthers($username);
+
+        if ($mine->isEmpty() && $gradeReport->gradeStds->isNotEmpty()) {
+            $contacts = $others
+                ->map(function (GradeStd $std) use ($gradeReport) {
+                    $u = $gradeReport->sectionFillerUsername($std);
+                    $name = $this->resolveStaffDisplayName($u) ?: ($u !== '' ? $u : 'ผู้กรอกก่อนหน้า');
+
+                    return 'Section '.(int) $std->sec.' ติดต่อ '.$name;
+                })
+                ->unique()
+                ->values()
+                ->all();
+
+            return response()->json([
+                'message' => 'ไม่มี Section ที่คุณกรอกให้ลบ'
+                    .($contacts !== [] ? ' — '.implode(' · ', $contacts) : ''),
+            ], 422);
+        }
+
+        // รายงานว่าง (ยังไม่มี Section) — ลบทั้งรายงานได้เฉพาะเจ้าของ
+        if ($mine->isEmpty() && $gradeReport->gradeStds->isEmpty()) {
+            abort_unless($this->ownsReport($gradeReport), 403, 'ไม่มีสิทธิ์ลบรายการนี้');
+        }
+
+        $deletedSecs = $mine->map(fn (GradeStd $std) => (int) $std->sec)->filter(fn (int $n) => $n > 0)->values()->all();
+        $remaining = $others->map(function (GradeStd $std) use ($gradeReport) {
+            $u = $gradeReport->sectionFillerUsername($std);
+            $name = $this->resolveStaffDisplayName($u) ?: ($u !== '' ? $u : 'ผู้กรอกก่อนหน้า');
+
+            return [
+                'sec' => (int) $std->sec,
+                'username' => $u,
+                'filled_by' => $name,
+            ];
+        })->values()->all();
+
         $meta = [
             'subject_code' => $gradeReport->subject_code,
             'term' => $gradeReport->term,
             'year' => $gradeReport->year,
+            'deleted_sections' => $deletedSecs,
+            'remaining_sections' => array_column($remaining, 'sec'),
         ];
         $gradeId = $gradeReport->grade_id;
         $subjectCode = (string) $gradeReport->subject_code;
         $term = $gradeReport->term;
         $year = $gradeReport->year;
+        $deletedReport = false;
 
-        DB::connection('scigrad')->transaction(function () use ($gradeReport) {
-            $gradeReport->loadMissing('files');
-            foreach ($gradeReport->files as $file) {
-                $file->delete();
+        DB::connection('scigrad')->transaction(function () use (
+            $gradeReport,
+            $mine,
+            $others,
+            $username,
+            &$deletedReport,
+        ) {
+            foreach ($mine as $std) {
+                $sec = (int) $std->sec;
+                $std->delete();
+                if ($sec > 0) {
+                    $this->pendingRegistrar->deleteInstructorRegistrarForSection($gradeReport, $sec);
+                    $this->deleteOwnedFilesForSection($gradeReport, $sec, $username);
+                }
             }
-            $gradeReport->gradeStds()->delete();
-            $gradeReport->delete();
+
+            $gradeReport->unsetRelation('gradeStds');
+            $gradeReport->load('gradeStds');
+
+            if ($gradeReport->gradeStds->isEmpty()) {
+                $gradeReport->loadMissing('files');
+                foreach ($gradeReport->files as $file) {
+                    $file->delete();
+                }
+                $gradeReport->delete();
+                $deletedReport = true;
+                $this->pendingRegistrar->forgetMatchingCourse(
+                    (string) $gradeReport->subject_code,
+                    $gradeReport->term,
+                    $gradeReport->year,
+                );
+            }
         });
 
-        // ลบไฟล์ มข.11 ที่ค้างใน session ของวิชานี้ด้วย กันแสดง/แนบไฟล์เก่าตอนกรอกใหม่
-        $this->pendingRegistrar->forgetMatchingCourse($subjectCode, $term, $year);
-
         $this->auditLog->record(
-            'grade_report.delete',
+            $deletedReport ? 'grade_report.delete' : 'grade_report.delete_own_sections',
             subjectType: 'grade_report',
             subjectId: $gradeId,
             metadata: $meta,
@@ -482,9 +553,21 @@ class GradeReportController extends Controller
 
         return response()->json([
             'ok' => true,
-            'cleared_subject' => $subjectCode,
-            'cleared_term' => $term,
-            'cleared_year' => $year,
+            'deleted_report' => $deletedReport,
+            'deleted_sections' => $deletedSecs,
+            'remaining_sections' => $remaining,
+            'cleared_subject' => $deletedReport ? $subjectCode : null,
+            'cleared_term' => $deletedReport ? $term : null,
+            'cleared_year' => $deletedReport ? $year : null,
+            'message' => $deletedReport
+                ? 'ลบรายงานเรียบร้อยแล้ว'
+                : ('ลบ Section '.implode(', ', $deletedSecs).' ของคุณแล้ว'
+                    .($remaining !== []
+                        ? ' — Section ที่เหลือ: '.implode(', ', array_map(
+                            fn (array $row) => (string) $row['sec'].' (ติดต่อ '.$row['filled_by'].')',
+                            $remaining,
+                        ))
+                        : '')),
         ]);
     }
 
@@ -495,17 +578,37 @@ class GradeReportController extends Controller
 
         $username = $this->staffUsername();
         abort_unless(
-            $this->ownsReport($gradeReport) || $gradeStd->filledBy($username, $gradeReport),
+            $gradeStd->filledBy($username, $gradeReport),
             403,
-            'ไม่มีสิทธิ์ลบ Section นี้'
+            'ไม่มีสิทธิ์ลบ Section นี้ — ลบได้เฉพาะ Section ที่ตัวเองกรอก'
         );
 
         $sec = (int) $gradeStd->sec;
         $stdId = (int) $gradeStd->grade_std_id;
+        $gradeId = (int) $gradeReport->grade_id;
+        $subjectCode = (string) $gradeReport->subject_code;
 
-        DB::connection('scigrad')->transaction(function () use ($gradeReport, $gradeStd, $sec) {
+        DB::connection('scigrad')->transaction(function () use ($gradeReport, $gradeStd, $sec, $username) {
             $gradeStd->delete();
-            $this->pendingRegistrar->deleteInstructorRegistrarForSection($gradeReport, $sec);
+            if ($sec > 0) {
+                $this->pendingRegistrar->deleteInstructorRegistrarForSection($gradeReport, $sec);
+                $this->deleteOwnedFilesForSection($gradeReport, $sec, $username);
+            }
+
+            $gradeReport->unsetRelation('gradeStds');
+            $gradeReport->load('gradeStds');
+            if ($gradeReport->gradeStds->isEmpty()) {
+                $gradeReport->loadMissing('files');
+                foreach ($gradeReport->files as $file) {
+                    $file->delete();
+                }
+                $gradeReport->delete();
+                $this->pendingRegistrar->forgetMatchingCourse(
+                    (string) $gradeReport->subject_code,
+                    $gradeReport->term,
+                    $gradeReport->year,
+                );
+            }
         });
 
         $this->auditLog->record(
@@ -513,17 +616,36 @@ class GradeReportController extends Controller
             subjectType: 'grade_std',
             subjectId: $stdId,
             metadata: [
-                'grade_id' => $gradeReport->grade_id,
-                'subject_code' => $gradeReport->subject_code,
+                'grade_id' => $gradeId,
+                'subject_code' => $subjectCode,
                 'sec' => $sec,
             ],
         );
 
         return response()->json([
             'ok' => true,
-            'grade_id' => $gradeReport->grade_id,
+            'grade_id' => $gradeId,
             'deleted_section' => $sec,
         ]);
+    }
+
+    /**
+     * ลบไฟล์ มข.11 / ใบขวาง ของ Section ที่ผู้นี้เป็นคนอัปโหลด
+     */
+    private function deleteOwnedFilesForSection(GradeReport $gradeReport, int $sec, string $username): void
+    {
+        $gradeReport->loadMissing('files');
+        foreach ($gradeReport->files as $file) {
+            $uploader = trim((string) ($file->username ?? ''));
+            if ($uploader !== '' && $uploader !== $username) {
+                continue;
+            }
+            $fileSec = $file->resolvedSection($gradeReport);
+            if ($fileSec === null || (int) $fileSec !== $sec) {
+                continue;
+            }
+            $file->delete();
+        }
     }
 
     private function updateApproval(Request $request, GradeReport $gradeReport): JsonResponse

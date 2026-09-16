@@ -130,55 +130,25 @@
                             $canEdit = $report->canEdit();
                             $canPrint = $report->canPrint();
                             $ownsReport = $report->instructorOwns($staffUsername ?? null);
+                            $mySections = $report->sectionsFilledBy($staffUsername ?? null);
+                            $otherSections = $report->sectionsFilledByOthers($staffUsername ?? null);
+                            $canManageMine = $canEdit && ($mySections->isNotEmpty() || ($ownsReport && $report->gradeStds->isEmpty()));
+                            $mySecNums = $mySections->map(fn ($row) => (int) $row->sec)->filter(fn ($n) => $n > 0)->values()->all();
+                            $otherContacts = [];
+                            foreach ($otherSections as $std) {
+                                $u = $report->sectionFillerUsername($std);
+                                $name = (($fillerNames ?? [])[$u] ?? null) ?: ($u !== '' ? $u : 'ผู้กรอกก่อนหน้า');
+                                $otherContacts[] = [
+                                    'sec' => (int) $std->sec,
+                                    'name' => $name,
+                                ];
+                            }
                             $enteredAt = $report->created_stamp ?: $report->created;
                         @endphp
                         <tr>
                             <td>
                                 <p class="font-semibold text-[#5C2E1F]">{{ $report->subject_code }}</p>
                                 <p class="text-gray-600 mt-0.5">{{ $report->subject }}</p>
-                                @php
-                                    $sectionRows = $report->gradeStds->sortBy(fn ($row) => (int) $row->sec)->values();
-                                @endphp
-                                @if ($sectionRows->isEmpty())
-                                    <p class="mt-2 text-xs text-red-700">ยังไม่ได้กรอกจำนวนนักศึกษา</p>
-                                    @if ($canEdit)
-                                        <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
-                                           class="inline-flex mt-1 text-xs font-semibold text-[#8B4513] hover:underline">
-                                            ไปกรอกจำนวนนักศึกษา
-                                        </a>
-                                    @endif
-                                @else
-                                    <ul class="mt-2 space-y-1.5">
-                                        @foreach ($sectionRows as $std)
-                                            @php
-                                                $canManageSection = $canEdit && ($ownsReport || $std->filledBy($staffUsername ?? null, $report));
-                                                $missingCounts = $std->isMissingStudentCounts();
-                                            @endphp
-                                            <li class="text-xs leading-relaxed {{ $missingCounts ? 'text-red-800' : 'text-[#5C2E1F]' }}">
-                                                <span class="font-semibold">กลุ่ม {{ $std->sec }}</span>
-                                                @if (trim((string) $std->fac) !== '')
-                                                    <span class="text-gray-600">· {{ strtoupper($std->fac) }}</span>
-                                                @endif
-                                                <span>· {{ $missingCounts ? 'ยังไม่มีจำนวนนักศึกษา' : ((int) $std->total_std).' คน' }}</span>
-                                                @if ($canManageSection)
-                                                    <span class="inline-flex gap-2 ml-1 whitespace-nowrap">
-                                                        <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
-                                                           class="font-semibold text-[#8B4513] hover:underline">แก้ไข</a>
-                                                        <button type="button"
-                                                            class="font-semibold text-red-700 hover:underline btn-delete-section"
-                                                            data-id="{{ $report->grade_id }}"
-                                                            data-std="{{ $std->grade_std_id }}"
-                                                            data-subject="{{ $report->subject_code }}"
-                                                            data-section="{{ $std->sec }}">ลบ</button>
-                                                    </span>
-                                                @endif
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @endif
-                                @if (! $ownsReport && $canEdit)
-                                    <p class="mt-1 text-[11px] text-[#7A4A3A]/80">รายงานวิชาร่วม — แก้/ลบได้เฉพาะกลุ่มที่ท่านกรอก</p>
-                                @endif
                             </td>
                             <td class="whitespace-nowrap text-[#5C2E1F]">
                                 {{ \App\Support\ThaiDateTime::formatDate($enteredAt) }}
@@ -354,8 +324,13 @@
                                 <div class="flex flex-wrap justify-center gap-2">
                                     @if ($canEdit)
                                         @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', ['gradeReport' => $report->grade_id, 'scope' => 'all']) }}" target="_blank"
-                                               class="action-btn bg-amber-700 text-white hover:bg-amber-800">
+                                            <a href="{{ route('grade-reports.print', array_filter([
+                                                    'gradeReport' => $report->grade_id,
+                                                    'sections' => $mySecNums !== [] ? implode(',', $mySecNums) : null,
+                                                    'scope' => $mySecNums === [] ? 'all' : null,
+                                                ])) }}" target="_blank"
+                                               class="action-btn bg-amber-700 text-white hover:bg-amber-800"
+                                               title="พิมพ์เฉพาะ Section ที่คุณกรอก">
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </a>
                                         @else
@@ -363,16 +338,35 @@
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </span>
                                         @endif
-                                        <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
-                                           class="action-btn border border-amber-300 text-[#5C2E1F] hover:bg-amber-50">
-                                            <i data-lucide="pencil" class="w-3.5 h-3.5"></i> แก้ไข
-                                        </a>
-                                        @if ($ownsReport)
-                                        <button type="button" class="action-btn bg-red-600 text-white hover:bg-red-700 btn-delete-report"
-                                            data-id="{{ $report->grade_id }}"
-                                            data-subject="{{ $report->subject_code }}">
-                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ลบรายงาน
-                                        </button>
+                                        @if ($canManageMine)
+                                            <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
+                                               class="action-btn border border-amber-300 text-[#5C2E1F] hover:bg-amber-50"
+                                               title="แก้ไขได้เฉพาะ Section ที่คุณกรอก">
+                                                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> แก้ไข
+                                            </a>
+                                            <button type="button" class="action-btn bg-red-600 text-white hover:bg-red-700 btn-delete-report"
+                                                data-id="{{ $report->grade_id }}"
+                                                data-subject="{{ $report->subject_code }}"
+                                                data-my-sections="{{ implode(',', $mySecNums) }}"
+                                                data-other-sections="{{ e(json_encode($otherContacts, JSON_UNESCAPED_UNICODE)) }}">
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                {{ $otherContacts !== [] ? 'ลบ Section ของฉัน' : 'ลบ' }}
+                                            </button>
+                                        @endif
+                                        @if ($mySecNums !== [])
+                                            <p class="text-[11px] text-[#7A4A3A] text-center w-full mt-0.5">
+                                                Section ของคุณ: {{ implode(', ', $mySecNums) }}
+                                                @if ($otherContacts !== [])
+                                                    <span class="block text-slate-600 mt-0.5">
+                                                        Section อื่น:
+                                                        @foreach ($otherContacts as $c)
+                                                            {{ $c['sec'] }} ({{ $c['name'] }})@if (! $loop->last), @endif
+                                                        @endforeach
+                                                    </span>
+                                                @endif
+                                            </p>
+                                        @elseif ($ownsReport && $report->gradeStds->isEmpty())
+                                            <p class="text-[11px] text-red-700 text-center w-full mt-0.5">ยังไม่ได้กรอกจำนวนนักศึกษา</p>
                                         @endif
                                         @if ($canSubmitCorrections && $ownsReport)
                                             <form method="POST" action="{{ route('grade-reports.submit-corrections', $report) }}" class="inline">
@@ -385,7 +379,11 @@
                                         @endif
                                     @elseif ($awaitingDept)
                                         @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', ['gradeReport' => $report->grade_id, 'scope' => 'all']) }}" target="_blank"
+                                            <a href="{{ route('grade-reports.print', array_filter([
+                                                    'gradeReport' => $report->grade_id,
+                                                    'sections' => $mySecNums !== [] ? implode(',', $mySecNums) : null,
+                                                    'scope' => $mySecNums === [] ? 'all' : null,
+                                                ])) }}" target="_blank"
                                                class="action-btn bg-amber-700 text-white hover:bg-amber-800">
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </a>
@@ -393,7 +391,11 @@
                                         <span class="text-xs text-amber-800 text-center block w-full mt-1">{{ $report->instructorTrackStatusLabel() }}</span>
                                     @else
                                         @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', ['gradeReport' => $report->grade_id, 'scope' => 'all']) }}" target="_blank"
+                                            <a href="{{ route('grade-reports.print', array_filter([
+                                                    'gradeReport' => $report->grade_id,
+                                                    'sections' => $mySecNums !== [] ? implode(',', $mySecNums) : null,
+                                                    'scope' => $mySecNums === [] ? 'all' : null,
+                                                ])) }}" target="_blank"
                                                class="action-btn bg-amber-700 text-white hover:bg-amber-800">
                                                 <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
                                             </a>
@@ -409,7 +411,8 @@
         </div>
         <p class="text-xs text-red-700 mt-3 leading-relaxed">
             ** เมื่อสร้างแบบรายงานแล้ว ต้องกรอกจำนวนนักศึกษาก่อนจึงจะพิมพ์แบบฟอร์มได้<br>
-            ** ถ้าเผลอบันทึกกลุ่มโดยยังไม่มีจำนวนนักศึกษา ให้กด «แก้ไข» หรือ «ลบ» ที่กลุ่มนั้น<br>
+            ** แก้ไข / ลบ ได้เฉพาะ Section ที่คุณเป็นคนกรอกเท่านั้น<br>
+            ** ถ้าวิชานั้นมีผู้กรอกหลายคน เมื่อกดลบ ระบบจะแจ้งว่าลบ Section ไหนได้บ้าง และ Section ที่เหลือให้ติดต่อผู้กรอก<br>
             ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด — กด «แก้ไข» เพื่ออัปโหลดหรือเปลี่ยนไฟล์ PDF
         </p>
     @endif
@@ -421,11 +424,59 @@
 (function() {
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
 
+    function buildDeleteConfirmMessage(subject, mySectionsCsv, otherSectionsJson) {
+        const mySecs = String(mySectionsCsv || '')
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean);
+        let others = [];
+        try {
+            others = JSON.parse(otherSectionsJson || '[]');
+            if (!Array.isArray(others)) others = [];
+        } catch (e) {
+            others = [];
+        }
+
+        if (!mySecs.length && !others.length) {
+            return `ต้องการลบรายงานวิชา ${subject} หรือไม่?`;
+        }
+
+        if (!others.length) {
+            return mySecs.length
+                ? `ต้องการลบ Section ${mySecs.join(', ')} ของวิชา ${subject} หรือไม่?\n(ลบได้เฉพาะ Section ที่คุณกรอก)`
+                : `ต้องการลบรายงานวิชา ${subject} หรือไม่?`;
+        }
+
+        const otherLines = others.map((row) => {
+            const sec = row?.sec ?? row?.section ?? '?';
+            const name = row?.name || row?.filled_by || 'ผู้กรอกก่อนหน้า';
+            return `  · Section ${sec} — ติดต่อ ${name}`;
+        });
+
+        return [
+            `วิชา ${subject} มีผู้กรอกหลายคน`,
+            '',
+            mySecs.length
+                ? `คุณลบได้เฉพาะ Section: ${mySecs.join(', ')}`
+                : 'คุณไม่มี Section ที่ลบได้',
+            '',
+            'Section ที่เหลือ หากต้องการแก้ไขข้อมูล ให้ติดต่อผู้กรอก:',
+            ...otherLines,
+            '',
+            'ยืนยันลบ Section ของคุณหรือไม่?',
+        ].join('\n');
+    }
+
     document.querySelectorAll('.btn-delete-report').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const id = btn.dataset.id;
             const subject = btn.dataset.subject;
-            if (!confirm(`ต้องการลบรายงานวิชา ${subject} หรือไม่?`)) return;
+            const msg = buildDeleteConfirmMessage(
+                subject,
+                btn.dataset.mySections,
+                btn.dataset.otherSections,
+            );
+            if (!confirm(msg)) return;
 
             const res = await fetch(`/api/grade-reports/${id}`, {
                 method: 'DELETE',
@@ -436,41 +487,18 @@
                 },
             });
 
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
                 try {
                     sessionStorage.removeItem(`scigrade.wizard.edit.${id}`);
                     sessionStorage.removeItem('scigrade.wizard.create');
                 } catch (e) { /* ignore */ }
+                if (data.message) {
+                    alert(data.message);
+                }
                 window.location.reload();
             } else {
-                const data = await res.json().catch(() => ({}));
                 alert(data.message || 'ลบไม่สำเร็จ');
-            }
-        });
-    });
-
-    document.querySelectorAll('.btn-delete-section').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            const id = btn.dataset.id;
-            const stdId = btn.dataset.std;
-            const subject = btn.dataset.subject;
-            const section = btn.dataset.section;
-            if (!confirm(`ต้องการลบกลุ่ม ${section} ของวิชา ${subject} หรือไม่?`)) return;
-
-            const res = await fetch(`/api/grade-reports/${id}/sections/${stdId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': csrf(),
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-            });
-
-            if (res.ok) {
-                window.location.reload();
-            } else {
-                const data = await res.json().catch(() => ({}));
-                alert(data.message || 'ลบกลุ่มไม่สำเร็จ');
             }
         });
     });

@@ -128,6 +128,49 @@ class GradeReport extends Model
         );
     }
 
+    /**
+     * Section ที่ผู้ใช้นี้กรอกเอง
+     *
+     * @return Collection<int, GradeStd>
+     */
+    public function sectionsFilledBy(?string $username): Collection
+    {
+        $this->loadMissing('gradeStds');
+
+        return $this->gradeStds
+            ->filter(fn (GradeStd $row) => $row->filledBy($username, $this))
+            ->sortBy(fn (GradeStd $row) => (int) $row->sec)
+            ->values();
+    }
+
+    /**
+     * Section ที่คนอื่นกรอก (ไม่ใช่ผู้ใช้ที่ระบุ)
+     *
+     * @return Collection<int, GradeStd>
+     */
+    public function sectionsFilledByOthers(?string $username): Collection
+    {
+        $this->loadMissing('gradeStds');
+
+        return $this->gradeStds
+            ->reject(fn (GradeStd $row) => $row->filledBy($username, $this))
+            ->sortBy(fn (GradeStd $row) => (int) $row->sec)
+            ->values();
+    }
+
+    /**
+     * username ของผู้กรอก Section (ว่าง = ใช้เจ้าของรายงาน)
+     */
+    public function sectionFillerUsername(GradeStd $std): string
+    {
+        $rowUser = trim((string) ($std->getAttributes()['username'] ?? $std->username ?? ''));
+        if ($rowUser !== '') {
+            return $rowUser;
+        }
+
+        return trim((string) $this->username);
+    }
+
     public function gradeStds(): HasMany
     {
         return $this->hasMany(GradeStd::class, 'grade_id', 'grade_id');
