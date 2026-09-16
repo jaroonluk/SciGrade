@@ -333,37 +333,61 @@
         </div>
 
         <div class="thesis-panel" data-step="3">
+            <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 mb-4 text-sm text-amber-950">
+                <p class="font-semibold text-[#854d0e] mb-1">ขั้นที่ 3 — ต้องแนบไฟล์ PDF ก่อนส่งเข้าสาขา</p>
+                <ul class="list-disc pl-5 space-y-1 text-[#5C2E1F]">
+                    <li><strong>จำเป็นทุกวิชา:</strong> ใบส่งเกรดวิทยานิพนธ์ (มข.11 / TS) เป็น PDF จากระบบ REG ที่ลงนามดิจิทัลแล้ว</li>
+                    <li><strong>เฉพาะนักศึกษาที่ได้ S=0:</strong> ต้องแนบบันทึกข้อความชี้แจงเป็น PDF รายคน (พิมพ์จากลิงก์ด้านล่าง แล้วบันทึก/พิมพ์เป็น PDF)</li>
+                    <li>รับเฉพาะไฟล์ <strong>.pdf</strong> ขนาดไม่เกิน 15 MB — ไม่รับ Word, รูปภาพ หรือไฟล์สแกนที่เป็น PDF แบบภาพอย่างเดียว</li>
+                </ul>
+                <div id="step3-attach-status" class="mt-3 grid sm:grid-cols-2 gap-2 text-sm"></div>
+            </div>
+
             <div class="form-section rounded-xl p-5 mb-4">
-                <h3 class="font-semibold text-[#5C2E1F] mb-1">ใบส่งเกรดวิทยานิพนธ์ (มข.11 / TS)</h3>
-                <p class="text-sm text-[#7A4A3A]/80 mb-3">อัปโหลด PDF ที่พิมพ์จาก REG มี barcode และลงนามดิจิทัลแล้ว ระบบจะตั้งชื่อให้เอง</p>
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+                    <div>
+                        <h3 class="font-semibold text-[#5C2E1F]">1) ใบส่งเกรดวิทยานิพนธ์ (มข.11 / TS) — จำเป็น</h3>
+                        <p class="text-sm text-[#7A4A3A] mt-1 leading-relaxed">
+                            อัปโหลดใบ มข.11 ที่<strong>ส่งออกจากระบบ REG โดยตรง</strong> (มีข้อความเลือกได้) แล้วลงนามดิจิทัลแล้ว
+                            ระบบจะตั้งชื่อไฟล์ให้อัตโนมัติตามรูปแบบด้านล่าง
+                        </p>
+                    </div>
+                    <span class="shrink-0 rounded-full bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-1">ต้องแนบ PDF</span>
+                </div>
                 <p class="text-xs font-semibold text-[#854d0e] mb-3" id="ts-name-preview">TS-รหัสวิชา-กลุ่ม-ภาค-ปี.pdf</p>
                 <div id="ts-signature-banner" class="hidden mb-3 rounded-lg border px-3 py-2 text-sm leading-relaxed"></div>
 
                 @if ($editable && $report)
                     <label class="file-drop block" id="ts-drop">
                         <input type="file" accept="application/pdf" class="hidden" id="ts-input">
-                        <p class="font-medium text-[#854d0e]">ลากวางหรือคลิกเพื่อเลือก PDF</p>
-                        <p class="text-xs text-[#7A4A3A]/70 mt-1">เฉพาะ .pdf ไม่เกิน 15 MB</p>
+                        <p class="font-medium text-[#854d0e]">ลากวางหรือคลิกเพื่อแนบใบส่งเกรด (PDF)</p>
+                        <p class="text-xs text-[#7A4A3A] mt-1">เฉพาะไฟล์ .pdf จาก REG · ไม่เกิน 15 MB · ต้องมีลายเซ็นดิจิทัล</p>
                     </label>
                 @elseif ($editable)
-                    <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">ใช้ช่องอัปโหลดในขั้นที่ 1 หรือบันทึกร่างก่อน จึงอัปโหลดไฟล์เพิ่มได้</p>
+                    <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">บันทึกร่างในขั้นที่ 1–2 ก่อน จึงจะแนบใบส่งเกรด PDF ได้ที่นี่</p>
                 @endif
                 <div id="ts-files" class="mt-3 space-y-2"></div>
             </div>
 
             <div class="form-section rounded-xl p-5 mb-4">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <h3 class="font-semibold text-[#5C2E1F]">บันทึกข้อความชี้แจง S=0</h3>
-                    @if ($report)
-                        <div class="flex flex-wrap items-center gap-3">
-                            <a href="{{ route('thesis-grades.s0-letter', $report) }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">พิมพ์บันทึกข้อความ</a>
-                            <a href="{{ route('thesis-grades.s0.docx', $report) }}" class="text-sm text-[#a16207] underline">ดาวน์โหลด Word</a>
-                        </div>
-                    @else
-                        <a href="{{ $s0FormUrl }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">เปิดแบบฟอร์มบันทึกชี้แจง</a>
-                    @endif
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+                    <div>
+                        <h3 class="font-semibold text-[#5C2E1F]">2) บันทึกข้อความชี้แจง S=0 — เฉพาะผู้ได้ S=0</h3>
+                        <p class="text-sm text-[#7A4A3A] mt-1 leading-relaxed">
+                            หากมีนักศึกษาได้เกรด <strong>S=0</strong> ต้องแนบ PDF บันทึกข้อความชี้แจง<strong>รายคน</strong>
+                            พิมพ์หรือดาวน์โหลด Word จากลิงก์ แล้วบันทึก/พิมพ์เป็น PDF ก่อนอัปโหลด
+                        </p>
+                    </div>
+                    <span class="shrink-0 rounded-full bg-amber-100 text-amber-900 text-xs font-semibold px-2.5 py-1">แนบเมื่อมี S=0</span>
                 </div>
-                <p class="text-sm text-[#7A4A3A]/80 mb-3">แนบรายคนเป็นไฟล์ PDF สำหรับนักศึกษาที่ได้ S=0</p>
+                @if ($report)
+                    <div class="flex flex-wrap items-center gap-3 mb-3">
+                        <a href="{{ route('thesis-grades.s0-letter', $report) }}" target="_blank" rel="noopener" class="text-sm font-semibold text-[#a16207] underline">พิมพ์บันทึกข้อความ</a>
+                        <a href="{{ route('thesis-grades.s0.docx', $report) }}" class="text-sm font-semibold text-[#a16207] underline">ดาวน์โหลด Word</a>
+                    </div>
+                @else
+                    <a href="{{ $s0FormUrl }}" target="_blank" rel="noopener" class="inline-block text-sm font-semibold text-[#a16207] underline mb-3">เปิดแบบฟอร์มบันทึกชี้แจง</a>
+                @endif
                 <div id="s0-slots" class="space-y-2"></div>
             </div>
 
@@ -514,7 +538,7 @@
     };
 </script>
 <script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=18"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=19"></script>
 @if (collect((array) session('pdf_warnings'))->contains(fn ($w) => \App\Support\ImageOnlyPdfMessage::matches((string) $w))
     || \App\Support\ImageOnlyPdfMessage::matches((string) session('error', '')))
 <script>

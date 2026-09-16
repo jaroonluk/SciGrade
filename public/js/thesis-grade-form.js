@@ -447,45 +447,96 @@
         }
     }
 
+    function renderAttachStatus() {
+        const box = document.getElementById('step3-attach-status');
+        if (!box) return;
+
+        const hasTs = tsFiles().length > 0;
+        const s0Needed = students.filter((s) => needsS0(s));
+        const s0Missing = s0Needed.filter((s) => !hasS0(s)).length;
+        const s0Ok = s0Needed.length === 0 || s0Missing === 0;
+
+        const tsTone = hasTs
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+            : 'border-red-200 bg-red-50 text-red-900';
+        const s0Tone = s0Needed.length === 0
+            ? 'border-slate-200 bg-white text-[#5C2E1F]'
+            : (s0Ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900');
+
+        box.innerHTML = `
+            <div class="rounded-lg border px-3 py-2 ${tsTone}">
+                <p class="text-xs font-semibold opacity-80">ใบส่งเกรด (มข.11 / TS)</p>
+                <p class="font-semibold">${hasTs ? 'แนบ PDF แล้ว' : 'ยังไม่ได้แนบ PDF — ต้องอัปโหลดก่อนส่งเข้าสาขา'}</p>
+            </div>
+            <div class="rounded-lg border px-3 py-2 ${s0Tone}">
+                <p class="text-xs font-semibold opacity-80">บันทึกข้อความชี้แจง S=0</p>
+                <p class="font-semibold">${
+                    s0Needed.length === 0
+                        ? 'ไม่มีนักศึกษา S=0 — ไม่ต้องแนบ'
+                        : (s0Ok
+                            ? `แนบครบแล้ว (${s0Needed.length} คน)`
+                            : `ยังขาด ${s0Missing} จาก ${s0Needed.length} คน — ต้องแนบ PDF รายคน`)
+                }</p>
+            </div>
+        `;
+    }
+
     function renderFiles() {
         if (tsFilesEl) {
             const items = tsFiles();
             tsFilesEl.innerHTML = items.length
-                ? items.map((f) => fileRow(f)).join('')
-                : '<p class="text-xs text-[#7A4A3A]/70">ยังไม่มีไฟล์ TS</p>';
+                ? items.map((f) => fileRow(f, 'ใบส่งเกรด')).join('')
+                : `<div class="rounded-lg border border-dashed border-red-300 bg-red-50/70 px-3 py-2.5 text-sm text-red-800">
+                        <p class="font-semibold">ยังไม่ได้แนบใบส่งเกรด PDF</p>
+                        <p class="text-xs mt-0.5">กรุณาอัปโหลดใบ มข.11 จาก REG ที่ลงนามดิจิทัลแล้วด้านบน</p>
+                   </div>`;
         }
         if (s0SlotsEl) {
             const needed = students.filter((s) => needsS0(s) && s.id);
             const unsaved = students.filter((s) => needsS0(s) && !s.id);
             if (needed.length === 0 && unsaved.length === 0) {
-                s0SlotsEl.innerHTML = '<p class="text-xs text-[#7A4A3A]/70">ยังไม่มีนักศึกษาที่ได้ S=0 ที่ต้องแนบบันทึกข้อความชี้แจง</p>';
+                s0SlotsEl.innerHTML = `<div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-[#5C2E1F]">
+                    <p class="font-medium">ไม่ต้องแนบไฟล์นี้</p>
+                    <p class="text-xs text-[#7A4A3A] mt-0.5">ยังไม่มีนักศึกษาที่ได้เกรด S=0 ในรายการนี้</p>
+                </div>`;
             } else {
                 s0SlotsEl.innerHTML = [
                     ...needed.map((s) => {
                         const attached = files.filter((f) => f.file_type === 's0_letter' && String(f.student_id) === String(s.id));
-                        return `<div class="rounded-lg border border-red-200 bg-white px-3 py-2">
+                        const missing = attached.length === 0;
+                        return `<div class="rounded-lg border ${missing ? 'border-red-300 bg-red-50/50' : 'border-emerald-200 bg-white'} px-3 py-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="text-sm font-medium text-red-800">${escapeHtml(s.student_code)} ${escapeHtml(s.student_name)}</p>
-                                ${s0LetterUrlFor(s) ? `<a href="${escapeHtml(s0LetterUrlFor(s))}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline">พิมพ์บันทึกข้อความ</a>` : ''}
-                                ${s0DocxUrlFor(s) ? `<a href="${escapeHtml(s0DocxUrlFor(s))}" class="text-xs font-semibold text-[#a16207] underline">ดาวน์โหลด Word</a>` : ''}
-                                ${editable && root.dataset.uploadUrl ? `<label class="text-xs font-semibold text-[#a16207] cursor-pointer">แนบ PDF
+                                <div>
+                                    <p class="text-sm font-medium ${missing ? 'text-red-800' : 'text-[#5C2E1F]'}">${escapeHtml(s.student_code)} ${escapeHtml(s.student_name)}</p>
+                                    <p class="text-xs ${missing ? 'text-red-700 font-semibold' : 'text-emerald-700'}">${missing ? 'ต้องแนบ PDF บันทึกข้อความชี้แจง' : 'แนบ PDF แล้ว'}</p>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                ${s0LetterUrlFor(s) ? `<a href="${escapeHtml(s0LetterUrlFor(s))}" target="_blank" rel="noopener" class="text-xs font-semibold text-[#a16207] underline">พิมพ์บันทึก</a>` : ''}
+                                ${s0DocxUrlFor(s) ? `<a href="${escapeHtml(s0DocxUrlFor(s))}" class="text-xs font-semibold text-[#a16207] underline">.docx</a>` : ''}
+                                ${editable && root.dataset.uploadUrl ? `<label class="inline-flex items-center rounded-lg bg-[#a16207] text-white text-xs font-semibold px-2.5 py-1.5 cursor-pointer hover:bg-[#854d0e]">แนบ PDF ชี้แจง
                                     <input type="file" accept="application/pdf" class="hidden" data-s0="${escapeHtml(s.id)}">
                                 </label>` : ''}
+                                </div>
                             </div>
-                            <div class="mt-1 space-y-1">${attached.map(fileRow).join('') || '<p class="text-xs text-red-700">ยังไม่มีบันทึกข้อความชี้แจง</p>'}</div>
+                            <div class="mt-2 space-y-1">${attached.map((f) => fileRow(f, 'บันทึก S=0')).join('') || ''}</div>
                         </div>`;
                     }),
-                    unsaved.length ? '<p class="text-xs text-amber-800">บันทึกร่างก่อน จึงแนบบันทึกข้อความชี้แจงรายคนได้</p>' : '',
+                    unsaved.length ? '<p class="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">มีนักศึกษา S=0 ที่ยังไม่ได้บันทึกร่าง — กด «บันทึกร่าง» ก่อน แล้วค่อยแนบ PDF รายคน</p>' : '',
                 ].join('');
             }
         }
         bindFileActions();
+        renderAttachStatus();
     }
 
-    function fileRow(f) {
+    function fileRow(f, kindLabel) {
+        const kind = kindLabel ? `<span class="text-[10px] uppercase tracking-wide text-[#7A4A3A] font-semibold">${escapeHtml(kindLabel)}</span>` : '';
         return `<div class="flex items-center justify-between gap-2 text-sm bg-white border border-amber-200 rounded-lg px-3 py-1.5">
-            <a href="${f.url}" target="_blank" class="text-[#a16207] underline truncate">${escapeHtml(f.original_name)}</a>
-            ${editable ? `<button type="button" class="text-xs text-red-700" data-del-file="${f.file_id}">ลบ</button>` : ''}
+            <div class="min-w-0">
+                ${kind}
+                <a href="${f.url}" target="_blank" class="block text-[#a16207] underline truncate">${escapeHtml(f.original_name)}</a>
+            </div>
+            ${editable ? `<button type="button" class="text-xs text-red-700 shrink-0" data-del-file="${f.file_id}">ลบ</button>` : ''}
         </div>`;
     }
 
