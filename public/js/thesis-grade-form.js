@@ -854,10 +854,18 @@
                 return;
             }
 
-            showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
-            if (data.image_pdf && Array.isArray(data.warnings) && data.warnings.length) {
-                showStatus('error', data.message || 'ไฟล์นี้เป็น PDF แบบภาพ', data.warnings[0]);
-                await new Promise((r) => setTimeout(r, 2200));
+            if (data.image_pdf) {
+                const detail = Array.isArray(data.warnings) && data.warnings.length
+                    ? data.warnings[0]
+                    : data.message;
+                showStatus(
+                    'error',
+                    'ไฟล์นี้เป็น PDF แบบภาพ',
+                    detail || 'ระบบไม่สามารถอ่านเนื้อหาเพื่อมาแสดงข้อมูลได้ กรุณาใช้ใบ มข.11 จาก REG โดยตรง',
+                );
+                await new Promise((r) => setTimeout(r, 2800));
+            } else {
+                showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
             }
             window.location.href = data.edit_url;
         } catch (err) {

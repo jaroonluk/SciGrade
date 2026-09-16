@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\ImageOnlyPdfMessage;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Smalot\PdfParser\Parser;
@@ -231,9 +232,7 @@ class RegistrarGradePdfParser
 
     public function imagePdfMessage(): string
     {
-        return 'ไฟล์นี้เป็น PDF แบบภาพ ระบบไม่สามารถอ่านเนื้อหาเพื่อมาแสดงข้อมูลได้ '
-            .'กรุณาใช้ใบ มข.11 ที่ส่งออกจากระบบ REG โดยตรง (มีข้อความเลือกได้) '
-            .'ไม่ใช่ไฟล์สแกนหรือพิมพ์เป็นรูปภาพ แล้วค่อยอัปโหลดใหม่';
+        return ImageOnlyPdfMessage::TEXT;
     }
 
     /**

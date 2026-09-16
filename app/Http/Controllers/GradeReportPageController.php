@@ -386,8 +386,13 @@ class GradeReportPageController extends Controller
                 (int) $data['year'],
             );
         } catch (RegistrarPdfParseException $e) {
+            $message = $e->getMessage();
+            if (! \App\Support\ImageOnlyPdfMessage::matches($message)) {
+                $message .= ' หรือกรอกข้อมูลเอง';
+            }
+
             return response()->json([
-                'message' => $e->getMessage().' หรือกรอกข้อมูลเอง',
+                'message' => $message,
             ], 422);
         }
 

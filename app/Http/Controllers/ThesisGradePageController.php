@@ -253,7 +253,7 @@ class ThesisGradePageController extends Controller
         ]);
 
         $isImagePdf = collect($parsed['warnings'] ?? [])->contains(
-            fn ($w) => str_contains((string) $w, 'ไฟล์นี้เป็น PDF แบบภาพ')
+            fn ($w) => \App\Support\ImageOnlyPdfMessage::matches((string) $w)
         );
 
         $editUrl = route('thesis-grades.edit', [
@@ -265,7 +265,7 @@ class ThesisGradePageController extends Controller
             'ok' => true,
             'draft_created' => true,
             'message' => $isImagePdf
-                ? 'ไฟล์นี้เป็น PDF แบบภาพ — ระบบอ่านเนื้อหาเพื่อแสดงข้อมูลไม่ได้ กรุณาอัปโหลดใบ มข.11 จาก REG ใหม่'
+                ? \App\Support\ImageOnlyPdfMessage::TEXT
                 : (($parsed['subject_in_catalog'] ?? false)
                     ? 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (พบรหัสวิชาในฐานข้อมูล)'
                     : 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (ไม่พบรหัสวิชาในฐานข้อมูล — ใช้ค่าจากไฟล์ คุณแก้ไขได้)'),

@@ -3,6 +3,7 @@
 namespace App\Services\ThesisGrade;
 
 use App\Models\PdCourse;
+use App\Support\ImageOnlyPdfMessage;
 use App\Support\ThesisCourse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -48,9 +49,7 @@ class ThesisGradePdfParser
     private const MANUAL_HINT = 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน';
 
     /** ข้อความแจ้งเมื่อ PDF เป็นภาพสแกน/พิมพ์เป็นรูป ไม่มีข้อความฝัง */
-    public const IMAGE_PDF_MESSAGE = 'ไฟล์นี้เป็น PDF แบบภาพ ระบบไม่สามารถอ่านเนื้อหาเพื่อมาแสดงข้อมูลได้ '
-        .'กรุณาใช้ใบ มข.11 ที่ส่งออกจากระบบ REG โดยตรง (มีข้อความเลือกได้) '
-        .'ไม่ใช่ไฟล์สแกนหรือพิมพ์เป็นรูปภาพ แล้วค่อยอัปโหลดใหม่';
+    public const IMAGE_PDF_MESSAGE = ImageOnlyPdfMessage::TEXT;
 
     public function __construct(
         private readonly Parser $parser = new Parser,
