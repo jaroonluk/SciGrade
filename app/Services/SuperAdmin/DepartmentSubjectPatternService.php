@@ -20,20 +20,14 @@ class DepartmentSubjectPatternService
      * @return Collection<int, object{
      *     department_id: int,
      *     department_name: string,
-     *     bachelor_patterns: Collection<int, DepartmentSubjectPattern>,
-     *     graduate_patterns: Collection<int, DepartmentSubjectPattern>,
-     *     bachelor_details: list<array{pattern: string, label: string, kind: string}>,
-     *     graduate_details: list<array{pattern: string, label: string, kind: string}>,
-     *     bachelor_count: int,
-     *     graduate_count: int,
      *     patterns: Collection<int, DepartmentSubjectPattern>,
-     *     pattern_details: list<array{pattern: string, label: string, kind: string}>
+     *     pattern_details: list<array{pattern: string, label: string, kind: string}>,
+     *     pattern_count: int
      * }>
      */
     public function departmentsWithPatterns(?string $q = null, ?string $viewFilter = null): Collection
     {
         $this->ensureSeeded();
-        $viewFilter = $this->normalizeViewFilter($viewFilter);
 
         $departmentIds = collect($this->defaultPatterns())
             ->keys()
@@ -60,30 +54,14 @@ class DepartmentSubjectPatternService
 
         $rows = $departmentIds->map(function (int $departmentId) use ($departments, $allPatterns) {
             $dept = $departments->get($departmentId);
-            $deptPatterns = $allPatterns->get($departmentId, collect());
-            $bachelor = $this->patternsForLevel($deptPatterns, DepartmentSubjectPattern::EDUCATION_BACHELOR);
-            $graduate = $this->patternsForLevel($deptPatterns, DepartmentSubjectPattern::EDUCATION_GRADUATE);
+            $patterns = $this->uniquePatterns($allPatterns->get($departmentId, collect()));
 
             return (object) [
                 'department_id' => $departmentId,
                 'department_name' => $dept?->department_name ?? ('สาขา #'.$departmentId),
-                'bachelor_patterns' => $bachelor,
-                'graduate_patterns' => $graduate,
-                'bachelor_count' => $bachelor->count(),
-                'graduate_count' => $graduate->count(),
-                'bachelor_details' => $this->subjectFilter->patternDetailsForDepartment(
-                    $departmentId,
-                    DepartmentSubjectPattern::EDUCATION_BACHELOR,
-                ),
-                'graduate_details' => $this->subjectFilter->patternDetailsForDepartment(
-                    $departmentId,
-                    DepartmentSubjectPattern::EDUCATION_GRADUATE,
-                ),
-                'patterns' => $bachelor,
-                'pattern_details' => $this->subjectFilter->patternDetailsForDepartment(
-                    $departmentId,
-                    DepartmentSubjectPattern::EDUCATION_BACHELOR,
-                ),
+                'patterns' => $patterns,
+                'pattern_count' => $patterns->count(),
+                'pattern_details' => $this->subjectFilter->patternDetailsForDepartment($departmentId),
             ];
         });
 
@@ -99,47 +77,32 @@ class DepartmentSubjectPatternService
                     return true;
                 }
 
-                $matchPattern = fn (DepartmentSubjectPattern $pattern) => str_contains(mb_strtolower($pattern->pattern), $like);
-
-                return $row->bachelor_patterns->contains($matchPattern)
-                    || $row->graduate_patterns->contains($matchPattern);
+                return $row->patterns->contains(
+                    fn (DepartmentSubjectPattern $pattern) => str_contains(mb_strtolower($pattern->pattern), $like)
+                );
             })->values();
         }
 
-        // เก็บ viewFilter ไว้ที่แต่ละแถวให้ view ใช้ซ่อน/โชว์แผง
-        return $rows->map(function (object $row) use ($viewFilter) {
-            $row->view_filter = $viewFilter;
-
-            return $row;
-        })->values();
+        return $rows->values();
     }
 
     /**
-     * ตัวกรองหน้าจอ: all | bachelor | graduate
+     * @deprecated ไม่ใช้แยกชั้นกรองแล้ว — คงไว้เพื่อความเข้ากันได้ของ controller เดิม
      */
     public function normalizeViewFilter(?string $value): string
     {
-        return match (strtolower(trim((string) $value))) {
-            DepartmentSubjectPattern::EDUCATION_BACHELOR => DepartmentSubjectPattern::EDUCATION_BACHELOR,
-            DepartmentSubjectPattern::EDUCATION_GRADUATE => DepartmentSubjectPattern::EDUCATION_GRADUATE,
-            default => 'all',
-        };
+        return 'all';
     }
 
     public function store(int $departmentId, string $pattern, ?string $educationLevel = null): DepartmentSubjectPattern
     {
         $this->ensureSeeded();
-        $educationLevel = DepartmentSubjectPattern::normalizeEducationLevel($educationLevel);
         $pattern = $this->normalizePattern($pattern);
         $this->assertValidPattern($pattern);
-        $this->assertUnique($departmentId, $pattern, $educationLevel);
+        $this->assertUnique($departmentId, $pattern);
 
         $maxOrder = (int) DepartmentSubjectPattern::query()
             ->where('department_id', $departmentId)
-            ->when(
-                DepartmentSubjectPattern::hasEducationLevelColumn(),
-                fn ($query) => $query->where('education_level', $educationLevel),
-            )
             ->max('sort_order');
 
         $attributes = [
@@ -148,7 +111,8 @@ class DepartmentSubjectPatternService
             'sort_order' => $maxOrder + 1,
         ];
         if (DepartmentSubjectPattern::hasEducationLevelColumn()) {
-            $attributes['education_level'] = $educationLevel;
+            // คอลัมน์ยังมีใน DB แต่ไม่ใช้แยกกรองแล้ว — เก็บเป็น bachelor เป็นค่าเริ่มต้น
+            $attributes['education_level'] = DepartmentSubjectPattern::EDUCATION_BACHELOR;
         }
 
         return DepartmentSubjectPattern::query()->create($attributes);
@@ -158,16 +122,9 @@ class DepartmentSubjectPatternService
     {
         $pattern = $this->normalizePattern($pattern);
         $this->assertValidPattern($pattern);
-        $level = DepartmentSubjectPattern::hasEducationLevelColumn()
-            ? DepartmentSubjectPattern::normalizeEducationLevel($educationLevel ?? $row->education_level)
-            : DepartmentSubjectPattern::normalizeEducationLevel($educationLevel);
-        $this->assertUnique((int) $row->department_id, $pattern, $level, (int) $row->id);
+        $this->assertUnique((int) $row->department_id, $pattern, (int) $row->id);
 
-        $attributes = ['pattern' => $pattern];
-        if (DepartmentSubjectPattern::hasEducationLevelColumn()) {
-            $attributes['education_level'] = $level;
-        }
-        $row->update($attributes);
+        $row->update(['pattern' => $pattern]);
 
         return $row->fresh();
     }
@@ -180,7 +137,6 @@ class DepartmentSubjectPatternService
     public function restoreDefaults(int $departmentId, ?string $educationLevel = null): int
     {
         $this->ensureSeeded();
-        $educationLevel = DepartmentSubjectPattern::normalizeEducationLevel($educationLevel);
 
         $defaults = $this->defaultPatterns()[$departmentId] ?? null;
         if ($defaults === null) {
@@ -189,12 +145,8 @@ class DepartmentSubjectPatternService
             ]);
         }
 
-        return DB::connection('scigrad')->transaction(function () use ($departmentId, $defaults, $educationLevel) {
-            $query = DepartmentSubjectPattern::query()->where('department_id', $departmentId);
-            if (DepartmentSubjectPattern::hasEducationLevelColumn()) {
-                $query->where('education_level', $educationLevel);
-            }
-            $query->delete();
+        return DB::connection('scigrad')->transaction(function () use ($departmentId, $defaults) {
+            DepartmentSubjectPattern::query()->where('department_id', $departmentId)->delete();
 
             $now = now();
             $rows = [];
@@ -207,7 +159,7 @@ class DepartmentSubjectPatternService
                     'updated_at' => $now,
                 ];
                 if (DepartmentSubjectPattern::hasEducationLevelColumn()) {
-                    $row['education_level'] = $educationLevel;
+                    $row['education_level'] = DepartmentSubjectPattern::EDUCATION_BACHELOR;
                 }
                 $rows[] = $row;
             }
@@ -233,23 +185,18 @@ class DepartmentSubjectPatternService
         $now = now();
         $rows = [];
         foreach ($this->defaultPatterns() as $departmentId => $patterns) {
-            foreach ([DepartmentSubjectPattern::EDUCATION_BACHELOR, DepartmentSubjectPattern::EDUCATION_GRADUATE] as $level) {
-                foreach (array_values($patterns) as $index => $pattern) {
-                    $row = [
-                        'department_id' => $departmentId,
-                        'pattern' => $pattern,
-                        'sort_order' => $index + 1,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                    if (DepartmentSubjectPattern::hasEducationLevelColumn()) {
-                        $row['education_level'] = $level;
-                    }
-                    $rows[] = $row;
+            foreach (array_values($patterns) as $index => $pattern) {
+                $row = [
+                    'department_id' => $departmentId,
+                    'pattern' => $pattern,
+                    'sort_order' => $index + 1,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+                if (DepartmentSubjectPattern::hasEducationLevelColumn()) {
+                    $row['education_level'] = DepartmentSubjectPattern::EDUCATION_BACHELOR;
                 }
-                if (! DepartmentSubjectPattern::hasEducationLevelColumn()) {
-                    break;
-                }
+                $rows[] = $row;
             }
         }
 
@@ -292,15 +239,11 @@ class DepartmentSubjectPatternService
         }
     }
 
-    private function assertUnique(int $departmentId, string $pattern, string $educationLevel, ?int $ignoreId = null): void
+    private function assertUnique(int $departmentId, string $pattern, ?int $ignoreId = null): void
     {
         $query = DepartmentSubjectPattern::query()
             ->where('department_id', $departmentId)
             ->where('pattern', $pattern);
-
-        if (DepartmentSubjectPattern::hasEducationLevelColumn()) {
-            $query->where('education_level', $educationLevel);
-        }
 
         if ($ignoreId) {
             $query->where('id', '!=', $ignoreId);
@@ -308,23 +251,31 @@ class DepartmentSubjectPatternService
 
         if ($query->exists()) {
             throw ValidationException::withMessages([
-                'pattern' => 'เงื่อนไขนี้มีอยู่แล้วในสาขานี้สำหรับ'.DepartmentSubjectPattern::label($educationLevel),
+                'pattern' => 'เงื่อนไขนี้มีอยู่แล้วในสาขานี้',
             ]);
         }
     }
 
     /**
+     * รวมเงื่อนไขซ้ำข้ามระดับการศึกษาเดิม — คงแถวแรกของแต่ละ pattern
+     *
      * @param  Collection<int, DepartmentSubjectPattern>  $patterns
      * @return Collection<int, DepartmentSubjectPattern>
      */
-    private function patternsForLevel(Collection $patterns, string $educationLevel): Collection
+    private function uniquePatterns(Collection $patterns): Collection
     {
-        if (! DepartmentSubjectPattern::hasEducationLevelColumn()) {
-            return $patterns->values();
+        $seen = [];
+        $unique = collect();
+
+        foreach ($patterns as $pattern) {
+            $key = strtoupper(trim((string) $pattern->pattern));
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $unique->push($pattern);
         }
 
-        return $patterns
-            ->filter(fn (DepartmentSubjectPattern $pattern) => DepartmentSubjectPattern::normalizeEducationLevel($pattern->education_level) === $educationLevel)
-            ->values();
+        return $unique->values();
     }
 }

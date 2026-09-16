@@ -272,18 +272,15 @@ class DepartmentSubjectFilter
     {
         try {
             if (Schema::connection('scigrad')->hasTable('department_subject_pattern')) {
-                $query = DepartmentSubjectPattern::query()
+                // ไม่แบ่งระดับการศึกษา — ใช้เงื่อนไขทั้งหมดของสาขา (ตัดซ้ำ)
+                $fromDb = DepartmentSubjectPattern::query()
                     ->where('department_id', $departmentId)
                     ->orderBy('sort_order')
-                    ->orderBy('id');
-
-                if ($educationLevel && DepartmentSubjectPattern::hasEducationLevelColumn()) {
-                    $query->where('education_level', $educationLevel);
-                }
-
-                $fromDb = $query
+                    ->orderBy('id')
                     ->pluck('pattern')
-                    ->map(fn ($pattern) => (string) $pattern)
+                    ->map(fn ($pattern) => strtoupper(trim((string) $pattern)))
+                    ->filter()
+                    ->unique()
                     ->values()
                     ->all();
 
