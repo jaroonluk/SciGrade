@@ -111,7 +111,12 @@ class RegistrarGradePdfParser
             }
 
             if (! is_string($text) || trim($text) === '') {
-                $this->failParse('empty_text', $originalFilename);
+                throw new RegistrarPdfParseException($this->imagePdfMessage());
+            }
+
+            $normalized = $this->normalizeText($text);
+            if ($this->isLikelyImageOnlyReg($normalized)) {
+                throw new RegistrarPdfParseException($this->imagePdfMessage());
             }
 
             // ต้อง parse ทั้งไฟล์ภายใต้ memory/PCRE ที่ขยายแล้ว — อย่าคืนค่า limit ก่อน parseText
@@ -224,6 +229,31 @@ class RegistrarGradePdfParser
         return 'ไฟล์ PDF ไม่ตรงรูปแบบใบส่งผลการศึกษาจากสำนักทะเบียน กรุณาดาวน์โหลดใบส่งผลการศึกษาจากระบบทะเบียน มข. ที่ https://reg.kku.ac.th/';
     }
 
+    public function imagePdfMessage(): string
+    {
+        return 'ไฟล์นี้เป็น PDF แบบภาพ ระบบไม่สามารถอ่านเนื้อหาเพื่อมาแสดงข้อมูลได้ '
+            .'กรุณาใช้ใบ มข.11 ที่ส่งออกจากระบบ REG โดยตรง (มีข้อความเลือกได้) '
+            .'ไม่ใช่ไฟล์สแกนหรือพิมพ์เป็นรูปภาพ แล้วค่อยอัปโหลดใหม่';
+    }
+
+    /**
+     * PDF สแกน/พิมพ์เป็นรูป มักไม่มีหัวใบส่งผลและรหัสควบคุมฝังเป็นข้อความ
+     */
+    private function isLikelyImageOnlyReg(string $text): bool
+    {
+        $compact = preg_replace('/\s+/u', '', $text) ?? '';
+        if ($compact === '' || mb_strlen($compact) < 40) {
+            return true;
+        }
+
+        $hasTitle = str_contains($text, 'ใบส่งผลการศึกษา');
+        $hasControl = preg_match('/control\s*code\s*:/iu', $text) === 1
+            || preg_match('/controlcode\s*:/iu', $text) === 1;
+        $hasSubject = preg_match('/(?:^|\n)\s*[A-Z]{2}\d{5,8}\s*:/u', $text) === 1;
+
+        return ! $hasTitle && ! $hasControl && ! $hasSubject;
+    }
+
     private function failParse(string $reason, string $originalFilename, ?string $detail = null): never
     {
         try {
@@ -234,6 +264,10 @@ class RegistrarGradePdfParser
             ]);
         } catch (\Throwable) {
             // ignore when logger is unavailable (CLI diagnostics)
+        }
+
+        if (in_array($reason, ['empty_text', 'pdf_extract', 'missing_title'], true)) {
+            throw new RegistrarPdfParseException($this->imagePdfMessage());
         }
 
         throw new RegistrarPdfParseException($this->invalidFormatMessage());

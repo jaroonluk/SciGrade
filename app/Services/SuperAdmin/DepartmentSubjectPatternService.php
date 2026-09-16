@@ -83,7 +83,58 @@ class DepartmentSubjectPatternService
             })->values();
         }
 
-        return $rows->values();
+        return $this->sortDepartmentsByPreferredOrder($rows)->values();
+    }
+
+    /**
+     * เรียงหน่วยงานตามลำดับที่กำหนด — ที่เหลือต่อท้ายตามชื่อ
+     *
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, object>
+     */
+    private function sortDepartmentsByPreferredOrder(Collection $rows): Collection
+    {
+        $preferred = [
+            'งานบริการการศึกษา',
+            'สาขาวิชาวิทยาศาสตร์บูรณาการ',
+            'สาขาวิชาชีววิทยา',
+            'สาขาวิชาเคมี',
+            'สาขาวิชาคณิตศาสตร์',
+            'สาขาวิชาฟิสิกส์',
+            'สาขาวิชาสถิติ',
+            'สาขาวิชาจุลชีววิทยา',
+            'สาขาวิชาชีวเคมี',
+            'สาขาวิชาวิทยาศาสตร์สิ่งแวดล้อม',
+        ];
+
+        return $rows->sort(function (object $a, object $b) use ($preferred): int {
+            $rankA = $this->departmentPreferredRank((string) $a->department_name, $preferred);
+            $rankB = $this->departmentPreferredRank((string) $b->department_name, $preferred);
+
+            if ($rankA !== $rankB) {
+                return $rankA <=> $rankB;
+            }
+
+            return strnatcasecmp(
+                (string) $a->department_name,
+                (string) $b->department_name,
+            );
+        })->values();
+    }
+
+    /**
+     * @param  list<string>  $preferred
+     */
+    private function departmentPreferredRank(string $name, array $preferred): int
+    {
+        $name = trim($name);
+        foreach ($preferred as $index => $label) {
+            if ($name === $label || str_contains($name, $label)) {
+                return $index;
+            }
+        }
+
+        return 1000;
     }
 
     /**

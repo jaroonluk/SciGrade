@@ -252,6 +252,10 @@ class ThesisGradePageController extends Controller
             'username' => $username,
         ]);
 
+        $isImagePdf = collect($parsed['warnings'] ?? [])->contains(
+            fn ($w) => str_contains((string) $w, 'ไฟล์นี้เป็น PDF แบบภาพ')
+        );
+
         $editUrl = route('thesis-grades.edit', [
             'thesisGrade' => $report,
             'step' => 2,
@@ -260,9 +264,11 @@ class ThesisGradePageController extends Controller
         $payload = [
             'ok' => true,
             'draft_created' => true,
-            'message' => ($parsed['subject_in_catalog'] ?? false)
-                ? 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (พบรหัสวิชาในฐานข้อมูล)'
-                : 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (ไม่พบรหัสวิชาในฐานข้อมูล — ใช้ค่าจากไฟล์ คุณแก้ไขได้)',
+            'message' => $isImagePdf
+                ? 'ไฟล์นี้เป็น PDF แบบภาพ — ระบบอ่านเนื้อหาเพื่อแสดงข้อมูลไม่ได้ กรุณาอัปโหลดใบ มข.11 จาก REG ใหม่'
+                : (($parsed['subject_in_catalog'] ?? false)
+                    ? 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (พบรหัสวิชาในฐานข้อมูล)'
+                    : 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (ไม่พบรหัสวิชาในฐานข้อมูล — ใช้ค่าจากไฟล์ คุณแก้ไขได้)'),
             'edit_url' => $editUrl,
             'report_id' => $report->thesis_grade_id,
             'parsed' => [
@@ -280,6 +286,7 @@ class ThesisGradePageController extends Controller
             'signature_message' => $signature['message'],
             'stored_name' => basename($storedPath),
             'disk' => \App\Support\UploadStorage::diskName(),
+            'image_pdf' => $isImagePdf,
         ];
 
         if ($request->expectsJson()) {

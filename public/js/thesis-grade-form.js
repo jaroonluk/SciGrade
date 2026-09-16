@@ -855,6 +855,10 @@
             }
 
             showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
+            if (data.image_pdf && Array.isArray(data.warnings) && data.warnings.length) {
+                showStatus('error', data.message || 'ไฟล์นี้เป็น PDF แบบภาพ', data.warnings[0]);
+                await new Promise((r) => setTimeout(r, 2200));
+            }
             window.location.href = data.edit_url;
         } catch (err) {
             showStatus(

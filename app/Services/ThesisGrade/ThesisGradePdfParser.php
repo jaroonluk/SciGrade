@@ -47,6 +47,11 @@ class ThesisGradePdfParser
 
     private const MANUAL_HINT = 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน';
 
+    /** ข้อความแจ้งเมื่อ PDF เป็นภาพสแกน/พิมพ์เป็นรูป ไม่มีข้อความฝัง */
+    public const IMAGE_PDF_MESSAGE = 'ไฟล์นี้เป็น PDF แบบภาพ ระบบไม่สามารถอ่านเนื้อหาเพื่อมาแสดงข้อมูลได้ '
+        .'กรุณาใช้ใบ มข.11 ที่ส่งออกจากระบบ REG โดยตรง (มีข้อความเลือกได้) '
+        .'ไม่ใช่ไฟล์สแกนหรือพิมพ์เป็นรูปภาพ แล้วค่อยอัปโหลดใหม่';
+
     public function __construct(
         private readonly Parser $parser = new Parser,
         private readonly ?RegStudentDirectory $students = null,
@@ -88,9 +93,9 @@ class ThesisGradePdfParser
                     'error' => $e->getMessage(),
                 ]);
                 throw new ThesisGradePdfParseException(
-                    'อัปโหลดได้แล้ว แต่ระบบอ่านข้อความจากไฟล์ไม่ได้ อาจเป็นไฟล์เสียหาย หรือเป็นไฟล์สแกนภาพที่ไม่มีข้อความฝังอยู่',
+                    self::IMAGE_PDF_MESSAGE,
                     'extract_failed',
-                    self::MANUAL_HINT,
+                    self::IMAGE_PDF_MESSAGE,
                 );
             }
         } finally {
@@ -100,8 +105,43 @@ class ThesisGradePdfParser
         }
 
         $parsed = $this->parseText((string) $text, $originalFilename, $termFallback, $yearFallback);
+        $parsed = $this->applyStudentTableRows($parsed, $tableRows ?? []);
 
-        return $this->applyStudentTableRows($parsed, $tableRows ?? []);
+        if ($this->isLikelyImageOnlyTs($text, $tableRows ?? [], $parsed['students'] ?? [])) {
+            $imageWarning = self::IMAGE_PDF_MESSAGE;
+            array_unshift($parsed['warnings'], $imageWarning);
+            // อย่าเดาชื่ออาจารย์จากเศษข้อความลายเซ็น/หมายเหตุบนไฟล์ภาพ
+            $parsed['teacher'] = null;
+            if (($parsed['students'] ?? []) === []) {
+                $parsed['uncertain_fields']['students'] = 'อ่านรายชื่อจากไฟล์ภาพไม่ได้ — กรุณากรอกเองหรืออัปโหลดใบ มข.11 จาก REG ใหม่';
+            }
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * ไฟล์ที่พิมพ์ผ่าน Photoshop/สแกน มักเหลือแค่เศษข้อความ (ชื่ออาจารย์ในหมายเหตุ) ไม่มีตาราง REG
+     *
+     * @param  list<array<string, mixed>>  $tableRows
+     * @param  list<array<string, mixed>>  $students
+     */
+    private function isLikelyImageOnlyTs(string $text, array $tableRows, array $students): bool
+    {
+        if ($tableRows !== [] || $students !== []) {
+            return false;
+        }
+
+        $compact = preg_replace('/\s+/u', '', $text) ?? '';
+        if ($compact === '') {
+            return true;
+        }
+
+        $hasRegMarkers = preg_match('/ใบส่งผล|รหัสประจำตัว|ภาคการศึกษาที่|หน่วยกิต|\b[A-Z]{2}\d{5,8}\s*:/u', $text) === 1;
+        $hasStudentCode = preg_match('/\d{9,10}-\d/', $text) === 1
+            || preg_match('/[SUIW]\d{9,14}-\d{1,2}/u', $text) === 1;
+
+        return ! $hasRegMarkers && ! $hasStudentCode;
     }
 
     /**
@@ -125,9 +165,9 @@ class ThesisGradePdfParser
 
         if ($text === '' || mb_strlen(preg_replace('/\s+/u', '', $text) ?? '') < 20) {
             throw new ThesisGradePdfParseException(
-                'อัปโหลดได้แล้ว แต่ในไฟล์ไม่มีข้อความให้อ่าน อาจเป็นไฟล์สแกนภาพหรือไฟล์ที่พิมพ์เป็นรูปภาพ',
+                self::IMAGE_PDF_MESSAGE,
                 'empty_text',
-                self::MANUAL_HINT,
+                self::IMAGE_PDF_MESSAGE,
             );
         }
 
@@ -175,7 +215,12 @@ class ThesisGradePdfParser
 
         $subjectInCatalog = false;
         if ($subjectCode !== '') {
-            $catalog = $this->lookupCatalog($subjectCode);
+            try {
+                $catalog = $this->lookupCatalog($subjectCode);
+            } catch (Throwable $e) {
+                Log::debug('Thesis catalog lookup failed', ['code' => $subjectCode, 'error' => $e->getMessage()]);
+                $catalog = null;
+            }
             if ($catalog !== null) {
                 $subjectInCatalog = true;
                 if ($catalog['subject_choice'] !== null) {
@@ -305,10 +350,15 @@ class ThesisGradePdfParser
             return null;
         }
 
-        $row = PdCourse::query()
-            ->whereRaw('UPPER(TRIM(subjcode)) = ?', [$code])
-            ->orderBy('subjcode')
-            ->first(['subjcode', 'subjname']);
+        try {
+            $row = PdCourse::query()
+                ->whereRaw('UPPER(TRIM(subjcode)) = ?', [$code])
+                ->orderBy('subjcode')
+                ->first(['subjcode', 'subjname']);
+        } catch (Throwable $e) {
+            Log::debug('PdCourse lookup skipped', ['code' => $code, 'error' => $e->getMessage()]);
+            $row = null;
+        }
 
         if ($row !== null) {
             $name = trim((string) ($row->subjname ?? ''));

@@ -67,6 +67,30 @@ class ThesisGradePdfParserTest extends TestCase
         $this->assertSame('Dr.David Nugroho', $byCode['687020026-2']['note']);
     }
 
+    #[Test]
+    public function it_detects_image_only_photoshop_ts_and_prefills_from_filename(): void
+    {
+        $path = base_path('project_old/file_test/2.1-SC157899-01-2-2568.pdf');
+        if (! is_file($path)) {
+            $this->markTestSkipped('Image TS sample PDF not available.');
+        }
+
+        $service = new ThesisGradePdfParser(new Parser);
+        $parsed = $service->parse($path, basename($path), 1, 2567);
+
+        $this->assertSame('SC157899', $parsed['subject_code']);
+        $this->assertSame('01', $parsed['section']);
+        $this->assertSame(2, $parsed['term']);
+        $this->assertSame(2568, $parsed['year']);
+        $this->assertSame([], $parsed['students']);
+        $this->assertNull($parsed['teacher']);
+        $this->assertTrue(collect($parsed['warnings'])->contains(
+            fn ($w) => str_contains((string) $w, 'ไฟล์นี้เป็น PDF แบบภาพ')
+                && str_contains((string) $w, 'มข.11')
+                && str_contains((string) $w, 'REG')
+        ));
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

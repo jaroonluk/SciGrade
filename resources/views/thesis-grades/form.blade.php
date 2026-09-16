@@ -156,10 +156,14 @@
     @endif
 
     @if (session('pdf_warnings'))
-        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <p class="font-semibold">อ่านจาก PDF แล้ว — โปรดตรวจข้อมูล</p>
+        @php
+            $pdfWarnings = array_values(array_filter((array) session('pdf_warnings')));
+            $isImagePdf = collect($pdfWarnings)->contains(fn ($w) => str_contains((string) $w, 'PDF แบบภาพ'));
+        @endphp
+        <div class="mb-4 rounded-xl border px-4 py-3 text-sm {{ $isImagePdf ? 'border-red-200 bg-red-50 text-red-900' : 'border-amber-200 bg-amber-50 text-amber-950' }}">
+            <p class="font-semibold">{{ $isImagePdf ? 'อ่านเนื้อหาจาก PDF ไม่ได้' : 'อ่านจาก PDF แล้ว — โปรดตรวจข้อมูล' }}</p>
             <ul class="list-disc pl-5 mt-1 space-y-0.5">
-                @foreach ((array) session('pdf_warnings') as $message)
+                @foreach ($pdfWarnings as $message)
                     <li>{{ $message }}</li>
                 @endforeach
             </ul>
