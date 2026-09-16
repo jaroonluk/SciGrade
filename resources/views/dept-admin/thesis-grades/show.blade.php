@@ -32,16 +32,17 @@
     </div>
 
     <section class="form-section rounded-xl p-5">
-        <h3 class="font-semibold text-[#5C2E1F] mb-3">ไฟล์แนบ</h3>
+        <h3 class="font-semibold text-[#5C2E1F] mb-1">เอกสารที่อาจารย์แนบ</h3>
+        <p class="text-sm text-[#7A4A3A]/80 mb-3">ใบส่งเกรด (TS) และบันทึกข้อความชี้แจง S=0 จากอาจารย์ — เปิดดูได้อย่างเดียว</p>
         <div class="space-y-2">
-            @forelse ($report->files as $file)
+            @forelse ($report->instructorFiles() as $file)
                 <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank"
                    class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm hover:bg-amber-50">
                     <span>{{ $file->typeLabel() }} · {{ $file->original_name }}</span>
                     <span class="text-[#a16207] font-semibold">เปิด</span>
                 </a>
             @empty
-                <p class="text-sm text-[#7A4A3A]/70">ไม่มีไฟล์</p>
+                <p class="text-sm text-[#7A4A3A]/70">ยังไม่มีไฟล์จากอาจารย์</p>
             @endforelse
         </div>
     </section>
@@ -110,10 +111,10 @@
         <p class="text-xs text-[#7A4A3A]/70 mt-3">แบบฟอร์มหนังสือชี้แจง: <a href="{{ $s0FormUrl }}" class="underline text-[#a16207]" target="_blank" rel="noopener">เปิดลิงก์</a></p>
     </section>
 
-    @if (in_array($report->status, ['submitted', 'received'], true))
+    @if ($report->canDeptUploadChairFiles())
         <section class="form-section rounded-xl p-5">
-            <h3 class="font-semibold text-[#5C2E1F] mb-1">เอกสารสาขาวิชา · Admin สาขาอัปโหลด</h3>
-            <p class="text-sm text-[#7A4A3A]/80 mb-3">อัปโหลดได้ถ้ามีเอกสารเพิ่ม (PDF) — ไม่บังคับก่อนกดผ่านที่ประชุมสาขาวิชา</p>
+            <h3 class="font-semibold text-[#5C2E1F] mb-1">เอกสารที่ Admin สาขาแนบ</h3>
+            <p class="text-sm text-[#7A4A3A]/80 mb-3">อัปโหลดได้เฉพาะก่อนกดผ่านที่ประชุมสาขาวิชา (PDF) — ไม่บังคับ</p>
             <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.store', $report) }}" enctype="multipart/form-data" class="space-y-3">
                 @csrf
                 <input type="file" name="files[]" accept="application/pdf" multiple required
@@ -137,20 +138,21 @@
         </section>
     @else
         @php $chairFiles = $report->files->filter->isChairSigned(); @endphp
-        @if ($chairFiles->isNotEmpty())
-            <section class="form-section rounded-xl p-5">
-                <h3 class="font-semibold text-[#5C2E1F] mb-3">ไฟล์ที่ประธานหลักสูตรลงนามแล้ว</h3>
-                <div class="space-y-2">
-                    @foreach ($chairFiles as $file)
-                        <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank"
-                           class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm hover:bg-amber-50">
-                            <span>{{ $file->original_name }}</span>
-                            <span class="text-[#a16207] font-semibold">เปิด</span>
-                        </a>
-                    @endforeach
-                </div>
-            </section>
-        @endif
+        <section class="form-section rounded-xl p-5">
+            <h3 class="font-semibold text-[#5C2E1F] mb-1">เอกสารที่ Admin สาขาแนบ</h3>
+            <p class="text-sm text-[#7A4A3A]/80 mb-3">ผ่านที่ประชุมสาขาฯ แล้ว — แก้ไขหรืออัปโหลดเอกสารสาขาไม่ได้ เปิดดูได้อย่างเดียว</p>
+            <div class="space-y-2">
+                @forelse ($chairFiles as $file)
+                    <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank"
+                       class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm hover:bg-amber-50">
+                        <span>{{ $file->original_name }}</span>
+                        <span class="text-[#a16207] font-semibold">เปิด</span>
+                    </a>
+                @empty
+                    <p class="text-xs text-[#7A4A3A]/70">ไม่มีไฟล์จากสาขา</p>
+                @endforelse
+            </div>
+        </section>
     @endif
 
     @if ($report->status === 'submitted')

@@ -172,7 +172,7 @@ class ThesisGradeReviewController extends Controller
     public function storeChairFiles(Request $request, ThesisGrade $thesisGrade): JsonResponse|RedirectResponse
     {
         $this->authorize('reviewDept', $thesisGrade);
-        abort_unless(in_array($thesisGrade->status, [ThesisGrade::STATUS_SUBMITTED, ThesisGrade::STATUS_RECEIVED], true), 403);
+        abort_unless($thesisGrade->canDeptUploadChairFiles(), 403, 'ผ่านที่ประชุมสาขาฯ แล้ว — แก้ไขเอกสารสาขาไม่ได้');
 
         $validated = $request->validate([
             'files' => ['required', 'array', 'min:1'],
@@ -219,7 +219,7 @@ class ThesisGradeReviewController extends Controller
         $this->authorize('reviewDept', $thesisGrade);
         abort_unless((int) $file->thesis_grade_id === (int) $thesisGrade->thesis_grade_id, 404);
         abort_unless($file->isChairSigned(), 404);
-        abort_unless(in_array($thesisGrade->status, [ThesisGrade::STATUS_SUBMITTED, ThesisGrade::STATUS_RECEIVED], true), 403);
+        abort_unless($thesisGrade->canDeptUploadChairFiles(), 403, 'ผ่านที่ประชุมสาขาฯ แล้ว — แก้ไขเอกสารสาขาไม่ได้');
 
         $file->delete();
 

@@ -70,12 +70,13 @@ class DeptAdminThesisGradeIndexTest extends TestCase
         $this->assertStringContainsString('stu-name', $html);
         $this->assertStringContainsString('นาย สมชาย ใจดี', $html);
         $this->assertStringContainsString('677020018-0', $html);
+        $this->assertStringContainsString('เอกสารที่อาจารย์แนบ', $html);
+        $this->assertStringContainsString('เอกสารที่ Admin สาขาแนบ', $html);
         $this->assertStringContainsString('ใบ TS', $html);
-        $this->assertStringContainsString('เอกสารสาขา', $html);
         $this->assertStringContainsString('TS-SC899001-01-2-2568.pdf', $html);
         $this->assertStringContainsString('chair-signed.pdf', $html);
         $this->assertStringContainsString(route('dept-admin.thesis-grades.receive', $report), $html);
-        $this->assertStringContainsString('+ PDF', $html);
+        $this->assertStringContainsString('+ อัปโหลด PDF', $html);
         $this->assertStringNotContainsString('>รายละเอียด</a>', $html);
     }
 
@@ -144,5 +145,7 @@ class DeptAdminThesisGradeIndexTest extends TestCase
 
         $this->assertStringContainsString('ผ่านที่ประชุมสาขาฯ แล้ว', $html);
         $this->assertStringNotContainsString('ยืนยันผ่านที่ประชุมสาขาวิชา', $html);
+        $this->assertStringContainsString('แก้ไขหรืออัปโหลดเอกสารสาขาไม่ได้', $html);
+        $this->assertStringNotContainsString('+ อัปโหลด PDF', $html);
     }
 }

@@ -68,7 +68,7 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">THESIS · DISSERTATION · INDEPENDENT STUDY</p>
             <h2 class="text-xl font-bold text-[#5C2E1F] mt-1">รับผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจรายชื่อนักศึกษาและเอกสารในหน้ารายการนี้ได้เลย — กดผ่านที่ประชุมสาขาวิชาทุกรายการ ไฟล์จากสาขาเป็นทางเลือก</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">ตรวจรายชื่อและเอกสารในหน้ารายการนี้ได้เลย — อัปโหลดเอกสารสาขาได้เฉพาะก่อนกดผ่านที่ประชุมสาขาวิชา</p>
         </div>
     </div>
 
@@ -260,8 +260,12 @@
                     </table>
                 </div>
 
-                <div class="flex flex-col gap-1.5">
-                    <div class="thesis-docs">
+                <div class="flex flex-col gap-2">
+                    <section class="thesis-docs" aria-label="เอกสารที่อาจารย์แนบ">
+                        <div class="w-full mb-0.5">
+                            <p class="text-xs font-bold text-[#854d0e]">เอกสารที่อาจารย์แนบ</p>
+                            <p class="text-[11px] text-[#7A4A3A]/75 leading-snug">ใบส่งเกรด (TS) และบันทึกข้อความชี้แจง S=0 จากอาจารย์ — Admin สาขาเปิดดูได้อย่างเดียว</p>
+                        </div>
                         <div class="thesis-docs-group">
                             <span class="thesis-docs-label">ใบ TS</span>
                             @forelse ($tsFiles as $file)
@@ -270,7 +274,7 @@
                                     <span>{{ $file->original_name }}</span>
                                 </a>
                             @empty
-                                <span class="thesis-doc-muted">ไม่มี</span>
+                                <span class="thesis-doc-muted">ยังไม่มีไฟล์จากอาจารย์</span>
                             @endforelse
                         </div>
 
@@ -282,14 +286,21 @@
                                     <span>{{ $file->original_name }}</span>
                                 </a>
                             @empty
-                                <span class="thesis-doc-muted">ไม่มี</span>
+                                <span class="thesis-doc-muted">ไม่มีบันทึก S=0</span>
                             @endforelse
                         </div>
-                    </div>
+                    </section>
 
-                    <div class="thesis-docs thesis-docs-dept" style="background:#f0fdfa;border-color:#99f6e4;">
+                    <section class="thesis-docs thesis-docs-dept" style="background:#f0fdfa;border-color:#99f6e4;" aria-label="เอกสารที่ Admin สาขาแนบ">
+                        <div class="w-full mb-0.5">
+                            <p class="text-xs font-bold text-teal-800">เอกสารที่ Admin สาขาแนบ</p>
+                            @if ($canUploadChair)
+                                <p class="text-[11px] text-teal-800/80 leading-snug">อัปโหลดเพิ่มได้เฉพาะก่อนกด «ผ่านที่ประชุมสาขาวิชา» — ไม่บังคับ</p>
+                            @else
+                                <p class="text-[11px] text-teal-800/80 leading-snug">ผ่านที่ประชุมสาขาฯ แล้ว — แก้ไขหรืออัปโหลดเอกสารสาขาไม่ได้ เปิดดูได้อย่างเดียว</p>
+                            @endif
+                        </div>
                         <div class="thesis-docs-group flex-1">
-                            <span class="thesis-docs-label">เอกสารสาขา</span>
                             @forelse ($chairFiles as $file)
                                 <span class="inline-flex items-center gap-1">
                                     <a href="{{ route('dept-admin.thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener"
@@ -306,19 +317,25 @@
                                     @endif
                                 </span>
                             @empty
-                                <span class="thesis-doc-muted">ยังไม่มี — ไม่บังคับก่อนกดผ่าน</span>
+                                <span class="thesis-doc-muted">
+                                    @if ($canUploadChair)
+                                        ยังไม่มีไฟล์จากสาขา — อัปโหลดได้ถ้ามีเอกสารเพิ่ม
+                                    @else
+                                        ไม่มีไฟล์จากสาขา
+                                    @endif
+                                </span>
                             @endforelse
                             @if ($canUploadChair)
                                 <form method="POST" action="{{ route('dept-admin.thesis-grades.chair-files.store', $report) }}" enctype="multipart/form-data" class="inline">
                                     @csrf
                                     <label class="thesis-upload-mini">
-                                        <span>+ PDF</span>
+                                        <span>+ อัปโหลด PDF</span>
                                         <input type="file" name="files[]" accept="application/pdf" multiple required class="sr-only" onchange="this.form.submit()">
                                     </label>
                                 </form>
                             @endif
                         </div>
-                    </div>
+                    </section>
                 </div>
             </article>
         @empty

@@ -34,4 +34,13 @@ class ThesisGradeInstructorEditabilityTest extends TestCase
             $this->assertFalse($report->isDeletable(), $status.' should not be deletable');
         }
     }
+
+    #[Test]
+    public function dept_admin_can_upload_chair_files_only_before_meeting_pass(): void
+    {
+        $this->assertTrue((new ThesisGrade(['status' => ThesisGrade::STATUS_SUBMITTED]))->canDeptUploadChairFiles());
+        $this->assertFalse((new ThesisGrade(['status' => ThesisGrade::STATUS_RECEIVED]))->canDeptUploadChairFiles());
+        $this->assertFalse((new ThesisGrade(['status' => ThesisGrade::STATUS_APPROVED]))->canDeptUploadChairFiles());
+        $this->assertFalse((new ThesisGrade(['status' => ThesisGrade::STATUS_DRAFT]))->canDeptUploadChairFiles());
+    }
 }

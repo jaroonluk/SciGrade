@@ -118,7 +118,8 @@ class ThesisGrade extends Model
 
     public function canDeptUploadChairFiles(): bool
     {
-        return in_array($this->normalizedStatus(), [self::STATUS_SUBMITTED, self::STATUS_RECEIVED], true);
+        // อัปโหลด/ลบเอกสารสาขาได้เฉพาะก่อนกดผ่านที่ประชุมสาขาฯ
+        return $this->normalizedStatus() === self::STATUS_SUBMITTED;
     }
 
     public function canFacultyReceive(): bool
