@@ -3,6 +3,7 @@
 namespace App\Services\DeptAdmin;
 
 use App\Models\DepartmentSubjectPattern;
+use App\Models\GradeStd;
 use App\Models\TblDepartment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
@@ -310,6 +311,86 @@ class DepartmentSubjectFilter
             foreach ($departmentIds as $departmentId) {
                 $outer->orWhere(function (Builder $inner) use ($departmentId, $educationLevel): void {
                     $this->applyToQuery($inner, $departmentId, $educationLevel);
+                });
+            }
+        });
+    }
+
+    /**
+     * กรองใบรายงานผลการสอบ (ใบขวาง) ตามสาขา:
+     * - สาขาทั่วไป: รหัสวิชาตาม department-patterns และต้องมีอาจารย์ในสาขานั้นกรอก
+     * - งานบริการการศึกษา: ใช้เฉพาะรหัสวิชาตาม patterns ไม่เช็กผู้กรอก
+     *
+     * @param  list<int>  $departmentIds
+     */
+    public function applyDepartmentsExamReportsToQuery(Builder $query, array $departmentIds, ?string $educationLevel = null): Builder
+    {
+        if ($departmentIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $outer) use ($departmentIds, $educationLevel): void {
+            foreach ($departmentIds as $departmentId) {
+                $outer->orWhere(function (Builder $inner) use ($departmentId, $educationLevel): void {
+                    $this->applyToQuery($inner, $departmentId, $educationLevel);
+                    if (! $this->isEducationServicesDepartment($departmentId)) {
+                        $this->applyFilledByDepartmentInstructors($inner, $departmentId);
+                    }
+                });
+            }
+        });
+    }
+
+    public static function isEducationServicesName(?string $departmentName): bool
+    {
+        return is_string($departmentName)
+            && str_contains($departmentName, 'งานบริการการศึกษา');
+    }
+
+    public function isEducationServicesDepartment(int $departmentId): bool
+    {
+        static $cache = [];
+
+        if (array_key_exists($departmentId, $cache)) {
+            return $cache[$departmentId];
+        }
+
+        try {
+            $name = TblDepartment::query()
+                ->where('department_id', $departmentId)
+                ->value('department_name');
+
+            $cache[$departmentId] = self::isEducationServicesName(
+                is_string($name) ? $name : null
+            );
+        } catch (\Throwable) {
+            // fallback รหัสเดิมของงานบริการการศึกษา เมื่ออ่านชื่อหน่วยงานไม่ได้
+            $cache[$departmentId] = $departmentId === 25;
+        }
+
+        return $cache[$departmentId];
+    }
+
+    /**
+     * รายงานที่กรอกโดยอาจารย์ในสาขา (เจ้าของรายงาน / Section / ไฟล์แนบ)
+     */
+    public function applyFilledByDepartmentInstructors(Builder $query, int $departmentId): Builder
+    {
+        $usernamesInDepartment = function ($sub) use ($departmentId): void {
+            $sub->select('username')
+                ->from('tbluser')
+                ->where('department_id', $departmentId);
+        };
+
+        return $query->where(function (Builder $outer) use ($usernamesInDepartment): void {
+            $outer->whereIn('username', $usernamesInDepartment)
+                ->orWhereHas('files', function (Builder $files) use ($usernamesInDepartment): void {
+                    $files->whereIn('username', $usernamesInDepartment);
+                });
+
+            if (GradeStd::hasUsernameColumn()) {
+                $outer->orWhereHas('gradeStds', function (Builder $stds) use ($usernamesInDepartment): void {
+                    $stds->whereIn('username', $usernamesInDepartment);
                 });
             }
         });

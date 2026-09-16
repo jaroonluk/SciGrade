@@ -46,6 +46,9 @@ class GradeReportPolicy
                 ->whereKey($report->grade_id)
                 ->where(function ($query) use ($departmentId): void {
                     $this->subjectFilter->applyToQuery($query, $departmentId);
+                    if (! $this->subjectFilter->isEducationServicesDepartment($departmentId)) {
+                        $this->subjectFilter->applyFilledByDepartmentInstructors($query, $departmentId);
+                    }
                 })
                 ->exists();
 
