@@ -954,6 +954,7 @@
 
 @push('scripts')
     <script src="{{ asset('js/templade-data-sdk.js') }}?v={{ filemtime(public_path('js/templade-data-sdk.js')) }}"></script>
+    <script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
     <script src="{{ asset('js/templade-form.js') }}?v={{ filemtime(public_path('js/templade-form.js')) }}"></script>
     <script>
     (function() {

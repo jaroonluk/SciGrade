@@ -1402,7 +1402,15 @@ async function uploadSectionRegistrarPdf(file, options = {}) {
                 : (data.errors?.grade_file
                     ? [].concat(data.errors.grade_file).join(' ')
                     : null);
-            throw new Error(details || data.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง');
+            const errMsg = details || data.message || 'ไม่สามารถอัปโหลดไฟล์ได้ กรุณาอัปโหลดไฟล์ใหม่ หรือกรอกข้อมูลเอง';
+            if (data.image_pdf || window.SciGradeImagePdfGuide?.matches(errMsg) || window.SciGradeImagePdfGuide?.matches(data.message || '')) {
+                await window.SciGradeImagePdfGuide.show({
+                    title: data.title,
+                    body: data.body || data.message || errMsg,
+                    regUrl: data.reg_url,
+                });
+            }
+            throw new Error(errMsg);
         }
 
         const sec = Number(data.section || data.parsed?.grade_stds?.[0]?.sec || expectedSection || 0);

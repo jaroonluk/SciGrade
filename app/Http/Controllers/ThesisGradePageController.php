@@ -289,6 +289,10 @@ class ThesisGradePageController extends Controller
             'image_pdf' => $isImagePdf,
         ];
 
+        if ($isImagePdf) {
+            $payload = array_merge($payload, \App\Support\ImageOnlyPdfMessage::payload());
+        }
+
         if ($request->expectsJson()) {
             return response()->json($payload);
         }

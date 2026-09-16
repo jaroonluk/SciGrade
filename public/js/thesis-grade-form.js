@@ -825,10 +825,19 @@
                 body,
             });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
+            if (! res.ok) {
                 const title = data.message || 'อัปโหลดหรืออ่านไฟล์ไม่สำเร็จ';
                 const hint = data.hint || 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน';
-                showStatus('error', title, hint);
+                if (data.image_pdf || window.SciGradeImagePdfGuide?.matches(title) || window.SciGradeImagePdfGuide?.matches(hint)) {
+                    await window.SciGradeImagePdfGuide.show({
+                        title: data.title,
+                        body: data.body || title,
+                        regUrl: data.reg_url,
+                    });
+                    showStatus('error', 'ไฟล์นี้เป็น PDF แบบภาพ', hint);
+                } else {
+                    showStatus('error', title, hint);
+                }
                 if (data.prefill) {
                     applyPrefill(data.prefill, data.prefill.students, {
                         course: data.uncertain_fields || data.prefill.uncertain_fields || {},
@@ -849,6 +858,10 @@
                     data.message || 'อ่านข้อมูลจาก PDF แล้ว',
                     ...(Array.isArray(data.warnings) ? data.warnings : []),
                 ];
+                const imageWarn = hints.find((w) => window.SciGradeImagePdfGuide?.matches(String(w)));
+                if (imageWarn) {
+                    await window.SciGradeImagePdfGuide.show({ body: imageWarn });
+                }
                 showStatus('info', 'อ่านจาก PDF แล้ว — กรุณากรอกรหัสวิชาแล้วบันทึกร่าง', hints.slice(1).join(' ') || hints[0]);
                 if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
                 return;
@@ -858,16 +871,22 @@
                 const detail = Array.isArray(data.warnings) && data.warnings.length
                     ? data.warnings[0]
                     : data.message;
+                await window.SciGradeImagePdfGuide.show({
+                    title: data.title,
+                    body: detail || data.body,
+                    regUrl: data.reg_url,
+                });
                 showStatus(
                     'error',
                     'ไฟล์นี้เป็น PDF แบบภาพ',
                     detail || 'ระบบไม่สามารถอ่านเนื้อหาเพื่อมาแสดงข้อมูลได้ กรุณาใช้ใบ มข.11 จาก REG โดยตรง',
                 );
-                await new Promise((r) => setTimeout(r, 2800));
             } else {
                 showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
             }
-            window.location.href = data.edit_url;
+            if (data.edit_url) {
+                window.location.href = data.edit_url;
+            }
         } catch (err) {
             showStatus(
                 'error',

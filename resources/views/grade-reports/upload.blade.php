@@ -60,3 +60,14 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
+@if (session('image_pdf_guide') || collect($errors->get('grade_file'))->contains(fn ($m) => \App\Support\ImageOnlyPdfMessage::matches((string) $m)))
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        window.SciGradeImagePdfGuide?.show();
+    });
+</script>
+@endif
+@endpush

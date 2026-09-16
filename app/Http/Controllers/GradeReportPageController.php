@@ -311,10 +311,17 @@ class GradeReportPageController extends Controller
                 $request->integer('year'),
             );
         } catch (RegistrarPdfParseException $e) {
-            return redirect()
+            $message = $e->getMessage();
+            $redirect = redirect()
                 ->route('grade-reports.upload')
                 ->withInput()
-                ->withErrors(['grade_file' => $e->getMessage()]);
+                ->withErrors(['grade_file' => $message]);
+
+            if (\App\Support\ImageOnlyPdfMessage::matches($message)) {
+                $redirect->with('image_pdf_guide', true);
+            }
+
+            return $redirect;
         }
 
         $path = $uploaded->store('grade-uploads/'.auth()->id(), UploadStorage::diskName());
@@ -387,13 +394,14 @@ class GradeReportPageController extends Controller
             );
         } catch (RegistrarPdfParseException $e) {
             $message = $e->getMessage();
-            if (! \App\Support\ImageOnlyPdfMessage::matches($message)) {
+            $isImagePdf = \App\Support\ImageOnlyPdfMessage::matches($message);
+            if (! $isImagePdf) {
                 $message .= ' หรือกรอกข้อมูลเอง';
             }
 
-            return response()->json([
+            return response()->json(array_merge([
                 'message' => $message,
-            ], 422);
+            ], $isImagePdf ? \App\Support\ImageOnlyPdfMessage::payload() : []), 422);
         }
 
         $mismatch = $this->registrarMismatchMessages($parsed, $data);

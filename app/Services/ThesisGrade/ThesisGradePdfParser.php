@@ -26,15 +26,23 @@ class ThesisGradePdfParseException extends RuntimeException
      */
     public function toUserPayload(): array
     {
-        return [
+        $message = $this->getMessage();
+        $payload = [
             'ok' => false,
-            'message' => $this->getMessage(),
+            'message' => $message,
             'reason' => $this->reason,
             'hint' => $this->hint !== ''
                 ? $this->hint
                 : 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน',
             'can_manual' => true,
         ];
+
+        if (ImageOnlyPdfMessage::matches($message)) {
+            $payload = array_merge($payload, ImageOnlyPdfMessage::payload());
+            $payload['hint'] = ImageOnlyPdfMessage::TEXT;
+        }
+
+        return $payload;
     }
 }
 

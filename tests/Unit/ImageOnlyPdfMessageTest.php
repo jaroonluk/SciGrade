@@ -19,6 +19,8 @@ class ImageOnlyPdfMessageTest extends TestCase
         $this->assertStringContainsString('มีข้อความเลือกได้', $text);
         $this->assertStringContainsString('ไม่ใช่ไฟล์สแกนหรือพิมพ์เป็นรูปภาพ', $text);
         $this->assertStringContainsString('แล้วค่อยอัปโหลดใหม่', $text);
+        $this->assertSame('https://reg.kku.ac.th/', ImageOnlyPdfMessage::REG_URL);
+        $this->assertTrue(ImageOnlyPdfMessage::payload()['image_pdf']);
     }
 
     public function test_parsers_use_the_same_message(): void
