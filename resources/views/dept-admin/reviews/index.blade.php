@@ -36,6 +36,16 @@
                 </select>
             </div>
             <div>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับการศึกษา</label>
+                <select name="education_level" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="all" @selected(($filters['education_level'] ?? 'all') === 'all')>รวมทั้งหมด</option>
+                    <option value="bachelor" @selected(($filters['education_level'] ?? '') === 'bachelor')>ปริญญาตรี</option>
+                    <option value="master" @selected(($filters['education_level'] ?? '') === 'master')>ปริญญาโท</option>
+                    <option value="doctoral" @selected(($filters['education_level'] ?? '') === 'doctoral')>ปริญญาเอก</option>
+                    <option value="graduate" @selected(($filters['education_level'] ?? '') === 'graduate')>บัณฑิตศึกษา (โท+เอก)</option>
+                </select>
+            </div>
+            <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
                 <select name="term" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="1" @selected(($filters['term'] ?? 1) === 1)>ภาคต้น</option>

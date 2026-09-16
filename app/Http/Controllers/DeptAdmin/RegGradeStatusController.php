@@ -35,6 +35,10 @@ class RegGradeStatusController extends Controller
         $term = (int) $request->input('term', AcademicTerm::defaultTerm());
         $year = (int) $request->input('year', AcademicTerm::defaultYear());
         $departmentId = $request->filled('department_id') ? $request->integer('department_id') : null;
+        $educationLevel = strtolower(trim((string) $request->input('education_level', 'all')));
+        if (! in_array($educationLevel, ['bachelor', 'master', 'doctoral', 'graduate', 'all'], true)) {
+            $educationLevel = 'all';
+        }
 
         if (! in_array($term, [1, 2, 3], true)) {
             $term = AcademicTerm::defaultTerm();
@@ -49,7 +53,13 @@ class RegGradeStatusController extends Controller
             $departmentId = $allowedIds[0];
         }
 
-        $courses = $this->regService->coursesWithStatus($term, $year, $departmentId, $allowedIds);
+        $courses = $this->regService->coursesWithStatus(
+            $term,
+            $year,
+            $departmentId,
+            $allowedIds,
+            $educationLevel,
+        );
 
         $summary = [
             0 => $courses->where('status', 0)->count(),
@@ -93,6 +103,7 @@ class RegGradeStatusController extends Controller
             'term' => $term,
             'year' => $year,
             'departmentId' => $departmentId,
+            'educationLevel' => $educationLevel,
             'statusFilter' => $statusFilter,
             'years' => AcademicTerm::yearOptions(2565, 2580),
         ]);

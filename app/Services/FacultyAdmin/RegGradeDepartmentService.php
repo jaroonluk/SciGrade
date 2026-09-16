@@ -5,9 +5,11 @@ namespace App\Services\FacultyAdmin;
 use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Models\GradeReportReg;
+use App\Models\DepartmentSubjectPattern;
 use App\Models\TblDepartment;
 use App\Models\TblUser;
 use App\Services\DeptAdmin\DepartmentSubjectFilter;
+use App\Support\SubjectDegree;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -35,6 +37,7 @@ class RegGradeDepartmentService
     /**
      * รายวิชาใน grade_report_reg จัดกลุ่มตามรหัส+กลุ่ม พร้อมค้นหาและแบ่งหน้า
      *
+     * @param  list<int>|null  $allowedDepartmentIds
      * @return LengthAwarePaginator<int, object>
      */
     public function groupedCoursesPaginated(
@@ -44,6 +47,7 @@ class RegGradeDepartmentService
         string $q = '',
         int $perPage = 40,
         ?array $allowedDepartmentIds = null,
+        ?string $educationLevel = null,
     ): LengthAwarePaginator {
         $query = GradeReportReg::query()
             ->selectRaw("
@@ -62,9 +66,10 @@ class RegGradeDepartmentService
         // ไม่เลือกสาขาและไม่มีคำค้น = กรองรวมทุกสาขาตาม pattern
         // ไม่เลือกสาขาแต่มีคำค้น = ค้นทั้งภาค/ปี (รวมรหัสนอก pattern)
         if ($departmentId || trim($q) === '') {
-            $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
+            $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds, $educationLevel);
         }
         $this->applySearchFilter($query, $q);
+        $this->applyEducationLevelToCourseCodeQuery($query, $educationLevel);
 
         $paginator = $query
             ->groupBy('COURSECODE', 'SECTION')
@@ -80,6 +85,7 @@ class RegGradeDepartmentService
             $departmentId,
             $q,
             $allowedDepartmentIds,
+            $educationLevel,
         );
 
         $paginator->setCollection(
@@ -115,8 +121,17 @@ class RegGradeDepartmentService
         ?int $departmentId = null,
         string $q = '',
         ?array $allowedDepartmentIds = null,
+        ?string $educationLevel = null,
     ): Collection {
-        return $this->groupedCoursesPaginated($term, $year, $departmentId, $q, 100000, $allowedDepartmentIds)->getCollection();
+        return $this->groupedCoursesPaginated(
+            $term,
+            $year,
+            $departmentId,
+            $q,
+            100000,
+            $allowedDepartmentIds,
+            $educationLevel,
+        )->getCollection();
     }
 
     /**
@@ -288,10 +303,11 @@ class RegGradeDepartmentService
         int $year,
         ?int $departmentId = null,
         ?array $allowedDepartmentIds = null,
+        ?string $educationLevel = null,
     ): Collection {
-        $courses = $this->groupedCourses($term, $year, $departmentId, '', $allowedDepartmentIds);
+        $courses = $this->groupedCourses($term, $year, $departmentId, '', $allowedDepartmentIds, $educationLevel);
 
-        $reports = $this->departmentGradeReports($term, $year, $departmentId, $allowedDepartmentIds);
+        $reports = $this->departmentGradeReports($term, $year, $departmentId, $allowedDepartmentIds, $educationLevel);
 
         [$reportsBySection] = $this->indexReports($reports);
 
@@ -475,6 +491,7 @@ class RegGradeDepartmentService
         int $year,
         ?int $departmentId,
         ?array $allowedDepartmentIds = null,
+        ?string $educationLevel = null,
     ): Collection {
         $query = GradeReport::query()
             ->examReportable()
@@ -488,20 +505,106 @@ class RegGradeDepartmentService
 
         $allowed = $allowedDepartmentIds ?? self::DEPARTMENT_IDS;
         $allowed = array_values(array_unique(array_map('intval', $allowed)));
+        $patternLevel = DepartmentSubjectPattern::fromReportFilter($educationLevel);
 
         if ($departmentId) {
             if (! in_array($departmentId, $allowed, true)) {
                 return collect();
             }
-            $this->subjectFilter->applyToQuery($query, $departmentId);
+            $this->subjectFilter->applyToQuery($query, $departmentId, $patternLevel);
         } else {
             if ($allowed === []) {
                 return collect();
             }
-            $this->subjectFilter->applyDepartmentsToQuery($query, $allowed);
+            $this->subjectFilter->applyDepartmentsToQuery($query, $allowed, $patternLevel);
         }
 
+        $this->applyEducationLevelToGradeReportQuery($query, $educationLevel);
+
         return $query->get();
+    }
+
+    /**
+     * @param  list<int>|null  $allowedDepartmentIds
+     */
+    private function applyDepartmentFilter(
+        Builder $query,
+        ?int $departmentId,
+        ?array $allowedDepartmentIds = null,
+        ?string $educationLevel = null,
+    ): void {
+        $allowed = $allowedDepartmentIds ?? self::DEPARTMENT_IDS;
+        $allowed = array_values(array_unique(array_map('intval', $allowed)));
+        $patternLevel = DepartmentSubjectPattern::fromReportFilter($educationLevel);
+
+        if ($allowed === []) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        if ($departmentId) {
+            if (! in_array($departmentId, $allowed, true)) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+            $this->subjectFilter->applyCourseCodeToQuery($query, $departmentId, 'COURSECODE', $patternLevel);
+
+            return;
+        }
+
+        $this->subjectFilter->applyCourseCodeDepartmentsToQuery($query, $allowed, 'COURSECODE', $patternLevel);
+    }
+
+    private function applyEducationLevelToGradeReportQuery(Builder $query, ?string $level): void
+    {
+        if ($level === null || $level === '' || $level === 'all') {
+            return;
+        }
+
+        $degrees = match ($level) {
+            'bachelor' => [0, SubjectDegree::BACHELOR],
+            'master' => [SubjectDegree::MASTER],
+            'doctoral' => [SubjectDegree::DOCTORAL],
+            'graduate' => [SubjectDegree::MASTER, SubjectDegree::DOCTORAL],
+            default => [],
+        };
+
+        if ($degrees !== []) {
+            $query->whereIn('degree', $degrees);
+        }
+    }
+
+    /**
+     * กรองรหัสวิชา REG ตามหลักระดับในรหัส (เหมือน SubjectDegree)
+     */
+    private function applyEducationLevelToCourseCodeQuery(Builder $query, ?string $level): void
+    {
+        if ($level === null || $level === '' || $level === 'all') {
+            return;
+        }
+
+        // รูปแบบทั่วไป: ตัวอักษร + ตัวเลข โดยหลักที่ 3 ของตัวเลข = ระดับ (1-4 ตรี, 5-6 โท, 7-9 เอก)
+        match ($level) {
+            'bachelor' => $query->where(function (Builder $q): void {
+                $q->whereRaw("COURSECODE REGEXP '^[A-Za-z]{2,}[0-9]{2}[1-4]'")
+                    ->orWhereRaw("COURSECODE REGEXP '^[A-Za-z][0-9][1-4]'");
+            }),
+            'master' => $query->where(function (Builder $q): void {
+                $q->whereRaw("COURSECODE REGEXP '^[A-Za-z]{2,}[0-9]{2}[5-6]'")
+                    ->orWhereRaw("COURSECODE REGEXP '^[A-Za-z][0-9][5-6]'");
+            }),
+            'doctoral' => $query->where(function (Builder $q): void {
+                $q->whereRaw("COURSECODE REGEXP '^[A-Za-z]{2,}[0-9]{2}[7-9]'")
+                    ->orWhereRaw("COURSECODE REGEXP '^[A-Za-z][0-9][7-9]'");
+            }),
+            'graduate' => $query->where(function (Builder $q): void {
+                $q->whereRaw("COURSECODE REGEXP '^[A-Za-z]{2,}[0-9]{2}[5-9]'")
+                    ->orWhereRaw("COURSECODE REGEXP '^[A-Za-z][0-9][5-9]'");
+            }),
+            default => null,
+        };
     }
 
     /**
@@ -749,34 +852,6 @@ class RegGradeDepartmentService
         })->values();
     }
 
-    /**
-     * @param  list<int>|null  $allowedDepartmentIds
-     */
-    private function applyDepartmentFilter(Builder $query, ?int $departmentId, ?array $allowedDepartmentIds = null): void
-    {
-        $allowed = $allowedDepartmentIds ?? self::DEPARTMENT_IDS;
-        $allowed = array_values(array_unique(array_map('intval', $allowed)));
-
-        if ($allowed === []) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        if ($departmentId) {
-            if (! in_array($departmentId, $allowed, true)) {
-                $query->whereRaw('1 = 0');
-
-                return;
-            }
-            $this->subjectFilter->applyCourseCodeToQuery($query, $departmentId);
-
-            return;
-        }
-
-        $this->subjectFilter->applyCourseCodeDepartmentsToQuery($query, $allowed);
-    }
-
     private function applySearchFilter(Builder $query, string $q): void
     {
         $q = trim($q);
@@ -798,6 +873,7 @@ class RegGradeDepartmentService
 
     /**
      * @param  list<string>  $courseCodes
+     * @param  list<int>|null  $allowedDepartmentIds
      * @return array<string, int>
      */
     private function sectionCountsForCourseCodes(
@@ -807,6 +883,7 @@ class RegGradeDepartmentService
         ?int $departmentId,
         string $q,
         ?array $allowedDepartmentIds = null,
+        ?string $educationLevel = null,
     ): array {
         if ($courseCodes === []) {
             return [];
@@ -819,9 +896,10 @@ class RegGradeDepartmentService
             ->whereIn('COURSECODE', $courseCodes);
 
         if ($departmentId || trim($q) === '') {
-            $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds);
+            $this->applyDepartmentFilter($query, $departmentId, $allowedDepartmentIds, $educationLevel);
         }
         $this->applySearchFilter($query, $q);
+        $this->applyEducationLevelToCourseCodeQuery($query, $educationLevel);
 
         return $query
             ->groupBy('COURSECODE')

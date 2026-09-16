@@ -173,6 +173,16 @@
                 </select>
             </div>
             <div>
+                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับการศึกษา</label>
+                <select name="education_level" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[12rem]">
+                    <option value="all" @selected(($educationLevel ?? 'all') === 'all')>รวมทั้งหมด</option>
+                    <option value="bachelor" @selected(($educationLevel ?? '') === 'bachelor')>ปริญญาตรี</option>
+                    <option value="master" @selected(($educationLevel ?? '') === 'master')>ปริญญาโท</option>
+                    <option value="doctoral" @selected(($educationLevel ?? '') === 'doctoral')>ปริญญาเอก</option>
+                    <option value="graduate" @selected(($educationLevel ?? '') === 'graduate')>บัณฑิตศึกษา (โท+เอก)</option>
+                </select>
+            </div>
+            <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
                 <select name="term" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">
                     <option value="1" @selected($term === 1)>ภาคต้น</option>
@@ -238,6 +248,18 @@
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
         <div class="px-4 py-3 bg-amber-50 border-b border-amber-200 text-sm text-[#5C2E1F]">
             พบ {{ number_format($courses->count()) }} รายวิชา
+            @if (($educationLevel ?? 'all') !== 'all')
+                <span class="text-xs text-sky-700 ml-1">
+                    (กรองระดับ:
+                    {{ match ($educationLevel) {
+                        'bachelor' => 'ปริญญาตรี',
+                        'master' => 'ปริญญาโท',
+                        'doctoral' => 'ปริญญาเอก',
+                        'graduate' => 'บัณฑิตศึกษา',
+                        default => $educationLevel,
+                    } }})
+                </span>
+            @endif
             @if (($statusFilter ?? 'all') !== 'all')
                 <span class="text-xs text-sky-700 ml-1">(กรองตามสถานะแล้ว)</span>
             @endif

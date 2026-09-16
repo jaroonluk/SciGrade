@@ -23,6 +23,7 @@ class GradeReportReviewFilterRequest extends FormRequest
             'term' => ['nullable', 'integer', 'in:1,2,3'],
             'year' => ['nullable', 'integer', 'min:2500', 'max:2600'],
             'department_id' => ['nullable', 'integer'],
+            'education_level' => ['nullable', 'string', 'in:bachelor,master,doctoral,graduate,all'],
             'per_page' => ['nullable', 'integer', 'in:10,20,50,100'],
         ];
     }
@@ -32,6 +33,11 @@ class GradeReportReviewFilterRequest extends FormRequest
      */
     public function filters(array $departmentIds): array
     {
+        $educationLevel = strtolower(trim((string) $this->input('education_level', 'all')));
+        if (! in_array($educationLevel, ['bachelor', 'master', 'doctoral', 'graduate', 'all'], true)) {
+            $educationLevel = 'all';
+        }
+
         return [
             'department_ids' => $departmentIds,
             'department_id' => $this->integer('department_id') ?: null,
@@ -40,6 +46,7 @@ class GradeReportReviewFilterRequest extends FormRequest
             'status' => $this->input('status'),
             'term' => $this->integer('term') ?: null,
             'year' => $this->integer('year') ?: null,
+            'education_level' => $educationLevel,
         ];
     }
 }
