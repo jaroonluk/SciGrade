@@ -13,18 +13,54 @@
         background: linear-gradient(135deg, #fefce8 0%, #fef9c3 40%, #fff 100%);
         border: 1px solid #facc15;
     }
-    .thesis-card { background: #fff; border: 1px solid #fde68a; transition: all .15s; }
-    .thesis-card:hover { border-color: #eab308; box-shadow: 0 6px 18px rgba(161, 98, 7, .08); }
-    .thesis-file-panel { border-radius: .75rem; padding: .75rem .85rem; }
-    .thesis-file-instructor { background: #fffbeb; border: 1px solid #fde68a; }
-    .thesis-file-dept { background: #f0fdfa; border: 1px solid #99f6e4; }
-    .thesis-file-chip {
-        display: flex; align-items: center; justify-content: space-between; gap: .5rem;
-        background: #fff; border-radius: .5rem; padding: .35rem .55rem;
-        font-size: .75rem; line-height: 1.3;
+    .thesis-card { background: #fff; border: 1px solid #fde68a; border-radius: 1rem; transition: all .15s; }
+    .thesis-card:hover { border-color: #eab308; box-shadow: 0 6px 16px rgba(161, 98, 7, .07); }
+    .thesis-student-table { width: 100%; border-collapse: collapse; }
+    .thesis-student-table th {
+        text-align: left; font-size: .7rem; font-weight: 700; letter-spacing: .02em;
+        text-transform: uppercase; color: #854d0e; padding: 0 .5rem .45rem 0; white-space: nowrap;
+        border-bottom: 1px solid #fde68a;
     }
-    .thesis-file-chip a { color: #854d0e; font-weight: 600; min-width: 0; }
-    .thesis-file-dept .thesis-file-chip a { color: #0f766e; }
+    .thesis-student-table td {
+        padding: .55rem .5rem .55rem 0; vertical-align: top;
+        border-bottom: 1px solid #fef3c7; font-size: .8125rem; color: #5C2E1F;
+    }
+    .thesis-student-table tr:last-child td { border-bottom: 0; }
+    .thesis-student-table .stu-name {
+        font-size: 1rem; font-weight: 700; color: #3f2a1d; line-height: 1.25;
+    }
+    .thesis-student-table .stu-code {
+        display: block; font-size: .72rem; font-weight: 600; color: #a16207; margin-top: .1rem;
+    }
+    .thesis-docs {
+        display: flex; flex-wrap: wrap; gap: .4rem .75rem; align-items: center;
+        padding: .55rem .7rem; border-radius: .65rem; background: #fffbeb; border: 1px solid #fde68a;
+    }
+    .thesis-docs-group {
+        display: inline-flex; flex-wrap: wrap; align-items: center; gap: .3rem .45rem;
+        min-width: 0;
+    }
+    .thesis-docs-label {
+        font-size: .65rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+        color: #a16207; white-space: nowrap;
+    }
+    .thesis-doc-link {
+        display: inline-flex; align-items: center; gap: .25rem; max-width: 14rem;
+        font-size: .7rem; font-weight: 600; color: #854d0e; text-decoration: none;
+        background: #fff; border: 1px solid #fde68a; border-radius: .4rem;
+        padding: .15rem .4rem; line-height: 1.2;
+    }
+    .thesis-docs-dept .thesis-doc-link { color: #0f766e; border-color: #99f6e4; }
+    .thesis-doc-link:hover { background: #fef9c3; }
+    .thesis-docs-dept .thesis-doc-link:hover { background: #ccfbf1; }
+    .thesis-doc-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thesis-doc-muted { font-size: .7rem; color: #7A4A3A99; }
+    .thesis-upload-mini {
+        display: inline-flex; align-items: center; font-size: .68rem; font-weight: 700;
+        color: #854d0e; background: #fff; border: 1px dashed #f59e0b; border-radius: .4rem;
+        padding: .18rem .45rem; cursor: pointer;
+    }
+    .thesis-upload-mini:hover { background: #fffbeb; }
     .thesis-actions {
         display: inline-flex;
         align-items: center;
@@ -85,15 +121,13 @@
 
 @section('content')
 <div>
-    <div class="thesis-hero rounded-2xl p-5 mb-6">
+    <div class="thesis-hero rounded-2xl p-5 mb-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-[#a16207]">THESIS · DISSERTATION · INDEPENDENT STUDY</p>
                 <h2 class="text-xl font-bold text-[#854d0e] mt-1">ส่งผลการเรียนวิทยานิพนธ์ / การศึกษาอิสระ</h2>
                 <p class="text-sm text-[#7A4A3A]/80 mt-1.5 max-w-2xl leading-relaxed">
-                    ให้เกรดที่ REG ตาม มข.30 แล้วอัปโหลดใบส่งเกรดที่ลงนามแล้วเข้าที่นี่ — รายวิชานี้ส่งได้ตลอด ไม่ผูกปฏิทินสอบไล่
-                    หลังส่งเข้าสาขา หากสาขาหรือ Admin กลางยังไม่เปลี่ยนสถานะ อาจารย์แก้ไขหรือลบรายการนั้นได้
-                    เมื่อสาขากดผ่านที่ประชุมสาขาวิชาแล้ว จะแก้หรือลบไม่ได้ (สาขาไม่จำเป็นต้องอัปโหลดไฟล์เพิ่ม)
+                    ตรวจรายชื่อนักศึกษาและเอกสารในหน้ารายการนี้ได้เลย — หลังส่งเข้าสาขา หากสาขาหรือ Admin กลางยังไม่เปลี่ยนสถานะ ยังแก้ไขหรือลบได้
                 </p>
             </div>
             <a href="{{ route('thesis-grades.create', ['term' => $term, 'year' => $year]) }}"
@@ -135,35 +169,38 @@
             </a>
         </div>
     @else
-        <div class="grid gap-3">
+        <div class="space-y-4">
             @foreach ($reports as $report)
                 @php
+                    $tsFiles = $report->tsFiles();
+                    $s0Files = $report->s0Files();
+                    $chairFiles = $report->chairFiles();
+                    $status = $report->normalizedStatus();
+                    $canEdit = $report->isEditable();
                     $overdue = $report->overdueStudentCount();
                     $missingS0 = $report->missingS0Count();
                     $missingDefense = $report->missingDefenseCount();
-                    $instructorFiles = $report->instructorFiles();
-                    $chairFiles = $report->chairFiles();
-                    $status = $report->normalizedStatus();
                 @endphp
-                <article class="thesis-card rounded-xl p-4">
-                    <div class="flex flex-wrap items-start justify-between gap-3">
+                <article class="thesis-card p-4 sm:p-5">
+                    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
-                                <p class="font-bold text-[#5C2E1F]">{{ $report->displayCode() }} <span class="text-[#7A4A3A] font-medium">กลุ่ม {{ $report->paddedSection() }}</span></p>
+                                <h3 class="font-bold text-[#5C2E1F]">{{ $report->displayCode() }} · กลุ่ม {{ $report->paddedSection() }}</h3>
                                 <span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">{{ $report->courseKindLabel() }}</span>
                                 <span class="text-xs px-2 py-0.5 rounded-full {{ $report->statusChipClass() }}">{{ $report->statusLabel() }}</span>
                             </div>
-                            <p class="text-sm text-[#7A4A3A] mt-1">{{ $report->subject }}</p>
+                            <p class="text-sm text-[#7A4A3A] mt-0.5">{{ $report->subject }}</p>
                             <p class="text-xs text-[#7A4A3A]/70 mt-1">
-                                {{ $report->termLabel() }} {{ $report->year }} · นักศึกษา {{ $report->students->count() }} คน
+                                {{ $report->termLabel() }} {{ $report->year }}
+                                · นักศึกษา {{ $report->students->count() }} คน
                             </p>
                             @if ($status === 'submitted')
-                                <p class="text-xs text-amber-800 mt-1.5">รอสาขากดผ่านที่ประชุมสาขาวิชา — ยังแก้ไขหรือลบได้จนกว่าสาขาหรือ Admin กลางจะเปลี่ยนสถานะ</p>
+                                <p class="text-xs text-amber-800 mt-1">รอสาขากดผ่านที่ประชุมสาขาวิชา — ยังแก้ไขหรือลบได้จนกว่าสาขาหรือ Admin กลางจะเปลี่ยนสถานะ</p>
                             @elseif ($status === 'received')
-                                <p class="text-xs text-emerald-800 mt-1.5">สาขาผ่านที่ประชุมสาขาวิชาแล้ว@if ($chairFiles->isEmpty()) โดยไม่มีไฟล์เพิ่มจากสาขา@endif</p>
+                                <p class="text-xs text-emerald-800 mt-1">สาขาผ่านที่ประชุมสาขาวิชาแล้ว@if ($chairFiles->isEmpty()) โดยไม่มีไฟล์เพิ่มจากสาขา@endif</p>
                             @endif
                             @if ($overdue || $missingS0 || $missingDefense)
-                                <p class="text-xs text-amber-800 mt-1.5">
+                                <p class="text-xs text-red-700 mt-1">
                                     @if ($overdue) เลยกำหนดเค้าโครง {{ $overdue }} คน @endif
                                     @if ($missingS0) · ขาดบันทึกข้อความชี้แจง S=0 {{ $missingS0 }} คน @endif
                                     @if ($missingDefense) · ขาดวันที่สอบ {{ $missingDefense }} คน @endif
@@ -174,7 +211,7 @@
                             @endif
                         </div>
                         <div class="thesis-actions shrink-0">
-                            @if ($report->isEditable())
+                            @if ($canEdit)
                                 <a href="{{ route('thesis-grades.edit', $report) }}"
                                    class="thesis-icon-btn thesis-icon-edit"
                                    data-tip="แก้ไขรายการ"
@@ -202,39 +239,149 @@
                                     </button>
                                 </form>
                             @endif
+                            @if ($report->files->isNotEmpty())
+                                <a href="{{ route('thesis-grades.files.zip', $report) }}"
+                                   class="px-2.5 py-1.5 border border-amber-200 rounded-lg text-xs font-semibold text-[#7A4A3A] hover:bg-amber-50 self-center">ZIP</a>
+                            @endif
                         </div>
                     </div>
-                    @include('thesis-grades.partials.s0-print-buttons', ['report' => $report, 'role' => 'instructor'])
 
-                    <div class="grid md:grid-cols-2 gap-3 mt-4">
-                        <section class="thesis-file-panel thesis-file-instructor">
-                            <p class="text-xs font-bold tracking-wide text-[#854d0e] mb-2">ไฟล์ที่คุณอัปโหลด</p>
-                            <div class="space-y-1.5">
-                                @forelse ($instructorFiles as $file)
-                                    <div class="thesis-file-chip">
-                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="truncate" title="{{ $file->original_name }}">
-                                            {{ $file->typeLabel() }} · {{ $file->original_name }}
-                                        </a>
-                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="shrink-0">เปิด</a>
-                                    </div>
+                    <div class="overflow-x-auto mb-3 rounded-lg border border-amber-100 bg-amber-50/30 px-3 py-2">
+                        <p class="text-[11px] font-bold tracking-wide text-[#854d0e] mb-1.5">รายชื่อนักศึกษา</p>
+                        <table class="thesis-student-table">
+                            <thead>
+                                <tr>
+                                    <th>นักศึกษา</th>
+                                    <th>ระดับ</th>
+                                    <th>ภาคสะสม</th>
+                                    <th>เค้าโครง</th>
+                                    <th>เกรด / นก.</th>
+                                    <th>สอบวิทยานิพนธ์</th>
+                                    <th>S=0</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($report->students as $student)
+                                    @php
+                                        $attached = $s0Files->first(
+                                            fn ($file) => (int) $file->student_id === (int) $student->student_id
+                                        );
+                                    @endphp
+                                    <tr class="{{ $student->isProposalOverdue() ? 'bg-red-50/80' : '' }}">
+                                        <td>
+                                            <span class="stu-name">{{ $student->displayName() }}</span>
+                                            <span class="stu-code">{{ $student->student_code }}</span>
+                                        </td>
+                                        <td>{{ $student->degreeLabel() }}</td>
+                                        <td>{{ $student->thesis_terms_count }}</td>
+                                        <td>
+                                            @if ($student->proposal_approved)
+                                                อนุมัติแล้ว
+                                            @elseif ($student->isProposalOverdue())
+                                                <span class="text-red-700 font-semibold">เลยกำหนด</span>
+                                            @else
+                                                อยู่ในกำหนด
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <span class="font-semibold">{{ $student->grade ?: '—' }}</span>
+                                            <span class="text-[#7A4A3A]/70">/ {{ $student->credits_passed ?? $student->progress_credits ?? '—' }}</span>
+                                        </td>
+                                        <td>
+                                            @if ($student->completed)
+                                                {{ $student->defense_date?->format('d/m/Y') ?: 'ยังไม่ระบุวันที่' }}
+                                            @else
+                                                <span class="text-[#7A4A3A]/70">ยังไม่ครบหลักสูตร</span>
+                                            @endif
+                                        </td>
+                                        <td class="whitespace-nowrap"
+                                            @if ($canEdit && $student->isS0())
+                                                data-s0-student="{{ $student->student_id }}"
+                                                data-s0-upload-url="{{ route('thesis-grades.files.store', $report) }}"
+                                            @endif>
+                                            @if ($student->isS0())
+                                                <span class="{{ $attached ? 'text-emerald-800' : 'text-amber-800' }} font-semibold"
+                                                      data-s0-status-text>
+                                                    {{ $attached ? 'มีบันทึก' : 'ขาดบันทึก' }}
+                                                </span>
+                                                <span class="block mt-0.5" data-s0-file-row>
+                                                    <a href="{{ route('thesis-grades.s0-letter.student', [$report, $student]) }}" target="_blank" rel="noopener"
+                                                       class="text-[11px] font-semibold text-[#a16207] underline">พิมพ์</a>
+                                                    <a href="{{ route('thesis-grades.s0.docx.student', [$report, $student]) }}"
+                                                       class="text-[11px] font-semibold text-[#a16207] underline ml-1.5">.docx</a>
+                                                    @if ($attached)
+                                                        <a href="{{ route('thesis-grades.files.show', [$report, $attached]) }}" target="_blank" rel="noopener"
+                                                           class="text-[11px] font-semibold text-[#854d0e] underline ml-1.5 truncate max-w-[10rem] inline-block align-bottom"
+                                                           data-s0-file-link
+                                                           title="{{ $attached->original_name }}">PDF</a>
+                                                    @elseif ($canEdit)
+                                                        <span class="text-[11px] text-amber-800 ml-1.5" data-s0-file-missing>ยังไม่อัปโหลด</span>
+                                                    @endif
+                                                    @if ($canEdit)
+                                                        <label class="thesis-upload-mini ml-1.5 align-middle">
+                                                            <input type="file" accept="application/pdf,.pdf" class="sr-only" data-s0-file-input>
+                                                            <span data-s0-upload-label>{{ $attached ? 'เปลี่ยน PDF' : 'อัปโหลด PDF' }}</span>
+                                                        </label>
+                                                        <span class="text-[11px] text-[#7A4A3A]/70 hidden ml-1" data-s0-upload-status></span>
+                                                    @endif
+                                                </span>
+                                            @else
+                                                <span class="text-[#7A4A3A]/50">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
                                 @empty
-                                    <p class="text-xs text-[#7A4A3A]/70">ยังไม่มีใบ TS หรือหนังสือ S=0</p>
+                                    <tr>
+                                        <td colspan="7" class="text-[#7A4A3A]/70 py-3">ยังไม่มีรายชื่อนักศึกษา</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <section class="thesis-docs" aria-label="เอกสารที่อาจารย์แนบ">
+                            <div class="w-full mb-0.5">
+                                <p class="text-xs font-bold text-[#854d0e]">เอกสารที่อาจารย์แนบ</p>
+                                <p class="text-[11px] text-[#7A4A3A]/75 leading-snug">ใบส่งเกรด (TS) และบันทึกข้อความชี้แจง S=0 ที่คุณอัปโหลด</p>
+                            </div>
+                            <div class="thesis-docs-group">
+                                <span class="thesis-docs-label">ใบ TS</span>
+                                @forelse ($tsFiles as $file)
+                                    <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener"
+                                       class="thesis-doc-link" title="{{ $file->original_name }}">
+                                        <span>{{ $file->original_name }}</span>
+                                    </a>
+                                @empty
+                                    <span class="thesis-doc-muted">ยังไม่มีไฟล์จากอาจารย์</span>
+                                @endforelse
+                            </div>
+                            <div class="thesis-docs-group">
+                                <span class="thesis-docs-label">S=0</span>
+                                @forelse ($s0Files as $file)
+                                    <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener"
+                                       class="thesis-doc-link" title="{{ $file->original_name }}">
+                                        <span>{{ $file->original_name }}</span>
+                                    </a>
+                                @empty
+                                    <span class="thesis-doc-muted">ไม่มีบันทึก S=0</span>
                                 @endforelse
                             </div>
                         </section>
 
-                        <section class="thesis-file-panel thesis-file-dept">
-                            <p class="text-xs font-bold tracking-wide text-teal-800 mb-2">เอกสารจาก Admin สาขา</p>
-                            <div class="space-y-1.5">
+                        <section class="thesis-docs thesis-docs-dept" style="background:#f0fdfa;border-color:#99f6e4;" aria-label="เอกสารที่ Admin สาขาแนบ">
+                            <div class="w-full mb-0.5">
+                                <p class="text-xs font-bold text-teal-800">เอกสารที่ Admin สาขาแนบ</p>
+                                <p class="text-[11px] text-teal-800/80 leading-snug">เอกสารเพิ่มจากสาขา (ถ้ามี) — ไม่บังคับ เปิดดูได้อย่างเดียว</p>
+                            </div>
+                            <div class="thesis-docs-group flex-1">
                                 @forelse ($chairFiles as $file)
-                                    <div class="thesis-file-chip">
-                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="truncate" title="{{ $file->original_name }}">
-                                            {{ $file->original_name }}
-                                        </a>
-                                        <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener" class="shrink-0">เปิด</a>
-                                    </div>
+                                    <a href="{{ route('thesis-grades.files.show', [$report, $file]) }}" target="_blank" rel="noopener"
+                                       class="thesis-doc-link" title="{{ $file->original_name }}">
+                                        <span>{{ $file->original_name }}</span>
+                                    </a>
                                 @empty
-                                    <p class="text-xs text-teal-800/80">สาขายังไม่ได้อัปโหลดเอกสารเพิ่ม — ไม่บังคับ รอสาขากดผ่านที่ประชุมสาขาวิชา</p>
+                                    <span class="thesis-doc-muted">สาขายังไม่ได้อัปโหลดเอกสารเพิ่ม — ไม่บังคับ รอสาขากดผ่านที่ประชุมสาขาวิชา</span>
                                 @endforelse
                             </div>
                         </section>
@@ -326,21 +473,27 @@
                     }
 
                     const row = wrap.querySelector('[data-s0-file-row]');
-                    const missing = row?.querySelector('[data-s0-file-missing]');
-                    missing?.remove();
+                    row?.querySelector('[data-s0-file-missing]')?.remove();
                     let link = row?.querySelector('[data-s0-file-link]');
                     if (!link && row) {
                         link = document.createElement('a');
-                        link.className = 'text-xs font-semibold text-[#854d0e] underline truncate max-w-[16rem]';
+                        link.className = 'text-[11px] font-semibold text-[#854d0e] underline ml-1.5 truncate max-w-[10rem] inline-block align-bottom';
                         link.target = '_blank';
                         link.rel = 'noopener';
                         link.dataset.s0FileLink = '';
-                        row.insertBefore(link, input.closest('label'));
+                        link.textContent = 'PDF';
+                        const uploadLabel = row.querySelector('label');
+                        row.insertBefore(link, uploadLabel);
                     }
                     if (link) {
                         link.href = data.file?.url || link.href;
                         link.title = data.file?.original_name || file.name;
-                        link.textContent = 'PDF · ' + (data.file?.original_name || file.name);
+                    }
+                    const statusText = wrap.querySelector('[data-s0-status-text]');
+                    if (statusText) {
+                        statusText.textContent = 'มีบันทึก';
+                        statusText.classList.remove('text-amber-800');
+                        statusText.classList.add('text-emerald-800');
                     }
                     const uploadLabel = wrap.querySelector('[data-s0-upload-label]');
                     if (uploadLabel) uploadLabel.textContent = 'เปลี่ยน PDF';

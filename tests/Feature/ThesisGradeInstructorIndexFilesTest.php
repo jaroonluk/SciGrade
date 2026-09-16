@@ -12,7 +12,7 @@ use Tests\TestCase;
 class ThesisGradeInstructorIndexFilesTest extends TestCase
 {
     #[Test]
-    public function instructor_list_shows_own_files_and_department_files(): void
+    public function instructor_list_mirrors_dept_layout_with_students_and_docs(): void
     {
         $this->actingAs(new User(['name' => 'อาจารย์ ทดสอบ', 'email' => 'teacher@kku.ac.th']));
 
@@ -25,9 +25,20 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
             'status' => ThesisGrade::STATUS_SUBMITTED,
         ]);
         $report->thesis_grade_id = 22;
-        $report->setRelation('students', collect([
-            new ThesisGradeStudent(['student_code' => '677020018-0']),
-        ]));
+        $student = new ThesisGradeStudent([
+            'student_code' => '677020018-0',
+            'student_name' => 'สมชาย ใจดี',
+            'name_prefix' => 'นาย',
+            'first_name' => 'สมชาย',
+            'last_name' => 'ใจดี',
+            'degree' => 'master',
+            'thesis_terms_count' => 2,
+            'proposal_approved' => true,
+            'grade' => 'S',
+            'credits_passed' => 3,
+        ]);
+        $student->student_id = 55;
+        $report->setRelation('students', collect([$student]));
 
         $ts = new ThesisGradeFile([
             'thesis_grade_id' => 22,
@@ -51,9 +62,13 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
             'staffDisplayName' => 'อาจารย์ ทดสอบ',
         ])->render();
 
-        $this->assertStringContainsString('ไฟล์ที่คุณอัปโหลด', $html);
+        $this->assertStringContainsString('รายชื่อนักศึกษา', $html);
+        $this->assertStringContainsString('stu-name', $html);
+        $this->assertStringContainsString('นาย สมชาย ใจดี', $html);
+        $this->assertStringContainsString('เอกสารที่อาจารย์แนบ', $html);
+        $this->assertStringContainsString('เอกสารที่ Admin สาขาแนบ', $html);
+        $this->assertStringContainsString('ใบ TS', $html);
         $this->assertStringContainsString('TS-SC899001-01-2-2568.pdf', $html);
-        $this->assertStringContainsString('เอกสารจาก Admin สาขา', $html);
         $this->assertStringContainsString('dept-admin-signed.pdf', $html);
         $this->assertStringContainsString('รอสาขากดผ่านที่ประชุมสาขาวิชา', $html);
         $this->assertStringContainsString('แก้ไขรายการ', $html);
@@ -65,7 +80,7 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
     }
 
     #[Test]
-    public function instructor_list_shows_s0_print_buttons_for_zero_credit_students(): void
+    public function instructor_list_shows_s0_actions_inline_for_zero_credit_students(): void
     {
         $this->actingAs(new User(['name' => 'อาจารย์ ทดสอบ', 'email' => 'teacher@kku.ac.th']));
 
@@ -96,7 +111,7 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
             'staffDisplayName' => 'อาจารย์ ทดสอบ',
         ])->render();
 
-        $this->assertStringContainsString('บันทึกข้อความชี้แจง S=0', $html);
+        $this->assertStringContainsString('ขาดบันทึก', $html);
         $this->assertStringContainsString('677020018-0', $html);
         $this->assertStringContainsString(route('thesis-grades.s0-letter.student', [$report, $student]), $html);
         $this->assertStringContainsString(route('thesis-grades.s0.docx.student', [$report, $student]), $html);
