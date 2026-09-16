@@ -110,6 +110,7 @@
     data-report-id="{{ $report?->thesis_grade_id }}"
     data-search-url="{{ url('/api/subjects/search-thesis') }}"
     data-quick-upload-url="{{ route('thesis-grades.quick-upload') }}"
+    data-index-url="{{ route('thesis-grades.index', ['term' => $term, 'year' => $year]) }}"
     data-upload-url="{{ $report ? route('thesis-grades.files.store', $report) : '' }}"
     data-file-base="{{ $report ? url('/thesis-grades/'.$report->thesis_grade_id.'/files') : '' }}"
     data-initial-step="{{ $step }}"
@@ -513,12 +514,26 @@
     };
 </script>
 <script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=16"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v=17"></script>
 @if (collect((array) session('pdf_warnings'))->contains(fn ($w) => \App\Support\ImageOnlyPdfMessage::matches((string) $w))
     || \App\Support\ImageOnlyPdfMessage::matches((string) session('error', '')))
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        window.SciGradeImagePdfGuide?.show();
+    document.addEventListener('DOMContentLoaded', async () => {
+        await window.SciGradeImagePdfGuide?.show();
+        @if ($report)
+        try {
+            const fd = new FormData();
+            fd.append('_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
+            fd.append('_method', 'DELETE');
+            await fetch(@json(route('thesis-grades.destroy', $report)), {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+            });
+        } catch (e) { /* continue to index even if delete fails */ }
+        @endif
+        window.location.href = @json(route('thesis-grades.index', ['term' => $term, 'year' => $year]));
     });
 </script>
 @endif

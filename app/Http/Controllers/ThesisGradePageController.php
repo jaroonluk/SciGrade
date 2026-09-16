@@ -15,6 +15,7 @@ use App\Services\ThesisGrade\ThesisGradePdfParser;
 use App\Services\ThesisGrade\ThesisGradeService;
 use App\Services\ThesisGrade\ThesisGradeZipService;
 use App\Support\AcademicTerm;
+use App\Support\ImageOnlyPdfMessage;
 use App\Support\ThesisGradeS0Letter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -102,8 +103,27 @@ class ThesisGradePageController extends Controller
             );
         } catch (ThesisGradePdfParseException $e) {
             $payload = $e->toUserPayload();
+            if (ImageOnlyPdfMessage::matches((string) ($payload['message'] ?? ''))) {
+                $payload = array_merge($payload, ImageOnlyPdfMessage::payload(), [
+                    'index_url' => route('thesis-grades.index', [
+                        'term' => $termFallback,
+                        'year' => $yearFallback,
+                    ]),
+                    'draft_created' => false,
+                ]);
+            }
             if ($request->expectsJson()) {
                 return response()->json($payload, 422);
+            }
+
+            if (! empty($payload['image_pdf'])) {
+                return redirect()
+                    ->route('thesis-grades.index', [
+                        'term' => $termFallback,
+                        'year' => $yearFallback,
+                    ])
+                    ->with('image_pdf_guide', true)
+                    ->with('error', $payload['message']);
             }
 
             return back()
@@ -131,6 +151,33 @@ class ThesisGradePageController extends Controller
         $username = $this->staffUsername();
         $teacher = $parsed['teacher']
             ?: $this->staffAuth->teacherNameFor(auth()->user()->email, auth()->user()->name);
+
+        $isImagePdf = collect($parsed['warnings'] ?? [])->contains(
+            fn ($w) => ImageOnlyPdfMessage::matches((string) $w)
+        );
+
+        // PDF แบบภาพ — ไม่สร้างฉบับร่าง ให้ผู้ใช้กลับไปอัปโหลดใบ มข.11 ที่ถูกต้อง
+        if ($isImagePdf) {
+            $indexUrl = route('thesis-grades.index', [
+                'term' => (int) ($parsed['term'] ?? $termFallback),
+                'year' => (int) ($parsed['year'] ?? $yearFallback),
+            ]);
+            $payload = array_merge(ImageOnlyPdfMessage::payload(), [
+                'ok' => false,
+                'draft_created' => false,
+                'message' => ImageOnlyPdfMessage::TEXT,
+                'index_url' => $indexUrl,
+                'warnings' => $parsed['warnings'] ?? [],
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json($payload, 422);
+            }
+
+            return redirect($indexUrl)
+                ->with('image_pdf_guide', true)
+                ->with('error', ImageOnlyPdfMessage::TEXT);
+        }
 
         // อ่านชนิดวิชาได้แล้ว แต่ยังไม่มีรหัส — ไม่สร้างร่าง ให้ผู้ใช้กรอกรหัสเองในฟอร์ม
         if (! empty($parsed['requires_manual_code']) || trim((string) $parsed['subject_code']) === '') {
@@ -252,10 +299,6 @@ class ThesisGradePageController extends Controller
             'username' => $username,
         ]);
 
-        $isImagePdf = collect($parsed['warnings'] ?? [])->contains(
-            fn ($w) => \App\Support\ImageOnlyPdfMessage::matches((string) $w)
-        );
-
         $editUrl = route('thesis-grades.edit', [
             'thesisGrade' => $report,
             'step' => 2,
@@ -264,11 +307,9 @@ class ThesisGradePageController extends Controller
         $payload = [
             'ok' => true,
             'draft_created' => true,
-            'message' => $isImagePdf
-                ? \App\Support\ImageOnlyPdfMessage::TEXT
-                : (($parsed['subject_in_catalog'] ?? false)
-                    ? 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (พบรหัสวิชาในฐานข้อมูล)'
-                    : 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (ไม่พบรหัสวิชาในฐานข้อมูล — ใช้ค่าจากไฟล์ คุณแก้ไขได้)'),
+            'message' => ($parsed['subject_in_catalog'] ?? false)
+                ? 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (พบรหัสวิชาในฐานข้อมูล)'
+                : 'อัปโหลดและอ่านข้อมูลจาก PDF แล้ว (ไม่พบรหัสวิชาในฐานข้อมูล — ใช้ค่าจากไฟล์ คุณแก้ไขได้)',
             'edit_url' => $editUrl,
             'report_id' => $report->thesis_grade_id,
             'parsed' => [
@@ -286,12 +327,8 @@ class ThesisGradePageController extends Controller
             'signature_message' => $signature['message'],
             'stored_name' => basename($storedPath),
             'disk' => \App\Support\UploadStorage::diskName(),
-            'image_pdf' => $isImagePdf,
+            'image_pdf' => false,
         ];
-
-        if ($isImagePdf) {
-            $payload = array_merge($payload, \App\Support\ImageOnlyPdfMessage::payload());
-        }
 
         if ($request->expectsJson()) {
             return response()->json($payload);

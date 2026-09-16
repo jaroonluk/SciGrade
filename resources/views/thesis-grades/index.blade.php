@@ -424,6 +424,14 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
+@if (session('image_pdf_guide') || \App\Support\ImageOnlyPdfMessage::matches((string) session('error', '')))
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        window.SciGradeImagePdfGuide?.show();
+    });
+</script>
+@endif
 <script>
     (() => {
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';

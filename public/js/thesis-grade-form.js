@@ -792,6 +792,17 @@
         const url = root.dataset.quickUploadUrl;
         if (!url || !file) return;
 
+        const buildThesisIndexUrl = () => {
+            if (root.dataset.indexUrl) return root.dataset.indexUrl;
+            const term = document.querySelector('[name="term"]')?.value || '';
+            const year = document.querySelector('[name="year"]')?.value || '';
+            const params = new URLSearchParams();
+            if (term) params.set('term', term);
+            if (year) params.set('year', year);
+            const qs = params.toString();
+            return qs ? `/thesis-grades?${qs}` : '/thesis-grades';
+        };
+
         const status = document.getElementById('quick-upload-status');
         const label = document.getElementById('quick-drop-label');
         const showStatus = (kind, title, hint) => {
@@ -834,10 +845,13 @@
                         body: data.body || title,
                         regUrl: data.reg_url,
                     });
-                    showStatus('error', 'ไฟล์นี้เป็น PDF แบบภาพ', hint);
-                } else {
-                    showStatus('error', title, hint);
+                    const indexUrl = data.index_url
+                        || root.dataset.indexUrl
+                        || buildThesisIndexUrl();
+                    window.location.href = indexUrl;
+                    return;
                 }
+                showStatus('error', title, hint);
                 if (data.prefill) {
                     applyPrefill(data.prefill, data.prefill.students, {
                         course: data.uncertain_fields || data.prefill.uncertain_fields || {},
@@ -858,32 +872,12 @@
                     data.message || 'อ่านข้อมูลจาก PDF แล้ว',
                     ...(Array.isArray(data.warnings) ? data.warnings : []),
                 ];
-                const imageWarn = hints.find((w) => window.SciGradeImagePdfGuide?.matches(String(w)));
-                if (imageWarn) {
-                    await window.SciGradeImagePdfGuide.show({ body: imageWarn });
-                }
                 showStatus('info', 'อ่านจาก PDF แล้ว — กรุณากรอกรหัสวิชาแล้วบันทึกร่าง', hints.slice(1).join(' ') || hints[0]);
                 if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
                 return;
             }
 
-            if (data.image_pdf) {
-                const detail = Array.isArray(data.warnings) && data.warnings.length
-                    ? data.warnings[0]
-                    : data.message;
-                await window.SciGradeImagePdfGuide.show({
-                    title: data.title,
-                    body: detail || data.body,
-                    regUrl: data.reg_url,
-                });
-                showStatus(
-                    'error',
-                    'ไฟล์นี้เป็น PDF แบบภาพ',
-                    detail || 'ระบบไม่สามารถอ่านเนื้อหาเพื่อมาแสดงข้อมูลได้ กรุณาใช้ใบ มข.11 จาก REG โดยตรง',
-                );
-            } else {
-                showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
-            }
+            showStatus('ok', data.message || 'อ่านข้อมูลจากไฟล์สำเร็จ', 'กำลังเปิดร่างเพื่อให้ตรวจสอบ...');
             if (data.edit_url) {
                 window.location.href = data.edit_url;
             }
