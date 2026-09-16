@@ -710,16 +710,17 @@
 
                     <div class="wizard-step space-y-4" data-wizard-step="6">
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
-                            <h3 class="font-bold text-[#5C2E1F]">แนบแบบฟอร์ม มข.11 ครบทุก Section</h3>
+                            <h3 class="font-bold text-[#5C2E1F]">แนบแบบฟอร์ม มข.11 ตามจำนวน Section ที่กรอก</h3>
                             <p id="wizard-reg-help" class="text-sm text-[#7A4A3A]/80 leading-relaxed">
-                                ต้องอัปโหลดไฟล์ PDF แบบฟอร์ม มข.11 จากสำนักทะเบียน
+                                ระบบจะนับจำนวน Section ที่คุณกรอกในขั้นตอนที่ 4 แล้วแสดงช่องอัปโหลด มข.11 เท่าจำนวนนั้น (Section ละ 1 ไฟล์)
+                                จากสำนักทะเบียน
                                 (<a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>)
-                                ให้ครบเท่าจำนวน Section ที่กรอกในขั้นตอนที่ 4
                                 <strong class="font-semibold text-[#5C2E1F]">ตั้งชื่อไฟล์อย่างไรก็ได้</strong>
                                 — ระบบจะตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ
-                                (เช่น SC101011-01.pdf) จากรหัสวิชาและกลุ่มเรียนในไฟล์
-                                สามารถเลือกหลายไฟล์พร้อมกันได้ หากยังอัปโหลดไม่ครบ ระบบจะไม่อนุญาตให้ไปขั้นตอนถัดไป
+                                หากยังอัปโหลดไม่ครบ ระบบจะไม่อนุญาตให้ไปขั้นตอนถัดไป
                             </p>
+
+                            <p id="wizard-reg-section-count" class="text-sm font-semibold text-[#5C2E1F]"></p>
 
                             <div class="rounded-lg border border-dashed border-amber-400 bg-[#FFFBF7] p-4 space-y-2">
                                 <p class="text-sm font-semibold text-[#5C2E1F]">อัปโหลดหลายไฟล์พร้อมกัน</p>

@@ -290,10 +290,11 @@ class GradeReportController extends Controller
     {
         $payload = $this->formatReport($gradeReport->loadMissing('gradeStds'));
         $staff = trim((string) $forUsername);
-        if ($staff === '' || $gradeReport->instructorOwns($staff)) {
+        if ($staff === '') {
             return $payload;
         }
 
+        // แก้ไข/อัปโหลด มข.11 ได้เฉพาะ Section ที่ผู้ใช้นี้กรอก
         $payload['grade_stds'] = array_values(array_filter(
             $payload['grade_stds'] ?? [],
             function ($row) use ($gradeReport, $staff) {
@@ -1629,6 +1630,7 @@ class GradeReportController extends Controller
             'evaluationscore' => $row->evaluationscore,
             'numstdevz' => $row->numstdevz,
             'type_course' => (int) $row->type_course,
+            'username' => trim((string) ($row->getAttributes()['username'] ?? $row->username ?? '')),
         ];
     }
 

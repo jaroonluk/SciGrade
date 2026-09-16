@@ -949,7 +949,12 @@ function calcSectionTotalStd(row) {
 
 function normalizeSectionRow(row) {
     const normalized = { ...row };
+    normalized.sec = Number(normalized.sec) || 0;
     normalized.total_std = calcSectionTotalStd(normalized);
+    const me = String(window.wizardConfig?.staffUsername || '').trim();
+    if (!String(normalized.username || '').trim() && me) {
+        normalized.username = me;
+    }
     return normalized;
 }
 
@@ -1567,6 +1572,9 @@ function removeSectionStd(index) {
     } else if (editingSectionIndex !== null && editingSectionIndex > index) {
         editingSectionIndex -= 1;
     }
+    // ให้รายการ Section รอบนี้ตรงกับที่ยังอยู่ในฟอร์ม — ช่อง มข.11 จะลดตาม
+    clearSectionsEnteredThisSession();
+    sectionStdRows.forEach((row) => markSectionEnteredThisSession(row.sec));
     renderSectionStdList();
 }
 
@@ -1584,6 +1592,7 @@ function setSectionStdRows(rows) {
         sec: row.sec ?? 1,
         fac: row.fac ?? '',
         type_course: row.type_course ?? 1,
+        username: row.username ?? '',
         num_a: row.num_a ?? 0,
         num_bb: row.num_bb ?? 0,
         num_b: row.num_b ?? 0,
@@ -1601,6 +1610,9 @@ function setSectionStdRows(rows) {
         evaluationscore: row.evaluationscore ?? null,
     }));
     editingSectionIndex = null;
+    // โหลด Section ที่มีอยู่แล้วถือเป็นของรอบนี้สำหรับช่องอัปโหลด มข.11
+    clearSectionsEnteredThisSession();
+    sectionStdRows.forEach((row) => markSectionEnteredThisSession(row.sec));
     sortSectionStdRows();
     renderSectionStdList();
     syncSectionEntryVisibility();
@@ -2831,11 +2843,33 @@ function setupWizardRegUpload() {
 /** @type {Record<number, { name: string, source: 'pending'|'saved', fileId?: number|null, viewUrl?: string|null }>} */
 window.regUploadBySection = window.regUploadBySection || {};
 
+/**
+ * Section ที่ต้องแนบ มข.11 = Section ที่ผู้ใช้กรอกในรอบนี้ (Section ละ 1 ไฟล์)
+ */
 function requiredRegSections() {
-    const secs = sectionStdRows
+    const me = String(window.wizardConfig?.staffUsername || '').trim();
+
+    const fromSession = (window.sectionsEnteredThisSession || [])
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0);
+
+    const fromForm = (sectionStdRows || [])
+        .filter((row) => {
+            if (!me) return true;
+            const u = String(row?.username || '').trim();
+            // แถวใหม่ที่ยังไม่มี username = ของผู้ใช้ปัจจุบัน
+            return !u || u === me;
+        })
         .map((row) => Number(row.sec))
-        .filter((sec) => sec > 0);
-    return [...new Set(secs)].sort((a, b) => a - b);
+        .filter((sec) => Number.isFinite(sec) && sec > 0);
+
+    // ใช้ Section ที่กรอกในรอบนี้เป็นหลัก ถ้าไม่มีให้ใช้แถวในฟอร์มของฉัน
+    const source = fromSession.length ? fromSession : fromForm;
+    // ตัดเฉพาะ Section ที่ยังอยู่ในฟอร์ม (กรณีลบ Section ออกแล้ว)
+    const formSet = new Set(fromForm.length ? fromForm : source);
+    const secs = source.filter((sec) => formSet.has(sec));
+
+    return [...new Set(secs.length ? secs : fromForm)].sort((a, b) => a - b);
 }
 
 function markRegUploadForSection(sec, name, source = 'pending', meta = {}) {
@@ -2929,9 +2963,17 @@ function renderRegCompleteness(config) {
 function renderRegUploadSlots(config) {
     const list = document.getElementById('wizard-reg-uploads-list');
     const summary = document.getElementById('wizard-reg-summary');
+    const countEl = document.getElementById('wizard-reg-section-count');
     if (!list) return;
 
     const required = requiredRegSections();
+    if (countEl) {
+        countEl.textContent = required.length
+            ? `คุณกรอก ${required.length} Section — ต้องอัปโหลด มข.11 จำนวน ${required.length} ไฟล์ (Section ละ 1 ไฟล์): ${required.join(', ')}`
+            : 'ยังไม่มี Section จากขั้นตอนที่ 4 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน';
+        countEl.className = `text-sm font-semibold ${required.length ? 'text-[#5C2E1F]' : 'text-amber-800'}`;
+    }
+
     if (!required.length) {
         list.innerHTML = '<p class="text-sm text-amber-800">ยังไม่มี Section จากขั้นตอนที่ 4 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน</p>';
         if (summary) summary.textContent = '';
@@ -2942,8 +2984,8 @@ function renderRegUploadSlots(config) {
     const progress = regUploadProgress();
     if (summary) {
         summary.textContent = progress.missing.length === 0
-            ? `อัปโหลด มข.11 ครบแล้ว ${progress.done}/${progress.total} Section`
-            : `อัปโหลด มข.11 แล้ว ${progress.done}/${progress.total} Section — ยังขาด Section ${progress.missing.join(', ')}`;
+            ? `อัปโหลด มข.11 ครบแล้ว ${progress.done}/${progress.total} ไฟล์ (${progress.total} Section)`
+            : `อัปโหลด มข.11 แล้ว ${progress.done}/${progress.total} ไฟล์ — ยังขาด Section ${progress.missing.join(', ')}`;
         summary.className = `text-sm font-semibold ${progress.missing.length === 0 ? 'text-green-800' : 'text-red-700'}`;
     }
     renderRegCompleteness(config);
@@ -2956,9 +2998,9 @@ function renderRegUploadSlots(config) {
 
         if (done) {
             return `
-            <div class="rounded-lg border border-green-300 bg-green-50 px-3 py-3 space-y-3">
+            <div class="rounded-lg border border-green-300 bg-green-50 px-3 py-3 space-y-3" data-reg-slot="${sec}">
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                    <p class="text-sm font-semibold text-[#5C2E1F]">Section ${sec}</p>
+                    <p class="text-sm font-semibold text-[#5C2E1F]">Section ${sec} <span class="font-normal text-[#7A4A3A]">· มข.11 1 ไฟล์</span></p>
                     <p id="wizard-reg-status-${sec}" class="text-xs text-green-800">แนบไฟล์แล้ว</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
@@ -2982,13 +3024,13 @@ function renderRegUploadSlots(config) {
         }
 
         return `
-            <div class="rounded-lg border border-amber-300 bg-[#FFFBF7] px-3 py-3 space-y-2">
+            <div class="rounded-lg border border-amber-300 bg-[#FFFBF7] px-3 py-3 space-y-2" data-reg-slot="${sec}">
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                    <p class="text-sm font-semibold text-[#5C2E1F]">Section ${sec}</p>
-                    <p id="wizard-reg-status-${sec}" class="text-xs text-red-700">ยังไม่ได้แนบไฟล์ — อัปโหลดด้านล่างหรือใช้ช่องหลายไฟล์ด้านบน</p>
+                    <p class="text-sm font-semibold text-[#5C2E1F]">Section ${sec} <span class="font-normal text-[#7A4A3A]">· อัปโหลด มข.11 1 ไฟล์</span></p>
+                    <p id="wizard-reg-status-${sec}" class="text-xs text-red-700">ยังไม่ได้แนบไฟล์</p>
                 </div>
                 <label class="block space-y-1">
-                    <span class="text-xs font-medium text-[#5C2E1F]">อัปโหลดไฟล์ มข.11 ของ Section ${sec}</span>
+                    <span class="text-xs font-medium text-[#5C2E1F]">เลือกไฟล์ PDF มข.11 ของ Section ${sec}</span>
                     <input id="wizard-reg-input-${sec}" type="file" accept=".pdf,application/pdf" data-reg-section="${sec}"
                         class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
                 </label>
@@ -3189,8 +3231,11 @@ function syncWizardRegStatus(config) {
 
     if (help) {
         help.innerHTML = progress.total === 0
-            ? 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section'
-            : 'ต้องอัปโหลดแบบฟอร์ม มข.11 ให้ครบทุก Section ที่กรอกในขั้นตอนที่ 4 <strong>ตั้งชื่อไฟล์อย่างไรก็ได้</strong> — ระบบตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ สามารถเลือกหลายไฟล์พร้อมกันได้ หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้';
+            ? 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section ที่คุณกรอก'
+            : `ระบบตรวจพบว่าคุณกรอก <strong>${progress.total}</strong> Section — ต้องอัปโหลด มข.11 <strong>${progress.total} ไฟล์</strong> (Section ละ 1 ไฟล์)
+                <strong class="font-semibold text-[#5C2E1F]">ตั้งชื่อไฟล์อย่างไรก็ได้</strong>
+                — ระบบตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ
+                สามารถเลือกหลายไฟล์พร้อมกันได้ หากยังไม่ครบจะไปขั้นตอนถัดไปไม่ได้`;
     }
 
     if (!status) return;
