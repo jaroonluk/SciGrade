@@ -91,6 +91,8 @@ class GradeReportFileController extends Controller
             'file_type' => ['nullable', 'string', Rule::in(GradeReportFile::allowedTypes())],
             'required_sections' => ['nullable', 'array'],
             'required_sections.*' => ['integer', 'min:1', 'max:50'],
+            'exam_sections' => ['nullable', 'array'],
+            'exam_sections.*' => ['integer', 'min:1', 'max:50'],
         ], [
             'attachment.mimes' => 'รองรับเฉพาะไฟล์ PDF',
         ]);
@@ -107,6 +109,18 @@ class GradeReportFileController extends Controller
                 ? [$requestedSections]
                 : [];
         }
+        $examSectionsInput = $request->input('exam_sections', []);
+        if (! is_array($examSectionsInput)) {
+            $examSectionsInput = $examSectionsInput !== null && $examSectionsInput !== ''
+                ? [$examSectionsInput]
+                : [];
+        }
+        $examSectionsThisRound = array_values(array_unique(array_filter(
+            array_map('intval', $examSectionsInput),
+            fn (int $sec) => $sec > 0,
+        )));
+        sort($examSectionsThisRound);
+
         $registrarFiles = $this->pendingRegistrar->attachFromSession($gradeReport, $username);
 
         $gradeReport->loadMissing('gradeStds');
@@ -127,36 +141,77 @@ class GradeReportFileController extends Controller
         $mySectionNums = array_values($mySectionNums);
         sort($mySectionNums);
 
+        // เป้าหมายใบขวางรอบนี้ = Section ที่ส่งมาจากฟอร์ม (รอบที่กำลังกรอก)
+        // ถ้าไม่ส่งมา ให้ใช้เฉพาะ Section ของฉันที่ยังไม่มีใบขวางผูกตามชื่อไฟล์
         $examFile = null;
-        if ($request->hasFile('attachment')) {
+        $examFilesCreated = [];
+        $gradeReport->loadMissing('files');
+        $examCoveredBySection = [];
+        foreach ($gradeReport->files as $file) {
+            if ($file->resolvedType() !== GradeReportFile::TYPE_EXAM_REPORT) {
+                continue;
+            }
+            $sec = $file->resolvedSection($gradeReport);
+            if ($sec !== null && (int) $sec > 0) {
+                $examCoveredBySection[(int) $sec] = true;
+            }
+        }
+
+        if ($examSectionsThisRound === []) {
+            $examSectionsThisRound = array_values(array_filter(
+                $mySectionNums,
+                fn (int $sec) => ! isset($examCoveredBySection[$sec]),
+            ));
+        }
+
+        if ($request->hasFile('attachment') && $examSectionsThisRound !== []) {
             $fileType = (string) ($request->input('file_type') ?: GradeReportFile::TYPE_EXAM_REPORT);
             $uploaded = $request->file('attachment');
-            $sectionOverride = $mySectionNums[0] ?? null;
+            $baseStoredPath = null;
 
-            $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType, $sectionOverride);
-            $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType, $sectionOverride);
+            foreach ($examSectionsThisRound as $index => $sectionNum) {
+                if ($index === 0) {
+                    $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType, $sectionNum);
+                    $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType, $sectionNum);
+                    $baseStoredPath = $storedPath;
+                } else {
+                    $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType, $sectionNum);
+                    $storedPath = $this->attachmentNames->storeFromStoragePath(
+                        $gradeReport,
+                        (string) $baseStoredPath,
+                        $fileType,
+                        $sectionNum,
+                    );
+                }
 
-            $examFile = GradeReportFile::query()->create([
-                'grade_id' => $gradeReport->grade_id,
-                'file_type' => $fileType,
-                'original_name' => basename($storedPath) ?: $displayName,
-                'stored_path' => $storedPath,
-                'uploaded_at' => now(),
-                'username' => $username,
-            ]);
-
-            $this->auditLog->record(
-                'grade_report_file.upload',
-                subjectType: 'grade_report_file',
-                subjectId: $examFile->file_id,
-                metadata: [
+                $created = GradeReportFile::query()->create([
                     'grade_id' => $gradeReport->grade_id,
                     'file_type' => $fileType,
-                    'original_name' => $examFile->original_name,
-                    'source' => 'wizard_finalize',
-                    'covers_sections' => $mySectionNums,
-                ],
-            );
+                    'original_name' => basename($storedPath) ?: $displayName,
+                    'stored_path' => $storedPath,
+                    'uploaded_at' => now(),
+                    'username' => $username,
+                ]);
+                $examFilesCreated[] = $created;
+                if ($examFile === null) {
+                    $examFile = $created;
+                }
+                $examCoveredBySection[$sectionNum] = true;
+
+                $this->auditLog->record(
+                    'grade_report_file.upload',
+                    subjectType: 'grade_report_file',
+                    subjectId: $created->file_id,
+                    metadata: [
+                        'grade_id' => $gradeReport->grade_id,
+                        'file_type' => $fileType,
+                        'original_name' => $created->original_name,
+                        'source' => 'wizard_finalize',
+                        'section' => $sectionNum,
+                        'covers_sections' => $examSectionsThisRound,
+                    ],
+                );
+            }
         }
 
         $gradeReport->load(['gradeStds', 'files']);
@@ -167,29 +222,15 @@ class GradeReportFileController extends Controller
             fn (GradeReportFile $file) => $file->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT
         ) || $examFile !== null;
 
-        // Section ของผู้ใช้ปัจจุบันที่ยังไม่มีใบขวางครอบคลุม
-        $examCoveredByUploader = [];
-        foreach ($gradeReport->files as $file) {
-            if ($file->resolvedType() !== GradeReportFile::TYPE_EXAM_REPORT) {
-                continue;
-            }
-            $uploader = trim((string) ($file->username ?? ''));
-            if ($uploader === '' || $uploader !== $username) {
-                continue;
-            }
-            foreach ($mySectionNums as $sec) {
-                $examCoveredByUploader[$sec] = true;
-            }
-        }
-        if ($examFile !== null) {
-            foreach ($mySectionNums as $sec) {
-                $examCoveredByUploader[$sec] = true;
-            }
-        }
+        // ตรวจเฉพาะ Section ของรอบนี้ — ใบขวางรอบก่อนหน้าคงไว้ ไม่บังคับอัปโหลดซ้ำ
         $myMissingExam = array_values(array_filter(
-            $mySectionNums,
-            fn (int $sec) => ! isset($examCoveredByUploader[$sec]),
+            $examSectionsThisRound,
+            fn (int $sec) => ! isset($examCoveredBySection[$sec]),
         ));
+        // ถ้าไม่มี Section รอบนี้เลย แต่ยังไม่มีใบขวางในรายงานเลย ให้ถือว่ายังขาด
+        if ($examSectionsThisRound === [] && $mySectionNums !== [] && ! $hasExam) {
+            $myMissingExam = $mySectionNums;
+        }
 
         $reportSections = $gradeReport->gradeStds
             ->map(fn ($row) => (int) $row->sec)
@@ -240,7 +281,7 @@ class GradeReportFileController extends Controller
             ], 422);
         }
 
-        $needsMyExam = $mySectionNums !== [] ? $myMissingExam !== [] : ! $hasExam;
+        $needsMyExam = $myMissingExam !== [] || ($mySectionNums === [] && ! $hasExam);
         if (! $hasRegistrar || $needsMyExam) {
             $missing = [];
             if (! $hasRegistrar) {
@@ -248,13 +289,13 @@ class GradeReportFileController extends Controller
             }
             if ($needsMyExam) {
                 $missing[] = $myMissingExam !== []
-                    ? 'ใบรายงานผลการสอบไล่ (ใบขวาง) สำหรับ Section '.implode(', ', $myMissingExam)
+                    ? 'ใบรายงานผลการสอบไล่ (ใบขวาง) สำหรับ Section '.implode(', ', $myMissingExam).' ที่กรอกในรอบนี้'
                     : 'ใบรายงานผลการสอบไล่ (ใบขวาง)';
             }
 
             return response()->json([
                 'message' => 'ยังแนบไฟล์ไม่ครบ: '.implode(' และ ', $missing),
-                'hint' => 'เลือกแบบฟอร์ม มข.11 ในขั้นตอนที่ 6 และใบขวางในขั้นตอนที่ 8 สำหรับ Section ที่คุณกรอก แล้วกดเสร็จสิ้น',
+                'hint' => 'ใบขวางรอบก่อนหน้ายังอยู่ในระบบ — อัปโหลดเฉพาะใบขวางของ Section ที่กรอกเพิ่มในรอบนี้ แล้วกดเสร็จสิ้น',
                 'registrar_attached' => count($registrarFiles),
                 'exam_attached' => $examFile !== null,
                 'has_registrar' => $hasRegistrar,
@@ -297,6 +338,7 @@ class GradeReportFileController extends Controller
             'has_registrar' => true,
             'has_exam' => true,
             'exam_file' => $examForResponse ? $this->formatFile($examForResponse) : null,
+            'exam_files' => array_map(fn (GradeReportFile $f) => $this->formatFile($f), $examFilesCreated),
             'registrar_files' => array_map(fn (GradeReportFile $f) => $this->formatFile($f), $registrarForResponse),
         ]);
     }
@@ -328,8 +370,11 @@ class GradeReportFileController extends Controller
     public function destroy(Request $request, GradeReport $gradeReport, GradeReportFile $file): JsonResponse
     {
         abort_unless(
-            $this->ownsReport($gradeReport)
-            || trim((string) ($file->username ?? '')) === $this->staffUsername(),
+            trim((string) ($file->username ?? '')) === $this->staffUsername()
+            || (
+                trim((string) ($file->username ?? '')) === ''
+                && $this->ownsReport($gradeReport)
+            ),
             403,
             'ไม่มีสิทธิ์ลบไฟล์ของผู้อื่น'
         );

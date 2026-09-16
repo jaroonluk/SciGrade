@@ -755,28 +755,32 @@
                             <div>
                                 <h3 class="font-bold text-[#5C2E1F] text-base">สรุป Section ของรายวิชานี้</h3>
                                 <p id="wizard-section-overview-sub" class="text-sm text-[#7A4A3A]/80 mt-0.5">
-                                    ดูภาพรวมว่ากรอกไปแล้วกี่กลุ่ม และตอนนี้คุณกำลังกรอกกลุ่มไหน
+                                    ดูจำนวน Section ทั้งหมด ส่งแล้ว / ยังไม่ส่ง และกำลังส่งกลุ่มไหนอยู่
                                 </p>
                             </div>
 
-                            <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                                 <div class="rounded-xl border border-amber-200 bg-[#FFFBF7] px-3 py-3 text-center">
                                     <p id="wizard-sec-stat-total" class="text-2xl sm:text-3xl font-bold text-[#5C2E1F] tabular-nums">—</p>
                                     <p class="text-xs sm:text-sm text-[#7A4A3A] mt-1">ทั้งหมด</p>
                                 </div>
                                 <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-center">
                                     <p id="wizard-sec-stat-filled" class="text-2xl sm:text-3xl font-bold text-green-800 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-green-900/80 mt-1">กรอกแล้ว</p>
+                                    <p class="text-xs sm:text-sm text-green-900/80 mt-1">ส่งแล้ว</p>
                                 </div>
                                 <div class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-center">
                                     <p id="wizard-sec-stat-remain" class="text-2xl sm:text-3xl font-bold text-amber-900 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-amber-900/80 mt-1">ยังไม่กรอก</p>
+                                    <p class="text-xs sm:text-sm text-amber-900/80 mt-1">ยังไม่ส่ง</p>
+                                </div>
+                                <div class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center">
+                                    <p id="wizard-sec-stat-current" class="text-2xl sm:text-3xl font-bold text-sky-900 tabular-nums">—</p>
+                                    <p class="text-xs sm:text-sm text-sky-900/80 mt-1">กำลังส่ง</p>
                                 </div>
                             </div>
 
                             <div>
                                 <div class="flex items-center justify-between gap-2 text-xs text-[#7A4A3A] mb-1.5">
-                                    <span>ความคืบหน้า</span>
+                                    <span>ความคืบหน้าการส่งเอกสาร</span>
                                     <span id="wizard-sec-progress-label" class="font-semibold text-[#5C2E1F]">—</span>
                                 </div>
                                 <div class="h-2.5 rounded-full bg-amber-100 overflow-hidden">
@@ -785,7 +789,7 @@
                             </div>
 
                             <div id="wizard-sec-current-box" class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
-                                <p class="text-xs font-semibold text-sky-900 uppercase tracking-wide">ตอนนี้คุณกำลังกรอก</p>
+                                <p class="text-xs font-semibold text-sky-900 uppercase tracking-wide">กำลังส่ง Section</p>
                                 <p id="wizard-sec-current-label" class="text-base font-bold text-sky-950 mt-1">—</p>
                                 <p id="wizard-sec-current-help" class="text-xs text-sky-900/75 mt-1"></p>
                             </div>
@@ -798,9 +802,22 @@
 
                         <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
                             <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบก่อนเสร็จสิ้น</p>
-                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบขวางของ Section ที่คุณกรอกเข้าสู่ระบบ</p>
+                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบขวางของ Section ที่คุณกรอกเข้าสู่ระบบ — ใบขวาง 1 ใบสามารถครอบคลุม มข.11 ได้หลาย Section</p>
                             <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11 ครบทุก Section — ขั้นตอนที่ 6</p>
                             <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบรายงานผลการสอบไล่ / ใบขวาง — ขั้นตอนที่ 8</p>
+                        </div>
+
+                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
+                            <div>
+                                <h3 class="font-bold text-[#5C2E1F]">ประวัติแบบรายงานผลการสอบไล่ (ใบขวาง)</h3>
+                                <p class="text-sm text-[#7A4A3A]/80 mt-1">
+                                    ระบบบันทึกทุกใบที่อัปโหลดไว้ตรวจสอบได้ — ใบขวาง 1 ใบอาจผูกกับใบ มข.11 ได้หลาย Section
+                                    · แก้ไข/ลบได้เฉพาะไฟล์ที่คุณอัปโหลด และเฉพาะเมื่อ Admin ยังไม่เปลี่ยนสถานะรายงาน
+                                </p>
+                            </div>
+                            <div id="wizard-exam-packets" class="space-y-3">
+                                <p class="text-sm text-[#7A4A3A]/70">ยังไม่มีใบขวางในรายงานนี้</p>
+                            </div>
                         </div>
 
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
@@ -808,7 +825,7 @@
                                 <h3 class="font-bold text-[#5C2E1F]">สถานะเอกสารทุก Section</h3>
                                 <p class="text-sm text-[#7A4A3A]/80 mt-1">
                                     ดูได้ว่าแต่ละ Section กรอกโดยใคร และมีเอกสารอะไรแล้วบ้าง
-                                    — อัปโหลดใบขวางได้เฉพาะ Section ของคุณ · Section ของผู้อื่นดูได้อย่างเดียว
+                                    — จัดการได้เฉพาะ Section/ไฟล์ของตนเอง · ของอาจารย์อื่นดูได้อย่างเดียว
                                 </p>
                             </div>
                             <div id="wizard-section-board" class="space-y-3">
@@ -819,7 +836,7 @@
                         <div id="wizard-exam-own-panel" class="rounded-xl border border-sky-200 bg-sky-50/60 p-5 space-y-3">
                             <h3 class="font-bold text-[#0c4a6e]">อัปโหลดใบขวาง — Section ของคุณ</h3>
                             <p id="wizard-exam-own-help" class="text-sm text-[#0c4a6e]/80">
-                                หากคุณกรอกหลาย Section ในรอบนี้ สามารถอัปโหลดไฟล์เดียวใช้ร่วมกันได้
+                                หากคุณกรอกหลาย Section ในรอบนี้ สามารถอัปโหลดใบขวางไฟล์เดียว ครอบคลุม มข.11 ของหลาย Section ได้
                             </p>
                             <p id="wizard-exam-own-secs" class="text-sm font-semibold text-[#0c4a6e]"></p>
                             <div id="wizard-exam-file-row" class="hidden"></div>

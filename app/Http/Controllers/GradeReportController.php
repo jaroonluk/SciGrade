@@ -198,8 +198,17 @@ class GradeReportController extends Controller
                     "UPPER(REPLACE(REPLACE(TRIM(`COURSECODE`), ' ', ''), UNHEX('C2A0'), '')) = ?",
                     [$code],
                 )
-                ->where('ACADYEAR', (string) $year)
-                ->where('SEMESTER', (string) $term)
+                ->where(function ($query) use ($year) {
+                    $query->where('ACADYEAR', (string) $year)
+                        ->orWhere('ACADYEAR', $year)
+                        ->orWhereRaw('CAST(ACADYEAR AS UNSIGNED) = ?', [$year]);
+                })
+                ->where(function ($query) use ($term) {
+                    $query->where('SEMESTER', (string) $term)
+                        ->orWhere('SEMESTER', $term)
+                        ->orWhereRaw('CAST(SEMESTER AS UNSIGNED) = ?', [$term])
+                        ->orWhere('SEMESTER', str_pad((string) $term, 2, '0', STR_PAD_LEFT));
+                })
                 ->pluck('SECTION')
                 ->map(function ($raw) {
                     $digits = preg_replace('/\D+/', '', (string) $raw) ?? '';
@@ -677,6 +686,7 @@ class GradeReportController extends Controller
 
         $gradeReport->loadMissing(['gradeStds', 'files']);
         $me = $this->staffUsername();
+        $reportCanEdit = $gradeReport->canUploadFiles();
         $sections = [];
 
         foreach ($gradeReport->gradeStds->sortBy(fn ($row) => (int) $row->sec) as $std) {
@@ -688,23 +698,35 @@ class GradeReportController extends Controller
             if ($stdUsername === '') {
                 $stdUsername = trim((string) $gradeReport->username);
             }
+            $isMine = $stdUsername !== '' && $stdUsername === $me;
             $sections[$sec] = [
                 'sec' => $sec,
                 'fac' => trim((string) ($std->fac ?? '')),
                 'filled_by' => $this->resolveStaffDisplayName($stdUsername)
                     ?: $this->resolveReportFillerName($gradeReport),
                 'username' => $stdUsername,
-                'is_mine' => $stdUsername !== '' && $stdUsername === $me,
+                'is_mine' => $isMine,
+                'can_manage' => $isMine && $reportCanEdit,
                 'registrar' => null,
                 'exam' => null,
+                'exam_files' => [],
             ];
         }
 
-        foreach ($gradeReport->files as $file) {
+        $examPacketsMap = [];
+
+        foreach ($gradeReport->files->sortBy('file_id') as $file) {
             $type = $file->resolvedType();
             $sec = $file->resolvedSection($gradeReport);
             $uploader = trim((string) ($file->username ?? ''));
             $uploaderName = $this->resolveStaffDisplayName($uploader) ?: ($uploader !== '' ? $uploader : null);
+            $canDelete = $reportCanEdit && (
+                ($uploader !== '' && $uploader === $me)
+                || ($uploader === '' && $this->ownsReport($gradeReport))
+            );
+            $uploadedAt = $file->uploaded_at
+                ? $file->uploaded_at->timezone(config('app.timezone'))->format('d/m/Y H:i')
+                : null;
             $payload = [
                 'file_id' => (int) $file->file_id,
                 'name' => $type === GradeReportFile::TYPE_REGISTRAR
@@ -716,7 +738,9 @@ class GradeReportController extends Controller
                 ]),
                 'username' => $uploader,
                 'uploaded_by' => $uploaderName,
-                'can_delete' => $uploader !== '' && $uploader === $me,
+                'uploaded_at' => $uploadedAt,
+                'section' => $sec !== null && (int) $sec > 0 ? (int) $sec : null,
+                'can_delete' => $canDelete,
             ];
 
             if ($type === GradeReportFile::TYPE_REGISTRAR) {
@@ -731,46 +755,114 @@ class GradeReportController extends Controller
                         'filled_by' => $uploaderName ?: 'ผู้กรอกก่อนหน้า',
                         'username' => $uploader,
                         'is_mine' => $uploader === $me,
+                        'can_manage' => $uploader === $me && $reportCanEdit,
                         'registrar' => null,
                         'exam' => null,
+                        'exam_files' => [],
                     ];
                 }
                 $sections[$n]['registrar'] = $payload;
             } elseif ($type === GradeReportFile::TYPE_EXAM_REPORT) {
-                // ใบขวาง 1 ไฟล์ของผู้อัปโหลด = ครอบคลุมทุก Section ที่ผู้นั้นกรอก
-                $targets = [];
-                foreach ($sections as $row) {
-                    if ($uploader !== '' && $row['username'] === $uploader) {
-                        $targets[] = (int) $row['sec'];
-                    }
-                }
-                if ($sec !== null && (int) $sec > 0) {
-                    $n = (int) $sec;
-                    if (! in_array($n, $targets, true)) {
-                        $targets[] = $n;
-                    }
-                }
-                if ($targets === [] && $sections !== []) {
-                    // ไฟล์เก่าไม่มี username — แสดงที่ทุก Sec เป็นข้อมูลอ้างอิง
-                    $targets = array_map('intval', array_keys($sections));
-                }
-                foreach ($targets as $n) {
+                // ใบขวางผูกตาม Section ในชื่อไฟล์ — เก็บทุกใบเพื่อตรวจสอบได้
+                $n = ($sec !== null && (int) $sec > 0) ? (int) $sec : null;
+                if ($n !== null) {
                     if (! isset($sections[$n])) {
-                        continue;
+                        $sections[$n] = [
+                            'sec' => $n,
+                            'fac' => '',
+                            'filled_by' => $uploaderName ?: 'ผู้กรอกก่อนหน้า',
+                            'username' => $uploader,
+                            'is_mine' => $uploader === $me,
+                            'can_manage' => $uploader === $me && $reportCanEdit,
+                            'registrar' => null,
+                            'exam' => null,
+                            'exam_files' => [],
+                        ];
                     }
-                    if ($sections[$n]['exam'] === null) {
-                        $sections[$n]['exam'] = $payload;
-                    }
+                    $sections[$n]['exam_files'][] = $payload;
+                    $sections[$n]['exam'] = $payload; // ใบล่าสุดของกลุ่มนี้
+                }
+
+                $stamp = $file->uploaded_at
+                    ? $file->uploaded_at->format('Y-m-d H:i:s')
+                    : ('id-'.$file->file_id);
+                $packetKey = ($uploader !== '' ? $uploader : 'unknown').'|'.$stamp;
+                if (! isset($examPacketsMap[$packetKey])) {
+                    $examPacketsMap[$packetKey] = [
+                        'packet_key' => $packetKey,
+                        'uploaded_by' => $uploaderName ?: ($uploader !== '' ? $uploader : 'ไม่ระบุ'),
+                        'username' => $uploader,
+                        'uploaded_at' => $uploadedAt,
+                        'sections' => [],
+                        'files' => [],
+                        'can_delete' => $canDelete,
+                        'view_url' => $payload['view_url'],
+                        'name' => $payload['name'],
+                    ];
+                }
+                if ($n !== null) {
+                    $examPacketsMap[$packetKey]['sections'][$n] = $n;
+                }
+                $examPacketsMap[$packetKey]['files'][] = $payload;
+                $examPacketsMap[$packetKey]['can_delete'] = $examPacketsMap[$packetKey]['can_delete'] && $canDelete;
+                // ใช้ไฟล์แรกของชุดเป็นตัวแทนเปิดดู
+                if (count($examPacketsMap[$packetKey]['files']) === 1) {
+                    $examPacketsMap[$packetKey]['view_url'] = $payload['view_url'];
+                    $examPacketsMap[$packetKey]['name'] = $payload['name'];
                 }
             }
         }
 
+        foreach ($sections as &$row) {
+            $row['exam_files'] = array_values($row['exam_files']);
+            $row['docs_complete'] = $row['registrar'] !== null && $row['exam'] !== null;
+        }
+        unset($row);
+
         ksort($sections);
+
+        $examPackets = array_values(array_map(function (array $packet) use ($sections) {
+            $secs = array_values($packet['sections']);
+            sort($secs);
+            $packet['sections'] = $secs;
+            $packet['section_label'] = $secs === []
+                ? '—'
+                : implode(', ', array_map(fn (int $s) => (string) $s, $secs));
+            $packet['registrar_count'] = count(array_filter(
+                $secs,
+                fn (int $s) => isset($sections[$s]) && $sections[$s]['registrar'] !== null,
+            ));
+            $packet['label'] = 'แบบรายงานผลการสอบไล่ (ใบขวาง)';
+            if (count($packet['files']) > 1) {
+                $packet['label'] .= ' · '.count($packet['files']).' กลุ่ม';
+            }
+
+            return $packet;
+        }, $examPacketsMap));
+
+        // ใหม่สุดอยู่บน
+        usort($examPackets, function (array $a, array $b) {
+            return ((int) ($b['files'][0]['file_id'] ?? 0)) <=> ((int) ($a['files'][0]['file_id'] ?? 0));
+        });
+
+        $available = $this->resolveAvailableSections(
+            GradReport2::normalizeCode((string) $gradeReport->subject_code),
+            (int) $gradeReport->term,
+            (int) $gradeReport->year,
+        );
 
         return response()->json([
             'grade_id' => $gradeReport->grade_id,
             'current_username' => $me,
+            'report_can_edit' => $reportCanEdit,
+            'approv' => (int) $gradeReport->approv,
             'sections' => array_values($sections),
+            'exam_packets' => $examPackets,
+            'available_sections' => $available['sections'],
+            'available_sections_from_reg' => $available['from_reg'],
+            'subject_code' => trim((string) $gradeReport->subject_code),
+            'term' => (int) $gradeReport->term,
+            'year' => (int) $gradeReport->year,
         ]);
     }
 

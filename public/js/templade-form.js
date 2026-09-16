@@ -1025,6 +1025,42 @@ function isSectionOptionUsed(sec, excludeIndex = null) {
     });
 }
 
+window.sectionsEnteredThisSession = window.sectionsEnteredThisSession || [];
+
+function markSectionEnteredThisSession(sec) {
+    const n = Number(sec);
+    if (!Number.isFinite(n) || n <= 0) return;
+    const list = window.sectionsEnteredThisSession || [];
+    if (!list.includes(n)) {
+        list.push(n);
+        list.sort((a, b) => a - b);
+    }
+    window.sectionsEnteredThisSession = list;
+}
+
+function clearSectionsEnteredThisSession() {
+    window.sectionsEnteredThisSession = [];
+}
+
+/** Section ที่กรอก/เพิ่มในรอบ wizard นี้ — ใช้กำหนดใบขวางรอบใหม่ */
+function examTargetSectionsThisRound(config = window.wizardConfig) {
+    const entered = (window.sectionsEnteredThisSession || [])
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0);
+    if (entered.length) {
+        return Array.from(new Set(entered)).sort((a, b) => a - b);
+    }
+    // ไม่ได้เพิ่ม Sec ใหม่ในรอบนี้ — ขอใบขวางเฉพาะ Sec ของฉันที่ยังไม่มีไฟล์ผูกตามกลุ่ม
+    const boardSecs = Array.isArray(window.sectionBoardData?.sections)
+        ? window.sectionBoardData.sections
+        : [];
+    const mine = mySectionNumsFromBoard(config);
+    return mine.filter((sec) => {
+        const row = boardSecs.find((item) => Number(item.sec) === Number(sec));
+        return !row?.exam;
+    });
+}
+
 function defaultAvailableSections() {
     return Array.from({ length: 20 }, (_, i) => i + 1);
 }
@@ -1257,6 +1293,7 @@ function applyParsedSectionFromPdf(parsed) {
     const sec = std.sec ?? 1;
     const existingIndex = sectionStdRows.findIndex((row) => Number(row.sec) === Number(sec));
     editingSectionIndex = existingIndex >= 0 ? existingIndex : null;
+    markSectionEnteredThisSession(sec);
 
     const existing = existingIndex >= 0 ? sectionStdRows[existingIndex] : null;
     const fac = existing?.fac
@@ -1493,6 +1530,8 @@ function addOrUpdateSectionFromForm() {
     const cancelBtn = document.getElementById('btn-cancel-section-edit');
     if (cancelBtn) cancelBtn.classList.add('hidden');
 
+    markSectionEnteredThisSession(row.sec);
+
     renderSectionStdList();
     clearGradeStdFormCounts();
     document.querySelectorAll('.fac-checkbox').forEach((cb) => { cb.checked = false; });
@@ -1534,6 +1573,7 @@ function removeSectionStd(index) {
 function resetSectionStdRows() {
     sectionStdRows = [];
     editingSectionIndex = null;
+    clearSectionsEnteredThisSession();
     renderSectionStdList();
     cancelSectionEdit();
 }
@@ -3173,6 +3213,13 @@ function hasExamReportAttachment(config) {
     if (missing !== null) {
         return missing.length === 0;
     }
+    // ยังไม่โหลด board — ถ้ามี Sec รอบนี้ต้องมี pending/ไฟล์
+    const targets = (window.sectionsEnteredThisSession || []).length
+        ? examTargetSectionsThisRound(config)
+        : [];
+    if (targets.length) {
+        return Boolean(config?.hasPendingExam || window.pendingExamFile);
+    }
     return Boolean(config?.hasExamReportFile || config?.hasPendingExam || window.pendingExamFile);
 }
 
@@ -3202,7 +3249,7 @@ function mySectionNumsFromBoard(config = window.wizardConfig) {
 }
 
 /**
- * Section ของฉันที่ยังไม่มีใบขวาง
+ * Section ของรอบนี้ที่ยังไม่มีใบขวาง (ผูกตาม Sec)
  * คืน null ถ้ายังไม่มีข้อมูล board (ใช้ fallback เดิม)
  */
 function missingExamSectionsForMe(config = window.wizardConfig) {
@@ -3217,14 +3264,12 @@ function missingExamSectionsForMe(config = window.wizardConfig) {
         return [];
     }
 
-    const mySecs = mySectionNumsFromBoard(config);
-    if (!mySecs.length) {
-        const anyExam = boardSecs.some((row) => Boolean(row?.exam))
-            || Boolean(config?.hasExamReportFile && config?.examFileDetail?.view_url);
-        return anyExam ? [] : [0];
+    const targets = examTargetSectionsThisRound(config);
+    if (!targets.length) {
+        return [];
     }
 
-    return mySecs.filter((sec) => {
+    return targets.filter((sec) => {
         const row = boardSecs.find((item) => Number(item.sec) === Number(sec));
         return !row?.exam;
     });
@@ -3285,7 +3330,7 @@ function updateAttachmentChecklist(config) {
         if (hasExam) {
             examCheck.textContent = config?.hasExamReportFile && !window.pendingExamFile
                 ? 'แนบใบขวางของ Section ที่คุณกรอกครบแล้ว'
-                : 'เลือกใบขวางแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น (ใช้ร่วมทุก Section ของคุณ)';
+                : 'เลือกใบขวางแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น (ใบเดียวครอบคลุมหลาย Section ของคุณได้)';
             examCheck.className = 'text-sm text-green-800 font-medium';
         } else if (examMissing?.length && examMissing[0] !== 0) {
             examCheck.textContent = `ยังไม่มีใบขวางสำหรับ Section ${examMissing.join(', ')} — อัปโหลดด้านล่าง`;
@@ -3313,11 +3358,17 @@ function buildMergedSectionBoardRows(config = window.wizardConfig) {
     const bySec = new Map();
     boardSecs.forEach((row) => {
         const n = Number(row.sec);
-        if (n > 0) bySec.set(n, row);
+        if (n > 0) {
+            bySec.set(n, {
+                ...row,
+                exam_files: Array.isArray(row.exam_files) ? [...row.exam_files] : [],
+            });
+        }
     });
 
     const me = String(config?.staffUsername || '').trim();
     const sessionSecs = currentSessionSectionNums();
+    const reportCanEdit = window.sectionBoardData?.report_can_edit !== false;
 
     sessionSecs.forEach((sec) => {
         if (!bySec.has(sec)) {
@@ -3327,14 +3378,17 @@ function buildMergedSectionBoardRows(config = window.wizardConfig) {
                 filled_by: 'คุณ (รอบนี้)',
                 username: me,
                 is_mine: true,
+                can_manage: reportCanEdit,
                 registrar: window.regUploadBySection[sec]
                     ? {
                         name: window.regUploadBySection[sec].name,
                         view_url: regViewUrlForSection(sec),
-                        can_delete: true,
+                        can_delete: reportCanEdit,
                     }
                     : null,
                 exam: null,
+                exam_files: [],
+                docs_complete: false,
             });
         }
     });
@@ -3344,7 +3398,7 @@ function buildMergedSectionBoardRows(config = window.wizardConfig) {
             row.registrar = {
                 name: window.regUploadBySection[sec].name,
                 view_url: regViewUrlForSection(sec),
-                can_delete: Boolean(row.is_mine),
+                can_delete: Boolean(row.is_mine) && reportCanEdit,
                 pending: window.regUploadBySection[sec].source === 'pending',
             };
         }
@@ -3355,6 +3409,11 @@ function buildMergedSectionBoardRows(config = window.wizardConfig) {
         if (me && String(row.username || '').trim() === me) {
             row.is_mine = true;
         }
+        row.can_manage = Boolean(row.is_mine) && reportCanEdit;
+        if (!Array.isArray(row.exam_files)) {
+            row.exam_files = row.exam ? [row.exam] : [];
+        }
+        row.docs_complete = Boolean(row.registrar) && Boolean(row.exam || row.exam_files.length);
     });
 
     return Array.from(bySec.values()).sort((a, b) => Number(a.sec) - Number(b.sec));
@@ -3372,8 +3431,11 @@ function fileChipHtml(file, label, { editable = false, pending = false } = {}) {
     }
     const name = escapeHtml(file?.name || label);
     const viewUrl = file?.view_url ? escapeHtml(file.view_url) : '';
-    const uploadedBy = file?.uploaded_by
-        ? `<span class="block text-[11px] text-[#7A4A3A]">อัปโหลดโดย ${escapeHtml(file.uploaded_by)}</span>`
+    const metaBits = [];
+    if (file?.uploaded_by) metaBits.push(`อัปโหลดโดย ${escapeHtml(file.uploaded_by)}`);
+    if (file?.uploaded_at) metaBits.push(escapeHtml(file.uploaded_at));
+    const uploadedBy = metaBits.length
+        ? `<span class="block text-[11px] text-[#7A4A3A]">${metaBits.join(' · ')}</span>`
         : '';
     const link = viewUrl
         ? `<a href="${viewUrl}" target="_blank" rel="noopener noreferrer"
@@ -3381,7 +3443,7 @@ function fileChipHtml(file, label, { editable = false, pending = false } = {}) {
                 title="เปิดดูไฟล์ PDF">
                 ${pdfFileIconHtml()}
                 <span class="min-w-0">
-                    <span class="block font-medium truncate max-w-[12rem]">${name}</span>
+                    <span class="block font-medium truncate max-w-[14rem]">${name}</span>
                     ${uploadedBy}
                 </span>
             </a>`
@@ -3400,40 +3462,62 @@ function fileChipHtml(file, label, { editable = false, pending = false } = {}) {
 }
 
 function courseSectionProgressSummary(config = window.wizardConfig) {
+    const boardAvailable = window.sectionBoardData?.available_sections;
+    const boardFromReg = window.sectionBoardData?.available_sections_from_reg;
+    if (Array.isArray(boardAvailable) && boardAvailable.length) {
+        if (!window.courseContext) window.courseContext = {};
+        window.courseContext.available_sections = boardAvailable.map(Number).filter((n) => n > 0);
+        if (typeof boardFromReg === 'boolean') {
+            window.courseContext.available_sections_from_reg = boardFromReg;
+        }
+    }
+
     const fromReg = Boolean(window.courseContext?.available_sections_from_reg);
     const available = availableSectionNums();
-    const filledSet = coveredSectionNums();
+    const coveredSet = coveredSectionNums();
+    const boardRows = Array.isArray(window.sectionBoardData?.sections)
+        ? window.sectionBoardData.sections
+        : [];
 
-    (Array.isArray(window.sectionBoardData?.sections) ? window.sectionBoardData.sections : [])
-        .forEach((row) => {
-            const n = Number(row?.sec);
-            if (n > 0) filledSet.add(n);
-        });
+    boardRows.forEach((row) => {
+        const n = Number(row?.sec);
+        if (n > 0) coveredSet.add(n);
+    });
 
     let scope;
     if (fromReg && available.length) {
         scope = [...available];
+    } else if (Array.isArray(boardAvailable) && boardAvailable.length && boardFromReg) {
+        scope = boardAvailable.map(Number).filter((n) => n > 0).sort((a, b) => a - b);
     } else {
         const known = [
-            ...filledSet,
+            ...coveredSet,
             ...currentSessionSectionNums(),
-            ...(Array.isArray(window.sectionBoardData?.sections)
-                ? window.sectionBoardData.sections.map((row) => Number(row?.sec))
-                : []),
+            ...boardRows.map((row) => Number(row?.sec)),
         ].filter((n) => Number.isFinite(n) && n > 0);
         scope = Array.from(new Set(known)).sort((a, b) => a - b);
-        // ยังไม่รู้กลุ่มใดเลย — ใช้รายการสำรอง 1–20 แต่จะบอกในคำอธิบาย
         if (!scope.length) {
             scope = [...available];
         }
     }
 
-    const filled = scope.filter((n) => filledSet.has(n));
-    const remaining = scope.filter((n) => !filledSet.has(n));
-    const current = currentSessionSectionNums();
+    const sentSet = new Set();
+    boardRows.forEach((row) => {
+        const n = Number(row?.sec);
+        if (n <= 0) return;
+        const complete = Boolean(row.docs_complete)
+            || (Boolean(row.registrar) && Boolean(row.exam || (Array.isArray(row.exam_files) && row.exam_files.length)));
+        if (complete) sentSet.add(n);
+    });
+    // Section ที่กรอกข้อมูลแล้วแต่ยังไม่มีเอกสาร ยังไม่นับเป็นส่งแล้ว
+    const filled = scope.filter((n) => sentSet.has(n));
+    const remaining = scope.filter((n) => !sentSet.has(n));
+    const current = examTargetSectionsThisRound(config).length
+        ? examTargetSectionsThisRound(config)
+        : currentSessionSectionNums();
 
     return {
-        fromReg,
+        fromReg: fromReg || Boolean(boardFromReg),
         scope,
         filled,
         remaining,
@@ -3441,6 +3525,7 @@ function courseSectionProgressSummary(config = window.wizardConfig) {
         total: scope.length,
         filledCount: filled.length,
         remainCount: remaining.length,
+        currentCount: current.length,
     };
 }
 
@@ -3452,6 +3537,7 @@ function renderSectionOverview(config = window.wizardConfig) {
     const totalEl = document.getElementById('wizard-sec-stat-total');
     const filledEl = document.getElementById('wizard-sec-stat-filled');
     const remainEl = document.getElementById('wizard-sec-stat-remain');
+    const currentStatEl = document.getElementById('wizard-sec-stat-current');
     const progressLabel = document.getElementById('wizard-sec-progress-label');
     const progressBar = document.getElementById('wizard-sec-progress-bar');
     const currentLabel = document.getElementById('wizard-sec-current-label');
@@ -3462,13 +3548,14 @@ function renderSectionOverview(config = window.wizardConfig) {
     if (totalEl) totalEl.textContent = String(summary.total);
     if (filledEl) filledEl.textContent = String(summary.filledCount);
     if (remainEl) remainEl.textContent = String(summary.remainCount);
+    if (currentStatEl) currentStatEl.textContent = String(summary.currentCount || 0);
 
     const pct = summary.total > 0
         ? Math.round((summary.filledCount / summary.total) * 100)
         : 0;
     if (progressLabel) {
         progressLabel.textContent = summary.total > 0
-            ? `${summary.filledCount}/${summary.total} Section (${pct}%)`
+            ? `ส่งแล้ว ${summary.filledCount}/${summary.total} Section (${pct}%)`
             : 'ยังไม่มีข้อมูล Section';
     }
     if (progressBar) {
@@ -3479,8 +3566,8 @@ function renderSectionOverview(config = window.wizardConfig) {
 
     if (sub) {
         sub.textContent = summary.fromReg
-            ? 'นับตาม Section ที่เปิดสอนจริงในภาคนี้'
-            : 'นับตาม Section ที่มีในรายงานนี้ (ไม่พบรายการเปิดสอนในระบบ จึงใช้ข้อมูลที่กรอกแล้วเป็นหลัก)';
+            ? 'นับตาม Section ที่เปิดสอนจริงในภาคนี้ — ส่งแล้ว = มีทั้ง มข.11 และใบขวาง'
+            : 'นับตาม Section ในรายงานนี้ — ส่งแล้ว = มีทั้ง มข.11 และใบขวาง';
     }
 
     if (currentLabel && currentHelp) {
@@ -3489,14 +3576,14 @@ function renderSectionOverview(config = window.wizardConfig) {
                 ? `Section ${summary.current[0]}`
                 : `Section ${summary.current.join(', ')}`;
             currentHelp.textContent = summary.current.length === 1
-                ? 'กลุ่มที่คุณกรอกในรอบนี้ — อัปโหลดใบขวางของกลุ่มนี้ด้านล่าง'
-                : 'กลุ่มที่คุณกรอกในรอบนี้ — อัปโหลดใบขวางไฟล์เดียวใช้ร่วมกันได้';
+                ? 'กลุ่มที่คุณกำลังส่งรอบนี้ — ใบขวาง 1 ใบครอบคลุม มข.11 ของกลุ่มนี้'
+                : 'กลุ่มที่คุณกำลังส่งรอบนี้ — อัปโหลดใบขวางไฟล์เดียวครอบคลุม มข.11 ของหลาย Section ได้';
         } else if (summary.filledCount > 0 && summary.remainCount === 0) {
-            currentLabel.textContent = 'กรอกครบทุก Section แล้ว';
-            currentHelp.textContent = 'ตรวจเอกสารด้านล่าง แล้วอัปโหลดใบขวางของ Section ที่เป็นของคุณให้ครบก่อนกดเสร็จสิ้น';
+            currentLabel.textContent = 'ส่งครบทุก Section แล้ว';
+            currentHelp.textContent = 'ตรวจประวัติใบขวางด้านล่างได้ — แก้ไขได้เฉพาะไฟล์ของตนเองเมื่อ Admin ยังไม่เปลี่ยนสถานะ';
         } else if (summary.remainCount > 0) {
             currentLabel.textContent = 'ยังไม่ได้เลือก Section ในรอบนี้';
-            currentHelp.textContent = `ยังเหลือ Section ${summary.remaining.join(', ')} ที่ยังไม่กรอก — ย้อนกลับไปขั้นตอนที่ 4 หากต้องการเพิ่ม`;
+            currentHelp.textContent = `ยังเหลือ Section ${summary.remaining.join(', ')} ที่ยังไม่ส่ง — ย้อนกลับไปขั้นตอนที่ 4 หากต้องการเพิ่ม`;
         } else {
             currentLabel.textContent = 'ยังไม่มี Section';
             currentHelp.textContent = 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพื่อกรอกจำนวนนักศึกษา';
@@ -3509,18 +3596,18 @@ function renderSectionOverview(config = window.wizardConfig) {
         } else {
             chips.innerHTML = summary.scope.map((sec) => {
                 const isCurrent = summary.current.includes(sec);
-                const isFilled = summary.filled.includes(sec);
+                const isSent = summary.filled.includes(sec);
                 let cls = 'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ';
                 let label = `Sec ${sec}`;
                 if (isCurrent) {
                     cls += 'bg-sky-100 border-sky-300 text-sky-950';
-                    label += ' · กำลังกรอก';
-                } else if (isFilled) {
+                    label += ' · กำลังส่ง';
+                } else if (isSent) {
                     cls += 'bg-green-50 border-green-200 text-green-900';
-                    label += ' · กรอกแล้ว';
+                    label += ' · ส่งแล้ว';
                 } else {
                     cls += 'bg-amber-50 border-amber-200 text-amber-950';
-                    label += ' · ยังไม่กรอก';
+                    label += ' · ยังไม่ส่ง';
                 }
                 return `<span class="${cls}">${escapeHtml(label)}</span>`;
             }).join('');
@@ -3528,8 +3615,81 @@ function renderSectionOverview(config = window.wizardConfig) {
     }
 }
 
+function renderExamPackets(config = window.wizardConfig) {
+    const el = document.getElementById('wizard-exam-packets');
+    if (!el) return;
+
+    const packets = Array.isArray(window.sectionBoardData?.exam_packets)
+        ? window.sectionBoardData.exam_packets
+        : [];
+    const reportCanEdit = window.sectionBoardData?.report_can_edit !== false;
+
+    if (!packets.length) {
+        el.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มีใบขวางในรายงานนี้ — อัปโหลดด้านล่างแล้วระบบจะบันทึกไว้ตรวจสอบได้ทุกใบ</p>';
+        return;
+    }
+
+    el.innerHTML = packets.map((packet, idx) => {
+        const secs = Array.isArray(packet.sections) ? packet.sections : [];
+        const files = Array.isArray(packet.files) ? packet.files : [];
+        const canDelete = reportCanEdit && Boolean(packet.can_delete);
+        const fileIds = files.map((f) => Number(f.file_id)).filter((id) => id > 0);
+        const viewUrl = packet.view_url ? escapeHtml(packet.view_url) : '';
+        const title = escapeHtml(packet.label || 'แบบรายงานผลการสอบไล่ (ใบขวาง)');
+        const by = escapeHtml(packet.uploaded_by || 'ไม่ระบุ');
+        const at = packet.uploaded_at ? escapeHtml(packet.uploaded_at) : '—';
+        const secLabel = secs.length
+            ? `ครอบคลุม มข.11 Section ${escapeHtml(packet.section_label || secs.join(', '))}`
+            : 'ยังไม่ระบุ Section';
+        const regHint = secs.length
+            ? `<p class="text-[11px] text-[#7A4A3A] mt-1">ผูกกับใบ มข.11 ได้ ${secs.length} ใบ · พบ มข.11 ในระบบ ${Number(packet.registrar_count || 0)}/${secs.length} Section</p>`
+            : '';
+
+        const fileLinks = files.map((f) => {
+            const url = f.view_url ? escapeHtml(f.view_url) : '';
+            const sec = f.section ? `Sec ${Number(f.section)}` : 'ใบขวาง';
+            if (!url) return '';
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 rounded border border-green-200 bg-green-50 px-2 py-1 text-[11px] text-[#5C2E1F] hover:bg-green-100">
+                ${pdfFileIconHtml()} ${escapeHtml(sec)}
+            </a>`;
+        }).filter(Boolean).join('');
+
+        return `
+            <article class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                        <p class="text-xs font-semibold text-[#7A4A3A]">ใบขวาง #${packets.length - idx}</p>
+                        <h4 class="font-bold text-[#5C2E1F]">${title}</h4>
+                        <p class="text-sm text-[#7A4A3A] mt-0.5">${secLabel}</p>
+                        <p class="text-xs text-[#7A4A3A] mt-1">อัปโหลดโดย ${by} · ${at}</p>
+                        ${regHint}
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        ${viewUrl ? `<a href="${viewUrl}" target="_blank" rel="noopener noreferrer"
+                            class="px-2.5 py-1.5 rounded-lg border border-green-300 bg-white text-xs font-medium text-green-900 hover:bg-green-50">เปิดดู</a>` : ''}
+                        ${canDelete && fileIds.length ? `<button type="button" data-exam-packet-delete="${fileIds.join(',')}"
+                            class="px-2.5 py-1.5 rounded-lg border border-red-300 text-xs font-medium text-red-700 hover:bg-red-50">ลบใบนี้</button>` : ''}
+                    </div>
+                </div>
+                ${fileLinks ? `<div class="flex flex-wrap gap-1.5 pt-1">${fileLinks}</div>` : ''}
+            </article>`;
+    }).join('');
+
+    el.querySelectorAll('[data-exam-packet-delete]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const ids = String(btn.getAttribute('data-exam-packet-delete') || '')
+                .split(',')
+                .map((v) => Number(v))
+                .filter((id) => id > 0);
+            deleteExamReportPacket(config, ids);
+        });
+    });
+}
+
 function renderSectionBoard(config = window.wizardConfig) {
     renderSectionOverview(config);
+    renderExamPackets(config);
 
     const boardEl = document.getElementById('wizard-section-board');
     const ownPanel = document.getElementById('wizard-exam-own-panel');
@@ -3544,16 +3704,25 @@ function renderSectionBoard(config = window.wizardConfig) {
         return;
     }
 
-    const mySecs = mySectionNumsFromBoard(config);
+    const mySecs = examTargetSectionsThisRound(config);
     const pending = Boolean(config?.hasPendingExam || window.pendingExamFile);
+    const reportCanEdit = window.sectionBoardData?.report_can_edit !== false;
 
     boardEl.innerHTML = rows.map((row) => {
         const sec = Number(row.sec);
         const isMine = Boolean(row.is_mine);
-        const isCurrent = Boolean(row.is_current) || currentSessionSectionNums().includes(sec);
+        const canManage = Boolean(row.can_manage) && reportCanEdit;
+        const isCurrent = Boolean(row.is_current)
+            || currentSessionSectionNums().includes(sec)
+            || mySecs.includes(sec);
         const badges = [];
         if (isCurrent) {
-            badges.push('<span class="rounded-full bg-sky-100 text-sky-900 text-[11px] font-semibold px-2 py-0.5">กำลังกรอก</span>');
+            badges.push('<span class="rounded-full bg-sky-100 text-sky-900 text-[11px] font-semibold px-2 py-0.5">กำลังส่ง</span>');
+        }
+        if (row.docs_complete) {
+            badges.push('<span class="rounded-full bg-green-100 text-green-900 text-[11px] font-semibold px-2 py-0.5">ส่งแล้ว</span>');
+        } else {
+            badges.push('<span class="rounded-full bg-amber-100 text-amber-950 text-[11px] font-semibold px-2 py-0.5">ยังไม่ส่ง</span>');
         }
         if (isMine) {
             badges.push('<span class="rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-semibold px-2 py-0.5">ของคุณ</span>');
@@ -3567,7 +3736,17 @@ function renderSectionBoard(config = window.wizardConfig) {
 
         const regPending = Boolean(row.registrar?.pending)
             || (isMine && window.regUploadBySection[sec]?.source === 'pending');
-        const examPending = isMine && pending && !row.exam;
+        const examPending = mySecs.includes(sec) && pending && !row.exam;
+        const examFiles = Array.isArray(row.exam_files) && row.exam_files.length
+            ? row.exam_files
+            : (row.exam ? [row.exam] : []);
+
+        const examHtml = examFiles.length
+            ? examFiles.map((f) => fileChipHtml(f, 'ใบขวาง', {
+                editable: canManage && Boolean(f.can_delete),
+                pending: false,
+            })).join('<div class="h-1"></div>')
+            : fileChipHtml(null, 'ใบขวาง', { pending: examPending });
 
         return `
             <article class="rounded-xl border ${borderClass} p-4 space-y-3" data-section-board-sec="${sec}">
@@ -3585,11 +3764,8 @@ function renderSectionBoard(config = window.wizardConfig) {
                     </div>
                     <div class="space-y-1.5">
                         <p class="text-xs font-semibold text-[#5C2E1F]">ใบขวาง</p>
-                        ${fileChipHtml(row.exam, 'ใบขวาง', {
-                            editable: isMine,
-                            pending: examPending,
-                        })}
-                        ${!isMine && !row.exam
+                        ${examHtml}
+                        ${!isMine && !examFiles.length
                             ? '<p class="text-[11px] text-slate-500">ยังไม่มีไฟล์ — รอผู้กรอก Section นี้</p>'
                             : ''}
                     </div>
@@ -3605,19 +3781,18 @@ function renderSectionBoard(config = window.wizardConfig) {
     });
 
     if (ownPanel) {
-        if (!mySecs.length) {
+        const canUpload = reportCanEdit && mySecs.length > 0;
+        if (!canUpload) {
             ownPanel.classList.add('hidden');
         } else {
             ownPanel.classList.remove('hidden');
             if (ownSecsEl) {
                 ownSecsEl.textContent = mySecs.length === 1
-                    ? `Section ของคุณ: ${mySecs[0]}`
-                    : `Section ของคุณ: ${mySecs.join(', ')} — อัปโหลดไฟล์เดียวใช้ร่วมกันได้`;
+                    ? `Section ที่ต้องแนบใบขวางรอบนี้: ${mySecs[0]}`
+                    : `Section ที่ต้องแนบใบขวางรอบนี้: ${mySecs.join(', ')} — ใบขวางไฟล์เดียวครอบคลุม มข.11 ของกลุ่มเหล่านี้`;
             }
             if (ownHelp) {
-                ownHelp.textContent = mySecs.length > 1
-                    ? 'คุณกรอกหลาย Section ในรอบนี้หรือก่อนหน้า — เลือกใบขวาง PDF ไฟล์เดียว ระบบจะถือว่าใช้สำหรับทุก Section ของคุณ'
-                    : 'อัปโหลดใบขวาง PDF ของ Section ที่คุณกำลังกรอก — Section ของผู้อื่นดูได้อย่างเดียว ไม่สามารถแก้ไขไฟล์ของผู้อื่นได้';
+                ownHelp.textContent = 'ใบขวางที่ส่งไปแล้วถูกเก็บเป็นประวัติด้านบน — รอบนี้แนบเฉพาะใบขวางของ Section ที่กำลังส่ง และแก้ไขได้เฉพาะไฟล์ของตนเอง';
             }
         }
     }
@@ -3651,23 +3826,39 @@ async function loadSectionBoard(config = window.wizardConfig) {
             throw new Error(data.message || 'โหลดสถานะ Section ไม่สำเร็จ');
         }
         window.sectionBoardData = data;
+        if (Array.isArray(data.available_sections) && data.available_sections.length) {
+            if (!window.courseContext) window.courseContext = {};
+            window.courseContext.available_sections = data.available_sections.map(Number).filter((n) => n > 0);
+            window.courseContext.available_sections_from_reg = Boolean(data.available_sections_from_reg);
+        }
 
-        const myExam = (data.sections || []).find((row) => row.is_mine && row.exam)?.exam
-            || (data.sections || []).find((row) => {
-                const me = String(config.staffUsername || '').trim();
-                return me && String(row.username || '').trim() === me && row.exam;
-            })?.exam;
-        if (myExam?.view_url && !window.pendingExamFile) {
+        const targets = examTargetSectionsThisRound(config);
+        const allTargetsHaveExam = targets.length > 0 && targets.every((sec) => {
+            const row = (data.sections || []).find((item) => Number(item.sec) === Number(sec));
+            return Boolean(row?.exam);
+        });
+        const roundExam = targets.length
+            ? (data.sections || []).find((row) => targets.includes(Number(row.sec)) && row.exam)?.exam
+            : null;
+
+        if (allTargetsHaveExam && roundExam?.view_url && !window.pendingExamFile) {
             config.hasExamReportFile = true;
             config.examFileDetail = {
-                file_id: myExam.file_id,
-                name: myExam.name,
-                view_url: myExam.view_url,
+                file_id: roundExam.file_id,
+                name: roundExam.name,
+                view_url: roundExam.view_url,
             };
         } else if (!window.pendingExamFile) {
-            // อย่าใช้ใบขวางของผู้อื่นเป็นสถานะ “ครบแล้ว” ของผู้ใช้ปัจจุบัน
-            config.hasExamReportFile = false;
-            config.examFileDetail = null;
+            // อย่าใช้ใบขวางรอบก่อนหน้าเป็นสถานะ “ครบแล้ว” ของรอบนี้
+            config.hasExamReportFile = targets.length === 0;
+            config.examFileDetail = roundExam?.view_url ? {
+                file_id: roundExam.file_id,
+                name: roundExam.name,
+                view_url: roundExam.view_url,
+            } : null;
+            if (targets.length > 0) {
+                config.hasExamReportFile = false;
+            }
         }
     } catch (err) {
         window.sectionBoardData = { sections: [] };
@@ -3688,7 +3879,7 @@ function syncExamUploadUi(config = window.wizardConfig) {
     const status = document.getElementById('wizard-exam-status');
     if (!status) return;
 
-    const mySecs = mySectionNumsFromBoard(config);
+    const mySecs = examTargetSectionsThisRound(config);
     const missing = missingExamSectionsForMe(config);
     const saved = Boolean(config?.hasExamReportFile && config?.examFileDetail?.view_url)
         && !(config?.hasPendingExam || window.pendingExamFile)
@@ -3744,18 +3935,18 @@ function syncExamUploadUi(config = window.wizardConfig) {
     }
 
     if (mySecs.length === 0) {
-        status.textContent = 'ไม่มี Section ของคุณในรายงานนี้ — ดูเอกสารของผู้อื่นได้จากรายการด้านบน';
+        status.textContent = 'Section ที่กรอกไปแล้วมีใบขวางครบแล้ว — รอบนี้ไม่ต้องอัปโหลดใบขวางเพิ่ม (หรือย้อนกลับไปเพิ่ม Section ใหม่ที่ขั้นตอนที่ 4)';
         status.className = 'text-xs text-[#7A4A3A]';
     } else if (saved) {
-        status.textContent = 'มีไฟล์ใบขวางของ Section คุณแล้ว — คลิกเพื่อดู หรือลบแล้วอัปโหลดใหม่';
+        status.textContent = 'มีไฟล์ใบขวางของ Section รอบนี้แล้ว — คลิกเพื่อดู หรือลบแล้วอัปโหลดใหม่';
         status.className = 'text-xs text-green-800 font-medium';
     } else if (pending) {
         status.textContent = `เลือกไฟล์แล้ว: ${pendingName} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`;
         status.className = 'text-xs text-green-800';
     } else {
         status.textContent = mySecs.length > 1
-            ? `ยังไม่ได้เลือกไฟล์ — อัปโหลดไฟล์เดียวสำหรับ Section ${mySecs.join(', ')}`
-            : 'ยังไม่ได้เลือกไฟล์ใบขวาง — กรุณาเลือกไฟล์ด้านบน';
+            ? `ยังไม่ได้เลือกไฟล์ — อัปโหลดไฟล์เดียวสำหรับ Section รอบนี้ (${mySecs.join(', ')})`
+            : 'ยังไม่ได้เลือกไฟล์ใบขวางของ Section รอบนี้ — กรุณาเลือกไฟล์ด้านบน';
         status.className = 'text-xs text-[#7A4A3A]';
     }
 
@@ -3769,15 +3960,14 @@ function syncExamUploadUi(config = window.wizardConfig) {
     }
 }
 
-async function deleteExamReportFile(config = window.wizardConfig, fileIdOverride = null) {
-    if (!window.confirm('ลบไฟล์ใบขวางของ Section คุณแล้วอัปโหลดใหม่หรือไม่?')) {
-        return;
-    }
+async function deleteExamReportFiles(config = window.wizardConfig, fileIds = []) {
+    const ids = [...new Set(fileIds.map(Number).filter((id) => id > 0))];
+    if (!ids.length) return;
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const fileId = fileIdOverride || config?.examFileDetail?.file_id;
-    try {
-        if (config?.currentReportId && fileId) {
+    const errors = [];
+    for (const fileId of ids) {
+        try {
             const res = await fetch(`/api/grade-reports/${config.currentReportId}/files/${fileId}`, {
                 method: 'DELETE',
                 headers: {
@@ -3791,8 +3981,36 @@ async function deleteExamReportFile(config = window.wizardConfig, fileIdOverride
             if (!res.ok) {
                 throw new Error(data.message || 'ลบไฟล์ไม่สำเร็จ');
             }
+        } catch (err) {
+            errors.push(err?.message || 'ลบไม่สำเร็จ');
         }
+    }
 
+    config.hasExamReportFile = false;
+    config.examFileDetail = null;
+    config.hasPendingExam = false;
+    window.pendingExamFile = null;
+    const input = document.getElementById('wizard-exam-upload');
+    if (input) {
+        input.value = '';
+        input.classList.remove('hidden');
+    }
+    await loadSectionBoard(config);
+    persistWizardState(config, currentWizardStep());
+
+    if (errors.length) {
+        showToast(errors[0], 'error');
+    } else {
+        showToast('ลบไฟล์ใบขวางแล้ว — กรุณาเลือกไฟล์ใหม่ด้านล่างหากต้องการส่งใหม่', 'success');
+    }
+}
+
+async function deleteExamReportFile(config = window.wizardConfig, fileIdOverride = null) {
+    if (!window.confirm('ลบไฟล์ใบขวางของ Section คุณแล้วอัปโหลดใหม่หรือไม่?')) {
+        return;
+    }
+    const fileId = fileIdOverride || config?.examFileDetail?.file_id;
+    if (!config?.currentReportId || !fileId) {
         config.hasExamReportFile = false;
         config.examFileDetail = null;
         config.hasPendingExam = false;
@@ -3803,18 +4021,17 @@ async function deleteExamReportFile(config = window.wizardConfig, fileIdOverride
             input.classList.remove('hidden');
         }
         await loadSectionBoard(config);
-        persistWizardState(config, currentWizardStep());
-        showToast('ลบไฟล์ใบขวางแล้ว — กรุณาเลือกไฟล์ใหม่ด้านล่าง', 'success');
-    } catch (err) {
-        config.hasExamReportFile = false;
-        config.examFileDetail = null;
-        config.hasPendingExam = false;
-        window.pendingExamFile = null;
-        const input = document.getElementById('wizard-exam-upload');
-        if (input) input.classList.remove('hidden');
-        await loadSectionBoard(config);
-        showToast(err?.message || 'ลบไฟล์ไม่สำเร็จ — เปิดช่องอัปโหลดใหม่ให้แล้ว', 'error');
+        return;
     }
+    await deleteExamReportFiles(config, [fileId]);
+}
+
+async function deleteExamReportPacket(config = window.wizardConfig, fileIds = []) {
+    if (!fileIds.length) return;
+    if (!window.confirm('ลบใบขวางชุดนี้ทั้งหมด (ทุก Section ที่ผูกกับใบนี้) แล้วอัปโหลดใหม่หรือไม่?')) {
+        return;
+    }
+    await deleteExamReportFiles(config, fileIds);
 }
 
 function nextWizardStep(current) {
@@ -3922,7 +4139,7 @@ function showWizardStep(step, config) {
         syncWizardRegStatus(config);
     }
     if (step === 8) {
-        loadSectionBoard(config);
+        refreshCourseContext().finally(() => loadSectionBoard(config));
     } else {
         updateAttachmentChecklist(config);
     }
@@ -4057,8 +4274,8 @@ async function stageExamReport(config, file) {
     persistWizardState(config, 8);
     updateAttachmentChecklist(config);
     showToast(
-        mySectionNumsFromBoard(config).length > 1
-            ? 'เลือกใบขวางแล้ว — ไฟล์เดียวจะใช้ร่วมทุก Section ของคุณเมื่อกดเสร็จสิ้น'
+        examTargetSectionsThisRound(config).length > 1
+            ? 'เลือกใบขวางแล้ว — ไฟล์นี้จะใช้กับ Section ที่กรอกในรอบนี้เมื่อกดเสร็จสิ้น'
             : 'เลือกใบขวางแล้ว — กดเสร็จสิ้นเพื่ออัปโหลด มข.11 และใบขวางเข้าสู่ระบบ',
         'success',
     );
@@ -4097,6 +4314,9 @@ async function finalizeWizardAttachments(config) {
         formData.append('attachment', window.pendingExamFile);
         formData.append('file_type', 'exam_report');
     }
+    examTargetSectionsThisRound(config).forEach((sec) => {
+        formData.append('exam_sections[]', String(sec));
+    });
     requiredRegSections().forEach((sec) => {
         formData.append('required_sections[]', String(sec));
     });
