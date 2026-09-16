@@ -61,6 +61,32 @@ class ThesisGradeReviewController extends Controller
         ]);
     }
 
+    public function s0Documents(Request $request): View
+    {
+        $this->requireReviewer();
+
+        $filters = [
+            'term' => (int) $request->input('term', AcademicTerm::defaultTerm()),
+            'year' => (int) $request->input('year', AcademicTerm::defaultYear()),
+            'status' => (string) $request->input('status', ''),
+            'department_id' => $request->filled('department_id') ? (int) $request->input('department_id') : null,
+            'subject_code' => trim((string) $request->input('subject_code', '')),
+            'q' => trim((string) $request->input('q', '')),
+        ];
+
+        $reports = $this->queryService
+            ->facultyS0DocumentsQuery($filters)
+            ->paginate((int) $request->input('per_page', 20))
+            ->withQueryString();
+
+        return view('faculty-admin.thesis-grades.s0-documents', [
+            'reports' => $reports,
+            'departments' => $this->facultyReports->filterDepartments(),
+            'filters' => $filters,
+            'years' => AcademicTerm::yearOptions(),
+        ]);
+    }
+
     public function show(ThesisGrade $thesisGrade): View
     {
         $this->requireReviewer();

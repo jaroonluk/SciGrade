@@ -41,8 +41,15 @@ class ThesisGradeFileController extends Controller
             $studentId = (int) ($validated['student_id'] ?? 0);
             $student = $thesisGrade->students()->whereKey($studentId)->first();
             if (! $student) {
-                return response()->json(['message' => 'เลือกนักศึกษาสำหรับหนังสือชี้แจง S=0'], 422);
+                return response()->json(['message' => 'เลือกนักศึกษาสำหรับบันทึกข้อความชี้แจง S=0'], 422);
             }
+
+            ThesisGradeFile::query()
+                ->where('thesis_grade_id', $thesisGrade->thesis_grade_id)
+                ->where('student_id', $student->student_id)
+                ->where('file_type', ThesisGradeFile::TYPE_S0_LETTER)
+                ->get()
+                ->each(fn (ThesisGradeFile $old) => $old->delete());
         }
 
         /** @var UploadedFile $uploaded */

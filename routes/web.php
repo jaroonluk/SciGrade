@@ -118,6 +118,7 @@ Route::middleware('auth')->group(function () {
 
         Route::middleware('thesis.faculty')->group(function () {
             Route::get('/thesis-grades', [FacultyThesisGradeReviewController::class, 'index'])->name('thesis-grades.index');
+            Route::get('/thesis-grades/s0-documents', [FacultyThesisGradeReviewController::class, 's0Documents'])->name('thesis-grades.s0-documents');
             Route::get('/thesis-grades/summary', [FacultyThesisGradeReviewController::class, 'summary'])->name('thesis-grades.summary');
             Route::get('/thesis-grades/summary.docx', [FacultyThesisGradeReviewController::class, 'exportSummary'])->name('thesis-grades.summary.docx');
             Route::post('/thesis-grades/download', [FacultyThesisGradeReviewController::class, 'downloadSelected'])->name('thesis-grades.download');

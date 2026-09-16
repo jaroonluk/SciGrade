@@ -300,7 +300,7 @@
         <div class="thesis-panel" data-step="2">
             <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-4">
                 <p class="font-semibold">ตัวช่วยตรวจเค้าโครง</p>
-                <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากเลยกำหนดและให้ S=0 ต้องแนบหนังสือชี้แจง — ระเบียบ พ.ศ. 2566 ยกเลิกการตกออกจาก S=0 สองภาคติดแล้ว</p>
+                <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากให้ S=0 ต้องแนบบันทึกข้อความชี้แจง (PDF) — ระเบียบ พ.ศ. 2566 ยกเลิกการตกออกจาก S=0 สองภาคติดแล้ว</p>
                 @if ($report)
                     <p class="mt-2">กด «พิมพ์บันทึก S=0» ที่นักศึกษาที่ได้ S=0 เพื่อพิมพ์หรือดาวน์โหลด Word ตามแบบฟอร์มชี้แจง โดยระบบเติมรหัสวิชา ชื่อวิชา กลุ่ม และภาค/ปีให้อัตโนมัติ</p>
                 @endif
@@ -346,7 +346,7 @@
 
             <div class="form-section rounded-xl p-5 mb-4">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <h3 class="font-semibold text-[#5C2E1F]">หนังสือชี้แจง S=0</h3>
+                    <h3 class="font-semibold text-[#5C2E1F]">บันทึกข้อความชี้แจง S=0</h3>
                     @if ($report)
                         <div class="flex flex-wrap items-center gap-3">
                             <a href="{{ route('thesis-grades.s0-letter', $report) }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">พิมพ์บันทึกข้อความ</a>
@@ -356,7 +356,7 @@
                         <a href="{{ $s0FormUrl }}" target="_blank" rel="noopener" class="text-sm text-[#a16207] underline">เปิดแบบฟอร์มบันทึกชี้แจง</a>
                     @endif
                 </div>
-                <p class="text-sm text-[#7A4A3A]/80 mb-3">แนบรายคนเฉพาะนักศึกษาที่เลยกำหนดเค้าโครงและให้ S=0</p>
+                <p class="text-sm text-[#7A4A3A]/80 mb-3">แนบรายคนเป็นไฟล์ PDF สำหรับนักศึกษาที่ได้ S=0</p>
                 <div id="s0-slots" class="space-y-2"></div>
             </div>
 
@@ -381,11 +381,7 @@
             @endif
 
             <div class="form-section rounded-xl p-5 space-y-3" id="submit-confirmations">
-                <p class="font-semibold text-[#5C2E1F]">ก่อนส่งเข้าสาขา กรุณาติ๊กยืนยันให้ครบทั้ง 2 ข้อ</p>
-                <label data-confirm-check="checked_proposal" class="flex items-start gap-2 text-sm text-[#5C2E1F] rounded-lg p-2 -mx-2">
-                    <input type="checkbox" name="checked_proposal" value="1" class="mt-1" @checked(old('checked_proposal', $report?->checked_proposal ?? false)) @disabled(! $editable)>
-                    <span data-confirm-label>ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว (ป.โท ภายใน 2 ภาค / ป.เอก ภายใน 4 ภาค)</span>
-                </label>
+                <p class="font-semibold text-[#5C2E1F]">ก่อนส่งเข้าสาขา กรุณาติ๊กยืนยัน</p>
                 <label data-confirm-check="checked_signed" class="flex items-start gap-2 text-sm text-[#5C2E1F] rounded-lg p-2 -mx-2">
                     <input type="checkbox" name="checked_signed" value="1" class="mt-1" @checked(old('checked_signed', $report?->checked_signed ?? false)) @disabled(! $editable)>
                     <span data-confirm-label>ไฟล์ใบส่งเกรดได้ลงนามด้วยลายมือชื่อดิจิทัลแล้ว</span>
@@ -394,7 +390,7 @@
                     <p class="font-semibold">ยังส่งเข้าสาขาไม่ได้ — กรุณาติ๊กยืนยันข้อที่ยังขาด:</p>
                     <ul id="submit-checklist-items" class="list-disc pl-5 mt-1 space-y-0.5"></ul>
                 </div>
-                <p id="submit-ready-hint" class="hidden text-sm font-medium text-green-800">ติ๊กยืนยันครบแล้ว กด «ส่งเข้าสาขา» ได้</p>
+                <p id="submit-ready-hint" class="hidden text-sm font-medium text-green-800">ติ๊กยืนยันแล้ว กด «ส่งเข้าสาขา» ได้</p>
             </div>
         </div>
 

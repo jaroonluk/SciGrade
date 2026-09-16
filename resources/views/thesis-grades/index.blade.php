@@ -165,7 +165,7 @@
                             @if ($overdue || $missingS0 || $missingDefense)
                                 <p class="text-xs text-amber-800 mt-1.5">
                                     @if ($overdue) เลยกำหนดเค้าโครง {{ $overdue }} คน @endif
-                                    @if ($missingS0) · ขาดหนังสือ S=0 {{ $missingS0 }} คน @endif
+                                    @if ($missingS0) · ขาดบันทึกข้อความชี้แจง S=0 {{ $missingS0 }} คน @endif
                                     @if ($missingDefense) · ขาดวันที่สอบ {{ $missingDefense }} คน @endif
                                 </p>
                             @endif
@@ -277,6 +277,91 @@
 @endsection
 
 @push('scripts')
+<script>
+    (() => {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        document.querySelectorAll('[data-s0-file-input]').forEach((input) => {
+            input.addEventListener('change', async () => {
+                const file = input.files?.[0];
+                const wrap = input.closest('[data-s0-student]');
+                const url = wrap?.dataset.s0UploadUrl;
+                const studentId = wrap?.dataset.s0Student;
+                const status = wrap?.querySelector('[data-s0-upload-status]');
+                if (!file || !url || !studentId) return;
+
+                if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+                    if (status) {
+                        status.textContent = 'รับเฉพาะไฟล์ PDF';
+                        status.classList.remove('hidden', 'text-emerald-700');
+                        status.classList.add('text-red-700');
+                    }
+                    input.value = '';
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('file_type', 's0_letter');
+                fd.append('student_id', studentId);
+
+                if (status) {
+                    status.textContent = 'กำลังอัปโหลด...';
+                    status.classList.remove('hidden', 'text-red-700', 'text-emerald-700');
+                    status.classList.add('text-[#7A4A3A]');
+                }
+
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf,
+                            'Accept': 'application/json',
+                        },
+                        body: fd,
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        throw new Error(data.message || data.errors?.file?.[0] || 'อัปโหลดไม่สำเร็จ');
+                    }
+
+                    const row = wrap.querySelector('[data-s0-file-row]');
+                    const missing = row?.querySelector('[data-s0-file-missing]');
+                    missing?.remove();
+                    let link = row?.querySelector('[data-s0-file-link]');
+                    if (!link && row) {
+                        link = document.createElement('a');
+                        link.className = 'text-xs font-semibold text-[#854d0e] underline truncate max-w-[16rem]';
+                        link.target = '_blank';
+                        link.rel = 'noopener';
+                        link.dataset.s0FileLink = '';
+                        row.insertBefore(link, input.closest('label'));
+                    }
+                    if (link) {
+                        link.href = data.file?.url || link.href;
+                        link.title = data.file?.original_name || file.name;
+                        link.textContent = 'PDF · ' + (data.file?.original_name || file.name);
+                    }
+                    const uploadLabel = wrap.querySelector('[data-s0-upload-label]');
+                    if (uploadLabel) uploadLabel.textContent = 'เปลี่ยน PDF';
+                    if (status) {
+                        status.textContent = 'อัปโหลดแล้ว';
+                        status.classList.remove('text-[#7A4A3A]', 'text-red-700');
+                        status.classList.add('text-emerald-700');
+                    }
+                } catch (err) {
+                    if (status) {
+                        status.textContent = err.message || 'อัปโหลดไม่สำเร็จ';
+                        status.classList.remove('text-[#7A4A3A]', 'text-emerald-700');
+                        status.classList.add('text-red-700');
+                    }
+                } finally {
+                    input.value = '';
+                }
+            });
+        });
+    })();
+</script>
 @if (session('thesis_submitted'))
 <script>
     document.getElementById('thesis-submit-modal-close')?.addEventListener('click', () => {

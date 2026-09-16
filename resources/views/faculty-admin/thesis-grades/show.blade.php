@@ -111,8 +111,8 @@
                                 @endif
                             </td>
                             <td class="py-2">
-                                @if ($student->requiresS0Letter())
-                                    {{ $student->hasS0Letter($report) ? 'มีหนังสือ' : 'ขาดหนังสือ' }}
+                                @if ($student->isS0())
+                                    {{ $student->hasS0Letter($report) ? 'มีบันทึก' : 'ขาดบันทึก' }}
                                 @else
                                     —
                                 @endif

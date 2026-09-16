@@ -22,7 +22,8 @@ class ThesisGradeFormSubmitStepTest extends TestCase
         $this->assertStringContainsString('id="submit-to-dept"', $blade);
         $this->assertStringContainsString("(int) \$step === 3 ? '' : 'hidden'", $blade);
         $this->assertStringContainsString('ยังส่งเข้าสาขาไม่ได้ — กรุณาติ๊กยืนยันข้อที่ยังขาด', $blade);
-        $this->assertStringContainsString('ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว (ป.โท ภายใน 2 ภาค / ป.เอก ภายใน 4 ภาค)', $blade);
+        $this->assertStringNotContainsString('กรุณาติ๊กยืนยันให้ครบทั้ง 2 ข้อ', $blade);
+        $this->assertStringNotContainsString('name="checked_proposal"', $blade);
         $this->assertStringContainsString('ไฟล์ใบส่งเกรดได้ลงนามด้วยลายมือชื่อดิจิทัลแล้ว', $blade);
 
         $this->assertStringContainsString("submitBtn.classList.toggle('hidden', step !== 3)", $js);

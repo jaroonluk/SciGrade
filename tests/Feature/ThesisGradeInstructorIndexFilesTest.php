@@ -96,10 +96,13 @@ class ThesisGradeInstructorIndexFilesTest extends TestCase
             'staffDisplayName' => 'อาจารย์ ทดสอบ',
         ])->render();
 
-        $this->assertStringContainsString('พิมพ์บันทึกข้อความ S=0', $html);
+        $this->assertStringContainsString('บันทึกข้อความชี้แจง S=0', $html);
         $this->assertStringContainsString('677020018-0', $html);
         $this->assertStringContainsString(route('thesis-grades.s0-letter.student', [$report, $student]), $html);
         $this->assertStringContainsString(route('thesis-grades.s0.docx.student', [$report, $student]), $html);
+        $this->assertStringContainsString('อัปโหลด PDF', $html);
+        $this->assertStringContainsString('data-s0-file-input', $html);
+        $this->assertStringContainsString(route('thesis-grades.files.store', $report), $html);
     }
 
     #[Test]

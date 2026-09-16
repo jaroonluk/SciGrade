@@ -158,7 +158,7 @@
     }
 
     function needsS0(s) {
-        return isOverdue(s) && isS0(s);
+        return isS0(s);
     }
 
     function hasS0(s) {
@@ -246,9 +246,7 @@
         if (btnHint) {
             btnHint.classList.toggle('hidden', !showMissing);
             if (showMissing) {
-                btnHint.textContent = missing.length === 2
-                    ? 'กรุณาติ๊กยืนยันทั้ง 2 ข้อด้านบนก่อนส่งเข้าสาขา'
-                    : `กรุณาติ๊ก «${missing[0].label}» ก่อนส่งเข้าสาขา`;
+                btnHint.textContent = `กรุณาติ๊ก «${missing[0].label}» ก่อนส่งเข้าสาขา`;
             }
         }
     }
@@ -457,7 +455,7 @@
             const needed = students.filter((s) => needsS0(s) && s.id);
             const unsaved = students.filter((s) => needsS0(s) && !s.id);
             if (needed.length === 0 && unsaved.length === 0) {
-                s0SlotsEl.innerHTML = '<p class="text-xs text-[#7A4A3A]/70">ยังไม่มีนักศึกษาที่ต้องแนบหนังสือ S=0</p>';
+                s0SlotsEl.innerHTML = '<p class="text-xs text-[#7A4A3A]/70">ยังไม่มีนักศึกษาที่ได้ S=0 ที่ต้องแนบบันทึกข้อความชี้แจง</p>';
             } else {
                 s0SlotsEl.innerHTML = [
                     ...needed.map((s) => {
@@ -471,10 +469,10 @@
                                     <input type="file" accept="application/pdf" class="hidden" data-s0="${escapeHtml(s.id)}">
                                 </label>` : ''}
                             </div>
-                            <div class="mt-1 space-y-1">${attached.map(fileRow).join('') || '<p class="text-xs text-red-700">ยังไม่มีหนังสือชี้แจง</p>'}</div>
+                            <div class="mt-1 space-y-1">${attached.map(fileRow).join('') || '<p class="text-xs text-red-700">ยังไม่มีบันทึกข้อความชี้แจง</p>'}</div>
                         </div>`;
                     }),
-                    unsaved.length ? '<p class="text-xs text-amber-800">บันทึกร่างก่อน จึงแนบหนังสือ S=0 รายคนได้</p>' : '',
+                    unsaved.length ? '<p class="text-xs text-amber-800">บันทึกร่างก่อน จึงแนบบันทึกข้อความชี้แจงรายคนได้</p>' : '',
                 ].join('');
             }
         }

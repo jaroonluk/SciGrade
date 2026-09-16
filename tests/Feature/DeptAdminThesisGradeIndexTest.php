@@ -97,7 +97,7 @@ class DeptAdminThesisGradeIndexTest extends TestCase
             'years' => [2568],
         ])->render();
 
-        $this->assertStringContainsString('พิมพ์บันทึกข้อความ S=0', $html);
+        $this->assertStringContainsString('บันทึกข้อความชี้แจง S=0', $html);
         $this->assertStringContainsString(route('dept-admin.thesis-grades.s0-letter', [$report, $student]), $html);
         $this->assertStringContainsString(route('dept-admin.thesis-grades.s0.docx', [$report, $student]), $html);
     }

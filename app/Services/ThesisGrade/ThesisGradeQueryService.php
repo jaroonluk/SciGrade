@@ -112,4 +112,31 @@ class ThesisGradeQueryService
 
         return $query;
     }
+
+    /**
+     * รายการที่มีนักศึกษา S=0 — ช่องทางรับบันทึกข้อความชี้แจงของ Admin กลาง (บัณฑิตศึกษา)
+     *
+     * @param  array{term?: int, year?: int, status?: string, department_id?: int, subject_code?: string, q?: string}  $filters
+     */
+    public function facultyS0DocumentsQuery(array $filters): Builder
+    {
+        return $this->facultyQuery($filters)
+            ->whereHas('students', function (Builder $students): void {
+                $students->whereRaw('UPPER(TRIM(COALESCE(grade, ""))) = ?', ['S'])
+                    ->where(function (Builder $credits): void {
+                        $credits
+                            ->where(function (Builder $passed): void {
+                                $passed->whereNotNull('credits_passed')
+                                    ->where('credits_passed', 0);
+                            })
+                            ->orWhere(function (Builder $fallback): void {
+                                $fallback->whereNull('credits_passed')
+                                    ->where(function (Builder $progress): void {
+                                        $progress->whereNull('progress_credits')
+                                            ->orWhere('progress_credits', 0);
+                                    });
+                            });
+                    });
+            });
+    }
 }

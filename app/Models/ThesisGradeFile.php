@@ -87,7 +87,7 @@ class ThesisGradeFile extends Model
     public function typeLabel(): string
     {
         return match ($this->resolvedType()) {
-            self::TYPE_S0_LETTER => 'หนังสือชี้แจง S=0',
+            self::TYPE_S0_LETTER => 'บันทึกข้อความชี้แจง S=0',
             self::TYPE_CHAIR_SIGNED => 'ใบส่งเกรดที่ประธานหลักสูตรลงนามแล้ว',
             default => 'ใบส่งเกรดวิทยานิพนธ์ (TS)',
         };

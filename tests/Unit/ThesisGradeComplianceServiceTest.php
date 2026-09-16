@@ -33,6 +33,14 @@ class ThesisGradeComplianceServiceTest extends TestCase
     }
 
     #[Test]
+    public function any_s0_student_requires_explanatory_letter(): void
+    {
+        $this->assertTrue(ThesisGradeComplianceService::requiresS0Letter('master', 1, true, 'S', 0));
+        $this->assertTrue(ThesisGradeComplianceService::requiresS0Letter('master', 3, false, 'S', 0));
+        $this->assertFalse(ThesisGradeComplianceService::requiresS0Letter('master', 3, false, 'S', 3));
+    }
+
+    #[Test]
     public function submit_requires_ts_file_checks_s0_letter_and_defense_date(): void
     {
         $errors = (new ThesisGradeComplianceService)->errorsForSubmit(false, false, false, [
@@ -52,16 +60,16 @@ class ThesisGradeComplianceServiceTest extends TestCase
 
         $this->assertNotEmpty($errors);
         $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'ไฟล์ TS')));
-        $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว')));
+        $this->assertFalse(collect($errors)->contains(fn ($e) => str_contains($e, 'ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว')));
         $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'ไฟล์ใบส่งเกรดได้ลงนามด้วยลายมือชื่อดิจิทัลแล้ว')));
-        $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'หนังสือชี้แจง')));
+        $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'บันทึกข้อความชี้แจง')));
         $this->assertTrue(collect($errors)->contains(fn ($e) => str_contains($e, 'วันที่สอบ')));
     }
 
     #[Test]
     public function complete_submission_has_no_errors(): void
     {
-        $errors = (new ThesisGradeComplianceService)->errorsForSubmit(true, true, true, [
+        $errors = (new ThesisGradeComplianceService)->errorsForSubmit(true, false, true, [
             [
                 'student_code' => '653020001-1',
                 'student_name' => 'สมชาย',

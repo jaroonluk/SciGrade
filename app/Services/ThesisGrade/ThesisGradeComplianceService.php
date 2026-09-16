@@ -38,8 +38,8 @@ class ThesisGradeComplianceService
         ?string $grade,
         mixed $credits,
     ): bool {
-        return self::isProposalOverdue($degree, $terms, $proposalApproved)
-            && self::isS0($grade, $credits);
+        // นักศึกษาที่ได้ S=0 ต้องแนบบันทึกข้อความชี้แจงทุกกรณี
+        return self::isS0($grade, $credits);
     }
 
     public static function requiresDefenseDate(bool $completed, mixed $defenseDate): bool
@@ -82,10 +82,6 @@ class ThesisGradeComplianceService
             $errors[] = 'กรุณาอัปโหลดใบส่งเกรดวิทยานิพนธ์ที่ลงนามดิจิทัลแล้ว (ไฟล์ TS)';
         }
 
-        if (! $checkedProposal) {
-            $errors[] = 'กรุณาติ๊ก «ตรวจสอบข้อมูลนักศึกษาที่ครบกำหนดอนุมัติเค้าโครงแล้ว (ป.โท ภายใน 2 ภาค / ป.เอก ภายใน 4 ภาค)» ก่อนส่งเข้าสาขา';
-        }
-
         if (! $checkedSigned) {
             $errors[] = 'กรุณาติ๊ก «ไฟล์ใบส่งเกรดได้ลงนามด้วยลายมือชื่อดิจิทัลแล้ว» ก่อนส่งเข้าสาขา';
         }
@@ -100,7 +96,7 @@ class ThesisGradeComplianceService
                 $student['grade'] ?? null,
                 $student['progress_credits'] ?? null,
             ) && empty($student['has_s0_letter'])) {
-                $errors[] = $label.'เลยกำหนดอนุมัติเค้าโครงและผลเป็น S=0 — ต้องแนบหนังสือชี้แจง';
+                $errors[] = $label.'ได้เกรด S=0 — ต้องแนบบันทึกข้อความชี้แจง (PDF)';
             }
 
             if (self::requiresDefenseDate(
