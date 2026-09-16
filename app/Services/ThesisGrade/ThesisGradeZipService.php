@@ -33,14 +33,14 @@ class ThesisGradeZipService
         $keyed = $reports->keyBy('thesis_grade_id');
         $files = $keyed->flatMap(fn (ThesisGrade $report) => $report->completePacketFiles());
 
-        return $this->downloadFiles($files, $keyed, $downloadName, completeLayout: true);
+        return $this->downloadFiles($files, $keyed, $downloadName);
     }
 
     /**
      * @param  Collection<int, ThesisGradeFile>  $files
      * @param  Collection<int, ThesisGrade>|null  $reports
      */
-    public function downloadFiles(Collection $files, ?Collection $reports, string $downloadName, bool $completeLayout = false): BinaryFileResponse
+    public function downloadFiles(Collection $files, ?Collection $reports, string $downloadName): BinaryFileResponse
     {
         if ($files->isEmpty()) {
             throw new RuntimeException('ไม่พบไฟล์แนบตามเงื่อนไข');
@@ -74,7 +74,7 @@ class ThesisGradeZipService
             }
 
             $report = $reports?->get($file->thesis_grade_id) ?? $file->report;
-            $entry = $this->uniqueName($this->entryName($file, $report, $completeLayout), $usedNames);
+            $entry = $this->zipEntryNameFor($file, $report, $usedNames);
             $zip->addFromString($entry, $contents);
             $added++;
         }
@@ -93,28 +93,46 @@ class ThesisGradeZipService
         ])->deleteFileAfterSend(true);
     }
 
-    private function entryName(ThesisGradeFile $file, ?ThesisGrade $report, bool $completeLayout = false): string
+    /**
+     * โครงสร้าง ZIP: TS/ · S0/ · สาขา/ (ชั้นเดียวต่อประเภท)
+     * ชื่อไฟล์: TS-รหัสวิชา-section-ภาค-ปี.pdf (ชนกันในโฟลเดอร์เดียวกันเติม _1, _2, …)
+     *
+     * @param  array<string, true>  $usedNames
+     */
+    public function zipEntryNameFor(ThesisGradeFile $file, ?ThesisGrade $report, array &$usedNames = []): string
     {
-        $name = $file->original_name !== '' ? $file->original_name : basename($file->stored_path);
+        return $this->uniqueName($this->entryName($file, $report), $usedNames);
+    }
 
-        if ($completeLayout) {
-            $course = $report ? $report->displayCode().'-'.$report->paddedSection() : 'course';
-            $folder = $file->isS0Letter() ? 'S0' : 'เอกสารสมบูรณ์';
-            $source = $file->isChairSigned() ? 'จากสาขา-' : ($file->isS0Letter() ? '' : 'จากอาจารย์-');
+    private function entryName(ThesisGradeFile $file, ?ThesisGrade $report): string
+    {
+        $folder = $this->typeFolder($file);
+        $filename = $report
+            ? $report->tsFilename()
+            : $this->fallbackFilename($file);
 
-            return $course.'/'.$folder.'/'.$source.$name;
+        return $folder.'/'.$filename;
+    }
+
+    private function typeFolder(ThesisGradeFile $file): string
+    {
+        if ($file->isS0Letter()) {
+            return 'S0';
         }
 
-        $folder = $file->isS0Letter() ? 'S0' : ($file->isChairSigned() ? 'สาขา' : 'TS');
-
-        if ($report) {
-            $prefix = $report->displayCode().'-'.$report->paddedSection();
-            if (! str_starts_with(strtoupper($name), strtoupper($prefix)) && ! str_starts_with(strtoupper($name), 'TS-')) {
-                $name = $prefix.'-'.$name;
-            }
+        if ($file->isChairSigned()) {
+            return 'สาขา';
         }
 
-        return $folder.'/'.$name;
+        return 'TS';
+    }
+
+    private function fallbackFilename(ThesisGradeFile $file): string
+    {
+        $name = $file->original_name !== '' ? $file->original_name : basename((string) $file->stored_path);
+        $name = str_replace(['\\', '/'], '-', $name);
+
+        return $name !== '' ? $name : 'file.pdf';
     }
 
     /**
@@ -123,7 +141,7 @@ class ThesisGradeZipService
     private function uniqueName(string $name, array &$usedNames): string
     {
         $candidate = $name;
-        $i = 2;
+        $i = 1;
         while (isset($usedNames[$candidate])) {
             $candidate = preg_replace('/(\.[^.]+)$/', '_'.$i.'$1', $name) ?: $name.'_'.$i;
             $i++;
