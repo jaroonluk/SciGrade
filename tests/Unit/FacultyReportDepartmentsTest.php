@@ -1,0 +1,25 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Support\FacultyReportDepartments;
+use PHPUnit\Framework\TestCase;
+
+class FacultyReportDepartmentsTest extends TestCase
+{
+    public function test_excludes_requested_department_names(): void
+    {
+        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('สาขาวิชาวิทยาการข้อมูลและปัญญาประดิษฐ์'));
+        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรนิติวิทยาศาสตร์'));
+        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรวัสดุศาสตร์และนาโนเทคโนโลยี'));
+        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรวิทยาศาสตร์ชีวภาพ'));
+        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('กองบริหารงานคณะ คณะวิทยาศาสตร์'));
+    }
+
+    public function test_keeps_regular_academic_departments(): void
+    {
+        $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('สาขาวิชาชีววิทยา'));
+        $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('งานบริการการศึกษา'));
+        $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect(null));
+    }
+}

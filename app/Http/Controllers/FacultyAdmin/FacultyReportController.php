@@ -5,11 +5,11 @@ namespace App\Http\Controllers\FacultyAdmin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FacultyAdmin\FacultyReportExportRequest;
 use App\Models\TblDepartment;
-use App\Models\TblProgramQa;
 use App\Services\DeptAdmin\DepartmentReportExportService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Support\AcademicTerm;
+use App\Support\FacultyReportDepartments;
 use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -28,10 +28,7 @@ class FacultyReportController extends Controller
     {
         abort_unless(SciGradeRole::isFacultyCapable(), 403);
 
-        $departments = TblDepartment::query()
-            ->whereIn('department_id', TblProgramQa::ALLOWED_DEPARTMENT_IDS)
-            ->orderBy('department_name')
-            ->get();
+        $departments = FacultyReportDepartments::selectable();
 
         $patternsByDepartment = [];
         foreach ($departments as $dept) {
