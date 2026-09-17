@@ -34,13 +34,17 @@ class FacultyReportExportRequest extends FormRequest
      */
     public function exportFilters(): array
     {
+        $departmentId = $this->integer('department_id');
+
         return [
-            'department_ids' => FacultyReportDepartments::selectableIds(),
-            'department_id' => $this->integer('department_id'),
+            'department_ids' => [$departmentId],
+            'department_id' => $departmentId,
             'education_level' => $this->input('education_level'),
             'report_status' => $this->integer('report_status'),
             'term' => $this->integer('term') ?: null,
             'year' => $this->integer('year') ?: null,
+            // Admin กลาง: พิมพ์ตามรหัสวิชาที่ตั้งใน department-patterns โดยไม่เช็กผู้กรอก
+            'require_department_instructor' => false,
         ];
     }
 }

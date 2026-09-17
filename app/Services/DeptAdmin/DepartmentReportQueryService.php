@@ -28,6 +28,7 @@ class DepartmentReportQueryService
      *     year?: int|null,
      *     report_status?: int|null,
      *     education_level?: string|null,
+     *     require_department_instructor?: bool,
      * }  $filters
      */
     public function baseQuery(array $filters): Builder
@@ -42,10 +43,11 @@ class DepartmentReportQueryService
             ->with(['gradeStds', 'files', 'latestDeptApprovalLog.approver', 'approvalLogs'])
             ->whereHas('gradeStds');
 
-        $this->subjectFilter->applyDepartmentsExamReportsToQuery(
+        $this->applyDepartmentScope(
             $query,
             $departmentIds,
             DepartmentSubjectPattern::fromReportFilter($filters['education_level'] ?? null),
+            (bool) ($filters['require_department_instructor'] ?? true),
         );
 
         if (! empty($filters['term'])) {
@@ -109,10 +111,11 @@ class DepartmentReportQueryService
         }
 
         $query = GradeReport::query()->examReportable()->whereHas('gradeStds');
-        $this->subjectFilter->applyDepartmentsExamReportsToQuery(
+        $this->applyDepartmentScope(
             $query,
             $departmentIds,
             DepartmentSubjectPattern::fromReportFilter($filters['education_level'] ?? null),
+            (bool) ($filters['require_department_instructor'] ?? true),
         );
 
         if (! empty($filters['term'])) {
@@ -146,6 +149,28 @@ class DepartmentReportQueryService
         $this->applyEducationLevel($query, $filters['education_level'] ?? null);
 
         return $query;
+    }
+
+    /**
+     * Admin กลาง: กรองตามรหัสวิชา (patterns) อย่างเดียว
+     * Admin สาขา: patterns + ต้องเป็นอาจารย์ในสาขา/หน่วยงานที่รับผิดชอบกรอก
+     *              (ยกเว้นงานบริการการศึกษา — ใช้ patterns อย่างเดียว)
+     *
+     * @param  list<int>  $departmentIds
+     */
+    private function applyDepartmentScope(
+        Builder $query,
+        array $departmentIds,
+        ?string $educationLevel,
+        bool $requireDepartmentInstructor,
+    ): void {
+        if ($requireDepartmentInstructor) {
+            $this->subjectFilter->applyDepartmentsExamReportsToQuery($query, $departmentIds, $educationLevel);
+
+            return;
+        }
+
+        $this->subjectFilter->applyDepartmentsToQuery($query, $departmentIds, $educationLevel);
     }
 
     /**

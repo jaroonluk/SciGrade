@@ -65,6 +65,8 @@ class DepartmentReportExportRequest extends FormRequest
             'year' => $this->integer('year') ?: null,
             'created_from' => $this->input('created_from'),
             'created_to' => $this->input('created_to'),
+            // Admin สาขา: ตามรหัสวิชา + ต้องเป็นอาจารย์ในสาขา/หน่วยงานที่รับผิดชอบกรอก
+            'require_department_instructor' => true,
         ];
     }
 }

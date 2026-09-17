@@ -317,9 +317,11 @@ class DepartmentSubjectFilter
     }
 
     /**
-     * กรองใบรายงานผลการสอบ (ใบขวาง) ตามสาขา:
+     * กรองใบรายงานผลการสอบ (ใบขวาง) สำหรับ Admin สาขา:
      * - สาขาทั่วไป: รหัสวิชาตาม department-patterns และต้องมีอาจารย์ในสาขานั้นกรอก
      * - งานบริการการศึกษา: ใช้เฉพาะรหัสวิชาตาม patterns ไม่เช็กผู้กรอก
+     *
+     * Admin กลางใช้ applyDepartmentsToQuery() แทน (patterns อย่างเดียว)
      *
      * @param  list<int>  $departmentIds
      */

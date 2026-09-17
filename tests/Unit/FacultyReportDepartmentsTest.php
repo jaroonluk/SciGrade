@@ -7,19 +7,11 @@ use PHPUnit\Framework\TestCase;
 
 class FacultyReportDepartmentsTest extends TestCase
 {
-    public function test_excludes_requested_department_names(): void
+    public function test_excludes_materials_and_nanotechnology_program(): void
     {
-        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('สาขาวิชาวิทยาการข้อมูลและปัญญาประดิษฐ์'));
-        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรนิติวิทยาศาสตร์'));
         $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรวัสดุศาสตร์และนาโนเทคโนโลยี'));
-        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรวิทยาศาสตร์ชีวภาพ'));
-        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('กองบริหารงานคณะ คณะวิทยาศาสตร์'));
-    }
-
-    public function test_keeps_regular_academic_departments(): void
-    {
-        $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('สาขาวิชาชีววิทยา'));
-        $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('งานบริการการศึกษา'));
+        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('วัสดุศาสตร์และนาโนเทคโนโลยี'));
+        $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('สาขาวิชาเคมี'));
         $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect(null));
     }
 }

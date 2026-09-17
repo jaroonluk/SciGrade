@@ -7,7 +7,7 @@ use App\Models\TblProgramQa;
 use Illuminate\Support\Collection;
 
 /**
- * หน่วยงานที่แสดงในหน้ารายงานผลการสอบไล่ (Admin กลาง)
+ * หน่วยงานที่แสดงในหน้ารายงานผลการสอบไล่ (Admin กลาง /grade-reports/reports)
  */
 final class FacultyReportDepartments
 {
@@ -17,13 +17,7 @@ final class FacultyReportDepartments
      * @var list<string>
      */
     public const EXCLUDED_NAME_NEEDLES = [
-        'วิทยาการข้อมูล',
-        'ปัญญาประดิษฐ์',
-        'บัฐฐาประดิษฐ์',
-        'นิติวิทยาศาสตร์',
         'วัสดุศาสตร์และนาโนเทคโนโลยี',
-        'วิทยาศาสตร์ชีวภาพ',
-        'กองบริหารงานคณะ',
     ];
 
     public static function isExcludedFromSelect(?string $departmentName): bool
@@ -60,8 +54,8 @@ final class FacultyReportDepartments
     public static function selectableIds(): array
     {
         return self::selectable()
-            ->map(fn (TblDepartment $dept) => (int) $dept->department_id)
-            ->filter(fn (int $id) => $id > 0)
+            ->pluck('department_id')
+            ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
     }

@@ -12,7 +12,7 @@
 @section('content')
 <div class="max-w-4xl mx-auto">
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">แบบรายงานผลการสอบไล่สำหรับเจ้าหน้าที่</h2>
-    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชา ภาค/ปีการศึกษา และสถานะ — ระบบจะพิมพ์รายงานตามรูปแบบเดิมโดยไม่ต้องกรองช่วงวันที่</p>
+    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชา ภาค/ปีการศึกษา และสถานะ — ระบบพิมพ์ตามรหัสวิชาที่ตั้งในหน้าเงื่อนไขรายวิชาของสาขานั้น โดยไม่จำกัดว่าใครเป็นผู้กรอก</p>
 
     @error('export')
         <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
