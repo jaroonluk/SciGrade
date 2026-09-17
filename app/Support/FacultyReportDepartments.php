@@ -18,6 +18,12 @@ final class FacultyReportDepartments
      */
     public const EXCLUDED_NAME_NEEDLES = [
         'วัสดุศาสตร์และนาโนเทคโนโลยี',
+        'วิสดุศาสตร์และนาโนเทคโนโลยี', // ชื่อสะกดผิดที่อาจมีในฐานข้อมูล
+        'กองบริหารงานคณะ',
+        'วิทยาการข้อมูล',
+        'ปัญญาประดิษฐ์',
+        'นิติวิทยาศาสตร์',
+        'วิทยาศาสตร์ชีวภาพ',
     ];
 
     public static function isExcludedFromSelect(?string $departmentName): bool
