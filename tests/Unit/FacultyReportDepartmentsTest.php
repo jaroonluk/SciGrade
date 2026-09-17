@@ -13,7 +13,8 @@ class FacultyReportDepartmentsTest extends TestCase
         $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรวัสดุศาสตร์ และ นาโนเทคโนโลยี'));
         $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('หลักสูตรวิสดุศาสตร์และนาโนเทคโนโลยี'));
         $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('วัสดุศาสตร์ นาโนฯ'));
-        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('อะไรก็ได้', 35));
+        $this->assertTrue(FacultyReportDepartments::isExcludedFromSelect('อะไรก็ได้', 32));
+        $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('อะไรก็ได้', 35));
 
         $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('สาขาวิชาเคมี'));
         $this->assertFalse(FacultyReportDepartments::isExcludedFromSelect('งานบริการการศึกษา'));

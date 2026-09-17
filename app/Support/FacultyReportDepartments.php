@@ -28,12 +28,12 @@ final class FacultyReportDepartments
 
     /**
      * รหัสหน่วยงานที่ตัดออกแน่นอน (สำรองเมื่อชื่อใน DB ไม่ตรงข้อความ)
-     * 35 = หลักสูตรวัสดุศาสตร์และนาโนเทคโนโลยี (รหัสวิชา SC027/SC028)
+     * 32 = หลักสูตรวัสดุศาสตร์และนาโนเทคโนโลยี
      *
      * @var list<int>
      */
     public const EXCLUDED_DEPARTMENT_IDS = [
-        35,
+        32,
     ];
 
     public static function isExcludedFromSelect(?string $departmentName, int|string|null $departmentId = null): bool
