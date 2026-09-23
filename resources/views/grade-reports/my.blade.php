@@ -105,7 +105,7 @@
         <div class="text-center py-12 bg-[#FFFBF7] rounded-xl border border-dashed border-amber-300">
             <i data-lucide="inbox" class="w-12 h-12 mx-auto text-amber-400 mb-3"></i>
             <p class="text-[#5C2E1F] font-medium">ยังไม่มีรายวิชาในภาคการศึกษานี้</p>
-            <p class="text-sm text-gray-500 mt-1">กด «อัปโหลดไฟล์จากสำนักทะเบียน» จากหน้าหลักเพื่อเริ่มสร้างรายงาน</p>
+            <p class="text-sm text-gray-500 mt-1">กด «อัปโหลดไฟล์จากสำนักทะเบียน (มข.11)» จากหน้าหลักเพื่อเริ่มสร้างรายงาน</p>
         </div>
     @else
         <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">

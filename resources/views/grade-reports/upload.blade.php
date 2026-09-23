@@ -65,7 +65,7 @@
                 <i data-lucide="files" class="w-5 h-5"></i>
             </div>
             <div>
-                <h2 class="text-lg font-bold text-[#5C2E1F]">อัปโหลดไฟล์จากสำนักทะเบียน</h2>
+                <h2 class="text-lg font-bold text-[#5C2E1F]">อัปโหลดไฟล์จากสำนักทะเบียน (มข.11)</h2>
                 <p class="text-sm text-[#7A4A3A]/80 mt-1 leading-relaxed">
                     เลือกภาค/ปีการศึกษา แล้วเพิ่มไฟล์ PDF ได้เรื่อยๆ (สูงสุด {{ $maxFiles }} ไฟล์)
                 </p>

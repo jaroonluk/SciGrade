@@ -491,7 +491,7 @@
                                 <i data-lucide="upload-cloud" class="w-7 h-7"></i>
                             </div>
                             <div>
-                                <p class="text-base font-bold text-[#134e4a]">อัปโหลดไฟล์จากสำนักทะเบียน</p>
+                                <p class="text-base font-bold text-[#134e4a]">อัปโหลดไฟล์จากสำนักทะเบียน (มข.11)</p>
                                 <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
                                     นำเข้าไฟล์รายงานผลสอบ แล้วตรวจสอบ/แก้ไขก่อนบันทึก
                                 </p>
