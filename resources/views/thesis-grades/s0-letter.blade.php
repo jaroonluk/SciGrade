@@ -18,11 +18,12 @@
         }
         .toolbar .primary { background: #a16207; border-color: #a16207; color: #fff; }
         .sheet {
-            width: 210mm; min-height: 297mm; margin: 16px auto 32px; padding: 18mm 25.4mm 18mm;
+            position: relative;
+            width: 210mm; height: 297mm; min-height: 297mm; margin: 16px auto 32px;
+            padding: 18mm 25.4mm 22mm;
             background: #fff; box-shadow: 0 8px 24px rgba(28, 25, 23, .08); box-sizing: border-box;
-            display: flex; flex-direction: column;
         }
-        .sheet-body { flex: 1 1 auto; }
+        .sheet-body { min-height: 0; }
         .title-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
         .title-row img { width: 41px; height: 71px; object-fit: contain; }
         .title-row h1 { font-size: 22pt; font-weight: 400; margin: 0; letter-spacing: .02em; }
@@ -34,17 +35,36 @@
         .sign { text-align: center; line-height: 1.5; }
         .sign .gap { height: 36px; }
         .page-footer {
-            margin-top: 28px; padding-top: 8px;
-            flex: 0 0 auto;
+            position: absolute;
+            left: 25.4mm;
+            right: 25.4mm;
+            bottom: 12mm;
+            margin: 0;
+            padding: 0;
         }
         .page-footer img {
-            display: block; width: 100%; max-width: 160mm; height: auto; margin: 0 auto;
+            display: block;
+            width: 100%;
+            max-height: 14mm;
+            height: auto;
+            object-fit: contain;
+            object-position: center bottom;
+            margin: 0 auto;
         }
         @media print {
             body { background: #fff; }
             .toolbar { display: none !important; }
-            .sheet { box-shadow: none; margin: 0; width: auto; min-height: 277mm; padding: 0; }
-            .page-footer { margin-top: auto; padding-top: 12px; }
+            .sheet {
+                box-shadow: none; margin: 0; width: 210mm; height: 297mm; min-height: 297mm;
+                padding: 18mm 25.4mm 22mm;
+                page-break-after: avoid;
+            }
+            .page-footer {
+                position: absolute;
+                left: 25.4mm;
+                right: 25.4mm;
+                bottom: 12mm;
+            }
         }
     </style>
 </head>

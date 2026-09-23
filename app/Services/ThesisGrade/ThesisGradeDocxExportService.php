@@ -108,9 +108,10 @@ class ThesisGradeDocxExportService
 
         if (is_file($fields['footer_path'])) {
             $footer = $section->addFooter();
+            // รูปถูกครอปเหลือแถบบนเนอร์แล้ว — กว้างเต็มเนื้อหา ประมาณ 160mm
             $footer->addImage($fields['footer_path'], [
                 'width' => 454,
-                'height' => 256,
+                'height' => 41,
                 'alignment' => Jc::CENTER,
             ]);
         }

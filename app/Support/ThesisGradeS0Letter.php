@@ -90,7 +90,11 @@ class ThesisGradeS0Letter
             'emblem_path' => public_path(self::EMBLEM_RELATIVE),
             'emblem_url' => asset(self::EMBLEM_RELATIVE),
             'footer_path' => public_path(self::FOOTER_RELATIVE),
-            'footer_url' => asset(self::FOOTER_RELATIVE),
+            'footer_url' => asset(self::FOOTER_RELATIVE).(
+                is_file(public_path(self::FOOTER_RELATIVE))
+                    ? '?v='.filemtime(public_path(self::FOOTER_RELATIVE))
+                    : ''
+            ),
         ];
 
         $fields['body'] = self::bodyParagraph($fields);
