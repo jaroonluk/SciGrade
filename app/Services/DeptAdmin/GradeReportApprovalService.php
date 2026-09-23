@@ -25,11 +25,11 @@ class GradeReportApprovalService
             }
 
             if (in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
-                throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว');
+                throw new InvalidArgumentException('รายการผ่านที่ประชุมสาขาแล้ว');
             }
 
-            if ($from !== GradeApprovalStatus::Saved->value) {
-                throw new InvalidArgumentException('รายการนี้ไม่อยู่ในสถานะที่สามารถอนุมัติได้');
+            if ($from !== GradeApprovalStatus::DepartmentMeetingQueued->value) {
+                throw new InvalidArgumentException('กรุณานำเข้าที่ประชุมสาขาก่อน แล้วจึงกดผ่านที่ประชุมสาขา');
             }
 
             $report->update([
@@ -38,6 +38,48 @@ class GradeReportApprovalService
             ]);
 
             $this->writeLog($report, 'department_approved', $from, GradeApprovalStatus::DepartmentApproved->value, $approverUsername, $remark);
+
+            return $report->fresh(['gradeStds', 'files', 'latestDeptApprovalLog.approver']);
+        });
+    }
+
+    /**
+     * นำเข้ารายวิชาเข้าที่ประชุมสาขา (สถานะกลางก่อนผ่านมติ)
+     */
+    public function queueForMeeting(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from === GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
+            }
+
+            if (in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
+                throw new InvalidArgumentException('รายการผ่านที่ประชุมสาขาแล้ว');
+            }
+
+            if ($from === GradeApprovalStatus::DepartmentMeetingQueued->value) {
+                throw new InvalidArgumentException('รายการนี้อยู่ในสถานะนำเข้าที่ประชุมสาขาแล้ว');
+            }
+
+            if ($from !== GradeApprovalStatus::Saved->value) {
+                throw new InvalidArgumentException('รายการนี้ไม่อยู่ในสถานะที่สามารถนำเข้าที่ประชุมสาขาได้');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::DepartmentMeetingQueued->value,
+            ]);
+
+            $this->writeLog(
+                $report,
+                'department_meeting_queued',
+                $from,
+                GradeApprovalStatus::DepartmentMeetingQueued->value,
+                $approverUsername,
+                $remark,
+            );
 
             return $report->fresh(['gradeStds', 'files', 'latestDeptApprovalLog.approver']);
         });
@@ -54,10 +96,10 @@ class GradeReportApprovalService
             }
 
             if (in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
-                throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว ไม่สามารถเปลี่ยนเป็นไม่ผ่านได้');
+                throw new InvalidArgumentException('รายการผ่านที่ประชุมสาขาแล้ว ไม่สามารถเปลี่ยนเป็นไม่ผ่านได้');
             }
 
-            if ($from !== GradeApprovalStatus::Saved->value) {
+            if (! in_array($from, GradeApprovalStatus::departmentPreMeetingValues(), true)) {
                 throw new InvalidArgumentException('รายการนี้ไม่อยู่ในสถานะที่สามารถไม่อนุมัติได้');
             }
 
@@ -80,11 +122,11 @@ class GradeReportApprovalService
             $from = (int) $report->approv;
 
             if (in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
-                throw new InvalidArgumentException('รายการผ่านการรับรองผลสอบแล้ว ไม่สามารถส่งกลับให้แก้ไขได้');
+                throw new InvalidArgumentException('รายการผ่านที่ประชุมสาขาแล้ว ไม่สามารถส่งกลับให้แก้ไขได้');
             }
 
-            if ($from !== GradeApprovalStatus::Saved->value) {
-                throw new InvalidArgumentException('สามารถส่งกลับให้อาจารย์แก้ไขได้เฉพาะรายการที่อาจารย์ส่งแล้วและยังไม่ผ่านการรับรองจากสาขา');
+            if (! in_array($from, GradeApprovalStatus::departmentPreMeetingValues(), true)) {
+                throw new InvalidArgumentException('สามารถส่งกลับให้อาจารย์แก้ไขได้เฉพาะรายการที่ยังไม่ผ่านที่ประชุมสาขา');
             }
 
             if ($report->awaitingDeptResubmit()) {
@@ -123,8 +165,11 @@ class GradeReportApprovalService
                 throw new InvalidArgumentException('รายการถูกตรวจเอกสารแล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
             }
 
-            if ($from !== GradeApprovalStatus::DepartmentApproved->value) {
-                throw new InvalidArgumentException('สามารถเปลี่ยนกลับเป็น “ส่งแล้ว” ได้เฉพาะรายการที่ผ่านสาขาฯ แล้วเท่านั้น');
+            if (! in_array($from, [
+                GradeApprovalStatus::DepartmentApproved->value,
+                GradeApprovalStatus::DepartmentMeetingQueued->value,
+            ], true)) {
+                throw new InvalidArgumentException('สามารถเปลี่ยนกลับเป็น “บันทึกแล้ว” ได้เฉพาะรายการที่นำเข้าหรือผ่านที่ประชุมสาขาแล้วเท่านั้น');
             }
 
             $report->update([

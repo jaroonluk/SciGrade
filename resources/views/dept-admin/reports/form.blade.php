@@ -129,11 +129,11 @@
             <p class="text-sm font-medium text-[#5C2E1F] mb-2">รูปแบบรายงาน *</p>
             <label class="flex items-center gap-2 text-sm mb-2">
                 <input type="radio" name="report_status" value="0" @checked(old('report_status') === '0') class="accent-amber-700">
-                ยังไม่ผ่านการรับรองผลสอบ (ที่ประชุมสาขาวิชา)
+                ยังไม่ผ่านที่ประชุมสาขา
             </label>
             <label class="flex items-center gap-2 text-sm">
                 <input type="radio" name="report_status" value="1" @checked(old('report_status', '1') === '1') class="accent-amber-700">
-                ผ่านการรับรองผลสอบ (ที่ประชุมสาขาวิชา)
+                ผ่านที่ประชุมสาขา
             </label>
         </div>
 

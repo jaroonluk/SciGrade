@@ -36,14 +36,16 @@ class FacultyCheckedStatusTest extends TestCase
     }
 
     #[Test]
-    public function it_allows_dept_revert_only_while_department_approved(): void
+    public function it_allows_dept_revert_while_meeting_queued_or_approved(): void
     {
         $saved = new GradeReport(['approv' => GradeApprovalStatus::Saved->value]);
+        $queued = new GradeReport(['approv' => GradeApprovalStatus::DepartmentMeetingQueued->value]);
         $deptApproved = new GradeReport(['approv' => GradeApprovalStatus::DepartmentApproved->value]);
         $checked = new GradeReport(['approv' => GradeApprovalStatus::FacultyChecked->value]);
         $central = new GradeReport(['approv' => GradeApprovalStatus::CentralApproved->value]);
 
         $this->assertFalse($saved->canDeptRevertToSaved());
+        $this->assertTrue($queued->canDeptRevertToSaved());
         $this->assertTrue($deptApproved->canDeptRevertToSaved());
         $this->assertFalse($checked->canDeptRevertToSaved());
         $this->assertFalse($central->canDeptRevertToSaved());
@@ -53,11 +55,13 @@ class FacultyCheckedStatusTest extends TestCase
     public function it_allows_dept_registrar_attach_before_faculty_takes_over(): void
     {
         $saved = new GradeReport(['approv' => GradeApprovalStatus::Saved->value]);
+        $queued = new GradeReport(['approv' => GradeApprovalStatus::DepartmentMeetingQueued->value]);
         $deptApproved = new GradeReport(['approv' => GradeApprovalStatus::DepartmentApproved->value]);
         $checked = new GradeReport(['approv' => GradeApprovalStatus::FacultyChecked->value]);
         $rejected = new GradeReport(['approv' => GradeApprovalStatus::DepartmentRejected->value]);
 
         $this->assertTrue($saved->canDeptAttachRegistrar());
+        $this->assertTrue($queued->canDeptAttachRegistrar());
         $this->assertTrue($deptApproved->canDeptAttachRegistrar());
         $this->assertFalse($checked->canDeptAttachRegistrar());
         $this->assertFalse($rejected->canDeptAttachRegistrar());
@@ -82,13 +86,26 @@ class FacultyCheckedStatusTest extends TestCase
         ]));
         $this->assertSame('ส่งการแก้ไขแล้ว — รอสาขา', $resubmitted->instructorTrackStatusLabel());
 
+        $queued = new GradeReport(['approv' => 4]);
+        $this->assertSame('สาขานำเข้าที่ประชุมแล้ว — รอผลที่ประชุม', $queued->instructorTrackStatusLabel());
+        $this->assertSame('นำเข้าที่ประชุมสาขา', $queued->workflowStatusLabel());
+
         $dept = new GradeReport(['approv' => 1]);
-        $this->assertSame('สาขาอนุมัติแล้ว — รอคณะ', $dept->instructorTrackStatusLabel());
+        $this->assertSame('ผ่านที่ประชุมสาขาแล้ว — รอคณะ', $dept->instructorTrackStatusLabel());
+        $this->assertSame('ผ่านที่ประชุมสาขา', $dept->workflowStatusLabel());
 
         $checked = new GradeReport(['approv' => 3]);
-        $this->assertSame('สาขาอนุมัติแล้ว — รอคณะ', $checked->instructorTrackStatusLabel());
+        $this->assertSame('ผ่านที่ประชุมสาขาแล้ว — รอคณะ', $checked->instructorTrackStatusLabel());
 
         $done = new GradeReport(['approv' => 2]);
         $this->assertSame('คณะอนุมัติแล้ว — เสร็จสิ้น', $done->instructorTrackStatusLabel());
+    }
+
+    #[Test]
+    public function it_labels_department_meeting_statuses(): void
+    {
+        $this->assertSame('นำเข้าที่ประชุมสาขา', GradeApprovalStatus::DepartmentMeetingQueued->shortLabel());
+        $this->assertSame('ผ่านที่ประชุมสาขา', GradeApprovalStatus::DepartmentApproved->shortLabel());
+        $this->assertSame([0, 4], GradeApprovalStatus::departmentPreMeetingValues());
     }
 }

@@ -8,13 +8,16 @@ enum GradeApprovalStatus: int
     case DepartmentApproved = 1;
     case CentralApproved = 2;
     case FacultyChecked = 3;
+    /** นำเข้าที่ประชุมสาขา — ยังไม่ผ่านมติที่ประชุม */
+    case DepartmentMeetingQueued = 4;
     case DepartmentRejected = -1;
 
     public function label(): string
     {
         return match ($this) {
             self::Saved => 'บันทึกแล้ว / รออนุมัติ',
-            self::DepartmentApproved => 'สาขาอนุมัติ',
+            self::DepartmentMeetingQueued => 'นำเข้าที่ประชุมสาขา',
+            self::DepartmentApproved => 'ผ่านที่ประชุมสาขา',
             self::FacultyChecked => 'ตรวจแล้ว — รอกรรมการคณะฯ',
             self::CentralApproved => 'คณะอนุมัติ',
             self::DepartmentRejected => 'ยังไม่ผ่านการรับรองผลสอบ',
@@ -25,7 +28,8 @@ enum GradeApprovalStatus: int
     {
         return match ($this) {
             self::Saved => 'บันทึกแล้ว',
-            self::DepartmentApproved => 'สาขาอนุมัติ',
+            self::DepartmentMeetingQueued => 'นำเข้าที่ประชุมสาขา',
+            self::DepartmentApproved => 'ผ่านที่ประชุมสาขา',
             self::FacultyChecked => 'ตรวจแล้ว',
             self::CentralApproved => 'คณะอนุมัติ',
             self::DepartmentRejected => 'ส่งกลับแก้ไข',
@@ -33,6 +37,8 @@ enum GradeApprovalStatus: int
     }
 
     /**
+     * สถานะที่ Admin กลางตรวจ/อนุมัติได้ (ต้องผ่านที่ประชุมสาขาแล้ว)
+     *
      * @return list<int>
      */
     public static function facultyReviewableValues(): array
@@ -40,6 +46,19 @@ enum GradeApprovalStatus: int
         return [
             self::DepartmentApproved->value,
             self::FacultyChecked->value,
+        ];
+    }
+
+    /**
+     * สถานะฝั่งสาขาก่อนผ่านมติที่ประชุม (ยังส่งกลับแก้ไขได้)
+     *
+     * @return list<int>
+     */
+    public static function departmentPreMeetingValues(): array
+    {
+        return [
+            self::Saved->value,
+            self::DepartmentMeetingQueued->value,
         ];
     }
 

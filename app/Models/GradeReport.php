@@ -193,7 +193,13 @@ class GradeReport extends Model
     public function latestDeptApprovalLog(): HasOne
     {
         return $this->hasOne(GradeReportApprovalLog::class, 'grade_id', 'grade_id')
-            ->whereIn('action', ['department_approved', 'department_rejected', 'department_reset', 'department_send_back'])
+            ->whereIn('action', [
+                'department_meeting_queued',
+                'department_approved',
+                'department_rejected',
+                'department_reset',
+                'department_send_back',
+            ])
             ->latestOfMany('log_id');
     }
 
@@ -207,7 +213,8 @@ class GradeReport extends Model
     public function statusLabel(): string
     {
         return match ((int) $this->approv) {
-            1 => 'ผ่านที่ประชุมกรรมการสาขาวิชา',
+            4 => 'นำเข้าที่ประชุมสาขา',
+            1 => 'ผ่านที่ประชุมสาขา',
             3 => 'ตรวจแล้ว — รอกรรมการคณะฯ',
             2 => 'ผ่านที่ประชุมกรรมการคณะ',
             -1 => 'ส่งกลับแก้ไข',
@@ -227,7 +234,8 @@ class GradeReport extends Model
         }
 
         return match ((int) $this->approv) {
-            1 => 'สาขาอนุมัติ',
+            4 => 'นำเข้าที่ประชุมสาขา',
+            1 => 'ผ่านที่ประชุมสาขา',
             3 => 'ตรวจแล้ว',
             2 => 'คณะอนุมัติ',
             -1 => 'ส่งกลับแก้ไข',
@@ -248,7 +256,8 @@ class GradeReport extends Model
         }
 
         return match ($approv) {
-            1, 3 => 'สาขาอนุมัติแล้ว — รอคณะ',
+            4 => 'สาขานำเข้าที่ประชุมแล้ว — รอผลที่ประชุม',
+            1, 3 => 'ผ่านที่ประชุมสาขาแล้ว — รอคณะ',
             2 => 'คณะอนุมัติแล้ว — เสร็จสิ้น',
             default => 'ส่งแล้ว — รอสาขาตรวจสอบ',
         };
@@ -257,6 +266,7 @@ class GradeReport extends Model
     public function instructorTrackStatusClass(): string
     {
         return match ((int) $this->approv) {
+            4 => 'status-checked',
             1, 3 => 'status-dept',
             2 => 'status-approved',
             -1 => 'status-rejected',
@@ -267,7 +277,8 @@ class GradeReport extends Model
     public function approvalResultLabel(): string
     {
         return match ((int) $this->approv) {
-            1 => 'ผ่านการรับรองผลสอบ',
+            4 => 'นำเข้าที่ประชุมสาขา',
+            1 => 'ผ่านที่ประชุมสาขา',
             3 => 'ตรวจแล้ว — รอกรรมการคณะฯ',
             2 => 'ผ่านการรับรองผลสอบ (คณะ)',
             -1 => 'ยังไม่ผ่านการรับรองผลสอบ',
@@ -278,6 +289,7 @@ class GradeReport extends Model
     public function approvalStep(): int
     {
         return match ((int) $this->approv) {
+            4 => 0,
             1, 3 => 1,
             2 => 2,
             default => 0,
@@ -316,13 +328,17 @@ class GradeReport extends Model
 
     public function canDeptRevertToSaved(): bool
     {
-        return (int) $this->approv === GradeApprovalStatus::DepartmentApproved->value;
+        return in_array((int) $this->approv, [
+            GradeApprovalStatus::DepartmentApproved->value,
+            GradeApprovalStatus::DepartmentMeetingQueued->value,
+        ], true);
     }
 
     public function canDeptAttachRegistrar(): bool
     {
         return in_array((int) $this->approv, [
             GradeApprovalStatus::Saved->value,
+            GradeApprovalStatus::DepartmentMeetingQueued->value,
             GradeApprovalStatus::DepartmentApproved->value,
         ], true);
     }
@@ -516,6 +532,7 @@ class GradeReport extends Model
     private function approvalLogActionLabel(string $action): string
     {
         return match ($action) {
+            'department_meeting_queued' => 'นำเข้าที่ประชุมสาขา',
             'department_approved', 'central_approved' => 'อนุมัติ',
             'central_checked' => 'ตรวจแล้ว',
             'department_rejected', 'central_rejected' => 'ไม่อนุมัติ',

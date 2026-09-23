@@ -86,6 +86,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/reviews/registrar-files', [GradeReportReviewController::class, 'uploadRegistrarFiles'])->name('reviews.registrar-files.store');
         Route::delete('/reviews/{gradeReport}/registrar-files/{file}', [GradeReportReviewController::class, 'destroyRegistrarFile'])->name('reviews.registrar-files.destroy');
         Route::post('/reviews/{gradeReport}/approve', [GradeReportReviewController::class, 'approve'])->name('reviews.approve');
+        Route::post('/reviews/{gradeReport}/queue-meeting', [GradeReportReviewController::class, 'queueMeeting'])->name('reviews.queue-meeting');
         Route::post('/reviews/{gradeReport}/reject', [GradeReportReviewController::class, 'reject'])->name('reviews.reject');
         Route::post('/reviews/{gradeReport}/send-back', [GradeReportReviewController::class, 'sendBack'])->name('reviews.send-back');
         Route::post('/reviews/{gradeReport}/revert', [GradeReportReviewController::class, 'revert'])->name('reviews.revert');

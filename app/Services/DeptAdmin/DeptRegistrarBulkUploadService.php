@@ -276,7 +276,7 @@ class DeptRegistrarBulkUploadService
         }
 
         if ($status === GradeApprovalStatus::DepartmentRejected->value) {
-            return 'รายวิชาถูกส่งกลับแก้ไข ไม่สามารถอัปโหลดใบ REG จากหน้านี้';
+            return 'รายวิชาถูกส่งกลับแก้ไข ไม่สามารถอัปโหลดใบ มข.11 จากหน้านี้';
         }
 
         return 'ไม่สามารถอัปโหลดได้ในสถานะนี้';

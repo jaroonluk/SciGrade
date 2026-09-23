@@ -66,7 +66,8 @@
                 <select name="status" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">ทุกสถานะ</option>
                     <option value="0" @selected(($filters['status'] ?? '') === '0' || ($filters['status'] ?? null) === 0)>บันทึกแล้ว</option>
-                    <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>สาขาอนุมัติ</option>
+                    <option value="4" @selected(($filters['status'] ?? '') === '4' || ($filters['status'] ?? null) === 4)>นำเข้าที่ประชุมสาขา</option>
+                    <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>ผ่านที่ประชุมสาขา</option>
                     <option value="3" @selected(($filters['status'] ?? '') === '3' || ($filters['status'] ?? null) === 3)>ตรวจแล้ว</option>
                     <option value="2" @selected(($filters['status'] ?? '') === '2' || ($filters['status'] ?? null) === 2)>คณะอนุมัติ</option>
                     <option value="-1" @selected(($filters['status'] ?? '') === '-1' || ($filters['status'] ?? null) === -1)>ส่งกลับแก้ไข</option>
@@ -97,6 +98,182 @@
         </form>
     </div>
 
+    @error('approval')
+        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
+    @enderror
+    @error('download')
+        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
+    @enderror
+
+    <form id="download-files-form" method="POST" action="{{ route('dept-admin.reviews.files.download') }}" class="form-section rounded-xl p-4 space-y-3">
+        @csrf
+        <input type="hidden" name="scope" id="download-scope" value="selected">
+        @foreach ($filters as $key => $value)
+            @if ($key !== 'department_ids' && $value !== null && $value !== '')
+                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+            @endif
+        @endforeach
+        <div class="flex flex-wrap items-end gap-3 justify-between">
+            <div>
+                <p class="text-sm font-semibold text-[#5C2E1F]">ดาวน์โหลดไฟล์แนบ</p>
+                <p class="text-xs text-[#7A4A3A]/80 mt-0.5">
+                    แยกเลือกไฟล์ของอาจารย์ หรือ มข.11 ที่สาขาอัปโหลดได้ —
+                    มข.11 ของอาจารย์: <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม.pdf</code>
+                    · มข.11 ของสาขา: <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม-จำนวนนักศึกษา.pdf</code>
+                </p>
+            </div>
+            <div class="flex flex-wrap items-end gap-2">
+                <div>
+                    <label class="block text-xs text-[#7A4A3A] mb-1">ประเภทไฟล์</label>
+                    <select name="type" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
+                        <option value="all">ทั้งหมด</option>
+                        <option value="exam_report">แบบรายงานผลการสอบไล่ (อาจารย์)</option>
+                        <option value="registrar_instructor">มข.11 ของอาจารย์</option>
+                        <option value="registrar_dept">มข.11 ของสาขา</option>
+                        <option value="registrar">มข.11 ทั้งหมด (อาจารย์+สาขา)</option>
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50"
+                    onclick="document.getElementById('download-scope').value='selected'">
+                    ดาวน์โหลดที่เลือก
+                </button>
+                <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]"
+                    onclick="document.getElementById('download-scope').value='all'">
+                    ดาวน์โหลดทั้งหมด (ตามตัวกรอง)
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
+        <table class="w-full text-sm min-w-[1040px]">
+            <thead class="bg-amber-50">
+                <tr>
+                    <th class="px-3 py-2 text-center w-10">
+                        <input type="checkbox" id="select-all-download" class="rounded border-amber-400" title="เลือกทั้งหมดในหน้านี้">
+                    </th>
+                    <th class="px-3 py-2 text-left">รหัสวิชา</th>
+                    <th class="px-3 py-2 text-left">ชื่อวิชา</th>
+                    <th class="px-3 py-2 text-center">วันที่กรอก</th>
+                    <th class="px-3 py-2 text-left">ไฟล์แนบ</th>
+                    <th class="px-3 py-2 text-center">สถานะ</th>
+                    <th class="px-3 py-2 text-center">ทำรายการ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($reports as $report)
+                    @php
+                        $approv = (int) $report->approv;
+                        $isSaved = $approv === 0;
+                        $isMeetingQueued = $approv === \App\Enums\GradeApprovalStatus::DepartmentMeetingQueued->value;
+                        $isDeptResubmit = $isSaved && $report->awaitingDeptResubmit();
+                        $canQueueMeeting = $isSaved;
+                        $canPassMeeting = $isMeetingQueued;
+                        $canSendBack = ($isSaved || $isMeetingQueued) && ! $isDeptResubmit;
+                        $badge = match ($approv) {
+                            4 => 'status-checked',
+                            1 => 'status-dept',
+                            3 => 'status-checked',
+                            2 => 'status-approved',
+                            -1 => 'status-rejected',
+                            default => 'status-pending',
+                        };
+                    @endphp
+                    <tr class="border-t border-amber-100 hover:bg-amber-50/40">
+                        <td class="px-3 py-2 text-center">
+                            <input type="checkbox" name="grade_ids[]" value="{{ $report->grade_id }}"
+                                form="download-files-form" class="row-download-select rounded border-amber-400">
+                        </td>
+                        <td class="px-3 py-2 font-medium text-[#5C2E1F]">{{ $report->subject_code }}</td>
+                        <td class="px-3 py-2">
+                            <div>{{ $report->subject }}</div>
+                            <div class="text-xs text-gray-500">{{ $report->teacher }}</div>
+                        </td>
+                        <td class="px-3 py-2 text-center whitespace-nowrap">{{ \App\Support\ThaiDateTime::formatDate($report->created) }}</td>
+                        <td class="px-3 py-2">
+                            @include('partials.grade-report-files-admin', [
+                                'report' => $report,
+                                'allowDeptRegDelete' => true,
+                            ])
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            <span class="inline-block px-2 py-1 rounded text-xs font-semibold {{ $badge }}">
+                                {{ $report->workflowStatusLabel() }}
+                            </span>
+                            @if ($report->latestDeptApprovalLog)
+                                <div class="text-[10px] text-gray-500 mt-1">
+                                    {{ $report->latestDeptApprovalLog->approver?->displayName() }}
+                                    {{ $report->latestDeptApprovalLog->created_at ? \App\Support\ThaiDateTime::formatDateTime($report->latestDeptApprovalLog->created_at) : '' }}
+                                </div>
+                            @endif
+                        </td>
+                        <td class="px-3 py-2">
+                            <div class="flex flex-wrap justify-center gap-2">
+                                @if ($canQueueMeeting)
+                                    <form method="POST" action="{{ route('dept-admin.reviews.queue-meeting', $report) }}" class="inline">
+                                        @csrf
+                                        <button type="submit" class="px-3 py-1.5 bg-sky-600 text-white rounded text-xs font-medium hover:bg-sky-700">
+                                            {{ $isDeptResubmit ? 'ส่งรายงานอีกครั้ง · นำเข้าที่ประชุมสาขา' : 'นำเข้าที่ประชุมสาขา' }}
+                                        </button>
+                                    </form>
+                                @endif
+                                @if ($canPassMeeting)
+                                    <form method="POST" action="{{ route('dept-admin.reviews.approve', $report) }}" class="inline">
+                                        @csrf
+                                        <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
+                                            ผ่านที่ประชุมสาขา
+                                        </button>
+                                    </form>
+                                @endif
+                                @if ($canSendBack)
+                                    <button type="button" class="px-3 py-1.5 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 btn-send-back"
+                                        data-action="{{ route('dept-admin.reviews.send-back', $report) }}"
+                                        data-subject="{{ $report->subject_code }}">
+                                        ส่งกลับให้แก้ไข
+                                    </button>
+                                @endif
+                                @if (! $canQueueMeeting && ! $canPassMeeting && ! $canSendBack)
+                                    <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
+                                       class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
+                                    @if ($report->canDeptRevertToSaved())
+                                        <form method="POST" action="{{ route('dept-admin.reviews.revert', $report) }}" class="inline">
+                                            @csrf
+                                            <button type="submit" class="px-3 py-1.5 border border-amber-400 text-amber-900 rounded text-xs font-medium hover:bg-amber-50">
+                                                กลับเป็นบันทึกแล้ว
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if ($approv === -1)
+                                        <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
+                                    @elseif (in_array($approv, [1, 2, 3, 4], true))
+                                        <span class="text-xs text-gray-500 w-full text-center">{{ $report->approvalResultLabel() }}</span>
+                                    @endif
+                                @elseif ($canPassMeeting || $canQueueMeeting)
+                                    <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
+                                       class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
+                                    @if ($report->canDeptRevertToSaved())
+                                        <form method="POST" action="{{ route('dept-admin.reviews.revert', $report) }}" class="inline">
+                                            @csrf
+                                            <button type="submit" class="px-3 py-1.5 border border-amber-400 text-amber-900 rounded text-xs font-medium hover:bg-amber-50">
+                                                กลับเป็นบันทึกแล้ว
+                                            </button>
+                                        </form>
+                                    @endif
+                                @endif
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="7" class="px-3 py-10 text-center text-gray-500">ไม่พบรายการตามเงื่อนไข</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div>{{ $reports->links() }}</div>
+
     @php
         $uploadTermLabel = match ((int) ($filters['term'] ?? 1)) {
             1 => 'ภาคต้น',
@@ -108,14 +285,14 @@
         data-preview-url="{{ route('dept-admin.reviews.registrar-files.preview') }}"
         data-upload-url="{{ route('dept-admin.reviews.registrar-files.store') }}">
         <div>
-            <p class="text-sm font-semibold text-[#5C2E1F]">อัปโหลดใบส่งผลการศึกษา (REG) หลายไฟล์</p>
+            <p class="text-sm font-semibold text-[#5C2E1F]">อัปโหลด มข.11 (สาขาวิชา)</p>
             <p class="text-xs text-[#7A4A3A]/80 mt-1">
                 จับคู่ตามภาค/ปีที่กำลังกรอง:
                 <span class="font-medium">{{ $uploadTermLabel }} ปีการศึกษา {{ $filters['year'] ?? '' }}</span>
                 — รูปแบบชื่อไฟล์ <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม.pdf</code>
                 เช่น <code class="text-[11px] bg-amber-50 px-1 rounded">SC101011-01.pdf</code>
             </p>
-            <p class="text-xs text-[#7A4A3A]/70 mt-0.5">อัปโหลดได้เมื่อรายวิชายังเป็นบันทึกแล้วหรือสาขาอนุมัติ (คณะยังไม่ตรวจ) แนะนำไม่เกิน 20 ไฟล์ต่อครั้ง</p>
+            <p class="text-xs text-[#7A4A3A]/70 mt-0.5">อัปโหลดได้เมื่อรายวิชายังเป็นบันทึกแล้ว นำเข้าที่ประชุม หรือผ่านที่ประชุมสาขา (คณะยังไม่ตรวจ) แนะนำไม่เกิน 20 ไฟล์ต่อครั้ง</p>
         </div>
         <div class="flex flex-wrap items-end gap-3">
             <div>
@@ -163,157 +340,6 @@
         </div>
         <p id="registrar-upload-error" class="hidden text-sm text-red-700"></p>
     </div>
-
-    @error('approval')
-        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
-    @enderror
-    @error('download')
-        <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
-    @enderror
-
-    <form id="download-files-form" method="POST" action="{{ route('dept-admin.reviews.files.download') }}" class="form-section rounded-xl p-4 space-y-3">
-        @csrf
-        <input type="hidden" name="scope" id="download-scope" value="selected">
-        @foreach ($filters as $key => $value)
-            @if ($key !== 'department_ids' && $value !== null && $value !== '')
-                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-            @endif
-        @endforeach
-        <div class="flex flex-wrap items-end gap-3 justify-between">
-            <div>
-                <p class="text-sm font-semibold text-[#5C2E1F]">ดาวน์โหลดไฟล์แนบ</p>
-                <p class="text-xs text-[#7A4A3A]/80 mt-0.5">
-                    แยกเลือกไฟล์ของอาจารย์ หรือ REG ที่ Admin สาขาอัปโหลดได้ —
-                    REG ของอาจารย์: <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม.pdf</code>
-                    · REG ของ Admin สาขา: <code class="text-[11px] bg-amber-50 px-1 rounded">รหัสวิชา-กลุ่ม-จำนวนนักศึกษา.pdf</code>
-                </p>
-            </div>
-            <div class="flex flex-wrap items-end gap-2">
-                <div>
-                    <label class="block text-xs text-[#7A4A3A] mb-1">ประเภทไฟล์</label>
-                    <select name="type" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
-                        <option value="all">ทั้งหมด</option>
-                        <option value="exam_report">แบบรายงานผลการสอบไล่ (อาจารย์)</option>
-                        <option value="registrar_instructor">REG ของอาจารย์</option>
-                        <option value="registrar_dept">REG ของ Admin สาขา</option>
-                        <option value="registrar">REG ทั้งหมด (อาจารย์ + สาขา)</option>
-                    </select>
-                </div>
-                <button type="submit" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50"
-                    onclick="document.getElementById('download-scope').value='selected'">
-                    ดาวน์โหลดที่เลือก
-                </button>
-                <button type="submit" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]"
-                    onclick="document.getElementById('download-scope').value='all'">
-                    ดาวน์โหลดทั้งหมด (ตามตัวกรอง)
-                </button>
-            </div>
-        </div>
-    </form>
-
-    <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
-        <table class="w-full text-sm min-w-[1040px]">
-            <thead class="bg-amber-50">
-                <tr>
-                    <th class="px-3 py-2 text-center w-10">
-                        <input type="checkbox" id="select-all-download" class="rounded border-amber-400" title="เลือกทั้งหมดในหน้านี้">
-                    </th>
-                    <th class="px-3 py-2 text-left">รหัสวิชา</th>
-                    <th class="px-3 py-2 text-left">ชื่อวิชา</th>
-                    <th class="px-3 py-2 text-center">วันที่กรอก</th>
-                    <th class="px-3 py-2 text-left">ไฟล์แนบ</th>
-                    <th class="px-3 py-2 text-center">สถานะ</th>
-                    <th class="px-3 py-2 text-center">ทำรายการ</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($reports as $report)
-                    @php
-                        $canAct = (int) $report->approv === 0;
-                        $isDeptResubmit = $canAct && $report->awaitingDeptResubmit();
-                        $canSendBack = $canAct && ! $isDeptResubmit;
-                        $badge = match ((int) $report->approv) {
-                            1 => 'status-dept',
-                            3 => 'status-checked',
-                            2 => 'status-approved',
-                            -1 => 'status-rejected',
-                            default => 'status-pending',
-                        };
-                    @endphp
-                    <tr class="border-t border-amber-100 hover:bg-amber-50/40">
-                        <td class="px-3 py-2 text-center">
-                            <input type="checkbox" name="grade_ids[]" value="{{ $report->grade_id }}"
-                                form="download-files-form" class="row-download-select rounded border-amber-400">
-                        </td>
-                        <td class="px-3 py-2 font-medium text-[#5C2E1F]">{{ $report->subject_code }}</td>
-                        <td class="px-3 py-2">
-                            <div>{{ $report->subject }}</div>
-                            <div class="text-xs text-gray-500">{{ $report->teacher }}</div>
-                        </td>
-                        <td class="px-3 py-2 text-center whitespace-nowrap">{{ \App\Support\ThaiDateTime::formatDate($report->created) }}</td>
-                        <td class="px-3 py-2">
-                            @include('partials.grade-report-files-admin', [
-                                'report' => $report,
-                                'allowDeptRegDelete' => true,
-                            ])
-                        </td>
-                        <td class="px-3 py-2 text-center">
-                            <span class="inline-block px-2 py-1 rounded text-xs font-semibold {{ $badge }}">
-                                {{ $report->workflowStatusLabel() }}
-                            </span>
-                            @if ($report->latestDeptApprovalLog)
-                                <div class="text-[10px] text-gray-500 mt-1">
-                                    {{ $report->latestDeptApprovalLog->approver?->displayName() }}
-                                    {{ $report->latestDeptApprovalLog->created_at ? \App\Support\ThaiDateTime::formatDateTime($report->latestDeptApprovalLog->created_at) : '' }}
-                                </div>
-                            @endif
-                        </td>
-                        <td class="px-3 py-2">
-                            <div class="flex flex-wrap justify-center gap-2">
-                                @if ($canAct)
-                                    <form method="POST" action="{{ route('dept-admin.reviews.approve', $report) }}" class="inline">
-                                        @csrf
-                                        <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
-                                            {{ $isDeptResubmit ? 'ส่งรายงานผลการสอบไล่อีกครั้ง' : 'ผ่านการรับรอง' }}
-                                        </button>
-                                    </form>
-                                    @if ($canSendBack)
-                                    <button type="button" class="px-3 py-1.5 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 btn-send-back"
-                                        data-action="{{ route('dept-admin.reviews.send-back', $report) }}"
-                                        data-subject="{{ $report->subject_code }}">
-                                        ส่งกลับให้แก้ไข
-                                    </button>
-                                    @endif
-                                @else
-                                    <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
-                                       class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
-                                    @if ($report->canDeptRevertToSaved())
-                                        <form method="POST" action="{{ route('dept-admin.reviews.revert', $report) }}" class="inline">
-                                            @csrf
-                                            <button type="submit" class="px-3 py-1.5 border border-amber-400 text-amber-900 rounded text-xs font-medium hover:bg-amber-50">
-                                                กลับเป็นบันทึกแล้ว
-                                            </button>
-                                        </form>
-                                    @endif
-                                    @if ((int) $report->approv === -1)
-                                        <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
-                                    @elseif (in_array((int) $report->approv, [1, 2, 3], true))
-                                        <span class="text-xs text-gray-500 w-full text-center">{{ $report->approvalResultLabel() }}</span>
-                                    @endif
-                                @endif
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="px-3 py-10 text-center text-gray-500">ไม่พบรายการตามเงื่อนไข</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <div>{{ $reports->links() }}</div>
 </div>
 
 <div id="reject-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden no-print">
@@ -365,7 +391,7 @@
     document.querySelectorAll('.btn-send-back').forEach((btn) => {
         btn.addEventListener('click', () => {
             sendBackForm.action = btn.dataset.action;
-            sendBackSubject.textContent = `รายวิชา ${btn.dataset.subject} จะถูกส่งกลับให้อาจารย์แก้ไข (ก่อนผ่านการรับรองจากสาขา)`;
+            sendBackSubject.textContent = `รายวิชา ${btn.dataset.subject} จะถูกส่งกลับให้อาจารย์แก้ไข (ก่อนผ่านที่ประชุมสาขา)`;
             sendBackModal.classList.remove('hidden');
         });
     });
@@ -504,6 +530,10 @@
     }
 
     document.querySelectorAll('.btn-delete-reg-admin-file').forEach(bindDeleteRegAdminFile);
+
+    if (window.location.hash === '#registrar-bulk-upload') {
+        document.getElementById('registrar-bulk-upload')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     let selectedFiles = [];
 

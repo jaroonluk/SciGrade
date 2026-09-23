@@ -66,8 +66,25 @@ class GradeReportReviewController extends Controller
         $this->authorize('reviewDept', $gradeReport);
 
         try {
-            $wasResubmit = $gradeReport->awaitingDeptResubmit();
             $this->approvalService->approve(
+                $gradeReport,
+                $this->staffUsername(),
+                $request->input('remark'),
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->failureResponse($request, $e->getMessage(), 422);
+        }
+
+        return $this->successResponse($request, 'บันทึกผ่านที่ประชุมสาขาเรียบร้อย');
+    }
+
+    public function queueMeeting(GradeReportApprovalRequest $request, GradeReport $gradeReport): JsonResponse|RedirectResponse
+    {
+        $this->authorize('reviewDept', $gradeReport);
+
+        try {
+            $wasResubmit = $gradeReport->awaitingDeptResubmit();
+            $this->approvalService->queueForMeeting(
                 $gradeReport,
                 $this->staffUsername(),
                 $request->input('remark'),
@@ -79,8 +96,8 @@ class GradeReportReviewController extends Controller
         return $this->successResponse(
             $request,
             $wasResubmit
-                ? 'ส่งรายงานผลการสอบไล่อีกครั้งเรียบร้อย'
-                : 'บันทึกผ่านการรับรองผลสอบเรียบร้อย',
+                ? 'ส่งรายงานผลการสอบไล่อีกครั้ง และนำเข้าที่ประชุมสาขาเรียบร้อย'
+                : 'นำเข้าที่ประชุมสาขาเรียบร้อย',
         );
     }
 
