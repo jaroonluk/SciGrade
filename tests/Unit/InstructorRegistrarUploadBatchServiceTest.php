@@ -125,7 +125,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         $service = new InstructorRegistrarUploadBatchService($parser, $pending);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('ไม่ใช่วิชาเดียวกัน');
+        $this->expectExceptionMessage('ไฟล์ที่เลือกไม่ใช่วิชาเดียวกัน กรุณาอัปโหลดเฉพาะไฟล์ของรายวิชาเดียว');
         $service->process([$file1, $file2], 2, 2568, 1);
     }
 

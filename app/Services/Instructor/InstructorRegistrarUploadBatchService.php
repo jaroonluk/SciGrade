@@ -87,10 +87,13 @@ class InstructorRegistrarUploadBatchService
         if (count($subjectCodes) > 1) {
             $lines = [];
             foreach ($parsedRows as $row) {
-                $lines[] = '• '.$row['name'].' → '.$row['subject'];
+                $lines[] = '• '.$row['name'].' → รหัสวิชา '.$row['subject'];
             }
             throw new \InvalidArgumentException(
-                "ไฟล์ที่เลือกไม่ใช่วิชาเดียวกัน กรุณาอัปโหลดเฉพาะไฟล์ของรายวิชาเดียว:\n".implode("\n", $lines)
+                "ไฟล์ที่เลือกไม่ใช่วิชาเดียวกัน กรุณาอัปโหลดเฉพาะไฟล์ของรายวิชาเดียว\n\n"
+                ."พบรหัสวิชาจากไฟล์ มข.11 ดังนี้:\n"
+                .implode("\n", $lines)
+                ."\n\nกรุณาตรวจสอบไฟล์ มข.11 ของท่าน แล้วอัปโหลดเฉพาะไฟล์ที่เป็นรหัสวิชาเดียวกันอีกครั้ง"
             );
         }
 
