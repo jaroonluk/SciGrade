@@ -69,6 +69,64 @@ class GradeReportFile extends Model
         return 'แบบรายงานผลการสอบไล่('.max(1, $submissionOrder).')';
     }
 
+    /**
+     * จัดกลุ่มแบบรายงานตามรอบอัปโหลด
+     * (อัปโหลดครั้งเดียวครอบหลาย Section → แสดง 1 รายการ; อัปโหลดหลายครั้ง → แสดงตามจำนวนครั้ง)
+     *
+     * @param  iterable<int, self>  $files
+     * @return list<array{file: self, label: string, file_ids: list<int>}>
+     */
+    public static function groupExamReportsForDisplay(iterable $files): array
+    {
+        $examFiles = collect($files)
+            ->filter(fn ($file) => $file instanceof self && $file->resolvedType() === self::TYPE_EXAM_REPORT)
+            ->sortBy(fn (self $file) => (int) $file->file_id)
+            ->values();
+
+        /** @var array<string, array{file: self, file_ids: list<int>, sort: int}> $groups */
+        $groups = [];
+
+        foreach ($examFiles as $file) {
+            /** @var self $file */
+            $uploader = trim((string) ($file->username ?? ''));
+            $stamp = $file->uploaded_at
+                ? $file->uploaded_at->timezone(config('app.timezone'))->format('Y-m-d H:i:s')
+                : null;
+            $key = $stamp !== null
+                ? ($uploader !== '' ? $uploader : 'unknown').'|'.$stamp
+                : 'id-'.(int) $file->file_id;
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'file' => $file,
+                    'file_ids' => [],
+                    'sort' => (int) $file->file_id,
+                ];
+            }
+
+            $groups[$key]['file_ids'][] = (int) $file->file_id;
+            if ((int) $file->file_id < (int) $groups[$key]['file']->file_id) {
+                $groups[$key]['file'] = $file;
+                $groups[$key]['sort'] = (int) $file->file_id;
+            }
+        }
+
+        uasort($groups, fn (array $a, array $b) => $a['sort'] <=> $b['sort']);
+
+        $result = [];
+        $order = 0;
+        foreach ($groups as $group) {
+            $order++;
+            $result[] = [
+                'file' => $group['file'],
+                'label' => self::examReportLabel($order),
+                'file_ids' => array_values(array_unique($group['file_ids'])),
+            ];
+        }
+
+        return $result;
+    }
+
     public function resolvedType(): string
     {
         $type = (string) ($this->file_type ?? '');
