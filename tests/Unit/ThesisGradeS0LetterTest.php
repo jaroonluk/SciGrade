@@ -88,6 +88,8 @@ class ThesisGradeS0LetterTest extends TestCase
         $this->assertStringContainsString('2568', $html);
         $this->assertStringContainsString('ใคร่ขอชี้แจงกรณี', $html);
         $this->assertStringContainsString('s0-letter-emblem.png', $html);
+        $this->assertStringContainsString('s0-letter-footer.png', $html);
+        $this->assertStringContainsString('page-footer', $html);
         $this->assertStringContainsString('ดาวน์โหลด Word', $html);
         $this->assertStringNotContainsString('ข้อมูลรายวิชาที่กำลังรายงานใน SciGrade', $html);
     }
@@ -123,8 +125,18 @@ class ThesisGradeS0LetterTest extends TestCase
         $zip = new ZipArchive;
         $this->assertTrue($zip->open($path));
         $xml = (string) $zip->getFromName('word/document.xml');
-        $hasImage = $zip->locateName('word/media/image1.png') !== false
-            || $zip->locateName('word/media/image1.jpeg') !== false;
+        $hasEmblemImage = false;
+        $hasFooterImage = false;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+            if (str_contains($name, 'word/media/') && str_contains($name, 'section_image')) {
+                $hasEmblemImage = true;
+            }
+            if (str_contains($name, 'word/media/') && str_contains($name, 'footer')) {
+                $hasFooterImage = true;
+            }
+        }
+        $hasFooterPart = $zip->locateName('word/footer1.xml') !== false;
         $zip->close();
         @unlink($path);
 
@@ -133,7 +145,11 @@ class ThesisGradeS0LetterTest extends TestCase
         $this->assertStringContainsString('ขอชี้แจงการให้เกรด', $xml);
         $this->assertStringContainsString('ใคร่ขอชี้แจงกรณี', $xml);
         $this->assertStringContainsString('SC899001', $xml);
-        $this->assertTrue($hasImage || is_file(public_path(ThesisGradeS0Letter::EMBLEM_RELATIVE)));
+        $this->assertTrue(is_file(public_path(ThesisGradeS0Letter::EMBLEM_RELATIVE)));
+        $this->assertTrue(is_file(public_path(ThesisGradeS0Letter::FOOTER_RELATIVE)));
+        $this->assertTrue($hasEmblemImage);
+        $this->assertTrue($hasFooterPart);
+        $this->assertTrue($hasFooterImage);
     }
 
     #[Test]

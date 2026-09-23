@@ -14,6 +14,9 @@ class ThesisGradeS0Letter
 {
     public const EMBLEM_RELATIVE = 'images/s0-letter-emblem.png';
 
+    /** แบนเนอร์ท้ายกระดาษตามแบบฟอร์มชี้แจง S=0 (SCI KKU / วิสัยทัศน์ / EdPEx) */
+    public const FOOTER_RELATIVE = 'images/s0-letter-footer.png';
+
     /**
      * @return array{
      *     subject_line: string,
@@ -42,7 +45,9 @@ class ThesisGradeS0Letter
      *     advisor_title: string,
      *     chair_title: string,
      *     emblem_path: string,
-     *     emblem_url: string
+     *     emblem_url: string,
+     *     footer_path: string,
+     *     footer_url: string
      * }
      */
     public static function fields(ThesisGrade $report, ?ThesisGradeStudent $student = null, ?string $department = null): array
@@ -84,6 +89,8 @@ class ThesisGradeS0Letter
             'chair_title' => 'หัวหน้าสาขาวิชา'.($department !== '' ? $department : '........'),
             'emblem_path' => public_path(self::EMBLEM_RELATIVE),
             'emblem_url' => asset(self::EMBLEM_RELATIVE),
+            'footer_path' => public_path(self::FOOTER_RELATIVE),
+            'footer_url' => asset(self::FOOTER_RELATIVE),
         ];
 
         $fields['body'] = self::bodyParagraph($fields);

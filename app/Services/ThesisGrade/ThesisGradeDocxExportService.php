@@ -106,6 +106,15 @@ class ThesisGradeDocxExportService
         $sign->addCell(4200, $emptyCell);
         $sign->addCell(5000, $emptyCell)->addText($fields['chair_title'], $font, $right);
 
+        if (is_file($fields['footer_path'])) {
+            $footer = $section->addFooter();
+            $footer->addImage($fields['footer_path'], [
+                'width' => 454,
+                'height' => 256,
+                'alignment' => Jc::CENTER,
+            ]);
+        }
+
         $suffix = $student?->student_code
             ? preg_replace('/\W+/', '', (string) $student->student_code)
             : 'course';
