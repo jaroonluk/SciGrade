@@ -106,6 +106,21 @@
                 <div>{{ session('upload_duplicates') }}</div>
             </div>
         @endif
+        @if (session('upload_already_exists'))
+            <div class="mb-4 rounded-lg bg-sky-50 border border-sky-300 text-sky-950 px-4 py-3 text-sm no-print whitespace-pre-line flex gap-3 items-start">
+                <span class="shrink-0 mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-200 text-sky-800">
+                    <i data-lucide="info" class="w-4 h-4"></i>
+                </span>
+                <div>
+                    <p class="font-semibold text-sky-900 mb-0.5">กลุ่มเรียนนี้มีข้อมูลอยู่แล้ว</p>
+                    <p>{{ session('upload_already_exists') }}</p>
+                    <p class="mt-2">
+                        <a href="{{ route('grade-reports.my', array_filter(['term' => session('upload_already_exists_term'), 'year' => session('upload_already_exists_year')])) }}"
+                           class="font-medium text-sky-800 underline hover:text-sky-950">ไปหน้าติดตามผลรายงาน</a>
+                    </p>
+                </div>
+            </div>
+        @endif
         @if (session('error'))
             <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm no-print whitespace-pre-line">{{ session('error') }}</div>
             @if (session('error_hint'))

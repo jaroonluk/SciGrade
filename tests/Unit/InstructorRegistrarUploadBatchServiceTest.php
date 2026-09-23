@@ -93,7 +93,10 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         $pending->shouldReceive('forgetAll')->once();
         $pending->shouldReceive('remember')->twice();
 
-        $service = new InstructorRegistrarUploadBatchService($parser, $pending);
+        $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
+            ->makePartial();
+        $service->shouldReceive('existingSectionsForCourse')->andReturn([]);
+
         $result = $service->process([$file1, $file2, $file3], 2, 2568, 99);
 
         $this->assertCount(2, $result['accepted']);
@@ -151,11 +154,86 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         $pending->shouldReceive('forgetAll')->once();
         $pending->shouldReceive('remember')->once();
 
-        $service = new InstructorRegistrarUploadBatchService($parser, $pending);
+        $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
+            ->makePartial();
+        $service->shouldReceive('existingSectionsForCourse')->andReturn([]);
+
         $result = $service->process([$file1, $file2], 2, 2568, 1);
 
         $this->assertCount(1, $result['accepted']);
         $this->assertCount(1, $result['duplicates']);
         $this->assertStringContainsString('เนื้อหาไฟล์ซ้ำ', $result['duplicates'][0]['reason']);
+    }
+
+    #[Test]
+    public function it_skips_sections_that_already_exist_in_the_system(): void
+    {
+        config(['filesystems.upload_disk' => 'local']);
+        Storage::fake('local');
+
+        $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $pending = Mockery::mock(InstructorPendingRegistrarService::class);
+
+        $file1 = UploadedFile::fake()->createWithContent('SC101011-01.pdf', '%PDF-sec1-unique');
+        $file2 = UploadedFile::fake()->createWithContent('SC101011-02.pdf', '%PDF-sec2-unique');
+
+        $parser->shouldReceive('parse')
+            ->once()
+            ->withArgs(fn ($path, $name) => $name === 'SC101011-01.pdf')
+            ->andReturn($this->makeParsed('SC101011', 1));
+        $parser->shouldReceive('parse')
+            ->once()
+            ->withArgs(fn ($path, $name) => $name === 'SC101011-02.pdf')
+            ->andReturn($this->makeParsed('SC101011', 2));
+
+        $parser->shouldReceive('canonicalFilename')
+            ->andReturnUsing(fn (string $code, int $sec) => sprintf('%s-%02d.pdf', $code, $sec));
+
+        $pending->shouldReceive('forgetAll')->once();
+        $pending->shouldReceive('remember')->once();
+
+        $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
+            ->makePartial();
+        $service->shouldReceive('existingSectionsForCourse')
+            ->once()
+            ->with('SC101011', 2, 2568)
+            ->andReturn([1 => true]);
+
+        $result = $service->process([$file1, $file2], 2, 2568, 99);
+
+        $this->assertCount(1, $result['accepted']);
+        $this->assertSame(2, $result['accepted'][0]['section']);
+        $this->assertCount(1, $result['already_exists']);
+        $this->assertSame(1, $result['already_exists'][0]['section']);
+        $this->assertStringContainsString('มีข้อมูลในระบบแล้ว', $result['already_exists'][0]['reason']);
+        $this->assertStringContainsString('ไม่ต้องอัปโหลดหรือกรอกเพิ่ม', $result['already_exists'][0]['reason']);
+    }
+
+    #[Test]
+    public function it_returns_friendly_result_when_all_sections_already_exist(): void
+    {
+        config(['filesystems.upload_disk' => 'local']);
+        Storage::fake('local');
+
+        $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $pending = Mockery::mock(InstructorPendingRegistrarService::class);
+
+        $file1 = UploadedFile::fake()->createWithContent('SC101011-01.pdf', '%PDF-sec1-only');
+
+        $parser->shouldReceive('parse')->once()->andReturn($this->makeParsed('SC101011', 1));
+        $pending->shouldNotReceive('forgetAll');
+        $pending->shouldNotReceive('remember');
+
+        $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
+            ->makePartial();
+        $service->shouldReceive('existingSectionsForCourse')
+            ->once()
+            ->andReturn([1 => true]);
+
+        $result = $service->process([$file1], 2, 2568, 1);
+
+        $this->assertNull($result['merged']);
+        $this->assertSame([], $result['accepted']);
+        $this->assertCount(1, $result['already_exists']);
     }
 }

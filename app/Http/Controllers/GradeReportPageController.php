@@ -336,10 +336,57 @@ class GradeReportPageController extends Controller
                 ->withErrors(['grade_files' => $e->getMessage()]);
         }
 
+        $alreadyExists = $result['already_exists'] ?? [];
+        $duplicates = $result['duplicates'] ?? [];
+        $accepted = $result['accepted'] ?? [];
         $parsed = $result['merged'];
+
+        $alreadyExistsMessage = null;
+        if ($alreadyExists !== []) {
+            $secLabels = array_values(array_unique(array_map(
+                fn (array $row) => str_pad((string) ($row['section'] ?? 0), 2, '0', STR_PAD_LEFT),
+                $alreadyExists,
+            )));
+            sort($secLabels);
+            $secText = count($secLabels) === 1
+                ? 'Section '.$secLabels[0]
+                : 'Section '.implode(', ', $secLabels);
+            $alreadyExistsMessage = $accepted === []
+                ? "{$secText} มีข้อมูลในระบบแล้ว ไม่ต้องอัปโหลดหรือกรอกเพิ่มสำหรับกลุ่มเรียนนี้ — สามารถไปดูรายการได้ที่หน้าติดตามผลรายงาน"
+                : "{$secText} มีข้อมูลในระบบแล้ว ไม่ต้องกรอกเพิ่ม — ระบบจะดำเนินการต่อเฉพาะกลุ่มเรียนที่ยังไม่มีข้อมูล";
+        }
+
+        // ทุก Section ที่อัปโหลดมีข้อมูลอยู่แล้ว — กลับหน้าอัปโหลดพร้อมแจ้งเตือนอย่างเป็นมิตร
+        if ($accepted === [] || $parsed === null) {
+            $redirect = redirect()
+                ->route('grade-reports.upload')
+                ->withInput();
+
+            if ($alreadyExistsMessage !== null) {
+                $redirect->with('upload_already_exists', $alreadyExistsMessage)
+                    ->with('upload_already_exists_term', $request->integer('term'))
+                    ->with('upload_already_exists_year', $request->integer('year'));
+            }
+            if ($duplicates !== []) {
+                $dupLines = array_map(
+                    fn (array $d) => '• '.$d['name'].' — '.$d['reason'].' (ใช้ไฟล์ «'.$d['duplicate_of'].'» แทน)',
+                    $duplicates,
+                );
+                $redirect->with(
+                    'upload_duplicates',
+                    'พบไฟล์ซ้ำ '.count($duplicates).' ไฟล์ — ระบบอ่านเฉพาะไฟล์ที่ไม่ซ้ำ:'."\n".implode("\n", $dupLines),
+                );
+            }
+            if ($alreadyExistsMessage === null && $duplicates === []) {
+                $redirect->withErrors(['grade_files' => 'ไม่พบไฟล์ที่สามารถดำเนินการต่อได้']);
+            }
+
+            return $redirect;
+        }
+
         session(['grade_upload_parsed' => $parsed]);
 
-        $acceptedCount = count($result['accepted']);
+        $acceptedCount = count($accepted);
         $status = $acceptedCount === 1
             ? 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน'
             : "อ่านไฟล์ PDF สำเร็จ {$acceptedCount} ไฟล์ (วิชา {$parsed['subject_code']}) — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน";
@@ -352,15 +399,21 @@ class GradeReportPageController extends Controller
             ])
             ->with('status', $status);
 
-        if ($result['duplicates'] !== []) {
+        if ($duplicates !== []) {
             $dupLines = array_map(
                 fn (array $d) => '• '.$d['name'].' — '.$d['reason'].' (ใช้ไฟล์ «'.$d['duplicate_of'].'» แทน)',
-                $result['duplicates'],
+                $duplicates,
             );
             $redirect->with(
                 'upload_duplicates',
-                'พบไฟล์ซ้ำ '.count($result['duplicates']).' ไฟล์ — ระบบอ่านเฉพาะไฟล์ที่ไม่ซ้ำ:'."\n".implode("\n", $dupLines),
+                'พบไฟล์ซ้ำ '.count($duplicates).' ไฟล์ — ระบบอ่านเฉพาะไฟล์ที่ไม่ซ้ำ:'."\n".implode("\n", $dupLines),
             );
+        }
+
+        if ($alreadyExistsMessage !== null) {
+            $redirect->with('upload_already_exists', $alreadyExistsMessage)
+                ->with('upload_already_exists_term', $request->integer('term'))
+                ->with('upload_already_exists_year', $request->integer('year'));
         }
 
         return $redirect;

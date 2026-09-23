@@ -72,7 +72,7 @@
             </div>
         </div>
 
-        <div class="grid sm:grid-cols-3 gap-3 mb-6">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <div class="rounded-xl bg-white border border-teal-100 px-3 py-3 flex gap-3 items-start">
                 <div class="upload-icon-wrap bg-teal-50 text-teal-700">
                     <i data-lucide="plus-circle" class="w-5 h-5"></i>
@@ -82,13 +82,22 @@
                     <p class="text-xs text-[#7A4A3A]/80 mt-0.5">กดเพิ่มไฟล์ทีละใบ หรือเลือกหลายไฟล์พร้อมกัน</p>
                 </div>
             </div>
-            <div class="rounded-xl bg-white border border-sky-100 px-3 py-3 flex gap-3 items-start">
-                <div class="upload-icon-wrap bg-sky-50 text-sky-700">
+            <div class="rounded-xl bg-white border border-emerald-100 px-3 py-3 flex gap-3 items-start">
+                <div class="upload-icon-wrap bg-emerald-50 text-emerald-700">
                     <i data-lucide="book-open" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-sky-900">ต้องเป็นวิชาเดียวกัน</p>
+                    <p class="text-sm font-semibold text-emerald-900">ต้องเป็นวิชาเดียวกัน</p>
                     <p class="text-xs text-[#7A4A3A]/80 mt-0.5">เช่น Sec 01–03 ของรหัสวิชาเดียวกัน</p>
+                </div>
+            </div>
+            <div class="rounded-xl bg-white border border-sky-100 px-3 py-3 flex gap-3 items-start">
+                <div class="upload-icon-wrap bg-sky-50 text-sky-700">
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-sky-900">ตรวจกลุ่มเรียนซ้ำ</p>
+                    <p class="text-xs text-[#7A4A3A]/80 mt-0.5">ถ้า Section มีข้อมูลแล้ว ระบบจะแจ้งให้ทราบ ไม่ต้องกรอกเพิ่ม</p>
                 </div>
             </div>
             <div class="rounded-xl bg-white border border-amber-100 px-3 py-3 flex gap-3 items-start">

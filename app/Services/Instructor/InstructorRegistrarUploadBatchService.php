@@ -2,6 +2,8 @@
 
 namespace App\Services\Instructor;
 
+use App\Models\GradeReport;
+use App\Models\GradReport2;
 use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Support\UploadStorage;
@@ -20,12 +22,14 @@ class InstructorRegistrarUploadBatchService
     /**
      * อ่านหลายไฟล์ PDF ใบส่งผล — ต้องเป็นวิชาเดียวกัน
      * ไฟล์ซ้ำ (เนื้อหาหรือกลุ่มเรียนเดียวกัน) อ่านเพียงไฟล์แรก
+     * Section ที่มีข้อมูลในระบบแล้วจะข้ามและแจ้งผู้ใช้
      *
      * @param  list<UploadedFile>  $files
      * @return array{
-     *     merged: array<string, mixed>,
+     *     merged: array<string, mixed>|null,
      *     accepted: list<array{name: string, section: int|null, subject_code: string}>,
      *     duplicates: list<array{name: string, duplicate_of: string, reason: string}>,
+     *     already_exists: list<array{name: string, section: int, subject_code: string, reason: string}>,
      * }
      *
      * @throws RegistrarPdfParseException
@@ -99,8 +103,12 @@ class InstructorRegistrarUploadBatchService
 
         $accepted = [];
         $duplicates = [];
+        $alreadyExists = [];
         $seenHashes = [];
         $seenSections = [];
+
+        $subjectCode = (string) array_key_first($subjectCodes);
+        $existingSections = $this->existingSectionsForCourse($subjectCode, $term, $year);
 
         foreach ($parsedRows as $row) {
             if (isset($seenHashes[$row['hash']])) {
@@ -122,11 +130,31 @@ class InstructorRegistrarUploadBatchService
                 continue;
             }
 
+            if ($row['section'] > 0 && isset($existingSections[$row['section']])) {
+                $secLabel = str_pad((string) $row['section'], 2, '0', STR_PAD_LEFT);
+                $alreadyExists[] = [
+                    'name' => $row['name'],
+                    'section' => $row['section'],
+                    'subject_code' => $row['subject'],
+                    'reason' => "Section {$secLabel} มีข้อมูลในระบบแล้ว ไม่ต้องอัปโหลดหรือกรอกเพิ่มสำหรับกลุ่มเรียนนี้",
+                ];
+                continue;
+            }
+
             $seenHashes[$row['hash']] = $row['name'];
             if ($row['section'] > 0) {
                 $seenSections[$row['section']] = $row['name'];
             }
             $accepted[] = $row;
+        }
+
+        if ($accepted === [] && $alreadyExists !== []) {
+            return [
+                'merged' => null,
+                'accepted' => [],
+                'duplicates' => $duplicates,
+                'already_exists' => $alreadyExists,
+            ];
         }
 
         if ($accepted === []) {
@@ -200,6 +228,43 @@ class InstructorRegistrarUploadBatchService
             'merged' => $merged,
             'accepted' => $acceptedMeta,
             'duplicates' => $duplicates,
+            'already_exists' => $alreadyExists,
         ];
+    }
+
+    /**
+     * Section ที่มีข้อมูลจำนวนนักศึกษาในรายงานวิชานี้แล้ว (ภาค/ปีเดียวกัน)
+     *
+     * @return array<int, true>
+     */
+    public function existingSectionsForCourse(string $subjectCode, int $term, int $year): array
+    {
+        $code = GradReport2::normalizeCode($subjectCode);
+        if ($code === '' || $term < 1 || $year < 1) {
+            return [];
+        }
+
+        $report = GradeReport::query()
+            ->examReportable()
+            ->whereRaw(GradReport2::normalizedCodeSql('subject_code').' = ?', [$code])
+            ->where('term', (string) $term)
+            ->where('year', (string) $year)
+            ->orderBy('created_stamp')
+            ->orderBy('grade_id')
+            ->first();
+
+        if ($report === null) {
+            return [];
+        }
+
+        $secs = [];
+        foreach ($report->gradeStds()->pluck('sec') as $sec) {
+            $n = (int) $sec;
+            if ($n > 0) {
+                $secs[$n] = true;
+            }
+        }
+
+        return $secs;
     }
 }
