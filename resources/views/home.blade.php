@@ -568,10 +568,10 @@
             <p class="admin-phase-label">ก. งานสอบไล่ประจำภาค — ตามลำดับการใช้งาน</p>
             <ol class="admin-trail" aria-label="งานสอบไล่ประจำภาค">
                 <li class="admin-trail-item" data-tone="approve">
-                    <a href="#dept-step-1" class="admin-chevron"><span class="step-no">1</span><span class="step-title">ตรวจสอบรายวิชา</span></a>
+                    <a href="#dept-step-1" class="admin-chevron"><span class="step-no">1</span><span class="step-title">รายวิชาที่อาจารย์ส่งเกรด</span></a>
                 </li>
                 <li class="admin-trail-item" data-tone="status">
-                    <a href="#dept-step-2" class="admin-chevron"><span class="step-no">2</span><span class="step-title">ตรวจสถานะส่งผล</span></a>
+                    <a href="#dept-step-2" class="admin-chevron"><span class="step-no">2</span><span class="step-title">รายงานสถานะการส่งผล</span></a>
                 </li>
                 <li class="admin-trail-item" data-tone="report">
                     <a href="#dept-step-3" class="admin-chevron"><span class="step-no">3</span><span class="step-title">พิมพ์ใบรายงานสาขา</span></a>
@@ -589,15 +589,15 @@
         </div>
 
         <div class="space-y-6 mb-8">
-            {{-- 1. ตรวจสอบรายวิชา --}}
+            {{-- 1. รายวิชาที่อาจารย์ส่งเกรด --}}
             <section id="dept-step-1" class="admin-section admin-tone-approve">
                 <div class="admin-section-head">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
                             <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold">1</span>
-                            <h4 class="text-base font-bold text-green-950">ตรวจสอบรายวิชา</h4>
+                            <h4 class="text-base font-bold text-green-950">รายวิชาที่อาจารย์สาขาวิชาส่งเกรด</h4>
                         </div>
-                        <p class="text-xs text-green-900/70 ml-9">เริ่มจากอนุมัติรายการที่อาจารย์ส่งมา พร้อมเปิดดูไฟล์แนบ</p>
+                        <p class="text-xs text-green-900/70 ml-9">รับรายการจากอาจารย์ แล้วนำเข้าที่ประชุมสาขา หรือส่งกลับแก้ไข</p>
                     </div>
                 </div>
                 <div class="admin-section-body">
@@ -607,8 +607,8 @@
                                 <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
                                 <div>
                                     <p class="menu-step">1.1</p>
-                                    <p class="font-semibold text-green-950">ตรวจสอบรายวิชา</p>
-                                    <p class="text-sm text-green-900/65 mt-1">นำเข้าที่ประชุม / ผ่านที่ประชุม / ส่งกลับแก้ไข</p>
+                                    <p class="font-semibold text-green-950">รายวิชาที่อาจารย์สาขาวิชาส่งเกรด</p>
+                                    <p class="text-sm text-green-900/65 mt-1">นำเข้าที่ประชุมสาขา / ส่งกลับแก้ไข / กลับเป็นบันทึกแล้ว</p>
                                 </div>
                             </div>
                         </a>
@@ -617,7 +617,7 @@
                                 <div class="menu-icon"><i data-lucide="upload-cloud" class="w-5 h-5"></i></div>
                                 <div>
                                     <p class="menu-step">1.2</p>
-                                    <p class="font-semibold text-green-950">อัปโหลด มข.11 (สาขาวิชา) หลายไฟล์</p>
+                                    <p class="font-semibold text-green-950">อัปโหลด มข.11 (สาขาวิชา)</p>
                                     <p class="text-sm text-green-900/65 mt-1">อัปโหลดใบ มข.11 ของสาขาหลายไฟล์ในครั้งเดียว</p>
                                 </div>
                             </div>
@@ -626,15 +626,15 @@
                 </div>
             </section>
 
-            {{-- 2. สถานะการส่งผล --}}
+            {{-- 2. รายงานสถานะการส่งผล --}}
             <section id="dept-step-2" class="admin-section admin-tone-status">
                 <div class="admin-section-head">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
                             <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-700 text-white text-xs font-bold">2</span>
-                            <h4 class="text-base font-bold text-amber-950">ตรวจสอบสถานะการส่งผลการสอบ</h4>
+                            <h4 class="text-base font-bold text-amber-950">รายงานสถานะการส่งผลการสอบ</h4>
                         </div>
-                        <p class="text-xs text-amber-900/70 ml-9">ดูสถานะตามรายวิชา REG และติกผ่านสาขาฯ หลังตรวจแล้ว</p>
+                        <p class="text-xs text-amber-900/70 ml-9">ติดตามสถานะ และอนุมัติรายวิชาหลังเห็นชอบที่ประชุมสาขา</p>
                     </div>
                 </div>
                 <div class="admin-section-body">
@@ -644,8 +644,18 @@
                                 <div class="menu-icon"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
                                 <div>
                                     <p class="menu-step">2.1</p>
-                                    <p class="font-semibold text-orange-950">ตรวจสอบสถานะการส่งผลการสอบ</p>
-                                    <p class="text-sm text-orange-900/65 mt-1">ติดตามสถานะ REG และยืนยันผ่านสาขาฯ</p>
+                                    <p class="font-semibold text-orange-950">รายงานสถานะการส่งผลการสอบ</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">ติดตามสถานะ มข.11 / REG ตามรายวิชาและกลุ่มเรียน</p>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="{{ route('dept-admin.reviews.meeting-approval') }}" class="menu-card tone-status rounded-xl p-5 block">
+                            <div class="flex items-start gap-3">
+                                <div class="menu-icon"><i data-lucide="badge-check" class="w-5 h-5"></i></div>
+                                <div>
+                                    <p class="menu-step">2.2</p>
+                                    <p class="font-semibold text-orange-950">อนุมัติรายวิชาที่ผ่านการเห็นชอบที่ประชุมสาขาฯ</p>
+                                    <p class="text-sm text-orange-900/65 mt-1">แสดงเฉพาะรายการที่นำเข้าที่ประชุมแล้ว — กดผ่านที่ประชุม / ส่งกลับ / ดูรายงาน</p>
                                 </div>
                             </div>
                         </a>

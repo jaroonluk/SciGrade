@@ -80,10 +80,12 @@
     .status-radio.status-0:checked { background: #f1f5f9; box-shadow: 0 0 0 3px rgba(148,163,184,.25); }
     .status-radio.status-1 { border-color: #f59e0b; color: #d97706; }
     .status-radio.status-1:checked { background: #fffbeb; box-shadow: 0 0 0 3px rgba(245,158,11,.22); }
-    .status-radio.status-2 { border-color: #0ea5e9; color: #0284c7; }
-    .status-radio.status-2:checked { background: #f0f9ff; box-shadow: 0 0 0 3px rgba(14,165,233,.22); }
-    .status-radio.status-3 { border-color: #16a34a; color: #15803d; }
-    .status-radio.status-3:checked { background: #f0fdf4; box-shadow: 0 0 0 3px rgba(22,163,74,.22); }
+    .status-radio.status-2 { border-color: #6366f1; color: #4f46e5; }
+    .status-radio.status-2:checked { background: #eef2ff; box-shadow: 0 0 0 3px rgba(99,102,241,.22); }
+    .status-radio.status-3 { border-color: #0ea5e9; color: #0284c7; }
+    .status-radio.status-3:checked { background: #f0f9ff; box-shadow: 0 0 0 3px rgba(14,165,233,.22); }
+    .status-radio.status-4 { border-color: #16a34a; color: #15803d; }
+    .status-radio.status-4:checked { background: #f0fdf4; box-shadow: 0 0 0 3px rgba(22,163,74,.22); }
     .status-radio.is-clickable {
         cursor: pointer;
         border-width: 3px;
@@ -96,8 +98,9 @@
     .status-radio:disabled { opacity: .95; }
     .status-cell-active-0 { background: #f8fafc; }
     .status-cell-active-1 { background: #fffbeb; }
-    .status-cell-active-2 { background: #f0f9ff; }
-    .status-cell-active-3 { background: #f0fdf4; }
+    .status-cell-active-2 { background: #eef2ff; }
+    .status-cell-active-3 { background: #f0f9ff; }
+    .status-cell-active-4 { background: #f0fdf4; }
     .status-cell-wrap {
         position: relative;
         display: inline-flex;
@@ -163,12 +166,13 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สถานะ</label>
-                <select name="status" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[12rem]">
+                <select name="status" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
                     <option value="all" @selected(($statusFilter ?? 'all') === 'all')>ทั้งหมด</option>
                     <option value="0" @selected(($statusFilter ?? 'all') === '0')>ยังไม่ส่ง</option>
                     <option value="1" @selected(($statusFilter ?? 'all') === '1')>ส่งแล้ว</option>
-                    <option value="2" @selected(($statusFilter ?? 'all') === '2')>ผ่านสาขาฯ</option>
-                    <option value="3" @selected(($statusFilter ?? 'all') === '3')>ผ่านคณะฯ</option>
+                    <option value="2" @selected(($statusFilter ?? 'all') === '2')>นำเข้าที่ประชุมสาขา</option>
+                    <option value="3" @selected(($statusFilter ?? 'all') === '3')>ผ่านที่ประชุมสาขา</option>
+                    <option value="4" @selected(($statusFilter ?? 'all') === '4')>ผ่านคณะฯ</option>
                 </select>
             </div>
             <button type="submit" class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
@@ -177,7 +181,7 @@
         </form>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
             <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center">
                 <i data-lucide="circle" class="w-5 h-5"></i>
@@ -192,19 +196,26 @@
             <p class="text-xs text-amber-800">ส่งรายงานผลสอบแล้ว</p>
             <p class="text-lg font-bold text-amber-800 summary-1">{{ $summary[1] }}</p>
         </div>
+        <div class="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-center">
+            <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+            </div>
+            <p class="text-xs text-indigo-800">นำเข้าที่ประชุมสาขา</p>
+            <p class="text-lg font-bold text-indigo-800 summary-2">{{ $summary[2] ?? 0 }}</p>
+        </div>
         <div class="rounded-xl border border-sky-200 bg-sky-50 p-4 text-center">
             <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center">
                 <i data-lucide="check-circle" class="w-5 h-5"></i>
             </div>
-            <p class="text-xs text-sky-800">ผ่านที่ประชุมสาขาฯ</p>
-            <p class="text-lg font-bold text-sky-800 summary-2">{{ $summary[2] }}</p>
+            <p class="text-xs text-sky-800">ผ่านที่ประชุมสาขา</p>
+            <p class="text-lg font-bold text-sky-800 summary-3">{{ $summary[3] ?? 0 }}</p>
         </div>
         <div class="rounded-xl border border-green-200 bg-green-50 p-4 text-center">
             <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
                 <i data-lucide="badge-check" class="w-5 h-5"></i>
             </div>
             <p class="text-xs text-green-800">ผ่านที่ประชุมกรรมการคณะฯ</p>
-            <p class="text-lg font-bold text-green-800 summary-3">{{ $summary[3] }}</p>
+            <p class="text-lg font-bold text-green-800 summary-4">{{ $summary[4] ?? 0 }}</p>
         </div>
     </div>
 
@@ -214,9 +225,9 @@
             @if (($statusFilter ?? 'all') !== 'all')
                 <span class="text-xs text-sky-700 ml-1">(กรองตามสถานะแล้ว)</span>
             @endif
-            <span class="text-xs text-gray-500 ml-2">ติกสลับได้ที่แถวแรกของวิชา: ผ่านสาขาฯ ↔ ผ่านคณะฯ (มีผลทุก Sec.) · รายการกรอกซ้ำชื่อวิชาและ Sec. เดียวกันแสดงแยกบรรทัด</span>
+            <span class="text-xs text-gray-500 ml-2">ติกสลับได้ที่แถวแรกของวิชา: ผ่านที่ประชุมสาขา ↔ ผ่านคณะฯ (มีผลทุก Sec.)</span>
         </div>
-        <table class="w-full text-sm min-w-[900px]" id="status-table">
+        <table class="w-full text-sm min-w-[1180px]" id="status-table">
             <thead class="bg-amber-50/60">
                 <tr>
                     <th class="px-3 py-2 text-left w-14">ลำดับ</th>
@@ -224,7 +235,8 @@
                     <th class="px-3 py-2 text-center">Sec.</th>
                     <th class="px-3 py-2 text-center text-slate-600">ยังไม่ส่ง</th>
                     <th class="px-3 py-2 text-center text-amber-700">ส่งแล้ว</th>
-                    <th class="px-3 py-2 text-center text-sky-700">ผ่านสาขาฯ</th>
+                    <th class="px-3 py-2 text-center text-indigo-700">นำเข้าที่ประชุมสาขา</th>
+                    <th class="px-3 py-2 text-center text-sky-700">ผ่านที่ประชุมสาขา</th>
                     <th class="px-3 py-2 text-center text-green-700">ผ่านคณะฯ</th>
                 </tr>
             </thead>
@@ -305,13 +317,13 @@
                             @endif
                         </td>
                         <td class="px-3 py-2 text-center"><span class="sec-badge">{{ $row->SECTION }}</span></td>
-                        @foreach ([0, 1, 2, 3] as $statusValue)
+                        @foreach ([0, 1, 2, 3, 4] as $statusValue)
                             @php
                                 $isActive = (int) $row->status === $statusValue;
-                                $isClickable = ($statusValue === 3 && $canApproveFaculty) || ($statusValue === 2 && $canRevertFaculty);
-                                $action = $statusValue === 3 && $canApproveFaculty
+                                $isClickable = ($statusValue === 4 && $canApproveFaculty) || ($statusValue === 3 && $canRevertFaculty);
+                                $action = $statusValue === 4 && $canApproveFaculty
                                     ? 'approve'
-                                    : ($statusValue === 2 && $canRevertFaculty ? 'revert' : null);
+                                    : ($statusValue === 3 && $canRevertFaculty ? 'revert' : null);
                             @endphp
                             <td class="px-3 py-2 text-center status-cell {{ $isActive ? 'status-cell-active-'.$statusValue : '' }}">
                                 <div class="status-cell-wrap">
@@ -325,7 +337,7 @@
                                         @else
                                             disabled
                                         @endif
-                                        title="{{ $action === 'approve' ? 'คลิกเพื่อผ่านคณะฯ' : ($action === 'revert' ? 'คลิกเพื่อกลับเป็นผ่านสาขาฯ' : '') }}">
+                                        title="{{ $action === 'approve' ? 'คลิกเพื่อผ่านคณะฯ' : ($action === 'revert' ? 'คลิกเพื่อกลับเป็นผ่านที่ประชุมสาขา' : '') }}">
                                     <span class="status-toast" aria-live="polite"></span>
                                 </div>
                             </td>
@@ -334,7 +346,7 @@
                     @php $prevCode = $row->COURSECODE; $prevSection = $row->SECTION; @endphp
                 @empty
                     <tr>
-                        <td colspan="7" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
+                        <td colspan="8" class="px-3 py-8 text-center text-gray-500">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -382,20 +394,23 @@
             r.style.cursor = 'default';
             r.dataset.busy = '0';
 
-            const canApprove = isControl && targetStatus === 2 && value === 3 && approveUrl;
-            const canRevert = isControl && targetStatus === 3 && value === 2 && revertUrl;
+            const canApprove = isControl && targetStatus === 3 && value === 4 && approveUrl;
+            const canRevert = isControl && targetStatus === 4 && value === 3 && revertUrl;
             if (canApprove || canRevert) {
                 r.disabled = false;
                 r.classList.add('is-clickable', 'btn-faculty-status');
                 r.dataset.action = canApprove ? 'approve' : 'revert';
-                r.title = canApprove ? 'คลิกเพื่อผ่านคณะฯ' : 'คลิกเพื่อกลับเป็นผ่านสาขาฯ';
+                r.title = canApprove ? 'คลิกเพื่อผ่านคณะฯ' : 'คลิกเพื่อกลับเป็นผ่านที่ประชุมสาขา';
                 r.style.cursor = 'pointer';
                 bindFacultyRadio(r);
             }
         });
 
         cells.forEach((cell, idx) => {
-            cell.classList.remove('status-cell-active-0', 'status-cell-active-1', 'status-cell-active-2', 'status-cell-active-3');
+            cell.classList.remove(
+                'status-cell-active-0', 'status-cell-active-1', 'status-cell-active-2',
+                'status-cell-active-3', 'status-cell-active-4'
+            );
             if (idx === targetStatus) cell.classList.add('status-cell-active-' + targetStatus);
         });
 
@@ -424,7 +439,7 @@
             const url = action === 'approve' ? row?.dataset.approveUrl : row?.dataset.revertUrl;
             if (!url || !action || radio.dataset.busy === '1') return;
 
-            const targetStatus = action === 'approve' ? 3 : 2;
+            const targetStatus = action === 'approve' ? 4 : 3;
 
             radio.dataset.busy = '1';
             radio.disabled = true;
@@ -448,39 +463,18 @@
                 }
 
                 const gradeIds = new Set(updatedGradeIds(data, row.dataset.gradeId));
+                const resolvedStatus = typeof data.status === 'number' ? data.status : targetStatus;
 
                 courseRows(row).forEach((courseRow) => {
                     const rowGradeId = String(courseRow.dataset.gradeId || '');
                     if (!rowGradeId || (gradeIds.size && !gradeIds.has(rowGradeId))) return;
 
                     const rowFrom = Number(courseRow.dataset.status || 0);
-                    paintRow(courseRow, targetStatus);
-                    if (rowFrom !== targetStatus) bumpSummary(rowFrom, targetStatus);
+                    paintRow(courseRow, resolvedStatus);
+                    if (rowFrom !== resolvedStatus) bumpSummary(rowFrom, resolvedStatus);
                 });
 
-                if (!gradeIds.has(String(row.dataset.gradeId || ''))) {
-                    const radios = row.querySelectorAll('.status-radio');
-                    radios.forEach((r) => {
-                        const value = Number(r.value);
-                        r.classList.remove('is-clickable', 'btn-faculty-status');
-                        r.removeAttribute('data-action');
-                        r.disabled = true;
-                        r.dataset.busy = '0';
-                        r.style.cursor = 'default';
-                        const canApprove = targetStatus === 2 && value === 3 && (row.dataset.approveUrl || '');
-                        const canRevert = targetStatus === 3 && value === 2 && (row.dataset.revertUrl || '');
-                        if (canApprove || canRevert) {
-                            r.disabled = false;
-                            r.classList.add('is-clickable', 'btn-faculty-status');
-                            r.dataset.action = canApprove ? 'approve' : 'revert';
-                            r.title = canApprove ? 'คลิกเพื่อผ่านคณะฯ' : 'คลิกเพื่อกลับเป็นผ่านสาขาฯ';
-                            r.style.cursor = 'pointer';
-                            bindFacultyRadio(r);
-                        }
-                    });
-                }
-
-                const activeRadio = row.querySelector('.status-radio[value="' + targetStatus + '"]');
+                const activeRadio = row.querySelector('.status-radio[value="' + resolvedStatus + '"]');
                 if (activeRadio) showToast(activeRadio, 'บันทึกสำเร็จ');
             } catch {
                 showToast(radio, 'เชื่อมต่อไม่สำเร็จ', true);

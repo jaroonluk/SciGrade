@@ -66,10 +66,11 @@ class RegGradeStatusController extends Controller
             1 => $courses->where('status', 1)->count(),
             2 => $courses->where('status', 2)->count(),
             3 => $courses->where('status', 3)->count(),
+            4 => $courses->where('status', 4)->count(),
         ];
 
         $statusFilter = $request->input('status', 'all');
-        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3'], true)) {
+        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3', '4'], true)) {
             $statusFilter = 'all';
         }
 
@@ -109,6 +110,29 @@ class RegGradeStatusController extends Controller
         ]);
     }
 
+    public function queueMeeting(GradeReport $gradeReport): JsonResponse
+    {
+        $this->authorize('reviewDept', $gradeReport);
+
+        [$updatedIds, $lastError, $lastReport] = $this->applyToCourseReports(
+            $gradeReport,
+            fn (GradeReport $report) => $this->approvalService->queueForMeeting($report, $this->staffUsername()),
+        );
+
+        if ($updatedIds === []) {
+            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถนำเข้าที่ประชุมสาขาได้'], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'status' => 2,
+            'approv' => 4,
+            'grade_id' => $gradeReport->grade_id,
+            'grade_ids' => $updatedIds,
+            'message' => 'นำเข้าที่ประชุมสาขาเรียบร้อย',
+        ]);
+    }
+
     public function approveDepartment(GradeReport $gradeReport): JsonResponse
     {
         $this->authorize('reviewDept', $gradeReport);
@@ -126,13 +150,13 @@ class RegGradeStatusController extends Controller
 
         return response()->json([
             'ok' => true,
-            'status' => 2,
+            'status' => 3,
             'approv' => 1,
             'grade_id' => $gradeReport->grade_id,
             'grade_ids' => $updatedIds,
             'approved_at' => $fresh?->dateapprove1,
             'approver' => $fresh?->latestDeptApprovalLog?->approver?->displayName(),
-            'message' => 'ผ่านที่ประชุมสาขาฯ เรียบร้อย',
+            'message' => 'ผ่านที่ประชุมสาขาเรียบร้อย',
         ]);
     }
 

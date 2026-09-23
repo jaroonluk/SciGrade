@@ -35,6 +35,19 @@ class GradeReportReviewController extends Controller
 
     public function index(GradeReportReviewFilterRequest $request): View
     {
+        return $this->renderReviews($request, 'intake');
+    }
+
+    /**
+     * อนุมัติรายวิชาที่นำเข้าที่ประชุมสาขาแล้ว — ผ่านที่ประชุม / ส่งกลับ / ดูรายงาน
+     */
+    public function meetingApproval(GradeReportReviewFilterRequest $request): View
+    {
+        return $this->renderReviews($request, 'meeting');
+    }
+
+    private function renderReviews(GradeReportReviewFilterRequest $request, string $mode): View
+    {
         $staff = $this->requireStaff();
         $departments = $this->departmentAccess->allowedDepartments($staff);
         $departmentIds = $departments->pluck('department_id')->map(fn ($id) => (int) $id)->all();
@@ -42,6 +55,10 @@ class GradeReportReviewController extends Controller
         $filters = $request->filters($departmentIds);
         $filters['term'] = $filters['term'] ?? AcademicTerm::defaultTerm();
         $filters['year'] = $filters['year'] ?? AcademicTerm::defaultYear();
+
+        if ($mode === 'meeting') {
+            $filters['status'] = \App\Enums\GradeApprovalStatus::DepartmentMeetingQueued->value;
+        }
 
         if ($request->filled('department_id') && ! $this->departmentAccess->canAccessDepartment($staff, (int) $request->department_id)) {
             abort(403, 'ไม่มีสิทธิ์เข้าถึงสาขานี้');
@@ -58,6 +75,7 @@ class GradeReportReviewController extends Controller
             'departments' => $departments,
             'filters' => $filters,
             'years' => AcademicTerm::yearOptions(),
+            'reviewMode' => $mode,
         ]);
     }
 

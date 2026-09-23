@@ -1,29 +1,54 @@
 @extends('layouts.scigrad')
 
-@section('title', 'ตรวจสอบรายวิชา — Admin สาขา')
+@php
+    $reviewMode = $reviewMode ?? 'intake';
+    $isMeetingMode = $reviewMode === 'meeting';
+    $pageTitle = $isMeetingMode
+        ? 'อนุมัติรายวิชาที่ผ่านการเห็นชอบที่ประชุมสาขาฯ'
+        : 'รายวิชาที่อาจารย์สาขาวิชาส่งเกรด';
+    $pageSubtitle = $isMeetingMode
+        ? 'แสดงเฉพาะรายการที่นำเข้าที่ประชุมสาขาแล้ว — กดผ่านที่ประชุมสาขา ส่งกลับ หรือดูรายงาน'
+        : 'รายวิชาที่อาจารย์ส่งเกรดมาในสาขาที่คุณมีสิทธิ์ — นำเข้าที่ประชุมสาขา ส่งกลับ หรือกลับเป็นบันทึกแล้ว';
+    $formAction = $isMeetingMode
+        ? route('dept-admin.reviews.meeting-approval')
+        : route('dept-admin.reviews.index');
+@endphp
+
+@section('title', $pageTitle.' — Admin สาขา')
 
 @section('subnav')
 <span class="text-gray-400">/</span>
-<span class="text-[#5C2E1F] font-medium">ตรวจสอบรายวิชา</span>
+<span class="text-[#5C2E1F] font-medium">{{ $pageTitle }}</span>
 @endsection
 
 @section('content')
 <div class="max-w-7xl mx-auto space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-            <h2 class="text-xl font-bold text-[#5C2E1F]">ตรวจสอบรายการรายวิชา</h2>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">รายวิชาที่อาจารย์ส่งเกรดมาในสาขาที่คุณมีสิทธิ์ตรวจสอบ</p>
+            <h2 class="text-xl font-bold text-[#5C2E1F]">{{ $pageTitle }}</h2>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">{{ $pageSubtitle }}</p>
         </div>
-        <a href="{{ route('dept-admin.reg-grade-status.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
-            ตรวจสอบสถานะการส่ง
-        </a>
-        <a href="{{ route('dept-admin.reports.form') }}" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
-            พิมพ์รายงานสาขา
-        </a>
+        <div class="flex flex-wrap gap-2">
+            @if ($isMeetingMode)
+                <a href="{{ route('dept-admin.reviews.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                    รายวิชาที่อาจารย์ส่งเกรด
+                </a>
+            @else
+                <a href="{{ route('dept-admin.reviews.meeting-approval') }}" class="px-4 py-2 border border-sky-300 rounded-lg text-sm text-sky-900 hover:bg-sky-50">
+                    อนุมัติที่ประชุมสาขาฯ
+                </a>
+            @endif
+            <a href="{{ route('dept-admin.reg-grade-status.index') }}" class="px-4 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                รายงานสถานะการส่ง
+            </a>
+            <a href="{{ route('dept-admin.reports.form') }}" class="px-4 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
+                พิมพ์รายงานสาขา
+            </a>
+        </div>
     </div>
 
     <div class="form-section rounded-xl p-5">
-        <form method="GET" class="grid md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+        <form method="GET" action="{{ $formAction }}" class="grid md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา</label>
                 <select name="department_id" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
@@ -63,15 +88,22 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สถานะ</label>
-                <select name="status" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">ทุกสถานะ</option>
-                    <option value="0" @selected(($filters['status'] ?? '') === '0' || ($filters['status'] ?? null) === 0)>บันทึกแล้ว</option>
-                    <option value="4" @selected(($filters['status'] ?? '') === '4' || ($filters['status'] ?? null) === 4)>นำเข้าที่ประชุมสาขา</option>
-                    <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>ผ่านที่ประชุมสาขา</option>
-                    <option value="3" @selected(($filters['status'] ?? '') === '3' || ($filters['status'] ?? null) === 3)>ตรวจแล้ว</option>
-                    <option value="2" @selected(($filters['status'] ?? '') === '2' || ($filters['status'] ?? null) === 2)>คณะอนุมัติ</option>
-                    <option value="-1" @selected(($filters['status'] ?? '') === '-1' || ($filters['status'] ?? null) === -1)>ส่งกลับแก้ไข</option>
-                </select>
+                @if ($isMeetingMode)
+                    <input type="hidden" name="status" value="4">
+                    <div class="w-full border border-sky-200 rounded-lg px-3 py-2 text-sm bg-sky-50 text-sky-900">
+                        นำเข้าที่ประชุมสาขา
+                    </div>
+                @else
+                    <select name="status" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="">ทุกสถานะ</option>
+                        <option value="0" @selected(($filters['status'] ?? '') === '0' || ($filters['status'] ?? null) === 0)>บันทึกแล้ว</option>
+                        <option value="4" @selected(($filters['status'] ?? '') === '4' || ($filters['status'] ?? null) === 4)>นำเข้าที่ประชุมสาขา</option>
+                        <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>ผ่านที่ประชุมสาขา</option>
+                        <option value="3" @selected(($filters['status'] ?? '') === '3' || ($filters['status'] ?? null) === 3)>ตรวจแล้ว</option>
+                        <option value="2" @selected(($filters['status'] ?? '') === '2' || ($filters['status'] ?? null) === 2)>คณะอนุมัติ</option>
+                        <option value="-1" @selected(($filters['status'] ?? '') === '-1' || ($filters['status'] ?? null) === -1)>ส่งกลับแก้ไข</option>
+                    </select>
+                @endif
             </div>
             <div>
                 <label class="block text-sm font-medium text-[#5C2E1F] mb-1">รหัสวิชา</label>
@@ -93,7 +125,7 @@
             </div>
             <div class="md:col-span-3 lg:col-span-4 flex gap-3">
                 <button type="submit" class="px-5 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-semibold hover:bg-[#6B3410]">ค้นหา</button>
-                <a href="{{ route('dept-admin.reviews.index') }}" class="px-5 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้างตัวกรอง</a>
+                <a href="{{ $formAction }}" class="px-5 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้างตัวกรอง</a>
             </div>
         </form>
     </div>
@@ -167,9 +199,14 @@
                         $isSaved = $approv === 0;
                         $isMeetingQueued = $approv === \App\Enums\GradeApprovalStatus::DepartmentMeetingQueued->value;
                         $isDeptResubmit = $isSaved && $report->awaitingDeptResubmit();
-                        $canQueueMeeting = $isSaved;
-                        $canPassMeeting = $isMeetingQueued;
-                        $canSendBack = ($isSaved || $isMeetingQueued) && ! $isDeptResubmit;
+                        // หน้า intake: นำเข้า / ส่งกลับ / กลับเป็นบันทึกแล้ว
+                        // หน้า meeting: ผ่านที่ประชุม / ส่งกลับ / ดูรายงาน
+                        $canQueueMeeting = ! $isMeetingMode && $isSaved;
+                        $canPassMeeting = $isMeetingMode && $isMeetingQueued;
+                        $canSendBack = (($isMeetingMode && $isMeetingQueued) || (! $isMeetingMode && ($isSaved || $isMeetingQueued)))
+                            && ! $isDeptResubmit;
+                        $canRevert = ! $isMeetingMode && $report->canDeptRevertToSaved();
+                        $showViewReport = $isMeetingMode || $canQueueMeeting || $canPassMeeting || $canRevert || $canSendBack || $approv !== 0;
                         $badge = match ($approv) {
                             4 => 'status-checked',
                             1 => 'status-dept',
@@ -232,40 +269,31 @@
                                         ส่งกลับให้แก้ไข
                                     </button>
                                 @endif
-                                @if (! $canQueueMeeting && ! $canPassMeeting && ! $canSendBack)
+                                @if ($showViewReport)
                                     <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
                                        class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
-                                    @if ($report->canDeptRevertToSaved())
-                                        <form method="POST" action="{{ route('dept-admin.reviews.revert', $report) }}" class="inline">
-                                            @csrf
-                                            <button type="submit" class="px-3 py-1.5 border border-amber-400 text-amber-900 rounded text-xs font-medium hover:bg-amber-50">
-                                                กลับเป็นบันทึกแล้ว
-                                            </button>
-                                        </form>
-                                    @endif
-                                    @if ($approv === -1)
-                                        <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
-                                    @elseif (in_array($approv, [1, 2, 3, 4], true))
-                                        <span class="text-xs text-gray-500 w-full text-center">{{ $report->approvalResultLabel() }}</span>
-                                    @endif
-                                @elseif ($canPassMeeting || $canQueueMeeting)
-                                    <a href="{{ route('grade-reports.print', $report) }}" target="_blank"
-                                       class="px-3 py-1.5 border border-amber-300 rounded text-xs hover:bg-amber-50">ดูรายงาน</a>
-                                    @if ($report->canDeptRevertToSaved())
-                                        <form method="POST" action="{{ route('dept-admin.reviews.revert', $report) }}" class="inline">
-                                            @csrf
-                                            <button type="submit" class="px-3 py-1.5 border border-amber-400 text-amber-900 rounded text-xs font-medium hover:bg-amber-50">
-                                                กลับเป็นบันทึกแล้ว
-                                            </button>
-                                        </form>
-                                    @endif
+                                @endif
+                                @if ($canRevert)
+                                    <form method="POST" action="{{ route('dept-admin.reviews.revert', $report) }}" class="inline">
+                                        @csrf
+                                        <button type="submit" class="px-3 py-1.5 border border-amber-400 text-amber-900 rounded text-xs font-medium hover:bg-amber-50">
+                                            กลับเป็นบันทึกแล้ว
+                                        </button>
+                                    </form>
+                                @endif
+                                @if ($approv === -1)
+                                    <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
+                                @elseif (! $canQueueMeeting && ! $canPassMeeting && ! $canSendBack && in_array($approv, [1, 2, 3], true))
+                                    <span class="text-xs text-gray-500 w-full text-center">{{ $report->approvalResultLabel() }}</span>
                                 @endif
                             </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-3 py-10 text-center text-gray-500">ไม่พบรายการตามเงื่อนไข</td>
+                        <td colspan="7" class="px-3 py-10 text-center text-gray-500">
+                            {{ $isMeetingMode ? 'ยังไม่มีรายวิชาที่นำเข้าที่ประชุมสาขา' : 'ไม่พบรายการตามเงื่อนไข' }}
+                        </td>
                     </tr>
                 @endforelse
             </tbody>
@@ -274,6 +302,7 @@
 
     <div>{{ $reports->links() }}</div>
 
+    @unless ($isMeetingMode)
     @php
         $uploadTermLabel = match ((int) ($filters['term'] ?? 1)) {
             1 => 'ภาคต้น',
@@ -340,6 +369,7 @@
         </div>
         <p id="registrar-upload-error" class="hidden text-sm text-red-700"></p>
     </div>
+    @endunless
 </div>
 
 <div id="reject-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden no-print">

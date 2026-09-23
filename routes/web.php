@@ -81,6 +81,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('dept.admin')->prefix('dept-admin')->name('dept-admin.')->group(function () {
         Route::get('/reviews', [GradeReportReviewController::class, 'index'])->name('reviews.index');
+        Route::get('/reviews/meeting-approval', [GradeReportReviewController::class, 'meetingApproval'])->name('reviews.meeting-approval');
         Route::post('/reviews/files/download', [GradeReportFileDownloadController::class, 'downloadDept'])->name('reviews.files.download');
         Route::post('/reviews/registrar-files/preview', [GradeReportReviewController::class, 'previewRegistrarUploads'])->name('reviews.registrar-files.preview');
         Route::post('/reviews/registrar-files', [GradeReportReviewController::class, 'uploadRegistrarFiles'])->name('reviews.registrar-files.store');
@@ -105,6 +106,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/thesis-grades/{thesisGrade}/files/{file}', [ThesisGradeReviewController::class, 'showFile'])->name('thesis-grades.files.show');
 
         Route::get('/reg-grade-status', [DeptRegGradeStatusController::class, 'index'])->name('reg-grade-status.index');
+        Route::post('/reg-grade-status/{gradeReport}/queue-meeting', [DeptRegGradeStatusController::class, 'queueMeeting'])->name('reg-grade-status.queue-meeting');
         Route::post('/reg-grade-status/{gradeReport}/approve-dept', [DeptRegGradeStatusController::class, 'approveDepartment'])->name('reg-grade-status.approve-dept');
         Route::post('/reg-grade-status/{gradeReport}/revert-dept', [DeptRegGradeStatusController::class, 'revertDepartment'])->name('reg-grade-status.revert-dept');
     });

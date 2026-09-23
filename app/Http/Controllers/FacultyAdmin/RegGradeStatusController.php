@@ -43,10 +43,11 @@ class RegGradeStatusController extends Controller
             1 => $courses->where('status', 1)->count(),
             2 => $courses->where('status', 2)->count(),
             3 => $courses->where('status', 3)->count(),
+            4 => $courses->where('status', 4)->count(),
         ];
 
         $statusFilter = $request->input('status', 'all');
-        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3'], true)) {
+        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3', '4'], true)) {
             $statusFilter = 'all';
         }
 
@@ -82,7 +83,7 @@ class RegGradeStatusController extends Controller
 
         return response()->json([
             'ok' => true,
-            'status' => 3,
+            'status' => 4,
             'approv' => 2,
             'grade_id' => $gradeReport->grade_id,
             'grade_ids' => $updatedIds,
@@ -105,11 +106,11 @@ class RegGradeStatusController extends Controller
 
         return response()->json([
             'ok' => true,
-            'status' => 2,
+            'status' => 3,
             'approv' => 1,
             'grade_id' => $gradeReport->grade_id,
             'grade_ids' => $updatedIds,
-            'message' => 'เปลี่ยนกลับเป็นผ่านสาขาฯ เรียบร้อย',
+            'message' => 'เปลี่ยนกลับเป็นผ่านที่ประชุมสาขาเรียบร้อย',
         ]);
     }
 
