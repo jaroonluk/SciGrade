@@ -892,19 +892,6 @@
                             </div>
                         </div>
 
-                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
-                            <div>
-                                <h3 class="font-bold text-[#5C2E1F]">สถานะเอกสารทุก Section</h3>
-                                <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                                    ดูได้ว่าแต่ละ Section กรอกโดยใคร และมีเอกสารอะไรแล้วบ้าง
-                                    — จัดการได้เฉพาะ Section/ไฟล์ของตนเอง · ของอาจารย์อื่นดูได้อย่างเดียว
-                                </p>
-                            </div>
-                            <div id="wizard-section-board" class="space-y-3">
-                                <p class="text-sm text-[#7A4A3A]/70">กำลังโหลดรายการ Section…</p>
-                            </div>
-                        </div>
-
                         <div id="wizard-exam-own-panel" class="rounded-xl border border-sky-200 bg-sky-50/60 p-5 space-y-3">
                             <div class="flex items-start gap-3">
                                 <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-600 text-white">
