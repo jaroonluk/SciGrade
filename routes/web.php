@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/thesis-grades/{thesisGrade}/files/{file}', [ThesisGradeReviewController::class, 'showFile'])->name('thesis-grades.files.show');
 
         Route::get('/reg-grade-status', [DeptRegGradeStatusController::class, 'index'])->name('reg-grade-status.index');
+        Route::post('/reg-grade-status/{gradeReport}/set-status', [DeptRegGradeStatusController::class, 'setStatus'])->name('reg-grade-status.set-status');
         Route::post('/reg-grade-status/{gradeReport}/queue-meeting', [DeptRegGradeStatusController::class, 'queueMeeting'])->name('reg-grade-status.queue-meeting');
         Route::post('/reg-grade-status/{gradeReport}/approve-dept', [DeptRegGradeStatusController::class, 'approveDepartment'])->name('reg-grade-status.approve-dept');
         Route::post('/reg-grade-status/{gradeReport}/revert-dept', [DeptRegGradeStatusController::class, 'revertDepartment'])->name('reg-grade-status.revert-dept');

@@ -112,74 +112,76 @@ class RegGradeStatusController extends Controller
 
     public function queueMeeting(GradeReport $gradeReport): JsonResponse
     {
-        $this->authorize('reviewDept', $gradeReport);
-
-        [$updatedIds, $lastError, $lastReport] = $this->applyToCourseReports(
-            $gradeReport,
-            fn (GradeReport $report) => $this->approvalService->queueForMeeting($report, $this->staffUsername()),
-        );
-
-        if ($updatedIds === []) {
-            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถนำเข้าที่ประชุมสาขาได้'], 422);
-        }
-
-        return response()->json([
-            'ok' => true,
-            'status' => 2,
-            'approv' => 4,
-            'grade_id' => $gradeReport->grade_id,
-            'grade_ids' => $updatedIds,
-            'message' => 'นำเข้าที่ประชุมสาขาเรียบร้อย',
-        ]);
+        return $this->setCourseDisplayStatus($gradeReport, 2);
     }
 
     public function approveDepartment(GradeReport $gradeReport): JsonResponse
     {
-        $this->authorize('reviewDept', $gradeReport);
-
-        [$updatedIds, $lastError, $lastReport] = $this->applyToCourseReports(
-            $gradeReport,
-            fn (GradeReport $report) => $this->approvalService->approve($report, $this->staffUsername()),
-        );
-
-        if ($updatedIds === []) {
-            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถอนุมัติได้'], 422);
-        }
-
-        $fresh = ($lastReport ?? $gradeReport)->fresh(['latestDeptApprovalLog.approver']);
-
-        return response()->json([
-            'ok' => true,
-            'status' => 3,
-            'approv' => 1,
-            'grade_id' => $gradeReport->grade_id,
-            'grade_ids' => $updatedIds,
-            'approved_at' => $fresh?->dateapprove1,
-            'approver' => $fresh?->latestDeptApprovalLog?->approver?->displayName(),
-            'message' => 'ผ่านที่ประชุมสาขาเรียบร้อย',
-        ]);
+        return $this->setCourseDisplayStatus($gradeReport, 3);
     }
 
     public function revertDepartment(GradeReport $gradeReport): JsonResponse
     {
+        return $this->setCourseDisplayStatus($gradeReport, 1);
+    }
+
+    public function setStatus(Request $request, GradeReport $gradeReport): JsonResponse
+    {
+        $status = $request->integer('status');
+        if (! in_array($status, [1, 2, 3], true)) {
+            return response()->json([
+                'message' => 'สถานะที่สาขาตั้งได้มีเพียง ส่งแล้ว / นำเข้าที่ประชุมสาขา / ผ่านที่ประชุมสาขา',
+            ], 422);
+        }
+
+        return $this->setCourseDisplayStatus($gradeReport, $status);
+    }
+
+    private function setCourseDisplayStatus(GradeReport $gradeReport, int $displayStatus): JsonResponse
+    {
         $this->authorize('reviewDept', $gradeReport);
 
-        [$updatedIds, $lastError] = $this->applyToCourseReports(
+        [$updatedIds, $lastError, $lastReport] = $this->applyToCourseReports(
             $gradeReport,
-            fn (GradeReport $report) => $this->approvalService->resetToSaved($report, $this->staffUsername()),
+            fn (GradeReport $report) => $this->approvalService->setDisplayStatus(
+                $report,
+                $displayStatus,
+                $this->staffUsername(),
+            ),
         );
 
         if ($updatedIds === []) {
-            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถเปลี่ยนกลับได้'], 422);
+            $fallback = match ($displayStatus) {
+                2 => 'ไม่มีรายการที่สามารถนำเข้าที่ประชุมสาขาได้',
+                3 => 'ไม่มีรายการที่สามารถผ่านที่ประชุมสาขาได้',
+                default => 'ไม่มีรายการที่สามารถเปลี่ยนกลับเป็นส่งแล้วได้',
+            };
+
+            return response()->json(['message' => $lastError ?? $fallback], 422);
         }
+
+        $fresh = ($lastReport ?? $gradeReport)->fresh(['latestDeptApprovalLog.approver']);
+        $message = match ($displayStatus) {
+            2 => 'นำเข้าที่ประชุมสาขาทุก Section เรียบร้อย',
+            3 => 'ผ่านที่ประชุมสาขาทุก Section เรียบร้อย',
+            default => 'เปลี่ยนเป็นส่งแล้วทุก Section เรียบร้อย',
+        };
 
         return response()->json([
             'ok' => true,
-            'status' => 1,
-            'approv' => 0,
+            'status' => $displayStatus,
+            'approv' => match ($displayStatus) {
+                2 => 4,
+                3 => 1,
+                default => 0,
+            },
             'grade_id' => $gradeReport->grade_id,
             'grade_ids' => $updatedIds,
-            'message' => 'เปลี่ยนกลับเป็นส่งแล้วเรียบร้อย',
+            'approved_at' => $displayStatus === 3 ? $fresh?->dateapprove1 : null,
+            'approver' => $displayStatus === 3
+                ? $fresh?->latestDeptApprovalLog?->approver?->displayName()
+                : null,
+            'message' => $message,
         ]);
     }
 

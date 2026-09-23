@@ -15,13 +15,15 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
 
         $html = view('dept-admin.reg-grade-status.index', $this->viewData())->render();
 
-        $this->assertStringContainsString('ติกสลับได้ที่แถวแรกของวิชา', $html);
+        $this->assertStringContainsString('ติกที่แถวแรกของวิชา', $html);
         $this->assertStringContainsString('แบบรายงานผลการสอบไล่(1)', $html);
         $this->assertStringContainsString('ใบส่งผลการศึกษา (REG)-Sec2', $html);
         $this->assertSame(1, substr_count($html, 'data-status-control="1"'));
         $this->assertSame(1, substr_count($html, 'data-status-control="0"'));
-        $this->assertSame(1, preg_match_all('/class="[^"]*btn-dept-status[^"]*"/', $html));
+        // สถานะ 1 → กดได้ทั้ง «นำเข้าที่ประชุม» และ «ผ่านที่ประชุม»
+        $this->assertSame(2, preg_match_all('/class="[^"]*btn-dept-status[^"]*"/', $html));
         $this->assertStringContainsString('data-course-code="SC203001"', $html);
+        $this->assertStringContainsString('data-set-status-url=', $html);
     }
 
     #[Test]
@@ -92,10 +94,10 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
             'section_count' => 2,
             'has_multi_section' => true,
             'course_grade_id' => 101,
-            'course_can_queue_meeting' => $status === 1 && $courseCanApproveDept,
-            'course_can_pass_meeting' => $status === 2 && $courseCanApproveDept,
-            'course_can_approve_dept' => $status === 2 && $courseCanApproveDept,
-            'course_can_revert_dept' => false,
+            'course_can_queue_meeting' => in_array($status, [1, 3], true) && $courseCanApproveDept,
+            'course_can_pass_meeting' => in_array($status, [1, 2], true) && $courseCanApproveDept,
+            'course_can_approve_dept' => in_array($status, [1, 2], true) && $courseCanApproveDept,
+            'course_can_revert_dept' => in_array($status, [2, 3], true),
             'course_can_approve_faculty' => $courseCanApproveFaculty,
             'course_can_revert_faculty' => false,
             'program_types' => [],

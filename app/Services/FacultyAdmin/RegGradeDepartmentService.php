@@ -835,13 +835,16 @@ class RegGradeDepartmentService
 
             $row->is_course_start = $prevCode !== $code;
             $row->course_grade_id = $withReport?->grade_id;
+            // สาขาตั้งได้เฉพาะ 1/2/3 และกดครั้งเดียวมีผลทุก Section (ยกเว้นผ่านคณะฯ แล้ว)
             $row->course_can_queue_meeting = $group->contains(
-                fn (object $item) => (int) $item->status === 1
+                fn (object $item) => in_array((int) $item->status, [1, 3], true)
                     && $item->grade_id
                     && (int) ($item->approv ?? 0) !== -1
             );
             $row->course_can_pass_meeting = $group->contains(
-                fn (object $item) => (int) $item->status === 2 && $item->grade_id
+                fn (object $item) => in_array((int) $item->status, [1, 2], true)
+                    && $item->grade_id
+                    && (int) ($item->approv ?? 0) !== -1
             );
             $row->course_can_approve_dept = $row->course_can_pass_meeting;
             $row->course_can_revert_dept = $group->contains(

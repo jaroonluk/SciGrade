@@ -183,6 +183,58 @@ class GradeReportApprovalService
         });
     }
 
+    /**
+     * ตั้งสถานะแสดงผลฝั่งสาขา: 1=ส่งแล้ว, 2=นำเข้าที่ประชุมสาขา, 3=ผ่านที่ประชุมสาขา
+     * (ข้ามถ้าอยู่สถานะนั้นแล้ว — ใช้ตอนอัปเดตทุก Section ของวิชา)
+     */
+    public function setDisplayStatus(GradeReport $report, int $displayStatus, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        if (! in_array($displayStatus, [1, 2, 3], true)) {
+            throw new InvalidArgumentException('สถานะที่สาขาตั้งได้มีเพียง ส่งแล้ว / นำเข้าที่ประชุมสาขา / ผ่านที่ประชุมสาขา');
+        }
+
+        $report = GradeReport::query()->findOrFail($report->grade_id);
+        $from = (int) $report->approv;
+
+        if (in_array($from, [
+            GradeApprovalStatus::CentralApproved->value,
+            GradeApprovalStatus::FacultyChecked->value,
+        ], true)) {
+            throw new InvalidArgumentException('รายการผ่านคณะฯ แล้ว ไม่สามารถเปลี่ยนสถานะจากสาขาได้');
+        }
+
+        $currentDisplay = match ($from) {
+            GradeApprovalStatus::DepartmentMeetingQueued->value => 2,
+            GradeApprovalStatus::DepartmentApproved->value => 3,
+            default => 1,
+        };
+
+        if ($currentDisplay === $displayStatus) {
+            return $report->fresh(['gradeStds', 'files', 'latestDeptApprovalLog.approver']) ?? $report;
+        }
+
+        if ($displayStatus === 1) {
+            return $this->resetToSaved($report, $approverUsername, $remark);
+        }
+
+        if ($displayStatus === 2) {
+            if ($from === GradeApprovalStatus::DepartmentApproved->value) {
+                $report = $this->resetToSaved($report, $approverUsername, $remark);
+            }
+
+            return $this->queueForMeeting($report, $approverUsername, $remark);
+        }
+
+        // displayStatus === 3
+        if ($from === GradeApprovalStatus::Saved->value) {
+            $report = $this->queueForMeeting($report, $approverUsername, $remark);
+        } elseif ($from !== GradeApprovalStatus::DepartmentMeetingQueued->value) {
+            throw new InvalidArgumentException('รายการนี้ไม่อยู่ในสถานะที่สามารถผ่านที่ประชุมสาขาได้');
+        }
+
+        return $this->approve($report, $approverUsername, $remark);
+    }
+
     private function writeLog(
         GradeReport $report,
         string $action,
