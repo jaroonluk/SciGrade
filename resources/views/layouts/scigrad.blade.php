@@ -94,7 +94,7 @@
         </nav>
     @endif
 
-    <main class="max-w-7xl mx-auto px-4 py-6">
+    <main class="@hasSection('mainClass')@yield('mainClass')@else max-w-7xl @endif mx-auto px-4 sm:px-6 py-6">
         @if (session('status'))
             <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm no-print whitespace-pre-line">{{ session('status') }}</div>
         @endif

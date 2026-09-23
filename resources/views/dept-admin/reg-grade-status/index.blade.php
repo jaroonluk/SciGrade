@@ -16,6 +16,15 @@
         padding-left: 1.75rem;
         color: #7A4A3A;
     }
+    #status-table td.col-course {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+    #status-table th,
+    #status-table td {
+        vertical-align: middle;
+    }
     .sec-badge {
         display: inline-flex;
         align-items: center;
@@ -150,10 +159,12 @@
 </style>
 @endpush
 
+@section('mainClass', 'max-w-none w-full')
+
 @section('content')
-<div class="max-w-6xl mx-auto space-y-6">
+<div class="w-full space-y-6">
     <div>
-        <h2 class="text-xl font-bold text-[#5C2E1F]">ตรวจสอบสถานะการส่งผลการสอบไล่</h2>
+        <h2 class="text-xl font-bold text-[#5C2E1F]">รายงานสถานะการส่งผลการสอบไล่</h2>
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
             แสดงเฉพาะสาขาวิชาที่คุณรับผิดชอบ — ติกสถานะได้เป็นลำดับ
             ส่งแล้ว → นำเข้าที่ประชุมสาขา → ผ่านที่ประชุมสาขา
@@ -257,7 +268,7 @@
         </div>
     </div>
 
-    <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
+    <div class="overflow-x-auto bg-white rounded-xl border border-amber-200 w-full">
         <div class="px-4 py-3 bg-amber-50 border-b border-amber-200 text-sm text-[#5C2E1F]">
             พบ {{ number_format($courses->count()) }} รายวิชา
             @if (($educationLevel ?? 'all') !== 'all')
@@ -284,18 +295,29 @@
             <span class="program-type-badge is-special">โครงการพิเศษ</span>
             <span class="program-type-badge is-international">นานาชาติ</span>
         </div>
-        <table class="w-full text-sm min-w-[1180px]" id="status-table">
+        <table class="w-full text-sm table-fixed min-w-[1100px]" id="status-table">
+            <colgroup>
+                <col class="w-[4%]">
+                <col class="w-[28%]">
+                <col class="w-[5%]">
+                <col class="w-[10%]">
+                <col class="w-[10.5%]">
+                <col class="w-[10.5%]">
+                <col class="w-[11%]">
+                <col class="w-[11%]">
+                <col class="w-[10%]">
+            </colgroup>
             <thead class="bg-amber-50/60">
                 <tr>
-                    <th class="px-3 py-2 text-left w-14">ลำดับ</th>
-                    <th class="px-3 py-2 text-left">รายวิชา</th>
-                    <th class="px-3 py-2 text-center">Sec.</th>
-                    <th class="px-3 py-2 text-center">ประเภท</th>
-                    <th class="px-3 py-2 text-center text-slate-600">ยังไม่ส่ง</th>
-                    <th class="px-3 py-2 text-center text-amber-700">ส่งแล้ว</th>
-                    <th class="px-3 py-2 text-center text-indigo-700">นำเข้าที่ประชุมสาขา</th>
-                    <th class="px-3 py-2 text-center text-sky-700">ผ่านที่ประชุมสาขา</th>
-                    <th class="px-3 py-2 text-center text-green-700">ผ่านคณะฯ</th>
+                    <th class="px-2 py-2 text-left">ลำดับ</th>
+                    <th class="px-2 py-2 text-left">รายวิชา</th>
+                    <th class="px-2 py-2 text-center">Sec.</th>
+                    <th class="px-2 py-2 text-center">ประเภท</th>
+                    <th class="px-1.5 py-2 text-center text-slate-600 leading-tight whitespace-normal">ยังไม่ส่ง</th>
+                    <th class="px-1.5 py-2 text-center text-amber-700 leading-tight whitespace-normal">ส่งแล้ว</th>
+                    <th class="px-1.5 py-2 text-center text-indigo-700 leading-tight whitespace-normal">นำเข้าที่<br>ประชุมสาขา</th>
+                    <th class="px-1.5 py-2 text-center text-sky-700 leading-tight whitespace-normal">ผ่านที่<br>ประชุมสาขา</th>
+                    <th class="px-1.5 py-2 text-center text-green-700 leading-tight whitespace-normal">ผ่านคณะฯ</th>
                 </tr>
             </thead>
             <tbody>
