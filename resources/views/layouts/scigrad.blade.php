@@ -96,7 +96,15 @@
 
     <main class="max-w-7xl mx-auto px-4 py-6">
         @if (session('status'))
-            <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm no-print">{{ session('status') }}</div>
+            <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm no-print whitespace-pre-line">{{ session('status') }}</div>
+        @endif
+        @if (session('upload_duplicates'))
+            <div class="mb-4 rounded-lg bg-amber-50 border border-amber-300 text-amber-950 px-4 py-3 text-sm no-print whitespace-pre-line flex gap-3 items-start">
+                <span class="shrink-0 mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-200 text-amber-800">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                </span>
+                <div>{{ session('upload_duplicates') }}</div>
+            </div>
         @endif
         @if (session('error'))
             <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm no-print whitespace-pre-line">{{ session('error') }}</div>

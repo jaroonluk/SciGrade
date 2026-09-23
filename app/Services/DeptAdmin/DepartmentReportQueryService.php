@@ -275,6 +275,9 @@ class DepartmentReportQueryService
         }
 
         $raw = trim((string) $value);
+        if ($raw === '' || str_starts_with($raw, '0000-00-00') || str_starts_with($raw, '0000-00')) {
+            return null;
+        }
 
         if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/', $raw, $match)) {
             $day = (int) $match[1];
@@ -285,7 +288,7 @@ class DepartmentReportQueryService
             }
 
             if (checkdate($month, $day, $year)) {
-                return sprintf('%04d-%02d-%02d', $year, $month, $day);
+                return $this->validReportYmd(sprintf('%04d-%02d-%02d', $year, $month, $day));
             }
         }
 
@@ -298,13 +301,33 @@ class DepartmentReportQueryService
         return $this->gregorianYmd($dt);
     }
 
-    private function gregorianYmd(Carbon $dt): string
+    private function gregorianYmd(Carbon $dt): ?string
     {
         if ((int) $dt->format('Y') >= 2400) {
             $dt = $dt->copy()->subYears(543);
         }
 
-        return $dt->timezone('Asia/Bangkok')->format('Y-m-d');
+        return $this->validReportYmd($dt->timezone('Asia/Bangkok')->format('Y-m-d'));
+    }
+
+    /**
+     * ตัดวันที่เพี้ยนจาก created_stamp = 0000-00-00 (กลายเป็นปีติดลบ) ออกจากช่วงพิมพ์รายงาน
+     */
+    private function validReportYmd(string $ymd): ?string
+    {
+        if (! preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $ymd, $match)) {
+            return null;
+        }
+
+        $year = (int) $match[1];
+        $month = (int) $match[2];
+        $day = (int) $match[3];
+
+        if ($year < 2000 || $year > 2100 || ! checkdate($month, $day, $year)) {
+            return null;
+        }
+
+        return $ymd;
     }
 
     private function formatThaiDate(string $ymd): string

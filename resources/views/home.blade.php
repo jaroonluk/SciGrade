@@ -474,32 +474,17 @@
             <h3 class="text-lg font-bold text-[#5C2E1F] flex items-center gap-2">
                 <i data-lucide="user" class="w-5 h-5"></i> เมนูอาจารย์
             </h3>
-            <p class="text-sm text-[#7A4A3A]/80 mt-1">เลือกเมนูด้านล่างเพื่อสร้างรายงาน หรือติดตามสถานะรายวิชาที่ส่งแล้ว</p>
+            <p class="text-sm text-[#7A4A3A]/80 mt-1">เลือกเมนูด้านล่างเพื่ออัปโหลดรายงาน หรือติดตามสถานะรายวิชาที่ส่งแล้ว</p>
         </div>
 
         <section class="role-panel role-tone-instructor">
             <div class="role-panel-head">
                 <p class="role-kicker">เมนูการทำงาน</p>
                 <h4 class="role-title">งานของอาจารย์</h4>
-                <p class="role-desc">สร้างรายงานผลการสอบไล่ ส่งผลวิทยานิพนธ์ หรือติดตามสถานะที่ส่งไปแล้ว</p>
+                <p class="role-desc">อัปโหลดรายงานผลการสอบไล่ ส่งผลวิทยานิพนธ์ หรือติดตามสถานะที่ส่งไปแล้ว</p>
             </div>
             <div class="role-panel-body">
-                <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
-                    <a href="{{ route('grade-reports.create', ['term' => $term, 'year' => $year, 'return' => 'dashboard']) }}"
-                       class="entry-card tone-create rounded-xl p-5 block h-full">
-                        <div class="flex items-start gap-4">
-                            <div class="entry-icon p-2">
-                                <img src="{{ asset('images/icons/grade-manual-entry.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
-                            </div>
-                            <div>
-                                <p class="text-base font-bold text-[#7c2d12]">กรอกข้อมูลเอง</p>
-                                <p class="text-sm text-[#7A4A3A]/80 mt-1.5 leading-relaxed">
-                                    สร้างแบบรายงานและกรอกจำนวนนักศึกษาทีละ Section ผ่านฟอร์มในระบบ
-                                </p>
-                                <span class="entry-cta inline-block mt-3 text-sm font-semibold">เริ่มกรอก →</span>
-                            </div>
-                        </div>
-                    </a>
+                <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
                     <a href="{{ route('grade-reports.upload') }}" class="entry-card tone-upload rounded-xl p-5 block h-full">
                         <div class="flex items-start gap-4">
                             <div class="entry-icon">

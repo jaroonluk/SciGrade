@@ -9,6 +9,7 @@ use App\Models\GradeType;
 use App\Models\TblUser;
 use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\Instructor\InstructorPendingRegistrarService;
+use App\Services\Instructor\InstructorRegistrarUploadBatchService;
 use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Services\StaffAuthService;
@@ -34,6 +35,7 @@ class GradeReportPageController extends Controller
         private readonly RegistrarGradePdfParser $pdfParser,
         private readonly GradeReportSubmissionService $submissionService,
         private readonly InstructorPendingRegistrarService $pendingRegistrar,
+        private readonly InstructorRegistrarUploadBatchService $uploadBatch,
     ) {}
 
     /**
@@ -279,76 +281,86 @@ class GradeReportPageController extends Controller
 
     public function storeUpload(Request $request): RedirectResponse
     {
+        $maxFiles = InstructorRegistrarUploadBatchService::MAX_FILES;
+
         $request->validate([
             'term' => ['required', 'integer', 'in:1,2,3'],
             'year' => ['required', 'integer', 'min:2500', 'max:2600'],
-            'grade_file' => [
+            'grade_files' => ['required', 'array', 'min:1', 'max:'.$maxFiles],
+            'grade_files.*' => [
                 'required',
                 'file',
                 'mimetypes:application/pdf,application/x-pdf,application/octet-stream',
                 'max:20480',
             ],
         ], [
-            'grade_file.mimetypes' => 'รองรับเฉพาะไฟล์ PDF จากสำนักทะเบียน',
-            'grade_file.required' => 'กรุณาเลือกไฟล์ PDF',
+            'grade_files.required' => 'กรุณาเลือกไฟล์ PDF อย่างน้อย 1 ไฟล์',
+            'grade_files.min' => 'กรุณาเลือกไฟล์ PDF อย่างน้อย 1 ไฟล์',
+            'grade_files.max' => "อัปโหลดได้สูงสุด {$maxFiles} ไฟล์ต่อครั้ง",
+            'grade_files.*.mimetypes' => 'รองรับเฉพาะไฟล์ PDF จากสำนักทะเบียน',
+            'grade_files.*.required' => 'กรุณาเลือกไฟล์ PDF',
         ]);
 
-        $uploaded = $request->file('grade_file');
-        $tmpPath = $uploaded->getRealPath() ?: $uploaded->getPathname();
-
-        if (! is_string($tmpPath) || $tmpPath === '' || ! is_readable($tmpPath)) {
-            return redirect()
-                ->route('grade-reports.upload')
-                ->withInput()
-                ->withErrors(['grade_file' => $this->pdfParser->invalidFormatMessage()]);
-        }
+        /** @var list<\Illuminate\Http\UploadedFile> $uploadedFiles */
+        $uploadedFiles = array_values(array_filter(
+            $request->file('grade_files', []),
+            fn ($file) => $file instanceof \Illuminate\Http\UploadedFile,
+        ));
 
         try {
-            $parsed = $this->pdfParser->parse(
-                $tmpPath,
-                $uploaded->getClientOriginalName(),
+            $result = $this->uploadBatch->process(
+                $uploadedFiles,
                 $request->integer('term'),
                 $request->integer('year'),
+                auth()->id(),
             );
         } catch (RegistrarPdfParseException $e) {
             $message = $e->getMessage();
             $redirect = redirect()
                 ->route('grade-reports.upload')
                 ->withInput()
-                ->withErrors(['grade_file' => $message]);
+                ->withErrors(['grade_files' => $message]);
 
             if (\App\Support\ImageOnlyPdfMessage::matches($message)) {
                 $redirect->with('image_pdf_guide', true);
             }
 
             return $redirect;
+        } catch (\InvalidArgumentException $e) {
+            return redirect()
+                ->route('grade-reports.upload')
+                ->withInput()
+                ->withErrors(['grade_files' => $e->getMessage()]);
         }
 
-        $path = $uploaded->store('grade-uploads/'.auth()->id(), UploadStorage::diskName());
-        $section = (int) ($parsed['grade_stds'][0]['sec'] ?? 0);
-        $canonicalName = $this->pdfParser->canonicalFilename(
-            (string) ($parsed['subject_code'] ?? 'SUBJECT'),
-            $section > 0 ? $section : 1,
-        );
-
-        $this->pendingRegistrar->remember([
-            'path' => $path,
-            'name' => $canonicalName,
-            'term' => (int) ($parsed['term'] ?? $request->integer('term')),
-            'year' => (int) ($parsed['year'] ?? $request->integer('year')),
-            'subject_code' => (string) ($parsed['subject_code'] ?? ''),
-            'section' => $parsed['grade_stds'][0]['sec'] ?? null,
-            'owner' => auth()->id(),
-        ]);
+        $parsed = $result['merged'];
         session(['grade_upload_parsed' => $parsed]);
 
-        return redirect()
+        $acceptedCount = count($result['accepted']);
+        $status = $acceptedCount === 1
+            ? 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน'
+            : "อ่านไฟล์ PDF สำเร็จ {$acceptedCount} ไฟล์ (วิชา {$parsed['subject_code']}) — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน";
+
+        $redirect = redirect()
             ->route('grade-reports.create', [
                 'term' => (int) ($parsed['term'] ?? $request->integer('term')),
                 'year' => (int) ($parsed['year'] ?? $request->integer('year')),
                 'return' => 'dashboard',
             ])
-            ->with('status', 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน');
+            ->with('status', $status);
+
+        if ($result['duplicates'] !== []) {
+            $dupLines = array_map(
+                fn (array $d) => '• '.$d['name'].' — '.$d['reason'].' (ใช้ไฟล์ «'.$d['duplicate_of'].'» แทน)',
+                $result['duplicates'],
+            );
+            $redirect->with(
+                'upload_duplicates',
+                'พบไฟล์ซ้ำ '.count($result['duplicates']).' ไฟล์ — ระบบอ่านเฉพาะไฟล์ที่ไม่ซ้ำ:'."\n".implode("\n", $dupLines),
+            );
+        }
+
+        return $redirect;
     }
 
     /**

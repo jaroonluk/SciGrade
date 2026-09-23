@@ -32,5 +32,8 @@ class DepartmentReportDateSummaryTest extends TestCase
         $this->assertSame('2026-09-02', $normalize->invoke($service, '2/9/2569'));
         $this->assertSame('2026-09-02', $normalize->invoke($service, '02/09/2569'));
         $this->assertNull($normalize->invoke($service, null));
+        $this->assertNull($normalize->invoke($service, '0000-00-00'));
+        $this->assertNull($normalize->invoke($service, '0000-00-00 00:00:00'));
+        $this->assertNull($normalize->invoke($service, '-0001-11-30'));
     }
 }

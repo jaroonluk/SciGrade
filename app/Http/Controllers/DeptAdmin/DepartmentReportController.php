@@ -53,6 +53,7 @@ class DepartmentReportController extends Controller
             'term' => $term !== null && $term !== '' ? (int) $term : null,
             'year' => $year !== null && $year !== '' ? (int) $year : null,
             'education_level' => $educationLevel,
+            'require_department_instructor' => true,
         ]);
 
         return view('dept-admin.reports.form', [
@@ -91,6 +92,7 @@ class DepartmentReportController extends Controller
             'term' => $request->filled('term') ? $request->integer('term') : null,
             'year' => $request->filled('year') ? $request->integer('year') : null,
             'education_level' => $request->input('education_level', 'all'),
+            'require_department_instructor' => true,
         ]);
 
         return response()->json($summary);
@@ -115,7 +117,15 @@ class DepartmentReportController extends Controller
         $year = $request->integer('year') ?: null;
 
         if ($reports->isEmpty()) {
-            return back()->withErrors(['export' => 'ไม่พบข้อมูลตามเงื่อนไขที่เลือก']);
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'export' => 'ไม่พบข้อมูลตามเงื่อนไขที่เลือก — ตรวจสอบช่วงวันที่ สถานะรับรองผลสอบ (ผ่าน/ยังไม่ผ่าน) ภาค/ปี และระดับการศึกษา แล้วลองใหม่',
+                ]);
+        }
+
+        if (function_exists('ini_set')) {
+            @ini_set('memory_limit', '512M');
         }
 
         return $request->input('format') === 'word'

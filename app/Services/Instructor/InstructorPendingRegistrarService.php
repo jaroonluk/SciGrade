@@ -471,6 +471,27 @@ class InstructorPendingRegistrarService
         return null;
     }
 
+    /**
+     * ล้างคิว pending ทั้งหมด และลบไฟล์ชั่วคราวที่เหลือ
+     */
+    public function forgetAll(): void
+    {
+        $disk = UploadStorage::disk();
+        foreach ($this->pendingItems() as $item) {
+            $path = (string) ($item['path'] ?? '');
+            if ($path === '') {
+                continue;
+            }
+            try {
+                $disk->delete($path);
+            } catch (Throwable) {
+                // ignore missing temp object
+            }
+        }
+
+        $this->forgetSession();
+    }
+
     private function forgetSession(): void
     {
         session()->forget([

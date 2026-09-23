@@ -12,8 +12,10 @@
 @section('content')
 @php
     $summary = $dateSummary ?? ['count' => 0, 'min_date' => null, 'max_date' => null, 'min_date_display' => null, 'max_date_display' => null, 'term_label' => '', 'year' => null];
-    $defaultFrom = old('created_from', $summary['min_date'] ?? '');
-    $defaultTo = old('created_to', $summary['max_date'] ?? '');
+    $safeMin = (! empty($summary['min_date']) && $summary['min_date'] >= '2000-01-01') ? $summary['min_date'] : '';
+    $safeMax = (! empty($summary['max_date']) && $summary['max_date'] >= '2000-01-01') ? $summary['max_date'] : '';
+    $defaultFrom = old('created_from', $safeMin);
+    $defaultTo = old('created_to', $safeMax);
 @endphp
 <div class="max-w-4xl mx-auto">
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">แบบรายงานผลการสอบไล่สำหรับเจ้าหน้าที่</h2>
@@ -186,6 +188,10 @@
                 `${data.term_label}${yearPart} — พบ ${Number(data.count).toLocaleString('th-TH')} รายวิชา ` +
                 `ระหว่างวันที่ <strong>${data.min_date_display}</strong> ถึง <strong>${data.max_date_display}</strong>`;
             applyBtn.disabled = false;
+            // เติมช่วงวันที่ให้อัตโนมัติเมื่อช่องว่าง หรือค่าเดิมใช้พิมพ์ไม่ได้
+            if (!fromEl.value || !toEl.value || fromEl.value < '2000-01-01') {
+                applySummaryDates();
+            }
         } else {
             scopeEl.innerHTML = 'ยังไม่พบรายวิชาตามเงื่อนไขสาขา / ภาค / ปี / ระดับการศึกษา ที่เลือก';
             applyBtn.disabled = true;
