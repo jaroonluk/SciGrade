@@ -168,6 +168,8 @@ class GradeReportFileController extends Controller
             $fileType = (string) ($request->input('file_type') ?: GradeReportFile::TYPE_EXAM_REPORT);
             $uploaded = $request->file('attachment');
             $baseStoredPath = null;
+            // รอบอัปโหลดเดียวต้องมี timestamp เดียวกัน → จัดกลุ่มแสดงเป็น 1 ไฟล์
+            $uploadedAt = now();
 
             foreach ($examSectionsThisRound as $index => $sectionNum) {
                 if ($index === 0) {
@@ -189,7 +191,7 @@ class GradeReportFileController extends Controller
                     'file_type' => $fileType,
                     'original_name' => basename($storedPath) ?: $displayName,
                     'stored_path' => $storedPath,
-                    'uploaded_at' => now(),
+                    'uploaded_at' => $uploadedAt,
                     'username' => $username,
                 ]);
                 $examFilesCreated[] = $created;

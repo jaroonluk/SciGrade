@@ -3827,8 +3827,8 @@ function renderSectionOverview(config = window.wizardConfig) {
 
     if (sub) {
         sub.textContent = summary.fromReg
-            ? 'นับตาม Section ที่เปิดสอนจริงในภาคนี้ — ส่งแล้ว = มีทั้ง มข.11 และใบขวาง'
-            : 'นับตาม Section ในรายงานนี้ — ส่งแล้ว = มีทั้ง มข.11 และใบขวาง';
+            ? 'นับตาม Section ที่เปิดสอนจริงในภาคนี้ — ส่งแล้ว = มีทั้ง มข.11 และแบบรายงาน'
+            : 'นับตาม Section ในรายงานนี้ — ส่งแล้ว = มีทั้ง มข.11 และแบบรายงาน';
     }
 
     if (currentLabel && currentHelp) {
@@ -3837,11 +3837,11 @@ function renderSectionOverview(config = window.wizardConfig) {
                 ? `Section ${summary.current[0]}`
                 : `Section ${summary.current.join(', ')}`;
             currentHelp.textContent = summary.current.length === 1
-                ? 'กลุ่มที่คุณกำลังส่งรอบนี้ — ใบขวาง 1 ใบครอบคลุม มข.11 ของกลุ่มนี้'
-                : 'กลุ่มที่คุณกำลังส่งรอบนี้ — อัปโหลดใบขวางไฟล์เดียวครอบคลุม มข.11 ของหลาย Section ได้';
+                ? 'กลุ่มที่คุณกำลังส่งรอบนี้ — แบบรายงาน 1 ไฟล์ครอบคลุม มข.11 ของกลุ่มนี้'
+                : 'กลุ่มที่คุณกำลังส่งรอบนี้ — อัปโหลดแบบรายงานไฟล์เดียวครอบคลุม มข.11 ของหลาย Section ได้';
         } else if (summary.filledCount > 0 && summary.remainCount === 0) {
             currentLabel.textContent = 'ส่งครบทุก Section แล้ว';
-            currentHelp.textContent = 'ตรวจประวัติใบขวางด้านล่างได้ — แก้ไขได้เฉพาะไฟล์ของตนเองเมื่อ Admin ยังไม่เปลี่ยนสถานะ';
+            currentHelp.textContent = 'ตรวจประวัติแบบรายงานด้านล่างได้ — แก้ไขได้เฉพาะไฟล์ของตนเองเมื่อ Admin ยังไม่เปลี่ยนสถานะ';
         } else if (summary.remainCount > 0) {
             currentLabel.textContent = 'ยังไม่ได้เลือก Section ในรอบนี้';
             currentHelp.textContent = `ยังเหลือ Section ${summary.remaining.join(', ')} ที่ยังไม่ส่ง — ย้อนกลับไปขั้นตอนที่ 4 หากต้องการเพิ่ม`;
@@ -3886,54 +3886,47 @@ function renderExamPackets(config = window.wizardConfig) {
     const reportCanEdit = window.sectionBoardData?.report_can_edit !== false;
 
     if (!packets.length) {
-        el.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มีใบขวางในรายงานนี้ — อัปโหลดด้านล่างแล้วระบบจะบันทึกไว้ตรวจสอบได้ทุกใบ</p>';
+        el.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มีแบบรายงานในรายงานนี้ — อัปโหลดด้านล่างแล้วระบบจะบันทึกไว้ตรวจสอบได้ทุกใบ</p>';
         return;
     }
 
-    el.innerHTML = packets.map((packet, idx) => {
+    el.innerHTML = packets.map((packet) => {
         const secs = Array.isArray(packet.sections) ? packet.sections : [];
         const files = Array.isArray(packet.files) ? packet.files : [];
         const canDelete = reportCanEdit && Boolean(packet.can_delete);
         const fileIds = files.map((f) => Number(f.file_id)).filter((id) => id > 0);
         const viewUrl = packet.view_url ? escapeHtml(packet.view_url) : '';
-        const title = escapeHtml(packet.label || 'แบบรายงานผลการสอบไล่ (ใบขวาง)');
+        const title = escapeHtml(packet.label || 'แบบรายงานผลการสอบไล่(1)');
         const by = escapeHtml(packet.uploaded_by || 'ไม่ระบุ');
         const at = packet.uploaded_at ? escapeHtml(packet.uploaded_at) : '—';
-        const secLabel = secs.length
-            ? `ครอบคลุม มข.11 Section ${escapeHtml(packet.section_label || secs.join(', '))}`
-            : 'ยังไม่ระบุ Section';
-        const regHint = secs.length
-            ? `<p class="text-[11px] text-[#7A4A3A] mt-1">ผูกกับใบ มข.11 ได้ ${secs.length} ใบ · พบ มข.11 ในระบบ ${Number(packet.registrar_count || 0)}/${secs.length} Section</p>`
+        const secHint = secs.length
+            ? `<p class="text-[11px] text-[#7A4A3A] mt-1">อัปโหลดครั้งนี้ครอบคลุม มข.11 Section ${escapeHtml(packet.section_label || secs.join(', '))}</p>`
             : '';
-
-        const fileLinks = files.map((f) => {
-            const url = f.view_url ? escapeHtml(f.view_url) : '';
-            const sec = f.section ? `Sec ${Number(f.section)}` : 'ใบขวาง';
-            if (!url) return '';
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer"
-                class="inline-flex items-center gap-1 rounded border border-green-200 bg-green-50 px-2 py-1 text-[11px] text-[#5C2E1F] hover:bg-green-100">
-                ${pdfFileIconHtml()} ${escapeHtml(sec)}
-            </a>`;
-        }).filter(Boolean).join('');
 
         return `
             <article class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
                 <div class="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                        <p class="text-xs font-semibold text-[#7A4A3A]">ใบขวาง #${packets.length - idx}</p>
-                        <h4 class="font-bold text-[#5C2E1F]">${title}</h4>
-                        <p class="text-sm text-[#7A4A3A] mt-0.5">${secLabel}</p>
-                        <p class="text-xs text-[#7A4A3A] mt-1">อัปโหลดโดย ${by} · ${at}</p>
-                        ${regHint}
+                    <div class="min-w-0 flex-1">
+                        <div class="inline-flex items-center gap-2 file-chip rounded-lg border border-amber-200 bg-white px-2.5 py-1.5">
+                            <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
+                            ${viewUrl
+                                ? `<a href="${viewUrl}" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-[#5C2E1F] hover:underline">${title}</a>`
+                                : `<span class="text-sm font-semibold text-[#5C2E1F]">${title}</span>`}
+                        </div>
+                        <p class="text-xs text-[#7A4A3A] mt-2">อัปโหลดโดย ${by} · ${at}</p>
+                        ${secHint}
                     </div>
                     <div class="flex flex-wrap gap-2">
                         ${viewUrl ? `<a href="${viewUrl}" target="_blank" rel="noopener noreferrer"
-                            class="px-2.5 py-1.5 rounded-lg border border-green-300 bg-white text-xs font-medium text-green-900 hover:bg-green-50">เปิดดู</a>` : ''}
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-green-300 bg-white text-xs font-medium text-green-900 hover:bg-green-50">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i> เปิดดู
+                        </a>` : ''}
                         ${canDelete && fileIds.length ? `<button type="button" data-exam-packet-delete="${fileIds.join(',')}"
-                            class="px-2.5 py-1.5 rounded-lg border border-red-300 text-xs font-medium text-red-700 hover:bg-red-50">ลบใบนี้</button>` : ''}
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-300 text-xs font-medium text-red-700 hover:bg-red-50">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ลบใบนี้
+                        </button>` : ''}
                     </div>
                 </div>
-                ${fileLinks ? `<div class="flex flex-wrap gap-1.5 pt-1">${fileLinks}</div>` : ''}
             </article>`;
     }).join('');
 
@@ -3946,6 +3939,7 @@ function renderExamPackets(config = window.wizardConfig) {
             deleteExamReportPacket(config, ids);
         });
     });
+    if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
 function renderSectionBoard(config = window.wizardConfig) {
@@ -4146,7 +4140,17 @@ function syncExamUploadUi(config = window.wizardConfig) {
         && !(config?.hasPendingExam || window.pendingExamFile)
         && (missing === null || missing.length === 0);
     const pending = Boolean(config?.hasPendingExam || window.pendingExamFile);
-    const pendingName = window.pendingExamFile?.name || 'ใบขวาง.pdf';
+    const pendingName = window.pendingExamFile?.name || 'แบบรายงาน.pdf';
+    const packets = Array.isArray(window.sectionBoardData?.exam_packets)
+        ? window.sectionBoardData.exam_packets
+        : [];
+    const nextOrder = packets.length + 1;
+    const pendingLabel = `แบบรายงานผลการสอบไล่(${nextOrder})`;
+    const savedPacketLabel = packets.find((p) => {
+        const ids = Array.isArray(p.files) ? p.files.map((f) => Number(f.file_id)) : [];
+        return Number(p.file_id) === Number(config?.examFileDetail?.file_id)
+            || ids.includes(Number(config?.examFileDetail?.file_id));
+    })?.label || 'แบบรายงานผลการสอบไล่(1)';
 
     if (fileRow) {
         if (saved) {
@@ -4158,7 +4162,7 @@ function syncExamUploadUi(config = window.wizardConfig) {
                         title="เปิดดูไฟล์ PDF">
                         ${pdfFileIconHtml()}
                         <span class="min-w-0">
-                            <span class="block font-medium truncate max-w-[16rem]">${escapeHtml(config.examFileDetail.name || 'ใบขวาง.pdf')}</span>
+                            <span class="block font-medium truncate max-w-[16rem]">${escapeHtml(savedPacketLabel)}</span>
                             <span class="block text-xs text-[#7A4A3A]">คลิกเพื่อเปิดดู PDF${mySecs.length > 1 ? ` · ใช้ร่วม Section ${mySecs.join(', ')}` : ''}</span>
                         </span>
                     </a>
@@ -4176,8 +4180,8 @@ function syncExamUploadUi(config = window.wizardConfig) {
                 <div class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-[#FFFBF7] px-3 py-2 text-sm text-[#5C2E1F]">
                     ${pdfFileIconHtml()}
                     <span class="min-w-0">
-                        <span class="block font-medium truncate max-w-[16rem]">${escapeHtml(pendingName)}</span>
-                        <span class="block text-xs text-[#7A4A3A]">เลือกแล้ว — จะอัปโหลดเมื่อกดเสร็จสิ้น${mySecs.length > 1 ? ` · ใช้ร่วม Section ${mySecs.join(', ')}` : ''}</span>
+                        <span class="block font-medium truncate max-w-[16rem]">${escapeHtml(pendingLabel)}</span>
+                        <span class="block text-xs text-[#7A4A3A]">เลือกแล้ว (${escapeHtml(pendingName)}) — จะอัปโหลดเมื่อกดเสร็จสิ้น${mySecs.length > 1 ? ` · ใช้ร่วม Section ${mySecs.join(', ')}` : ''}</span>
                     </span>
                 </div>`;
         } else {
@@ -4196,18 +4200,18 @@ function syncExamUploadUi(config = window.wizardConfig) {
     }
 
     if (mySecs.length === 0) {
-        status.textContent = 'Section ที่กรอกไปแล้วมีใบขวางครบแล้ว — รอบนี้ไม่ต้องอัปโหลดใบขวางเพิ่ม (หรือย้อนกลับไปเพิ่ม Section ใหม่ที่ขั้นตอนที่ 4)';
+        status.textContent = 'Section ที่กรอกไปแล้วมีแบบรายงานครบแล้ว — รอบนี้ไม่ต้องอัปโหลดเพิ่ม (หรือย้อนกลับไปเพิ่ม Section ใหม่ที่ขั้นตอนที่ 4)';
         status.className = 'text-xs text-[#7A4A3A]';
     } else if (saved) {
-        status.textContent = 'มีไฟล์ใบขวางของ Section รอบนี้แล้ว — คลิกเพื่อดู หรือลบแล้วอัปโหลดใหม่';
+        status.textContent = 'มีแบบรายงานของ Section รอบนี้แล้ว — คลิกเพื่อดู หรือลบแล้วอัปโหลดใหม่';
         status.className = 'text-xs text-green-800 font-medium';
     } else if (pending) {
-        status.textContent = `เลือกไฟล์แล้ว: ${pendingName} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`;
+        status.textContent = `เลือกไฟล์แล้ว: ${pendingLabel} — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น`;
         status.className = 'text-xs text-green-800';
     } else {
         status.textContent = mySecs.length > 1
             ? `ยังไม่ได้เลือกไฟล์ — อัปโหลดไฟล์เดียวสำหรับ Section รอบนี้ (${mySecs.join(', ')})`
-            : 'ยังไม่ได้เลือกไฟล์ใบขวางของ Section รอบนี้ — กรุณาเลือกไฟล์ด้านบน';
+            : 'ยังไม่ได้เลือกไฟล์แบบรายงานของ Section รอบนี้ — กรุณาเลือกไฟล์ด้านบน';
         status.className = 'text-xs text-[#7A4A3A]';
     }
 

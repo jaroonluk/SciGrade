@@ -836,7 +836,8 @@ class GradeReportController extends Controller
             ];
         }
 
-        $examPacketsMap = [];
+        /** @var array<int, array<string, mixed>> $filePayloads */
+        $filePayloads = [];
 
         foreach ($gradeReport->files->sortBy('file_id') as $file) {
             $type = $file->resolvedType();
@@ -865,6 +866,7 @@ class GradeReportController extends Controller
                 'section' => $sec !== null && (int) $sec > 0 ? (int) $sec : null,
                 'can_delete' => $canDelete,
             ];
+            $filePayloads[(int) $file->file_id] = $payload;
 
             if ($type === GradeReportFile::TYPE_REGISTRAR) {
                 if ($sec === null || (int) $sec <= 0) {
@@ -905,34 +907,6 @@ class GradeReportController extends Controller
                     $sections[$n]['exam_files'][] = $payload;
                     $sections[$n]['exam'] = $payload; // ใบล่าสุดของกลุ่มนี้
                 }
-
-                $stamp = $file->uploaded_at
-                    ? $file->uploaded_at->format('Y-m-d H:i:s')
-                    : ('id-'.$file->file_id);
-                $packetKey = ($uploader !== '' ? $uploader : 'unknown').'|'.$stamp;
-                if (! isset($examPacketsMap[$packetKey])) {
-                    $examPacketsMap[$packetKey] = [
-                        'packet_key' => $packetKey,
-                        'uploaded_by' => $uploaderName ?: ($uploader !== '' ? $uploader : 'ไม่ระบุ'),
-                        'username' => $uploader,
-                        'uploaded_at' => $uploadedAt,
-                        'sections' => [],
-                        'files' => [],
-                        'can_delete' => $canDelete,
-                        'view_url' => $payload['view_url'],
-                        'name' => $payload['name'],
-                    ];
-                }
-                if ($n !== null) {
-                    $examPacketsMap[$packetKey]['sections'][$n] = $n;
-                }
-                $examPacketsMap[$packetKey]['files'][] = $payload;
-                $examPacketsMap[$packetKey]['can_delete'] = $examPacketsMap[$packetKey]['can_delete'] && $canDelete;
-                // ใช้ไฟล์แรกของชุดเป็นตัวแทนเปิดดู
-                if (count($examPacketsMap[$packetKey]['files']) === 1) {
-                    $examPacketsMap[$packetKey]['view_url'] = $payload['view_url'];
-                    $examPacketsMap[$packetKey]['name'] = $payload['name'];
-                }
             }
         }
 
@@ -944,28 +918,73 @@ class GradeReportController extends Controller
 
         ksort($sections);
 
-        $examPackets = array_values(array_map(function (array $packet) use ($sections) {
-            $secs = array_values($packet['sections']);
-            sort($secs);
-            $packet['sections'] = $secs;
-            $packet['section_label'] = $secs === []
-                ? '—'
-                : implode(', ', array_map(fn (int $s) => (string) $s, $secs));
-            $packet['registrar_count'] = count(array_filter(
-                $secs,
-                fn (int $s) => isset($sections[$s]) && $sections[$s]['registrar'] !== null,
-            ));
-            $packet['label'] = 'แบบรายงานผลการสอบไล่ (ใบขวาง)';
-            if (count($packet['files']) > 1) {
-                $packet['label'] .= ' · '.count($packet['files']).' กลุ่ม';
+        // จัดกลุ่มแบบเดียวกับหน้า my: อัปโหลด 1 ครั้ง = 1 รายการ (แม้ครอบหลาย Sec)
+        $displayGroups = GradeReportFile::groupExamReportsForDisplay($gradeReport->files);
+        $examPackets = [];
+        foreach ($displayGroups as $index => $group) {
+            $files = [];
+            $secs = [];
+            $canDeletePacket = true;
+            $uploadedBy = 'ไม่ระบุ';
+            $username = '';
+            $uploadedAtLabel = null;
+
+            foreach ($group['file_ids'] as $fileId) {
+                $payload = $filePayloads[$fileId] ?? null;
+                if (! is_array($payload)) {
+                    continue;
+                }
+                $files[] = $payload;
+                if (($payload['section'] ?? null) !== null) {
+                    $secs[(int) $payload['section']] = (int) $payload['section'];
+                }
+                $canDeletePacket = $canDeletePacket && (bool) ($payload['can_delete'] ?? false);
+                if ($uploadedBy === 'ไม่ระบุ' && ! empty($payload['uploaded_by'])) {
+                    $uploadedBy = (string) $payload['uploaded_by'];
+                }
+                if ($username === '' && ! empty($payload['username'])) {
+                    $username = (string) $payload['username'];
+                }
+                if ($uploadedAtLabel === null && ! empty($payload['uploaded_at'])) {
+                    $uploadedAtLabel = (string) $payload['uploaded_at'];
+                }
             }
 
-            return $packet;
-        }, $examPacketsMap));
+            if ($files === []) {
+                continue;
+            }
 
-        // ใหม่สุดอยู่บน
+            $secs = array_values($secs);
+            sort($secs);
+            $firstFile = $files[0];
+
+            $examPackets[] = [
+                'packet_key' => 'group-'.(int) ($group['file']->file_id ?? $firstFile['file_id']),
+                'label' => $group['label'],
+                'submission_order' => $index + 1,
+                'uploaded_by' => $uploadedBy,
+                'username' => $username,
+                'uploaded_at' => $uploadedAtLabel,
+                'sections' => $secs,
+                'section_label' => $secs === []
+                    ? '—'
+                    : implode(', ', array_map(fn (int $s) => (string) $s, $secs)),
+                'registrar_count' => count(array_filter(
+                    $secs,
+                    fn (int $s) => isset($sections[$s]) && $sections[$s]['registrar'] !== null,
+                )),
+                'files' => $files,
+                'file_count' => count($files),
+                'file_id' => (int) $firstFile['file_id'],
+                'view_url' => $firstFile['view_url'],
+                'name' => $firstFile['name'],
+                'can_delete' => $canDeletePacket,
+            ];
+        }
+
+        // ใหม่สุดอยู่บน — ป้าย (1)(2) คงตามลำดับรอบอัปโหลดจาก groupExamReportsForDisplay
         usort($examPackets, function (array $a, array $b) {
-            return ((int) ($b['files'][0]['file_id'] ?? 0)) <=> ((int) ($a['files'][0]['file_id'] ?? 0));
+            return ((int) ($b['file_id'] ?? 0)) <=> ((int) ($a['file_id'] ?? 0));
         });
 
         $available = $this->resolveAvailableSections(
