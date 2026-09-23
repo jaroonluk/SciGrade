@@ -176,7 +176,8 @@ class RegistrarGradePdfParser
             $this->failParse('missing_section', $originalFilename);
         }
 
-        if ($this->parseStudents($text) === []) {
+        $allStudents = $this->parseStudents($text);
+        if ($allStudents === []) {
             $this->failParse('missing_students', $originalFilename);
         }
 
@@ -188,6 +189,18 @@ class RegistrarGradePdfParser
         $faculties = $this->parseFaculties($text);
         $degree = $this->parseDegree($text);
         $typeCourse = $this->parseTypeCourse($text);
+
+        $gradeIStudents = [];
+        foreach ($allStudents as $student) {
+            if (($student['grade'] ?? '') !== 'I') {
+                continue;
+            }
+            $gradeIStudents[] = [
+                'name' => (string) ($student['name'] ?? ''),
+                'student_code' => (string) ($student['student_code'] ?? ''),
+                'section' => (int) $section,
+            ];
+        }
 
         $gradeStd = array_merge([
             'sec' => $section,
@@ -222,6 +235,7 @@ class RegistrarGradePdfParser
             'score_d' => $summary['ranges']['score_d'] ?? null,
             'score_f' => $summary['ranges']['score_f'] ?? null,
             'grade_stds' => [$gradeStd],
+            'grade_i_students' => $gradeIStudents,
         ];
     }
 
@@ -334,22 +348,28 @@ class RegistrarGradePdfParser
     }
 
     /**
-     * @return list<array{grade: string}>
+     * @return list<array{name: string, student_code: string, grade: string}>
      */
     private function parseStudents(string $text): array
     {
         $students = [];
         // รองรับเฉพาะเกรดในชุดที่กำหนด — อื่น ๆ ข้าม (เว้นไว้)
-        $pattern = '/(?:นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)[^\n]{0,80}?('.self::GRADE_TOKEN.')(\d{9})-\d+/u';
+        $pattern = '/(?:<>\s*)?((?:นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)[^\n]{0,80}?)('.self::GRADE_TOKEN.')(\d{9})-(\d+)/u';
 
         $matched = preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
         if ($matched) {
             foreach ($matches as $match) {
-                $grade = $this->normalizeGradeSymbol($match[1]);
+                $grade = $this->normalizeGradeSymbol($match[2]);
                 if ($grade === null) {
                     continue;
                 }
-                $students[] = ['grade' => $grade];
+                $name = trim(preg_replace('/\s+/u', ' ', $match[1]) ?? $match[1]);
+                $checkDigit = substr((string) $match[4], 0, 1);
+                $students[] = [
+                    'name' => $name,
+                    'student_code' => $match[3].'-'.$checkDigit,
+                    'grade' => $grade,
+                ];
             }
         }
 

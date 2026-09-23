@@ -168,6 +168,141 @@ const REMARK_ENTRY_SEP = ' || ';
 window.priorRemarkFlags = 0;
 window.priorIEntries = [];
 window.priorOtherEntries = [];
+window.gradeIStudents = window.gradeIStudents || [];
+
+function mergeGradeIStudents(incoming, sectionHint = null) {
+    if (!Array.isArray(incoming) || !incoming.length) return;
+    const existing = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
+    const seen = new Set(
+        existing.map((s) => String(s.student_code || '').trim() || `${s.name || ''}|${s.section || ''}`)
+    );
+    const next = [...existing];
+    incoming.forEach((row) => {
+        if (!row) return;
+        const name = String(row.name || '').trim();
+        const code = String(row.student_code || '').trim();
+        const section = row.section != null ? Number(row.section) : (sectionHint != null ? Number(sectionHint) : null);
+        const key = code || `${name}|${section || ''}`;
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        next.push({ name, student_code: code, section: section > 0 ? section : null });
+    });
+    window.gradeIStudents = next;
+    updateGradeILetterUi();
+}
+
+function updateGradeILetterUi() {
+    const box = document.getElementById('grade-i-letter-box');
+    const btn = document.getElementById('btn-download-i-letter');
+    const hint = document.getElementById('grade-i-letter-hint');
+    const hasI = Boolean(document.getElementById('remark-i')?.checked);
+    const students = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
+    const count = students.length;
+
+    if (box) box.classList.toggle('hidden', !hasI);
+    if (btn) btn.disabled = !hasI || count === 0;
+    if (hint) {
+        if (!hasI) {
+            hint.textContent = 'ดาวน์โหลด Word พร้อมข้อมูลจากใบ มข.11 (เมื่อมีนักศึกษาติดเกรด I)';
+        } else if (count === 0) {
+            hint.textContent = 'ยังไม่พบรายชื่อนักศึกษาเกรด I จากไฟล์ มข.11 — อัปโหลดใบส่งผลการศึกษาที่มีเกรด I ก่อน';
+        } else {
+            hint.textContent = `พบนักศึกษาเกรด I ${count} รายจากใบ มข.11 — กดดาวน์โหลดเพื่อกรอกแบบฟอร์ม Word`;
+        }
+    }
+    if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+async function downloadGradeILetter() {
+    const students = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
+    if (!students.length) {
+        showToast('ไม่พบรายชื่อนักศึกษาที่ติดเกรด I จากไฟล์ มข.11', 'error');
+        return;
+    }
+
+    const url = window.wizardConfig?.iLetterDocxUrl;
+    if (!url) {
+        showToast('ไม่พบลิงก์ดาวน์โหลดแบบฟอร์ม', 'error');
+        return;
+    }
+
+    const sections = Array.from(new Set(
+        (typeof sectionStdRows !== 'undefined' && Array.isArray(sectionStdRows) ? sectionStdRows : [])
+            .map((r) => Number(r.sec))
+            .filter((n) => n > 0)
+            .concat(students.map((s) => Number(s.section)).filter((n) => n > 0))
+    ));
+
+    const payload = {
+        subject_code: document.getElementById('subject-code')?.value?.trim() || '',
+        subject: document.getElementById('subject-name')?.value?.trim() || '',
+        term: Number(document.querySelector('input[name="term"]:checked')?.value
+            || document.getElementById('term')?.value
+            || 1),
+        year: Number(document.getElementById('year-input')?.value || 0),
+        teacher: document.getElementById('teacher-input')?.value?.trim() || '',
+        reason: document.getElementById('std-i2')?.value?.trim() || '',
+        sections,
+        students: students.map((s) => ({
+            name: s.name || '',
+            student_code: s.student_code || '',
+            section: s.section || null,
+        })),
+    };
+
+    if (!payload.subject_code) {
+        showToast('กรุณากรอกรหัสวิชาก่อนดาวน์โหลด', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-download-i-letter');
+    if (btn) btn.disabled = true;
+
+    try {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            const msg = data.message
+                || data.errors?.students?.[0]
+                || data.errors?.i_letter?.[0]
+                || 'ดาวน์โหลดแบบฟอร์มไม่สำเร็จ';
+            throw new Error(msg);
+        }
+
+        const blob = await res.blob();
+        const disp = res.headers.get('Content-Disposition') || '';
+        const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disp);
+        let filename = 'บันทึกชี้แจงเกรดI.docx';
+        if (match) {
+            filename = decodeURIComponent(match[1] || match[2] || filename);
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objectUrl);
+        showToast(`ดาวน์โหลดแบบฟอร์มเกรด I สำเร็จ (${students.length} ราย)`, 'success');
+    } catch (err) {
+        showToast(err?.message || 'ดาวน์โหลดแบบฟอร์มไม่สำเร็จ', 'error');
+    } finally {
+        updateGradeILetterUi();
+    }
+}
 
 function splitRemarkEntries(chunk) {
     return String(chunk || '')
@@ -427,6 +562,8 @@ function updateReasonFieldsState() {
             help.textContent = 'เลือกได้หลายข้อ — ข้ามได้หากไม่มีหมายเหตุ';
         }
     }
+
+    updateGradeILetterUi();
 }
 
 function setupJointGradeSubjectSearch() {
@@ -560,6 +697,15 @@ function setupReasonIdFields() {
             }
         });
     });
+
+    const dlBtn = document.getElementById('btn-download-i-letter');
+    if (dlBtn && dlBtn.dataset.bound !== '1') {
+        dlBtn.dataset.bound = '1';
+        dlBtn.addEventListener('click', () => {
+            downloadGradeILetter();
+        });
+    }
+
     updateReasonFieldsState();
 }
 
@@ -736,8 +882,9 @@ function getDisplayedRange(key) {
 
 function updateGradeRangeColumnHeaders() {
     GRADE_RANGE_KEYS.forEach((key) => {
-        const cell = document.querySelector(`.grade-range-col[data-grade="${key}"]`);
-        if (cell) cell.textContent = getDisplayedRange(key);
+        document.querySelectorAll(`.grade-range-col[data-grade="${key}"]`).forEach((cell) => {
+            cell.textContent = getDisplayedRange(key);
+        });
     });
 }
 
@@ -1275,6 +1422,11 @@ function cancelSectionEdit() {
 function applyParsedSectionFromPdf(parsed) {
     if (!parsed) return;
 
+    if (Array.isArray(parsed.grade_i_students)) {
+        const secHint = parsed.grade_stds?.[0]?.sec ?? null;
+        mergeGradeIStudents(parsed.grade_i_students, secHint);
+    }
+
     if (!window.sharedFieldsLocked) {
         if (parsed.intflag != null) setRadio('intflag', parsed.intflag);
         parseScoreRange(parsed.score_a, 'range-a-max', 'range-a-min');
@@ -1455,7 +1607,7 @@ async function uploadSectionRegistrarPdf(file, options = {}) {
             window.wizardConfig.hasPendingRegistrar = true;
             window.wizardConfig.regFilledFromPdf = true;
             if (!options.skipRender) {
-                persistWizardState(window.wizardConfig, attachOnly ? 6 : 4);
+                persistWizardState(window.wizardConfig, attachOnly ? 5 : 3);
                 updateAttachmentChecklist(window.wizardConfig);
                 renderRegUploadSlots(window.wizardConfig);
                 syncWizardRegStatus(window.wizardConfig);
@@ -1628,16 +1780,24 @@ function setSectionStdRows(rows) {
 
 function renderSectionStdList() {
     const tbody = document.getElementById('section-std-list-body');
+    const tfoot = document.getElementById('section-std-list-foot');
     const empty = document.getElementById('section-std-list-empty');
     const wrap = document.getElementById('section-std-list-wrap');
+    const title = document.getElementById('section-std-results-title');
     if (!tbody) return;
 
     sortSectionStdRows();
+    updateGradeRangeColumnHeaders();
 
     if (!sectionStdRows.length) {
         tbody.innerHTML = '';
+        if (tfoot) {
+            tfoot.innerHTML = '';
+            tfoot.classList.add('hidden');
+        }
         empty?.classList.remove('hidden');
         wrap?.classList.add('hidden');
+        title?.classList.add('hidden');
         syncSectionEntryVisibility();
         renderSectionEvaList();
         return;
@@ -1645,6 +1805,13 @@ function renderSectionStdList() {
 
     empty?.classList.add('hidden');
     wrap?.classList.remove('hidden');
+    title?.classList.remove('hidden');
+
+    const gradeKeys = [
+        ['num_a', 'A'], ['num_bb', 'B+'], ['num_b', 'B'], ['num_cc', 'C+'],
+        ['num_c', 'C'], ['num_dd', 'D+'], ['num_d', 'D'], ['num_f', 'F'],
+        ['num_i', 'I'], ['num_s', 'S'], ['num_v', 'U'], ['num_w', 'W'],
+    ];
 
     tbody.innerHTML = sectionStdRows.map((row, index) => {
         const facMissing = !String(row.fac || '').trim();
@@ -1655,30 +1822,62 @@ function renderSectionStdList() {
             editingSectionIndex === index ? 'bg-amber-50' : '',
             facMissing ? 'bg-red-50' : '',
         ].filter(Boolean).join(' ');
+        const cells = gradeKeys.map(([key]) => (
+            `<td class="px-2 py-2 text-center border-t border-sky-100">${row[key] ?? 0}</td>`
+        )).join('');
         return `
             <tr class="${rowClass}">
-                <td class="px-2 py-2 text-center border-t border-amber-100 whitespace-nowrap">
+                <td class="px-2 py-2 text-center border-t border-sky-100 whitespace-nowrap">
                     <button type="button" class="text-[#8B4513] hover:underline text-xs section-edit-btn" data-index="${index}">แก้ไข</button>
                     <button type="button" class="text-red-600 hover:underline text-xs ml-1 section-delete-btn" data-index="${index}">ลบ</button>
                 </td>
-                <td class="px-2 py-2 text-center border-t border-amber-100 font-semibold">${row.sec}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100 text-xs">${facLabel}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100 font-medium">${row.total_std}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_a}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_bb}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_b}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_cc}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_c}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_dd}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_d}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_f}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_i}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_s}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_v}</td>
-                <td class="px-2 py-2 text-center border-t border-amber-100">${row.num_w}</td>
+                <td class="px-2 py-2 text-center border-t border-sky-100 font-semibold">${row.sec}</td>
+                <td class="px-2 py-2 text-center border-t border-sky-100 text-xs">${facLabel}</td>
+                <td class="px-2 py-2 text-center border-t border-sky-100 font-semibold bg-amber-50/60">${row.total_std}</td>
+                ${cells}
             </tr>
         `;
     }).join('');
+
+    const totals = { total_std: 0 };
+    gradeKeys.forEach(([key]) => { totals[key] = 0; });
+    sectionStdRows.forEach((row) => {
+        totals.total_std += Number(row.total_std) || 0;
+        gradeKeys.forEach(([key]) => {
+            totals[key] += Number(row[key]) || 0;
+        });
+    });
+
+    const pct = (n) => {
+        if (!totals.total_std) return '0%';
+        return `${((Number(n) / totals.total_std) * 100).toFixed(1)}%`;
+    };
+
+    if (tfoot) {
+        tfoot.classList.remove('hidden');
+        const totalCells = gradeKeys.map(([key]) => (
+            `<td class="px-2 py-2.5 text-center border-t-2 border-amber-300 font-bold text-[#5C2E1F]">${totals[key]}</td>`
+        )).join('');
+        const pctCells = gradeKeys.map(([key]) => (
+            `<td class="px-2 py-2 text-center border-t border-indigo-200 font-semibold text-indigo-900">${pct(totals[key])}</td>`
+        )).join('');
+        tfoot.innerHTML = `
+            <tr class="bg-gradient-to-r from-amber-100 to-amber-50 section-summary-total">
+                <td class="px-2 py-2.5 text-center border-t-2 border-amber-300 font-bold text-amber-950" colspan="3">
+                    <span class="inline-flex items-center gap-1 justify-center"><i data-lucide="hash" class="w-3.5 h-3.5"></i>รวมทั้งหมด</span>
+                </td>
+                <td class="px-2 py-2.5 text-center border-t-2 border-amber-300 font-bold text-amber-950 bg-amber-200/50">${totals.total_std}</td>
+                ${totalCells}
+            </tr>
+            <tr class="bg-gradient-to-r from-indigo-100 to-sky-50 section-summary-pct">
+                <td class="px-2 py-2 text-center border-t border-indigo-200 font-bold text-indigo-950" colspan="3">
+                    <span class="inline-flex items-center gap-1 justify-center"><i data-lucide="percent" class="w-3.5 h-3.5"></i>คิดเป็น %</span>
+                </td>
+                <td class="px-2 py-2 text-center border-t border-indigo-200 font-bold text-indigo-950 bg-indigo-100/70">100%</td>
+                ${pctCells}
+            </tr>
+        `;
+    }
 
     tbody.querySelectorAll('.section-edit-btn').forEach((btn) => {
         btn.addEventListener('click', () => editSectionStd(parseInt(btn.dataset.index, 10)));
@@ -1693,6 +1892,7 @@ function renderSectionStdList() {
 
     syncSectionEntryVisibility();
     renderSectionEvaList();
+    if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
 function setupSectionStdManager() {
@@ -1840,26 +2040,28 @@ function validateGradeReportBeforeSave(payload) {
     }
 
     const rangeError = validateGradeRanges();
-    if (rangeError) return `ขั้นตอนที่ 3: ${rangeError}`;
+    // โฟลว์ใหม่ไม่บังคับกรอกช่วงคะแนนแยกขั้น — ถ้ามีข้อมูลจาก มข.11 จะใช้ต่อได้
+    if (rangeError && !window.sectionEntryViaUpload && !window.wizardConfig?.cameFromUpload && !window.wizardConfig?.regFilledFromPdf) {
+        // ไม่บล็อกการบันทึก — ช่วงคะแนนแสดงในตารางสรุปเมื่อมีค่า
+    }
 
-    const evaError = validateEvaluationScores(payload);
-    if (evaError) return evaError;
+    // ประเมินรายวิชาถูกถอดออกจาก wizard แล้ว — ไม่บังคับกรอก
 
     if (!payload.grade_stds?.length) {
-        return 'ขั้นตอนที่ 4: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อน)';
+        return 'ขั้นตอนที่ 3: กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อน)';
     }
 
     for (let i = 0; i < payload.grade_stds.length; i += 1) {
         const row = payload.grade_stds[i];
         const sec = row?.sec ?? (i + 1);
         if (isPriorReportedSection(sec)) {
-            return `ขั้นตอนที่ 4: ${priorSectionConflictMessage(sec)}`;
+            return `ขั้นตอนที่ 3: ${priorSectionConflictMessage(sec)}`;
         }
         if (!String(row?.fac || '').trim()) {
-            return `ขั้นตอนที่ 4: Section ${sec} ยังไม่ได้เลือกคณะ — เปิดแก้ไข Section แล้วเลือกคณะก่อนบันทึก`;
+            return `ขั้นตอนที่ 3: Section ${sec} ยังไม่ได้เลือกคณะ — เปิดแก้ไข Section แล้วเลือกคณะก่อนบันทึก`;
         }
         if (String(row.fac).length > 255) {
-            return `ขั้นตอนที่ 4: Section ${sec} เลือกคณะมากเกินไป — แบ่งเป็นหลาย Section หรือลดจำนวนคณะ`;
+            return `ขั้นตอนที่ 3: Section ${sec} เลือกคณะมากเกินไป — แบ่งเป็นหลาย Section หรือลดจำนวนคณะ`;
         }
     }
 
@@ -2225,6 +2427,11 @@ function populateFormFromRecord(record) {
     window.reportDegree = record.degree != null ? Number(record.degree) : null;
     if (record.degree != null && (Number(record.degree) === 5 || Number(record.degree) === 7)) {
         window.parsedCourseDegree = Number(record.degree);
+    }
+
+    if (Array.isArray(record.grade_i_students)) {
+        window.gradeIStudents = [];
+        mergeGradeIStudents(record.grade_i_students);
     }
 
     document.getElementById('subject-code').value = record.subject_code || '';
@@ -3340,24 +3547,24 @@ function requiredAttachmentError(config) {
         const missing = missingRegSections();
         const regMsg = missing.length
             ? `แบบฟอร์ม มข.11 ยังไม่ครบ (ขาด Section ${missing.join(', ')})`
-            : 'แบบฟอร์ม มข.11 ในขั้นตอนที่ 6';
+            : 'แบบฟอร์ม มข.11';
         const examMissing = missingExamSectionsForMe(config);
         const examMsg = examMissing?.length && examMissing[0] !== 0
-            ? `ใบขวางสำหรับ Section ${examMissing.join(', ')} ในขั้นตอนที่ 8`
-            : 'ใบรายงานผลการสอบไล่ (ใบขวาง) ในขั้นตอนที่ 8';
+            ? `แบบรายงานสำหรับ Section ${examMissing.join(', ')} ในขั้นตอนอัปโหลดแบบรายงาน`
+            : 'แบบรายงานผลการสอบไล่ ในขั้นตอนอัปโหลดแบบรายงาน';
         return `กรุณาแนบไฟล์ให้ครบก่อนเสร็จสิ้น: ${regMsg} และ ${examMsg}`;
     }
     if (!hasReg) {
         const missing = missingRegSections();
         return missing.length
-            ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')} กรุณาย้อนกลับไปขั้นตอนที่ 6`
-            : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 กรุณาย้อนกลับไปขั้นตอนที่ 6';
+            ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')} (อัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา)`
+            : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาอัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา';
     }
     const examMissing = missingExamSectionsForMe(config);
     if (examMissing?.length && examMissing[0] !== 0) {
-        return `ยังไม่ได้เลือกใบขวางสำหรับ Section ${examMissing.join(', ')} — อัปโหลดไฟล์เดียวใช้ร่วมทุก Section ของคุณได้`;
+        return `ยังไม่ได้เลือกแบบรายงานสำหรับ Section ${examMissing.join(', ')} — อัปโหลดไฟล์เดียวใช้ร่วมทุก Section ของคุณได้`;
     }
-    return 'ยังไม่ได้แนบใบรายงานผลการสอบไล่ (ใบขวาง) กรุณาเลือกไฟล์ PDF ที่พิมพ์และลงนามแล้วในขั้นตอนที่ 8 ก่อนเสร็จสิ้น';
+    return 'ยังไม่ได้แนบแบบรายงานผลการสอบไล่ กรุณาเลือกไฟล์ PDF ที่พิมพ์และลงนามแล้วในขั้นตอนนี้ก่อนเสร็จสิ้น';
 }
 
 function updateAttachmentChecklist(config) {
@@ -3376,20 +3583,20 @@ function updateAttachmentChecklist(config) {
                 : `เลือก มข.11 ครบ ${progress.done}/${progress.total} Section — จะอัปโหลดเมื่อกดเสร็จสิ้น`)
             : (progress.missing.length
                 ? `ยังแนบ มข.11 ไม่ครบ — ขาด Section ${progress.missing.join(', ')}`
-                : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — ย้อนกลับไปขั้นตอนที่ 6');
+                : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — อัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา');
         regCheck.className = `text-sm ${hasReg ? 'text-green-800 font-medium' : 'text-red-700'}`;
     }
     if (examCheck) {
         if (hasExam) {
             examCheck.textContent = config?.hasExamReportFile && !window.pendingExamFile
-                ? 'แนบใบขวางของ Section ที่คุณกรอกครบแล้ว'
-                : 'เลือกใบขวางแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น (ใบเดียวครอบคลุมหลาย Section ของคุณได้)';
+                ? 'แนบแบบรายงานของ Section ที่คุณกรอกครบแล้ว'
+                : 'เลือกแบบรายงานแล้ว — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น (ใบเดียวครอบคลุมหลาย Section ของคุณได้)';
             examCheck.className = 'text-sm text-green-800 font-medium';
         } else if (examMissing?.length && examMissing[0] !== 0) {
-            examCheck.textContent = `ยังไม่มีใบขวางสำหรับ Section ${examMissing.join(', ')} — อัปโหลดด้านล่าง`;
+            examCheck.textContent = `ยังไม่มีแบบรายงานสำหรับ Section ${examMissing.join(', ')} — อัปโหลดด้านล่าง`;
             examCheck.className = 'text-sm text-red-700';
         } else {
-            examCheck.textContent = 'ยังไม่ได้แนบใบรายงานผลการสอบไล่ (ใบขวาง) — อัปโหลดในขั้นตอนนี้';
+            examCheck.textContent = 'ยังไม่ได้แนบแบบรายงานผลการสอบไล่ — อัปโหลดในขั้นตอนนี้';
             examCheck.className = 'text-sm text-red-700';
         }
     }
@@ -3402,6 +3609,7 @@ function updateAttachmentChecklist(config) {
 
     syncWizardRegStatus(config);
     syncExamUploadUi(config);
+    renderUploadedRegFiles();
 }
 
 function buildMergedSectionBoardRows(config = window.wizardConfig) {
@@ -3841,11 +4049,11 @@ function renderSectionBoard(config = window.wizardConfig) {
             ownPanel.classList.remove('hidden');
             if (ownSecsEl) {
                 ownSecsEl.textContent = mySecs.length === 1
-                    ? `Section ที่ต้องแนบใบขวางรอบนี้: ${mySecs[0]}`
-                    : `Section ที่ต้องแนบใบขวางรอบนี้: ${mySecs.join(', ')} — ใบขวางไฟล์เดียวครอบคลุม มข.11 ของกลุ่มเหล่านี้`;
+                    ? `Section ที่ต้องแนบแบบรายงานรอบนี้: ${mySecs[0]}`
+                    : `Section ที่ต้องแนบแบบรายงานรอบนี้: ${mySecs.join(', ')} — แบบรายงานไฟล์เดียวครอบคลุม มข.11 ของกลุ่มเหล่านี้`;
             }
             if (ownHelp) {
-                ownHelp.textContent = 'ใบขวางที่ส่งไปแล้วถูกเก็บเป็นประวัติด้านบน — รอบนี้แนบเฉพาะใบขวางของ Section ที่กำลังส่ง และแก้ไขได้เฉพาะไฟล์ของตนเอง';
+                ownHelp.textContent = 'แบบรายงานที่ส่งไปแล้วถูกเก็บเป็นประวัติด้านบน — รอบนี้แนบเฉพาะแบบรายงานของ Section ที่กำลังส่ง และแก้ไขได้เฉพาะไฟล์ของตนเอง';
             }
         }
     }
@@ -4088,11 +4296,20 @@ async function deleteExamReportPacket(config = window.wizardConfig, fileIds = []
 }
 
 function nextWizardStep(current) {
-    return current + 1;
+    return Math.min(Number(current) + 1, 5);
 }
 
 function prevWizardStep(current) {
-    return current - 1;
+    return Math.max(Number(current) - 1, 1);
+}
+
+function migrateLegacyWizardStep(step) {
+    const n = Number(step) || 1;
+    if (n <= 2) return n;
+    if (n === 3 || n === 4 || n === 5) return 3;
+    if (n === 6 || n === 7) return 4;
+    if (n >= 8) return 5;
+    return 1;
 }
 
 function validateWizardStep(step, config) {
@@ -4118,12 +4335,6 @@ function validateWizardStep(step, config) {
         return null;
     }
     if (step === 3) {
-        if (!document.getElementById('scheme-credit')?.checked && !document.getElementById('scheme-audit')?.checked) {
-            return 'กรุณาเลือกรูปแบบช่วงคะแนนอย่างน้อย 1 รายการ';
-        }
-        return validateGradeRanges();
-    }
-    if (step === 4) {
         if (!sectionStdRows.length) {
             return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อนไปต่อ)';
         }
@@ -4136,22 +4347,6 @@ function validateWizardStep(step, config) {
         return null;
     }
     if (step === 5) {
-        if (!sectionStdRows.length) {
-            return 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อนกรอกผลประเมิน';
-        }
-        return validateEvaluationScores(collectGradeReportPayload());
-    }
-    if (step === 6) {
-        const missing = missingRegSections();
-        if (!requiredRegSections().length) {
-            return 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อนแนบแบบฟอร์ม มข.11';
-        }
-        if (missing.length) {
-            return `กรุณาแนบแบบฟอร์ม มข.11 ให้ครบทุก Section — ยังขาด Section ${missing.join(', ')} (ต้องอัปโหลด ${requiredRegSections().length} ไฟล์ ตามจำนวน Section ที่กรอก)`;
-        }
-        return null;
-    }
-    if (step === 8) {
         return requiredAttachmentError(config);
     }
     return null;
@@ -4176,26 +4371,68 @@ function showWizardStep(step, config) {
     const back = document.getElementById('wizard-back');
     const next = document.getElementById('wizard-next');
     if (back) back.classList.toggle('hidden', step <= 1);
-    if (next) next.textContent = step === 8 ? 'เสร็จสิ้น' : (step === 5 || step === 6 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
+    if (next) next.textContent = step === 5 ? 'เสร็จสิ้น' : (step === 3 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
 
     if (step === 2) refreshCourseContext();
-    if (step === 4) {
+    if (step === 3) {
         applyGraduateFacultyDefault();
         refreshCourseContext();
         applySectionStdFormLayout();
+        updateGradeRangeColumnHeaders();
+        renderSectionStdList();
+    }
+    if (step === 4 || step === 5) {
+        renderUploadedRegFiles();
     }
     if (step === 5) {
-        updateEvaFieldsVisibility();
-    }
-    if (step === 6) {
-        renderRegUploadSlots(config);
-        syncWizardRegStatus(config);
-    }
-    if (step === 8) {
         refreshCourseContext().finally(() => loadSectionBoard(config));
     } else {
         updateAttachmentChecklist(config);
     }
+    if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function renderUploadedRegFiles() {
+    const targets = [
+        document.getElementById('wizard-reg-files-print-list'),
+        document.getElementById('wizard-reg-files-upload-list'),
+    ].filter(Boolean);
+    if (!targets.length) return;
+
+    const entries = Object.entries(window.regUploadBySection || {})
+        .map(([sec, info]) => ({
+            section: Number(sec),
+            name: info?.name || `Section ${sec}`,
+            source: info?.source || 'pending',
+            viewUrl: regViewUrlForSection(Number(sec), info),
+        }))
+        .filter((row) => row.section > 0)
+        .sort((a, b) => a.section - b.section);
+
+    const html = entries.length
+        ? entries.map((row) => `
+            <div class="flex flex-wrap items-center gap-3 rounded-xl border border-teal-200 bg-white px-3 py-2.5">
+                <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-teal-100 text-teal-800 shrink-0">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-teal-950 truncate">${escapeHtml(row.name)}</p>
+                    <p class="text-xs text-teal-800/75 mt-0.5">Section ${row.section} · ${row.source === 'saved' ? 'บันทึกในระบบแล้ว' : 'รออัปโหลดเมื่อกดเสร็จสิ้น'}</p>
+                </div>
+                ${row.viewUrl ? `<a href="${escapeHtml(row.viewUrl)}" target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 text-xs font-semibold text-teal-800 hover:underline">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> เปิดดู
+                </a>` : ''}
+            </div>
+        `).join('')
+        : `<p class="text-sm text-teal-900/70 rounded-lg border border-dashed border-teal-300 bg-white px-3 py-4 text-center">
+            ยังไม่มีไฟล์ มข.11 — อัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา
+           </p>`;
+
+    targets.forEach((el) => {
+        el.innerHTML = html;
+    });
+    if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
 function showWizardDone() {
@@ -4301,7 +4538,7 @@ async function saveWizardReport(config) {
     overlay?.classList.add('hidden');
     document.body.style.overflow = '';
     // ไฟล์ REG ยังเป็น pending จนกว่าจะกดเสร็จสิ้น — ไม่ทำเครื่องหมายว่าอัปโหลดเข้าฐานแล้ว
-    persistWizardState(config, 7);
+    persistWizardState(config, 4);
     refreshCourseContext();
     return { ok: true };
 }
@@ -4324,19 +4561,19 @@ async function stageExamReport(config, file) {
         renderSectionBoard(config);
     }
     syncExamUploadUi(config);
-    persistWizardState(config, 8);
+    persistWizardState(config, 5);
     updateAttachmentChecklist(config);
     showToast(
         examTargetSectionsThisRound(config).length > 1
-            ? 'เลือกใบขวางแล้ว — ไฟล์นี้จะใช้กับ Section ที่กรอกในรอบนี้เมื่อกดเสร็จสิ้น'
-            : 'เลือกใบขวางแล้ว — กดเสร็จสิ้นเพื่ออัปโหลด มข.11 และใบขวางเข้าสู่ระบบ',
+            ? 'เลือกแบบรายงานแล้ว — ไฟล์นี้จะใช้กับ Section ที่กรอกในรอบนี้เมื่อกดเสร็จสิ้น'
+            : 'เลือกแบบรายงานแล้ว — กดเสร็จสิ้นเพื่ออัปโหลด มข.11 และแบบรายงานเข้าสู่ระบบ',
         'success',
     );
 }
 
 async function finalizeWizardAttachments(config) {
     if (!config.currentReportId) {
-        return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณาย้อนกลับไปกด «บันทึกแล้วไปต่อ» ที่ขั้นตอนที่ 4' };
+        return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณาย้อนกลับไปกด «บันทึกแล้วไปต่อ» ที่ขั้นตอนจำนวนนักศึกษา' };
     }
 
     if (!hasRegistrarAttachment(config)) {
@@ -4344,12 +4581,12 @@ async function finalizeWizardAttachments(config) {
         return {
             ok: false,
             error: missing.length
-                ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')} กรุณาย้อนกลับไปขั้นตอนที่ 6`
-                : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาย้อนกลับไปขั้นตอนที่ 6',
+                ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')}`
+                : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาอัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา',
         };
     }
     if (!hasExamReportAttachment(config)) {
-        return { ok: false, error: 'ยังไม่ได้เลือกใบรายงานผลการสอบไล่ (ใบขวาง) — กรุณาเลือกไฟล์ในขั้นตอนนี้ก่อนกดเสร็จสิ้น' };
+        return { ok: false, error: 'ยังไม่ได้เลือกแบบรายงานผลการสอบไล่ — กรุณาเลือกไฟล์ในขั้นตอนนี้ก่อนกดเสร็จสิ้น' };
     }
 
     const overlay = document.getElementById('save-overlay');
@@ -4492,7 +4729,7 @@ function restoreWizardState(config) {
     try {
         const urlStep = Number(new URLSearchParams(window.location.search).get('wizard_step') || 0);
         if (urlStep >= 1 && urlStep <= 8) {
-            return urlStep;
+            return migrateLegacyWizardStep(urlStep);
         }
 
         const saved = JSON.parse(sessionStorage.getItem(wizardStorageKey(config)) || 'null');
@@ -4551,7 +4788,7 @@ function restoreWizardState(config) {
         }
 
         const step = Number(saved.step);
-        return step >= 1 && step <= 8 ? step : 1;
+        return step >= 1 && step <= 8 ? migrateLegacyWizardStep(step) : 1;
     } catch {
         return 1;
     }
@@ -4736,22 +4973,22 @@ function initGradeReportWizard(config) {
             return;
         }
 
-        if (step === 5 || step === 6) {
+        if (step === 3) {
             const saved = await saveWizardReport(config);
             if (!saved.ok) return;
         }
 
-        if (step === 8) {
+        if (step === 5) {
             const finalized = await finalizeWizardAttachments(config);
             if (!finalized.ok) return;
             showWizardDone();
             return;
         }
 
-        if (step === 7) {
-            persistWizardState(config, 7);
+        if (step === 4) {
+            persistWizardState(config, 4);
             prepareExamReportDownload(config);
-            go(8);
+            go(5);
             showExamReportDownloadNotice(config);
             return;
         }

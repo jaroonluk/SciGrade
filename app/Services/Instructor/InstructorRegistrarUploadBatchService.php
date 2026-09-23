@@ -174,6 +174,25 @@ class InstructorRegistrarUploadBatchService
         usort($gradeStds, fn ($a, $b) => ((int) ($a['sec'] ?? 0)) <=> ((int) ($b['sec'] ?? 0)));
         $merged['grade_stds'] = $gradeStds;
 
+        $iStudents = [];
+        $seenStudentCodes = [];
+        foreach ($accepted as $row) {
+            foreach ($row['parsed']['grade_i_students'] ?? [] as $student) {
+                $code = trim((string) ($student['student_code'] ?? ''));
+                $key = $code !== '' ? $code : (string) ($student['name'] ?? '').'|'.($student['section'] ?? '');
+                if ($key === '' || isset($seenStudentCodes[$key])) {
+                    continue;
+                }
+                $seenStudentCodes[$key] = true;
+                $iStudents[] = [
+                    'name' => (string) ($student['name'] ?? ''),
+                    'student_code' => $code,
+                    'section' => isset($student['section']) ? (int) $student['section'] : null,
+                ];
+            }
+        }
+        $merged['grade_i_students'] = $iStudents;
+
         return [
             'merged' => $merged,
             'accepted' => $acceptedMeta,

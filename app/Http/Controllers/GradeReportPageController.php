@@ -7,6 +7,7 @@ use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Models\GradeType;
 use App\Models\TblUser;
+use App\Services\Instructor\GradeReportIDocxExportService;
 use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\Instructor\InstructorRegistrarUploadBatchService;
@@ -26,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GradeReportPageController extends Controller
@@ -36,6 +38,7 @@ class GradeReportPageController extends Controller
         private readonly GradeReportSubmissionService $submissionService,
         private readonly InstructorPendingRegistrarService $pendingRegistrar,
         private readonly InstructorRegistrarUploadBatchService $uploadBatch,
+        private readonly GradeReportIDocxExportService $iLetterDocx,
     ) {}
 
     /**
@@ -361,6 +364,41 @@ class GradeReportPageController extends Controller
         }
 
         return $redirect;
+    }
+
+    /**
+     * ดาวน์โหลดแบบฟอร์มบันทึกชี้แจงให้เกรด I (Word) จากข้อมูล มข.11 + เหตุผลที่กรอก
+     */
+    public function downloadILetter(Request $request): BinaryFileResponse|RedirectResponse|JsonResponse
+    {
+        $data = $request->validate([
+            'subject_code' => ['required', 'string', 'max:32'],
+            'subject' => ['nullable', 'string', 'max:255'],
+            'term' => ['required', 'integer', 'in:1,2,3'],
+            'year' => ['required', 'integer', 'min:2500', 'max:2700'],
+            'teacher' => ['nullable', 'string', 'max:255'],
+            'department' => ['nullable', 'string', 'max:255'],
+            'reason' => ['nullable', 'string', 'max:1000'],
+            'sections' => ['nullable', 'array', 'max:50'],
+            'sections.*' => ['integer', 'min:1', 'max:50'],
+            'students' => ['required', 'array', 'min:1', 'max:500'],
+            'students.*.name' => ['nullable', 'string', 'max:255'],
+            'students.*.student_code' => ['nullable', 'string', 'max:32'],
+            'students.*.section' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ], [
+            'students.required' => 'ไม่พบรายชื่อนักศึกษาที่ติดเกรด I จากไฟล์ มข.11',
+            'students.min' => 'ไม่พบรายชื่อนักศึกษาที่ติดเกรด I จากไฟล์ มข.11',
+        ]);
+
+        try {
+            return $this->iLetterDocx->download($data);
+        } catch (\InvalidArgumentException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->withErrors(['i_letter' => $e->getMessage()]);
+        }
     }
 
     /**

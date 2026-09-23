@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [GradeReportPageController::class, 'create'])->name('create');
         Route::get('/upload', [GradeReportPageController::class, 'upload'])->name('upload');
         Route::post('/upload', [GradeReportPageController::class, 'storeUpload'])->name('upload.store');
+        Route::post('/i-letter.docx', [GradeReportPageController::class, 'downloadILetter'])->name('i-letter.docx');
         Route::post('/parse-section-pdf', [GradeReportPageController::class, 'parseSectionPdf'])->name('parse-section-pdf');
         Route::get('/pending-registrar/{section}', [GradeReportPageController::class, 'showPendingRegistrar'])->name('pending-registrar.show');
         Route::delete('/pending-registrar/{section}', [GradeReportPageController::class, 'destroyPendingRegistrar'])->name('pending-registrar.destroy');

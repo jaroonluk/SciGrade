@@ -197,14 +197,11 @@
     @@media (min-width: 768px) {
         .wizard-trail { flex-wrap: nowrap; }
         .wizard-step-item { flex: 1 1 0; min-width: 0; margin-left: -10px; }
-        .wizard-step-item:nth-child(1) { z-index: 8; }
-        .wizard-step-item:nth-child(2) { z-index: 7; }
-        .wizard-step-item:nth-child(3) { z-index: 6; }
-        .wizard-step-item:nth-child(4) { z-index: 5; }
-        .wizard-step-item:nth-child(5) { z-index: 4; }
-        .wizard-step-item:nth-child(6) { z-index: 3; }
-        .wizard-step-item:nth-child(7) { z-index: 2; }
-        .wizard-step-item:nth-child(8) { z-index: 1; }
+        .wizard-step-item:nth-child(1) { z-index: 5; }
+        .wizard-step-item:nth-child(2) { z-index: 4; }
+        .wizard-step-item:nth-child(3) { z-index: 3; }
+        .wizard-step-item:nth-child(4) { z-index: 2; }
+        .wizard-step-item:nth-child(5) { z-index: 1; }
         .wizard-step-item:first-child { margin-left: 0; }
         .wizard-step-item:nth-child(4n+1) .wizard-chevron,
         .wizard-chevron {
@@ -238,17 +235,18 @@
                 </h2>
                 <ol id="wizard-stepper" class="wizard-trail" aria-label="ขั้นตอนการกรอกรายงาน">
                     @foreach ([
-                        1 => 'ข้อมูลรายวิชา',
-                        2 => 'หมายเหตุ',
-                        3 => 'ช่วงคะแนน',
-                        4 => 'จำนวนนักศึกษา',
-                        5 => 'ประเมินรายวิชา',
-                        6 => 'แนบ มข.11',
-                        7 => 'พิมพ์ใบขวาง',
-                        8 => 'อัปโหลดใบขวาง',
-                    ] as $n => $label)
+                        1 => ['ข้อมูลรายวิชา', 'book-open'],
+                        2 => ['หมายเหตุ', 'message-square'],
+                        3 => ['จำนวนนักศึกษา', 'users'],
+                        4 => ['พิมพ์แบบรายงาน', 'printer'],
+                        5 => ['อัปโหลดแบบรายงาน', 'upload-cloud'],
+                    ] as $n => [$label, $icon])
                         <li class="wizard-step-item {{ $n === 1 ? 'is-current' : '' }}" data-wizard-dot="{{ $n }}" data-tone="{{ $n }}">
-                            <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">{{ $n }}</span></span>
+                            <span class="wizard-chevron" aria-hidden="true">
+                                <span class="wizard-arrow-num inline-flex items-center justify-center gap-0.5">
+                                    <i data-lucide="{{ $icon }}" class="w-3.5 h-3.5"></i>
+                                </span>
+                            </span>
                             <span class="wizard-label">{{ $label }}</span>
                         </li>
                     @endforeach
@@ -372,6 +370,26 @@
                                 <input type="checkbox" id="remark-i" name="remark_i" value="1" class="accent-amber-700 mt-1 shrink-0">
                                 <span class="text-[#5C2E1F] font-medium pt-0.5">ได้ I เนื่องจาก</span>
                             </label>
+                            <div id="grade-i-letter-box" class="hidden ml-6 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-emerald-50 px-3 py-3">
+                                <div class="flex flex-wrap items-center gap-3 justify-between">
+                                    <div class="flex items-start gap-3 min-w-0">
+                                        <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-600 text-white shadow-sm">
+                                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                                        </span>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-sky-950">แบบฟอร์มบันทึกชี้แจงให้เกรด I</p>
+                                            <p id="grade-i-letter-hint" class="text-xs text-[#0c4a6e]/80 mt-0.5">
+                                                ดาวน์โหลด Word พร้อมข้อมูลจากใบ มข.11 (เมื่อมีนักศึกษาติดเกรด I)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btn-download-i-letter" disabled
+                                        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
+                                        <i data-lucide="download" class="w-4 h-4"></i>
+                                        ดาวน์โหลด Word
+                                    </button>
+                                </div>
+                            </div>
                             <div id="prior-i-box" class="hidden ml-6 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
                                 <p class="text-[0.7rem] font-semibold text-[#854d0e] mb-1">ข้อความจากผู้กรอก Sec ก่อนหน้า (รหัสวิชาเดียวกัน)</p>
                                 <ul id="prior-i-list" class="list-disc pl-4 space-y-0.5 text-xs text-[#5C2E1F]"></ul>
@@ -380,7 +398,7 @@
                                 <input id="std-i2" type="text" maxlength="400"
                                     class="w-full border border-amber-200 rounded px-2 py-1.5 text-sm"
                                     placeholder="กรอกเหตุผลเพิ่มเติม (บังคับเมื่อติ๊กข้อนี้)" disabled>
-                                <p class="text-[0.65rem] text-[#7A4A3A]/75 mt-1">ข้อความใหม่จะถูกเพิ่มต่อท้าย โดยไม่ทับข้อมูลเดิม</p>
+                                <p class="text-[0.65rem] text-[#7A4A3A]/75 mt-1">ข้อความใหม่จะถูกเพิ่มต่อท้าย โดยไม่ทับข้อมูลเดิม — ใช้เป็นสาเหตุในแบบฟอร์ม Word ด้วย</p>
                             </div>
                         </div>
 
@@ -403,7 +421,8 @@
                     </div>
                     </div>
 
-                    <div class="wizard-step space-y-5" data-wizard-step="5">
+                    {{-- ประเมินรายวิชา — ซ่อนจาก wizard (คงฟิลด์สำหรับบันทึกค่าเริ่มต้น) --}}
+                    <div id="hidden-eva-fields" class="hidden" aria-hidden="true">
                     <div class="bg-white border border-amber-200 rounded-lg p-4">
                         <p class="text-sm font-semibold text-[#5C2E1F] mb-2">เลือกรูปแบบการกรอกผลการประเมินรายวิชา</p>
                         <label class="flex items-center gap-2 text-sm mb-1"><input type="radio" name="statuseva" value="1" class="accent-amber-700"> กรอกคะแนนประเมินรายวิชาตาม Section</label>
@@ -432,11 +451,11 @@
                             <p class="text-xs text-[#7A4A3A]/80 mt-0.5">แสดงตาม Section ที่บันทึกในขั้นตอนจำนวนนักศึกษา — กรอกในหน้านี้ ไม่ต้องกรอกตอนบันทึก Section</p>
                         </div>
                         <div id="section-eva-empty" class="hidden rounded-lg border border-dashed border-amber-300 bg-white px-4 py-5 text-center text-sm text-[#7A4A3A]/80">
-                            ยังไม่มี Section — กรุณาย้อนกลับไปขั้นตอนที่ 4 กรอกจำนวนนักศึกษาก่อน
+                            ยังไม่มี Section — กรุณาย้อนกลับไปขั้นตอนที่ 3 กรอกจำนวนนักศึกษาก่อน
                         </div>
                         <div id="section-eva-list" class="space-y-3"></div>
                     </div>
-                    </div>
+                    </div>{{-- /hidden-eva-fields --}}
 
                     <div id="eva-hint-popover" class="fixed z-[9999] no-print" role="dialog" aria-label="ตัวอย่างการกรอกผลประเมินรายวิชา" aria-hidden="true">
                         <div class="eva-hint-popover-card">
@@ -449,7 +468,8 @@
                         </div>
                     </div>
 
-                    <div class="wizard-step space-y-5" data-wizard-step="3">
+                    {{-- ช่วงคะแนนเก็บใน DOM (ซ่อน) เพื่อให้ข้อมูลจาก มข.11 / พิมพ์รายงานยังใช้ได้ — ไม่แสดงเป็นขั้นตอน --}}
+                    <div id="hidden-grade-ranges" class="hidden" aria-hidden="true">
                     <div>
                         <p class="text-sm font-semibold text-[#5C2E1F] mb-2">ช่วงคะแนนของแต่ละเกรด</p>
                         <p class="text-xs text-[#7A4A3A]/80 mb-3">เลือกรูปแบบที่ต้องการกรอกอย่างน้อย 1 รายการ</p>
@@ -534,11 +554,13 @@
                     </div>
                     </div>
 
-                    <div class="wizard-step space-y-5" data-wizard-step="4">
+                    <div class="wizard-step space-y-5" data-wizard-step="3">
                     <div id="section-std-form" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-5 space-y-5 shadow-sm">
                         <div id="section-std-header" class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-3">
                             <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2 text-base">
-                                <i data-lucide="users" class="w-5 h-5 text-[#8B4513]"></i>
+                                <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800">
+                                    <i data-lucide="users" class="w-5 h-5"></i>
+                                </span>
                                 กรอกจำนวนนักศึกษา
                             </h3>
                             <p id="section-form-hint" class="text-xs text-[#7A4A3A]/80"></p>
@@ -675,56 +697,60 @@
                         </div>
 
                         <div id="section-std-results" class="space-y-3">
-                            <p id="section-std-results-title" class="hidden text-sm font-semibold text-[#5C2E1F]">รายการจำนวนนักศึกษาที่กรอกแล้ว</p>
+                            <p id="section-std-results-title" class="hidden text-sm font-semibold text-[#5C2E1F] flex items-center gap-2">
+                                <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-100 text-sky-800">
+                                    <i data-lucide="table" class="w-4 h-4"></i>
+                                </span>
+                                สรุปจำนวนนักศึกษาตาม Section
+                            </p>
                             <div id="section-std-list-empty" class="rounded-lg border border-dashed border-amber-300 bg-white px-4 py-6 text-center text-sm text-[#7A4A3A]/80">
                                 ยังไม่มีข้อมูล Section — กรอกด้านบนแล้วกด «บันทึก Section นี้»
                             </div>
-                            <div id="section-std-list-wrap" class="hidden overflow-x-auto rounded-lg border border-amber-200 bg-white">
-                                <table class="w-full text-xs min-w-[900px]">
+                            <div id="section-std-list-wrap" class="hidden overflow-x-auto rounded-xl border-2 border-sky-200 bg-white shadow-sm">
+                                <table id="section-std-summary-table" class="w-full text-xs min-w-[960px]">
                                     <thead>
-                                        <tr class="bg-gradient-to-b from-[#fdf6f0] to-[#f5e6d8]">
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">ดำเนินการ</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">กลุ่ม</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">คณะ</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">รวม</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">A</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">B+</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">B</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">C+</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">C</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">D+</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">D</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">F</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">I</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">S</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">U</th>
-                                            <th class="px-2 py-2 text-center border-b border-amber-200">W</th>
+                                        <tr class="bg-gradient-to-b from-sky-50 to-sky-100/80">
+                                            <th class="px-2 py-2.5 text-center border-b border-sky-200">
+                                                <span class="inline-flex items-center gap-1 font-semibold text-sky-950"><i data-lucide="settings-2" class="w-3.5 h-3.5"></i>ดำเนินการ</span>
+                                            </th>
+                                            <th class="px-2 py-2.5 text-center border-b border-sky-200 font-semibold text-sky-950">กลุ่ม</th>
+                                            <th class="px-2 py-2.5 text-center border-b border-sky-200 font-semibold text-sky-950">คณะ</th>
+                                            <th class="px-2 py-2.5 text-center border-b border-sky-200 font-semibold text-sky-950 bg-amber-50/80">รวม</th>
+                                            @foreach (['a'=>'A','bp'=>'B+','b'=>'B','cp'=>'C+','c'=>'C','dp'=>'D+','d'=>'D','f'=>'F'] as $key => $label)
+                                                <th class="px-2 py-2.5 text-center border-b border-sky-200">
+                                                    <div class="font-bold text-[#5C2E1F]">{{ $label }}</div>
+                                                    <div class="grade-range-col text-[10px] text-sky-800/80 mt-0.5 font-medium" data-grade="{{ $key }}">—</div>
+                                                </th>
+                                            @endforeach
+                                            @foreach (['i'=>'I','s'=>'S','u'=>'U','w'=>'W'] as $key => $label)
+                                                <th class="px-2 py-2.5 text-center border-b border-sky-200 bg-amber-50/40">
+                                                    <div class="font-bold text-[#5C2E1F]">{{ $label }}</div>
+                                                    <div class="text-[10px] text-gray-400 mt-0.5">—</div>
+                                                </th>
+                                            @endforeach
                                         </tr>
                                     </thead>
                                     <tbody id="section-std-list-body"></tbody>
+                                    <tfoot id="section-std-list-foot" class="hidden"></tfoot>
                                 </table>
                             </div>
                         </div>
                     </div>
                     </div>
 
-                    <div class="wizard-step space-y-4" data-wizard-step="6">
+                    {{-- แนบ มข.11 — ไม่แสดงเป็นขั้นตอน (ไฟล์มาจากการอัปโหลดหน้าแรก / แสดงในขั้นพิมพ์-อัปโหลด) --}}
+                    <div id="hidden-reg-attach-step" class="hidden" aria-hidden="true">
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
                             <h3 class="font-bold text-[#5C2E1F]">แนบแบบฟอร์ม มข.11 ตามจำนวน Section ที่กรอก</h3>
                             <p id="wizard-reg-help" class="text-sm text-[#7A4A3A]/80 leading-relaxed">
-                                ระบบจะนับจำนวน Section ที่คุณกรอกในขั้นตอนที่ 4 แล้วแสดงช่องอัปโหลด มข.11 เท่าจำนวนนั้น (Section ละ 1 ไฟล์)
-                                จากสำนักทะเบียน
-                                (<a href="https://reg.kku.ac.th" target="_blank" rel="noopener noreferrer" class="text-[#8B4513] underline">https://reg.kku.ac.th</a>)
-                                <strong class="font-semibold text-[#5C2E1F]">ตั้งชื่อไฟล์อย่างไรก็ได้</strong>
-                                — ระบบจะตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ
-                                หากยังอัปโหลดไม่ครบ ระบบจะไม่อนุญาตให้ไปขั้นตอนถัดไป
+                                ระบบจะนับจำนวน Section ที่คุณกรอกแล้วแสดงช่องอัปโหลด มข.11
                             </p>
 
                             <p id="wizard-reg-section-count" class="text-sm font-semibold text-[#5C2E1F]"></p>
 
                             <div class="rounded-lg border border-dashed border-amber-400 bg-[#FFFBF7] p-4 space-y-2">
                                 <p class="text-sm font-semibold text-[#5C2E1F]">อัปโหลดหลายไฟล์พร้อมกัน</p>
-                                <p class="text-xs text-[#7A4A3A]/80">เลือกไฟล์ PDF มข.11 ได้หลายไฟล์ในครั้งเดียว (ตั้งชื่ออย่างไรก็ได้) ระบบจะจับคู่ Section และตั้งชื่อเป็นรหัสวิชา-กลุ่ม.pdf ให้เอง</p>
+                                <p class="text-xs text-[#7A4A3A]/80">เลือกไฟล์ PDF มข.11 ได้หลายไฟล์ในครั้งเดียว</p>
                                 <input id="wizard-reg-bulk-upload" type="file" accept=".pdf,application/pdf" multiple
                                     class="block w-full max-w-xl text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
                                 <p id="wizard-reg-bulk-status" class="text-xs text-[#7A4A3A]"></p>
@@ -738,44 +764,69 @@
                         </div>
                     </div>
 
-                    <div class="wizard-step space-y-4" data-wizard-step="7">
-                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-3">
-                            <h3 class="font-bold text-[#5C2E1F]">พิมพ์รายงานผลการสอบไล่ (ใบขวาง)</h3>
-                            <p class="text-sm text-[#7A4A3A]/80">
-                                กดปุ่มด้านล่างเพื่อเปิดแบบพิมพ์ใบขวาง หรือกด «ถัดไป» ระบบจะดาวน์โหลดใบขวางให้อัตโนมัติอีกครั้งก่อนเข้าขั้นตอนอัปโหลด
-                            </p>
+                    <div class="wizard-step space-y-4" data-wizard-step="4">
+                        <div class="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5 space-y-4">
+                            <div class="flex items-start gap-3">
+                                <span class="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-xl bg-violet-600 text-white shadow-sm">
+                                    <i data-lucide="printer" class="w-5 h-5"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-bold text-violet-950 text-base">พิมพ์แบบรายงานผลการสอบไล่</h3>
+                                    <p class="text-sm text-violet-900/75 mt-1">
+                                        กดปุ่มด้านล่างเพื่อเปิดแบบพิมพ์ หรือกด «ถัดไป» ระบบจะดาวน์โหลดแบบรายงานให้อัตโนมัติก่อนเข้าขั้นตอนอัปโหลด
+                                    </p>
+                                </div>
+                            </div>
                             <button type="button" id="wizard-print-link"
-                               class="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-700 text-white rounded-lg text-sm font-semibold hover:bg-amber-800">
-                                <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์ใบขวาง
+                               class="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-700 text-white rounded-lg text-sm font-semibold hover:bg-violet-800">
+                                <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์แบบรายงาน
                             </button>
+                        </div>
+
+                        <div id="wizard-reg-files-print" class="rounded-xl border-2 border-teal-200 bg-teal-50/40 p-5 space-y-3">
+                            <div class="flex items-start gap-3">
+                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-teal-600 text-white">
+                                    <i data-lucide="files" class="w-5 h-5"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-bold text-teal-950">ไฟล์ มข.11 ที่อัปโหลดแล้ว</h3>
+                                    <p class="text-xs text-teal-900/75 mt-0.5">แสดงทุกไฟล์ใบส่งผลการศึกษาที่แนบไว้สำหรับรายวิชานี้</p>
+                                </div>
+                            </div>
+                            <div id="wizard-reg-files-print-list" class="space-y-2"></div>
                         </div>
                     </div>
 
-                    <div class="wizard-step space-y-4" data-wizard-step="8">
-                        <div id="wizard-section-overview" class="rounded-xl border border-amber-200 bg-white p-5 space-y-4 shadow-sm">
-                            <div>
-                                <h3 class="font-bold text-[#5C2E1F] text-base">สรุป Section ของรายวิชานี้</h3>
-                                <p id="wizard-section-overview-sub" class="text-sm text-[#7A4A3A]/80 mt-0.5">
-                                    ดูจำนวน Section ทั้งหมด ส่งแล้ว / ยังไม่ส่ง และกำลังส่งกลุ่มไหนอยู่
-                                </p>
+                    <div class="wizard-step space-y-4" data-wizard-step="5">
+                        <div id="wizard-section-overview" class="rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-sky-50 p-5 space-y-4 shadow-sm">
+                            <div class="flex items-start gap-3">
+                                <span class="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-xl bg-indigo-600 text-white shadow-sm">
+                                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-bold text-indigo-950 text-base">สรุป Section ของรายวิชานี้</h3>
+                                    <p id="wizard-section-overview-sub" class="text-sm text-indigo-900/75 mt-0.5">
+                                        ดูจำนวน Section ทั้งหมด ส่งแล้ว / ยังไม่ส่ง และกำลังส่งกลุ่มไหนอยู่
+                                    </p>
+                                </div>
                             </div>
 
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                                <div class="rounded-xl border border-amber-200 bg-[#FFFBF7] px-3 py-3 text-center">
-                                    <p id="wizard-sec-stat-total" class="text-2xl sm:text-3xl font-bold text-[#5C2E1F] tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-[#7A4A3A] mt-1">ทั้งหมด</p>
+                                <div class="rounded-xl border border-indigo-200 bg-white px-3 py-3 text-center shadow-sm">
+                                    <p id="wizard-sec-stat-total" class="text-2xl sm:text-3xl font-bold text-indigo-950 tabular-nums">—</p>
+                                    <p class="text-xs sm:text-sm text-indigo-900/70 mt-1 flex items-center justify-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i>ทั้งหมด</p>
                                 </div>
-                                <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-center">
+                                <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-center shadow-sm">
                                     <p id="wizard-sec-stat-filled" class="text-2xl sm:text-3xl font-bold text-green-800 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-green-900/80 mt-1">ส่งแล้ว</p>
+                                    <p class="text-xs sm:text-sm text-green-900/80 mt-1 flex items-center justify-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i>ส่งแล้ว</p>
                                 </div>
-                                <div class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-center">
+                                <div class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-center shadow-sm">
                                     <p id="wizard-sec-stat-remain" class="text-2xl sm:text-3xl font-bold text-amber-900 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-amber-900/80 mt-1">ยังไม่ส่ง</p>
+                                    <p class="text-xs sm:text-sm text-amber-900/80 mt-1 flex items-center justify-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i>ยังไม่ส่ง</p>
                                 </div>
-                                <div class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center">
+                                <div class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center shadow-sm">
                                     <p id="wizard-sec-stat-current" class="text-2xl sm:text-3xl font-bold text-sky-900 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-sky-900/80 mt-1">กำลังส่ง</p>
+                                    <p class="text-xs sm:text-sm text-sky-900/80 mt-1 flex items-center justify-center gap-1"><i data-lucide="send" class="w-3.5 h-3.5"></i>กำลังส่ง</p>
                                 </div>
                             </div>
 
@@ -784,8 +835,8 @@
                                     <span>ความคืบหน้าการส่งเอกสาร</span>
                                     <span id="wizard-sec-progress-label" class="font-semibold text-[#5C2E1F]">—</span>
                                 </div>
-                                <div class="h-2.5 rounded-full bg-amber-100 overflow-hidden">
-                                    <div id="wizard-sec-progress-bar" class="h-full rounded-full bg-[#8B4513] transition-all duration-300" style="width:0%"></div>
+                                <div class="h-2.5 rounded-full bg-indigo-100 overflow-hidden">
+                                    <div id="wizard-sec-progress-bar" class="h-full rounded-full bg-indigo-600 transition-all duration-300" style="width:0%"></div>
                                 </div>
                             </div>
 
@@ -801,23 +852,43 @@
                             </div>
                         </div>
 
-                        <div id="wizard-attachment-checklist" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-4 space-y-2">
-                            <p class="text-sm font-semibold text-[#5C2E1F]">ต้องมีไฟล์ครบก่อนเสร็จสิ้น</p>
-                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และใบขวางของ Section ที่คุณกรอกเข้าสู่ระบบ — ใบขวาง 1 ใบสามารถครอบคลุม มข.11 ได้หลาย Section</p>
-                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11 ครบทุก Section — ขั้นตอนที่ 6</p>
-                            <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">ใบรายงานผลการสอบไล่ / ใบขวาง — ขั้นตอนที่ 8</p>
+                        <div id="wizard-reg-files-upload" class="rounded-xl border-2 border-teal-200 bg-teal-50/50 p-5 space-y-3">
+                            <div class="flex items-start gap-3">
+                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-teal-600 text-white">
+                                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <h3 class="font-bold text-teal-950">ไฟล์ มข.11 ทั้งหมด</h3>
+                                    <p class="text-xs text-teal-900/75 mt-0.5">ไฟล์ใบส่งผลการศึกษาที่อัปโหลดเข้ามาพร้อมรายงานนี้</p>
+                                </div>
+                            </div>
+                            <div id="wizard-reg-files-upload-list" class="space-y-2"></div>
+                        </div>
+
+                        <div id="wizard-attachment-checklist" class="rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-[#FFFBF7] p-4 space-y-2">
+                            <p class="text-sm font-semibold text-[#5C2E1F] flex items-center gap-2">
+                                <i data-lucide="clipboard-check" class="w-4 h-4 text-amber-700"></i>
+                                ต้องมีไฟล์ครบก่อนเสร็จสิ้น
+                            </p>
+                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และแบบรายงานของ Section ที่คุณกรอกเข้าสู่ระบบ</p>
+                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11</p>
+                            <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">แบบรายงานผลการสอบไล่</p>
                         </div>
 
                         <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
-                            <div>
-                                <h3 class="font-bold text-[#5C2E1F]">ประวัติแบบรายงานผลการสอบไล่ (ใบขวาง)</h3>
-                                <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                                    ระบบบันทึกทุกใบที่อัปโหลดไว้ตรวจสอบได้ — ใบขวาง 1 ใบอาจผูกกับใบ มข.11 ได้หลาย Section
-                                    · แก้ไข/ลบได้เฉพาะไฟล์ที่คุณอัปโหลด และเฉพาะเมื่อ Admin ยังไม่เปลี่ยนสถานะรายงาน
-                                </p>
+                            <div class="flex items-start gap-3">
+                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-100 text-amber-800">
+                                    <i data-lucide="history" class="w-5 h-5"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-bold text-[#5C2E1F]">ประวัติแบบรายงานผลการสอบไล่</h3>
+                                    <p class="text-sm text-[#7A4A3A]/80 mt-1">
+                                        ระบบบันทึกทุกใบที่อัปโหลดไว้ตรวจสอบได้ — แบบรายงาน 1 ใบอาจผูกกับใบ มข.11 ได้หลาย Section
+                                    </p>
+                                </div>
                             </div>
                             <div id="wizard-exam-packets" class="space-y-3">
-                                <p class="text-sm text-[#7A4A3A]/70">ยังไม่มีใบขวางในรายงานนี้</p>
+                                <p class="text-sm text-[#7A4A3A]/70">ยังไม่มีแบบรายงานในรายงานนี้</p>
                             </div>
                         </div>
 
@@ -835,14 +906,21 @@
                         </div>
 
                         <div id="wizard-exam-own-panel" class="rounded-xl border border-sky-200 bg-sky-50/60 p-5 space-y-3">
-                            <h3 class="font-bold text-[#0c4a6e]">อัปโหลดใบขวาง — Section ของคุณ</h3>
-                            <p id="wizard-exam-own-help" class="text-sm text-[#0c4a6e]/80">
-                                หากคุณกรอกหลาย Section ในรอบนี้ สามารถอัปโหลดใบขวางไฟล์เดียว ครอบคลุม มข.11 ของหลาย Section ได้
-                            </p>
+                            <div class="flex items-start gap-3">
+                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-600 text-white">
+                                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-bold text-[#0c4a6e]">อัปโหลดแบบรายงาน — Section ของคุณ</h3>
+                                    <p id="wizard-exam-own-help" class="text-sm text-[#0c4a6e]/80 mt-1">
+                                        หากคุณกรอกหลาย Section ในรอบนี้ สามารถอัปโหลดแบบรายงานไฟล์เดียว ครอบคลุม มข.11 ของหลาย Section ได้
+                                    </p>
+                                </div>
+                            </div>
                             <p id="wizard-exam-own-secs" class="text-sm font-semibold text-[#0c4a6e]"></p>
                             <div id="wizard-exam-file-row" class="hidden"></div>
                             <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
-                                class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#8B4513] file:text-white file:text-sm file:font-medium hover:file:bg-[#6B3410]">
+                                class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-sky-700 file:text-white file:text-sm file:font-medium hover:file:bg-sky-800">
                             <div id="wizard-exam-actions" class="hidden flex flex-wrap gap-2"></div>
                             <p id="wizard-exam-status" class="text-xs text-[#7A4A3A]"></p>
                         </div>
@@ -864,7 +942,7 @@
                     <h3 class="text-xl font-bold text-green-900">ดำเนินการรายงานผลการสอบไล่เรียบร้อยแล้ว</h3>
                     <p class="mt-2 text-sm text-[#5C2E1F] leading-relaxed max-w-xl mx-auto">
                         ระบบบันทึกข้อมูลรายวิชาและอัปโหลดไฟล์แนบครบแล้ว
-                        (แบบฟอร์ม มข.11 + ใบรายงานผลการสอบไล่ / ใบขวาง)
+                        (แบบฟอร์ม มข.11 + แบบรายงานผลการสอบไล่)
                         ท่านสามารถกลับหน้าหลักเพื่อกรอกรายวิชาถัดไป หรือไปติดตามสถานะที่ส่งแล้ว
                     </p>
                     <div class="mt-6 flex flex-wrap justify-center gap-3">
@@ -931,8 +1009,8 @@
                     ระบบได้ทำการ download เอกสารให้เรียบร้อยแล้ว
                 </h2>
                 <p class="text-lg text-[#5C2E1F] leading-relaxed mb-6">
-                    กรุณากดเปิดไฟล์ เพื่อตรวจสอบแบบรายงานผลการสอบไล่ (ใบขวาง)<br>
-                    หรือกดยกเลิกเพื่อไปขั้นตอนที่ 8 ต่อโดยไม่เปิดไฟล์
+                    กรุณากดเปิดไฟล์ เพื่อตรวจสอบแบบรายงานผลการสอบไล่<br>
+                    หรือกดยกเลิกเพื่อไปขั้นตอนอัปโหลดแบบรายงานต่อโดยไม่เปิดไฟล์
                 </p>
                 <div class="flex flex-wrap justify-center gap-3">
                     <button type="button" id="wizard-print-download-overlay-open"
@@ -971,8 +1049,9 @@
         const registrarFileSections = @json($registrarFileSections ?? []);
         const registrarFileDetails = @json($registrarFileDetails ?? []);
         const examFileDetail = @json($examFileDetail ?? null);
-        const pendingRegistrarSections = @json($pendingRegistrarSections ?? []);
+                        const pendingRegistrarSections = @json($pendingRegistrarSections ?? []);
         const staffUsername = @json($staffUsername ?? null);
+        const iLetterDocxUrl = @json(route('grade-reports.i-letter.docx'));
 
         window.wizardConfig = {
             currentReportId: reportId,
@@ -980,6 +1059,7 @@
             createdInSession: false,
             boundSubjectCode: null,
             staffUsername,
+            iLetterDocxUrl,
         };
         initTempladeForm({ teacherHelpImageUrl });
 
