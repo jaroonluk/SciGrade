@@ -47,15 +47,6 @@ class DepartmentReportController extends Controller
         $year = old('year', AcademicTerm::defaultYear());
         $educationLevel = old('education_level', 'graduate');
 
-        $dateSummary = $this->queryService->submissionDateSummary([
-            'department_ids' => $this->departmentAccess->allowedDepartmentIds($staff),
-            'department_id' => $initialDepartmentId ?: null,
-            'term' => $term !== null && $term !== '' ? (int) $term : null,
-            'year' => $year !== null && $year !== '' ? (int) $year : null,
-            'education_level' => $educationLevel,
-            'require_department_instructor' => true,
-        ]);
-
         return view('dept-admin.reports.form', [
             'departments' => $departments,
             'term' => $term,
@@ -63,8 +54,7 @@ class DepartmentReportController extends Controller
             'years' => AcademicTerm::yearOptions(),
             'patternsByDepartment' => $patternsByDepartment,
             'initialDepartmentId' => $initialDepartmentId,
-            'dateSummary' => $dateSummary,
-            'dateSummaryUrl' => route('dept-admin.reports.date-summary'),
+            'educationLevel' => $educationLevel,
         ]);
     }
 
@@ -120,7 +110,7 @@ class DepartmentReportController extends Controller
             return back()
                 ->withInput()
                 ->withErrors([
-                    'export' => 'ไม่พบข้อมูลตามเงื่อนไขที่เลือก — ตรวจสอบช่วงวันที่ สถานะรับรองผลสอบ (ผ่าน/ยังไม่ผ่าน) ภาค/ปี และระดับการศึกษา แล้วลองใหม่',
+                    'export' => 'ไม่พบข้อมูลตามเงื่อนไขที่เลือก — ตรวจสอบสถานะ ภาค/ปี และระดับการศึกษา แล้วลองใหม่',
                 ]);
         }
 

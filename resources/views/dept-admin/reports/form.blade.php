@@ -9,228 +9,304 @@
 <span class="text-[#5C2E1F] font-medium">พิมพ์รายงาน</span>
 @endsection
 
+@push('styles')
+<style>
+    .report-choice {
+        position: relative;
+        display: flex;
+        gap: 0.85rem;
+        align-items: flex-start;
+        padding: 1rem 1.1rem;
+        border-radius: 0.9rem;
+        border: 2px solid #e8cdb5;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, transform .12s ease;
+    }
+    .report-choice:hover {
+        border-color: #c4a484;
+        box-shadow: 0 4px 14px rgba(139, 69, 19, .08);
+        transform: translateY(-1px);
+    }
+    .report-choice:has(input:checked) {
+        border-color: #8B4513;
+        background: linear-gradient(180deg, #fffaf5 0%, #fff 100%);
+        box-shadow: 0 0 0 3px rgba(139, 69, 19, .12);
+    }
+    .report-choice input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .report-choice-icon {
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .report-choice-icon.is-queued { background: #eef2ff; color: #4338ca; }
+    .report-choice-icon.is-passed { background: #e0f2fe; color: #0369a1; }
+    .report-choice-icon.is-pending { background: #fff7ed; color: #c2410c; }
+    .report-choice-icon.is-pdf { background: #fef2f2; color: #b91c1c; }
+    .report-choice-icon.is-word { background: #eff6ff; color: #1d4ed8; }
+    .report-choice:has(input:checked) .report-choice-check {
+        opacity: 1;
+        transform: scale(1);
+    }
+    .report-choice-check {
+        margin-left: auto;
+        width: 1.35rem;
+        height: 1.35rem;
+        border-radius: 9999px;
+        background: #8B4513;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transform: scale(.7);
+        transition: opacity .15s ease, transform .15s ease;
+        flex-shrink: 0;
+    }
+    .report-step {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: #9a6b4f;
+        margin-bottom: 0.65rem;
+    }
+    .report-step-dot {
+        width: 1.35rem;
+        height: 1.35rem;
+        border-radius: 9999px;
+        background: #8B4513;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+</style>
+@endpush
+
 @section('content')
 @php
-    $summary = $dateSummary ?? ['count' => 0, 'min_date' => null, 'max_date' => null, 'min_date_display' => null, 'max_date_display' => null, 'term_label' => '', 'year' => null];
-    $safeMin = (! empty($summary['min_date']) && $summary['min_date'] >= '2000-01-01') ? $summary['min_date'] : '';
-    $safeMax = (! empty($summary['max_date']) && $summary['max_date'] >= '2000-01-01') ? $summary['max_date'] : '';
-    $defaultFrom = old('created_from', $safeMin);
-    $defaultTo = old('created_to', $safeMax);
+    $selectedStatus = (string) old('report_status', '4');
+    $selectedFormat = (string) old('format', 'pdf');
 @endphp
-<div class="max-w-4xl mx-auto">
-    <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">แบบรายงานผลการสอบไล่สำหรับเจ้าหน้าที่</h2>
-    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชาเพื่อดูเงื่อนไขรหัสที่ใช้กรองรายงาน แล้วกำหนดช่วงวันที่และรูปแบบการส่งออก — รายงานจะรวมเฉพาะวิชาที่ตรงรหัสของสาขา และกรอกโดยอาจารย์ในสาขา/หน่วยงานที่รับผิดชอบ</p>
-
-    @error('export')
-        <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
-    @enderror
-    @if ($errors->any() && ! $errors->has('export'))
-        <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
-            <ul class="list-disc list-inside space-y-0.5">
-                @foreach ($errors->all() as $message)
-                    <li>{{ $message }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <form method="POST" action="{{ route('dept-admin.reports.export') }}" id="dept-report-export-form" class="form-section rounded-xl p-6 space-y-5">
-        @csrf
-
-        <div>
-            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา *</label>
-            <select name="department_id" id="report-department-id" required class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                @foreach ($departments as $dept)
-                    <option value="{{ $dept->department_id }}" @selected(old('department_id', $initialDepartmentId ?? null) == $dept->department_id)>
-                        {{ $dept->department_name }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        @include('partials.department-code-patterns', [
-            'patternsByDepartment' => $patternsByDepartment ?? [],
-            'initialDepartmentId' => $initialDepartmentId ?? $departments->first()?->department_id,
-            'selectName' => 'department_id',
-            'panelId' => 'dept-report-dept-patterns',
-            'helpText' => 'รายงานจะรวมเฉพาะรายวิชาที่รหัสตรงตามเงื่อนไขของสาขานี้ — ใช้ตรวจสอบก่อนเพิ่ม/ลบข้อมูลในอนาคต',
-        ])
-
-        <div>
-            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับการศึกษา *</label>
-            <select name="education_level" id="report-education-level" required class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                <option value="bachelor" @selected(old('education_level') === 'bachelor')>ปริญญาตรี</option>
-                <option value="master" @selected(old('education_level') === 'master')>ปริญญาโท</option>
-                <option value="doctoral" @selected(old('education_level') === 'doctoral')>ปริญญาเอก</option>
-                <option value="graduate" @selected(old('education_level', 'graduate') === 'graduate')>บัณฑิตศึกษา (โท+เอก)</option>
-                <option value="all" @selected(old('education_level') === 'all')>รวมทั้งหมด</option>
-            </select>
-        </div>
-
-        <div class="grid sm:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
-                <select name="term" id="report-term" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">ทุกภาค</option>
-                    <option value="1" @selected(old('term', $term) == 1)>ภาคต้น</option>
-                    <option value="2" @selected(old('term', $term) == 2)>ภาคปลาย</option>
-                    <option value="3" @selected(old('term', $term) == 3)>ภาคการศึกษาพิเศษ</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ปีการศึกษา</label>
-                <select name="year" id="report-year" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">ทุกปี</option>
-                    @foreach ($years as $y)
-                        <option value="{{ $y }}" @selected(old('year', $year) == $y)>{{ $y }}</option>
-                    @endforeach
-                </select>
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="rounded-2xl overflow-hidden border border-amber-200 bg-white shadow-sm">
+        <div class="px-6 py-5 bg-gradient-to-r from-[#8B4513] via-[#A0522D] to-[#C4725C] text-white">
+            <div class="flex items-start gap-3">
+                <div class="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                    <i data-lucide="printer" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold leading-tight">พิมพ์ใบรายงานสาขา</h2>
+                    <p class="text-sm text-white/85 mt-1">
+                        เลือกสาขา ภาค/ปี และสถานะ — ระบบคิวรีตามสถานะที่เลือก (ไม่จำกัดช่วงวันที่)
+                    </p>
+                </div>
             </div>
         </div>
 
-        <div id="submission-date-summary" class="rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-[#5C2E1F] space-y-1"
-             data-url="{{ $dateSummaryUrl }}">
-            <p class="font-semibold">สรุปช่วงวันที่อาจารย์รายงานผลสอบ</p>
-            <p id="summary-scope-text">
-                @if (($summary['count'] ?? 0) > 0)
-                    {{ $summary['term_label'] }}
-                    @if (! empty($summary['year'])) ปีการศึกษา {{ $summary['year'] }} @endif
-                    — พบ {{ number_format($summary['count']) }} รายวิชา
-                    ระหว่างวันที่ <strong id="summary-min-text">{{ $summary['min_date_display'] }}</strong>
-                    ถึง <strong id="summary-max-text">{{ $summary['max_date_display'] }}</strong>
-                @else
-                    <span id="summary-empty-text">ยังไม่พบรายวิชาตามเงื่อนไขสาขา / ภาค / ปี ที่เลือก</span>
-                @endif
-            </p>
-            <p class="text-xs text-[#7A4A3A]/80">ใช้ช่วงนี้เป็นแนวทางเลือกวันที่พิมพ์รายงาน (อิงวันที่กรอก/บันทึกจริง แสดงเป็น พ.ศ.)</p>
-            <button type="button" id="btn-apply-summary-dates"
-                    class="mt-1 text-xs font-medium text-[#8B4513] hover:underline disabled:opacity-40 disabled:no-underline"
-                    @disabled(($summary['count'] ?? 0) === 0)>
-                ใช้ช่วงวันที่จากสรุป
-            </button>
-        </div>
+        <div class="p-6 space-y-6">
+            @error('export')
+                <div class="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-start gap-2">
+                    <i data-lucide="alert-circle" class="w-4 h-4 mt-0.5 shrink-0"></i>
+                    <span>{{ $message }}</span>
+                </div>
+            @enderror
+            @if ($errors->any() && ! $errors->has('export'))
+                <div class="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+                    <ul class="list-disc list-inside space-y-0.5">
+                        @foreach ($errors->all() as $message)
+                            <li>{{ $message }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
-        <div class="grid sm:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">วันที่เริ่มต้น *</label>
-                <input type="date" name="created_from" id="report-created-from" required
-                       value="{{ $defaultFrom }}"
-                       class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-[#5C2E1F] mb-1">วันที่สิ้นสุด *</label>
-                <input type="date" name="created_to" id="report-created-to" required
-                       value="{{ $defaultTo }}"
-                       class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
-            </div>
-        </div>
+            <form method="POST" action="{{ route('dept-admin.reports.export') }}" id="dept-report-export-form" class="space-y-7">
+                @csrf
 
-        <div>
-            <p class="text-sm font-medium text-[#5C2E1F] mb-2">รูปแบบรายงาน *</p>
-            <label class="flex items-center gap-2 text-sm mb-2">
-                <input type="radio" name="report_status" value="0" @checked(old('report_status') === '0') class="accent-amber-700">
-                ยังไม่ผ่านที่ประชุมสาขา
-            </label>
-            <label class="flex items-center gap-2 text-sm">
-                <input type="radio" name="report_status" value="1" @checked(old('report_status', '1') === '1') class="accent-amber-700">
-                ผ่านที่ประชุมสาขา
-            </label>
-        </div>
+                <section>
+                    <div class="report-step"><span class="report-step-dot">1</span> ขอบเขตข้อมูล</div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1.5">
+                                <span class="inline-flex items-center gap-1.5">
+                                    <i data-lucide="building-2" class="w-4 h-4 text-[#8B4513]"></i>
+                                    สาขาวิชา *
+                                </span>
+                            </label>
+                            <select name="department_id" id="report-department-id" required class="w-full border border-amber-300 rounded-xl px-3 py-2.5 text-sm bg-white">
+                                @foreach ($departments as $dept)
+                                    <option value="{{ $dept->department_id }}" @selected(old('department_id', $initialDepartmentId ?? null) == $dept->department_id)>
+                                        {{ $dept->department_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
 
-        <div>
-            <p class="text-sm font-medium text-[#5C2E1F] mb-2">รูปแบบไฟล์ *</p>
-            <label class="inline-flex items-center gap-2 text-sm mr-6">
-                <input type="radio" name="format" value="pdf" @checked(old('format', 'pdf') === 'pdf') class="accent-amber-700"> PDF
-            </label>
-            <label class="inline-flex items-center gap-2 text-sm">
-                <input type="radio" name="format" value="word" @checked(old('format') === 'word') class="accent-amber-700"> Word (.docx)
-            </label>
-        </div>
+                        @include('partials.department-code-patterns', [
+                            'patternsByDepartment' => $patternsByDepartment ?? [],
+                            'initialDepartmentId' => $initialDepartmentId ?? $departments->first()?->department_id,
+                            'selectName' => 'department_id',
+                            'panelId' => 'dept-report-dept-patterns',
+                            'helpText' => 'รายงานจะรวมเฉพาะรายวิชาที่รหัสตรงตามเงื่อนไขของสาขานี้ และกรอกโดยอาจารย์ในสาขา/หน่วยงานที่รับผิดชอบ',
+                        ])
 
-        <div class="flex gap-3 flex-wrap">
-            <button type="submit" class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">ส่งออกรายงาน</button>
-            <a href="{{ route('dept-admin.reviews.index') }}" class="px-5 py-2.5 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">กลับ</a>
+                        <div>
+                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1.5">
+                                <span class="inline-flex items-center gap-1.5">
+                                    <i data-lucide="graduation-cap" class="w-4 h-4 text-[#8B4513]"></i>
+                                    ระดับการศึกษา *
+                                </span>
+                            </label>
+                            <select name="education_level" id="report-education-level" required class="w-full border border-amber-300 rounded-xl px-3 py-2.5 text-sm bg-white">
+                                <option value="bachelor" @selected(old('education_level', $educationLevel ?? '') === 'bachelor')>ปริญญาตรี</option>
+                                <option value="master" @selected(old('education_level', $educationLevel ?? '') === 'master')>ปริญญาโท</option>
+                                <option value="doctoral" @selected(old('education_level', $educationLevel ?? '') === 'doctoral')>ปริญญาเอก</option>
+                                <option value="graduate" @selected(old('education_level', $educationLevel ?? 'graduate') === 'graduate')>บัณฑิตศึกษา (โท+เอก)</option>
+                                <option value="all" @selected(old('education_level', $educationLevel ?? '') === 'all')>รวมทั้งหมด</option>
+                            </select>
+                        </div>
+
+                        <div class="grid sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-[#5C2E1F] mb-1.5">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <i data-lucide="calendar-range" class="w-4 h-4 text-[#8B4513]"></i>
+                                        ภาคการศึกษา
+                                    </span>
+                                </label>
+                                <select name="term" id="report-term" class="w-full border border-amber-300 rounded-xl px-3 py-2.5 text-sm bg-white">
+                                    <option value="">ทุกภาค</option>
+                                    <option value="1" @selected(old('term', $term) == 1)>ภาคต้น</option>
+                                    <option value="2" @selected(old('term', $term) == 2)>ภาคปลาย</option>
+                                    <option value="3" @selected(old('term', $term) == 3)>ภาคการศึกษาพิเศษ</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-[#5C2E1F] mb-1.5">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <i data-lucide="calendar" class="w-4 h-4 text-[#8B4513]"></i>
+                                        ปีการศึกษา
+                                    </span>
+                                </label>
+                                <select name="year" id="report-year" class="w-full border border-amber-300 rounded-xl px-3 py-2.5 text-sm bg-white">
+                                    <option value="">ทุกปี</option>
+                                    @foreach ($years as $y)
+                                        <option value="{{ $y }}" @selected(old('year', $year) == $y)>{{ $y }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <div class="report-step"><span class="report-step-dot">2</span> สถานะที่ต้องการพิมพ์</div>
+                    <p class="text-xs text-[#7A4A3A]/80 mb-3">เลือก 1 สถานะ — ระบบดึงรายวิชาตามสถานะนี้ทั้งหมดของสาขา/ภาค/ปีที่เลือก</p>
+                    <div class="grid gap-3">
+                        <label class="report-choice">
+                            <input type="radio" name="report_status" value="4" @checked($selectedStatus === '4') required>
+                            <span class="report-choice-icon is-queued">
+                                <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-[#5C2E1F]">นำเข้าที่ประชุมสาขา</span>
+                                <span class="block text-xs text-[#7A4A3A]/80 mt-0.5">รายวิชาที่นำเข้าวาระแล้ว รอผลมติที่ประชุมสาขา</span>
+                            </span>
+                            <span class="report-choice-check" aria-hidden="true">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                            </span>
+                        </label>
+
+                        <label class="report-choice">
+                            <input type="radio" name="report_status" value="1" @checked($selectedStatus === '1')>
+                            <span class="report-choice-icon is-passed">
+                                <i data-lucide="badge-check" class="w-5 h-5"></i>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-[#5C2E1F]">ผ่านที่ประชุมสาขา</span>
+                                <span class="block text-xs text-[#7A4A3A]/80 mt-0.5">รายวิชาที่ที่ประชุมสาขาเห็นชอบแล้ว</span>
+                            </span>
+                            <span class="report-choice-check" aria-hidden="true">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                            </span>
+                        </label>
+
+                        <label class="report-choice">
+                            <input type="radio" name="report_status" value="0" @checked($selectedStatus === '0')>
+                            <span class="report-choice-icon is-pending">
+                                <i data-lucide="clock-3" class="w-5 h-5"></i>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-[#5C2E1F]">ยังไม่ผ่านที่ประชุมสาขา</span>
+                                <span class="block text-xs text-[#7A4A3A]/80 mt-0.5">ส่งแล้ว / บันทึกแล้ว แต่ยังไม่ได้นำเข้าหรือผ่านที่ประชุม</span>
+                            </span>
+                            <span class="report-choice-check" aria-hidden="true">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                            </span>
+                        </label>
+                    </div>
+                </section>
+
+                <section>
+                    <div class="report-step"><span class="report-step-dot">3</span> รูปแบบไฟล์</div>
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <label class="report-choice">
+                            <input type="radio" name="format" value="pdf" @checked($selectedFormat === 'pdf') required>
+                            <span class="report-choice-icon is-pdf">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-[#5C2E1F]">PDF</span>
+                                <span class="block text-xs text-[#7A4A3A]/80 mt-0.5">เหมาะสำหรับพิมพ์และเก็บเอกสาร</span>
+                            </span>
+                            <span class="report-choice-check" aria-hidden="true">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                            </span>
+                        </label>
+                        <label class="report-choice">
+                            <input type="radio" name="format" value="word" @checked($selectedFormat === 'word')>
+                            <span class="report-choice-icon is-word">
+                                <i data-lucide="file-type" class="w-5 h-5"></i>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-[#5C2E1F]">Word (.docx)</span>
+                                <span class="block text-xs text-[#7A4A3A]/80 mt-0.5">เหมาะสำหรับแก้ไขต่อใน Microsoft Word</span>
+                            </span>
+                            <span class="report-choice-check" aria-hidden="true">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                            </span>
+                        </label>
+                    </div>
+                </section>
+
+                <div class="flex flex-wrap items-center gap-3 pt-1 border-t border-amber-100">
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B4513] text-white rounded-xl text-sm font-semibold hover:bg-[#6B3410] shadow-sm">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        ส่งออกรายงาน
+                    </button>
+                    <a href="{{ route('dept-admin.reviews.index') }}"
+                       class="inline-flex items-center gap-2 px-5 py-2.5 border border-amber-300 rounded-xl text-sm text-[#5C2E1F] hover:bg-amber-50">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        กลับ
+                    </a>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-(function () {
-    const summaryBox = document.getElementById('submission-date-summary');
-    if (!summaryBox) return;
-
-    const url = summaryBox.dataset.url;
-    const deptEl = document.getElementById('report-department-id');
-    const levelEl = document.getElementById('report-education-level');
-    const termEl = document.getElementById('report-term');
-    const yearEl = document.getElementById('report-year');
-    const fromEl = document.getElementById('report-created-from');
-    const toEl = document.getElementById('report-created-to');
-    const scopeEl = document.getElementById('summary-scope-text');
-    const applyBtn = document.getElementById('btn-apply-summary-dates');
-
-    let latestSummary = @json($summary);
-    let fetchTimer = null;
-
-    function applySummaryDates() {
-        if (!latestSummary || !latestSummary.min_date || !latestSummary.max_date) return;
-        fromEl.value = latestSummary.min_date;
-        toEl.value = latestSummary.max_date;
-    }
-
-    function renderSummary(data) {
-        latestSummary = data;
-        if (data.count > 0) {
-            const yearPart = data.year ? ` ปีการศึกษา ${data.year}` : '';
-            scopeEl.innerHTML =
-                `${data.term_label}${yearPart} — พบ ${Number(data.count).toLocaleString('th-TH')} รายวิชา ` +
-                `ระหว่างวันที่ <strong>${data.min_date_display}</strong> ถึง <strong>${data.max_date_display}</strong>`;
-            applyBtn.disabled = false;
-            // เติมช่วงวันที่ให้อัตโนมัติเมื่อช่องว่าง หรือค่าเดิมใช้พิมพ์ไม่ได้
-            if (!fromEl.value || !toEl.value || fromEl.value < '2000-01-01') {
-                applySummaryDates();
-            }
-        } else {
-            scopeEl.innerHTML = 'ยังไม่พบรายวิชาตามเงื่อนไขสาขา / ภาค / ปี / ระดับการศึกษา ที่เลือก';
-            applyBtn.disabled = true;
-        }
-    }
-
-    async function refreshSummary() {
-        const params = new URLSearchParams({
-            department_id: deptEl.value || '',
-            education_level: levelEl.value || 'all',
-            term: termEl.value || '',
-            year: yearEl.value || '',
-        });
-
-        scopeEl.textContent = 'กำลังโหลดสรุปช่วงวันที่…';
-        applyBtn.disabled = true;
-
-        try {
-            const res = await fetch(`${url}?${params.toString()}`, {
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            });
-            if (!res.ok) throw new Error('summary failed');
-            renderSummary(await res.json());
-        } catch (e) {
-            scopeEl.textContent = 'ไม่สามารถโหลดสรุปช่วงวันที่ได้ กรุณาลองใหม่';
-            applyBtn.disabled = true;
-        }
-    }
-
-    function scheduleRefresh() {
-        clearTimeout(fetchTimer);
-        fetchTimer = setTimeout(refreshSummary, 200);
-    }
-
-    [deptEl, levelEl, termEl, yearEl].forEach((el) => {
-        el?.addEventListener('change', scheduleRefresh);
-    });
-
-    applyBtn?.addEventListener('click', applySummaryDates);
-})();
-</script>
-@endpush

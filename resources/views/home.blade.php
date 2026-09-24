@@ -671,7 +671,7 @@
                             <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-700 text-white text-xs font-bold">3</span>
                             <h4 class="text-base font-bold text-orange-950">พิมพ์ใบรายงานสาขา</h4>
                         </div>
-                        <p class="text-xs text-orange-900/70 ml-9">Export PDF/Word ตามสาขา ระดับการศึกษา และสถานะ เมื่อสรุปงานแล้ว</p>
+                        <p class="text-xs text-orange-900/70 ml-9">Export PDF/Word ตามสถานะ (นำเข้า / ผ่าน / ยังไม่ผ่านที่ประชุมสาขา) ภาค และปีการศึกษา</p>
                     </div>
                 </div>
                 <div class="admin-section-body">
@@ -682,7 +682,7 @@
                                 <div>
                                     <p class="menu-step">3.1</p>
                                     <p class="font-semibold text-sky-950">พิมพ์ใบรายงานสาขา</p>
-                                    <p class="text-sm text-sky-900/65 mt-1">ดาวน์โหลดรายงานสรุปของสาขา</p>
+                                    <p class="text-sm text-sky-900/65 mt-1">พิมพ์ตามสถานะที่ประชุมสาขา — ไม่ต้องเลือกช่วงวันที่</p>
                                 </div>
                             </div>
                         </a>

@@ -19,12 +19,11 @@ class DepartmentReportExportRequest extends FormRequest
         return [
             'department_id' => ['required', 'integer'],
             'education_level' => ['required', 'string', 'in:bachelor,master,doctoral,graduate,all'],
-            'report_status' => ['required', 'integer', 'in:0,1'],
+            // 0=ยังไม่ผ่าน, 4=นำเข้าที่ประชุมสาขา, 1=ผ่านที่ประชุมสาขา
+            'report_status' => ['required', 'integer', 'in:0,1,4'],
             'format' => ['required', 'string', 'in:pdf,word'],
             'term' => ['nullable', 'integer', 'in:1,2,3'],
             'year' => ['nullable', 'integer', 'min:2500', 'max:2600'],
-            'created_from' => ['required', 'date'],
-            'created_to' => ['required', 'date', 'after_or_equal:created_from'],
         ];
     }
 
@@ -34,8 +33,10 @@ class DepartmentReportExportRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'created_from' => 'วันที่เริ่มต้น',
-            'created_to' => 'วันที่สิ้นสุด',
+            'report_status' => 'สถานะรายงาน',
+            'format' => 'รูปแบบไฟล์',
+            'department_id' => 'สาขาวิชา',
+            'education_level' => 'ระดับการศึกษา',
         ];
     }
 
@@ -45,9 +46,8 @@ class DepartmentReportExportRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'created_from.required' => 'กรุณาเลือกวันที่เริ่มต้นของช่วงพิมพ์รายงาน',
-            'created_to.required' => 'กรุณาเลือกวันที่สิ้นสุดของช่วงพิมพ์รายงาน',
-            'created_to.after_or_equal' => 'วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น',
+            'report_status.required' => 'กรุณาเลือกสถานะรายงาน',
+            'report_status.in' => 'สถานะรายงานไม่ถูกต้อง',
         ];
     }
 
@@ -63,8 +63,6 @@ class DepartmentReportExportRequest extends FormRequest
             'report_status' => $this->integer('report_status'),
             'term' => $this->integer('term') ?: null,
             'year' => $this->integer('year') ?: null,
-            'created_from' => $this->input('created_from'),
-            'created_to' => $this->input('created_to'),
             // Admin สาขา: ตามรหัสวิชา + ต้องเป็นอาจารย์ในสาขา/หน่วยงานที่รับผิดชอบกรอก
             'require_department_instructor' => true,
         ];
