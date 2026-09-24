@@ -25,7 +25,7 @@ class GradeReportPolicy
 
     public function reviewDept(User $user, GradeReport $report): bool
     {
-        if (session('scigrade_role') !== 'dept_admin') {
+        if (! SciGradeRole::isDeptAdmin()) {
             return false;
         }
 
@@ -34,12 +34,42 @@ class GradeReportPolicy
             return false;
         }
 
-        return $this->reportInAllowedDepartments($staff, $report);
+        return $this->reportInAllowedDepartments($staff, $report, requireDepartmentInstructor: true);
     }
 
-    private function reportInAllowedDepartments($staff, GradeReport $report): bool
+    /**
+     * เปลี่ยนสถานะบนหน้า reg-grade-status — ตามรหัสวิชาของสาขา
+     * (ไม่บังคับว่าผู้กรอกต้องเป็นอาจารย์ในสาขา เพราะหน้านี้อ้างอิงจาก REG)
+     */
+    public function manageRegGradeStatus(User $user, GradeReport $report): bool
+    {
+        if (! SciGradeRole::isDeptAdmin()) {
+            return false;
+        }
+
+        $staff = $this->staffAuth->findByEmail($user->email);
+        if (! $staff) {
+            return false;
+        }
+
+        return $this->reportInAllowedDepartments($staff, $report, requireDepartmentInstructor: false);
+    }
+
+    private function reportInAllowedDepartments($staff, GradeReport $report, bool $requireDepartmentInstructor = true): bool
     {
         $allowedIds = $this->departmentAccess->allowedDepartmentIds($staff);
+        if ($allowedIds === []) {
+            return false;
+        }
+
+        if (! $requireDepartmentInstructor) {
+            return GradeReport::query()
+                ->whereKey($report->grade_id)
+                ->where(function ($query) use ($allowedIds): void {
+                    $this->subjectFilter->applyDepartmentsToQuery($query, $allowedIds);
+                })
+                ->exists();
+        }
 
         foreach ($allowedIds as $departmentId) {
             $matches = GradeReport::query()

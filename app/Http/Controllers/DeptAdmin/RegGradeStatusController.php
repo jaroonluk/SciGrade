@@ -10,6 +10,7 @@ use App\Services\FacultyAdmin\RegGradeDepartmentService;
 use App\Services\FacultyAdmin\RegGradeDumpService;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -139,7 +140,13 @@ class RegGradeStatusController extends Controller
 
     private function setCourseDisplayStatus(GradeReport $gradeReport, int $displayStatus): JsonResponse
     {
-        $this->authorize('reviewDept', $gradeReport);
+        try {
+            $this->authorize('manageRegGradeStatus', $gradeReport);
+        } catch (AuthorizationException) {
+            return response()->json([
+                'message' => 'ไม่มีสิทธิ์เปลี่ยนสถานะรายวิชานี้ (รหัสวิชาอยู่นอกสาขาที่รับผิดชอบ)',
+            ], 403);
+        }
 
         [$updatedIds, $lastError, $lastReport] = $this->applyToCourseReports(
             $gradeReport,
@@ -198,7 +205,7 @@ class RegGradeStatusController extends Controller
         $user = auth()->user();
 
         foreach ($this->regService->siblingReports($seed) as $report) {
-            if ($user === null || $user->cannot('reviewDept', $report)) {
+            if ($user === null || $user->cannot('manageRegGradeStatus', $report)) {
                 continue;
             }
 
