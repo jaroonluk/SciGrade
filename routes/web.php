@@ -82,6 +82,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('dept.admin')->prefix('dept-admin')->name('dept-admin.')->group(function () {
         Route::get('/reviews', [GradeReportReviewController::class, 'index'])->name('reviews.index');
         Route::get('/reviews/meeting-approval', [GradeReportReviewController::class, 'meetingApproval'])->name('reviews.meeting-approval');
+        Route::get('/registrar-upload', [GradeReportReviewController::class, 'registrarUploadForm'])->name('registrar-upload.index');
         Route::post('/reviews/files/download', [GradeReportFileDownloadController::class, 'downloadDept'])->name('reviews.files.download');
         Route::post('/reviews/registrar-files/preview', [GradeReportReviewController::class, 'previewRegistrarUploads'])->name('reviews.registrar-files.preview');
         Route::post('/reviews/registrar-files', [GradeReportReviewController::class, 'uploadRegistrarFiles'])->name('reviews.registrar-files.store');

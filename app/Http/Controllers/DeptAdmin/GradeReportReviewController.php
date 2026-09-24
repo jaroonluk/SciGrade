@@ -46,6 +46,37 @@ class GradeReportReviewController extends Controller
         return $this->renderReviews($request, 'meeting');
     }
 
+    /**
+     * หน้าอัปโหลด มข.11 (สาขาวิชา) — แยกจากหน้ารายวิชา
+     */
+    public function registrarUploadForm(Request $request): View
+    {
+        $staff = $this->requireStaff();
+        $departments = $this->departmentAccess->allowedDepartments($staff);
+
+        $term = $request->integer('term', AcademicTerm::defaultTerm());
+        $year = $request->integer('year', AcademicTerm::defaultYear());
+        if (! in_array($term, [1, 2, 3], true)) {
+            $term = AcademicTerm::defaultTerm();
+        }
+
+        $departmentId = $request->filled('department_id') ? $request->integer('department_id') : null;
+        if ($departmentId !== null && ! $this->departmentAccess->canAccessDepartment($staff, $departmentId)) {
+            abort(403, 'ไม่มีสิทธิ์เข้าถึงสาขานี้');
+        }
+        if ($departmentId === null && $departments->count() === 1) {
+            $departmentId = (int) $departments->first()->department_id;
+        }
+
+        return view('dept-admin.registrar-upload.index', [
+            'departments' => $departments,
+            'departmentId' => $departmentId,
+            'term' => $term,
+            'year' => $year,
+            'years' => AcademicTerm::yearOptions(),
+        ]);
+    }
+
     private function renderReviews(GradeReportReviewFilterRequest $request, string $mode): View
     {
         $staff = $this->requireStaff();

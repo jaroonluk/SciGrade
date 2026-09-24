@@ -94,6 +94,19 @@
             vertical-align: middle;
             line-height: 1.25;
         }
+        table.report th.th-reporter-header {
+            text-align: center;
+            vertical-align: middle;
+            line-height: 1.25;
+            white-space: nowrap;
+        }
+        table.report td.reporter-cell {
+            text-align: left;
+            vertical-align: middle;
+            font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
+            line-height: 1.3;
+            word-break: break-word;
+        }
         .print-footer {
             margin-top: 16px;
             text-align: right;

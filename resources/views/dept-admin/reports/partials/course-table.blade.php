@@ -6,23 +6,25 @@
     $rowspan = $sections->isNotEmpty() ? $rowCount + 2 : 1;
     $summary = $presenter->summaryTotals($sections);
     $totalAll = $summary['total_std'];
-    $totalColumns = 19;
+    $totalColumns = 20;
+    $reporter = trim((string) ($course->reporter ?? '')) ?: '-';
 @endphp
 
 <div class="report-block">
     <table class="report" border="1" cellspacing="0" cellpadding="0" style="width:100%; border-collapse:collapse; mso-table-layout-alt:fixed;">
         <thead>
             <tr>
-                <th rowspan="2" class="th-order" style="width:4%">ลำดับที่</th>
-                <th rowspan="2" class="th-subject-header" style="width:14%">ชื่อวิชา<br>(อาจารย์ผู้สอน)</th>
-                <th rowspan="2" style="width:9%">กลุ่ม<br>(คณะ)</th>
-                <th style="width:5%">เกรด</th>
+                <th rowspan="2" class="th-order" style="width:3.5%">ลำดับที่</th>
+                <th rowspan="2" class="th-subject-header" style="width:12%">ชื่อวิชา<br>(อาจารย์ผู้สอน)</th>
+                <th rowspan="2" class="th-reporter-header" style="width:9%">ผู้รายงาน</th>
+                <th rowspan="2" style="width:8%">กลุ่ม<br>(คณะ)</th>
+                <th style="width:4.5%">เกรด</th>
                 @foreach (['A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F', 'I', 'S', 'U', 'W'] as $grade)
-                    <th style="width:4%">{{ $grade }}</th>
+                    <th style="width:3.7%">{{ $grade }}</th>
                 @endforeach
-                <th style="width:4%">รวม</th>
-                <th rowspan="2" style="width:5%">ค่าเฉลี่ย</th>
-                <th rowspan="2" style="width:4%">SD</th>
+                <th style="width:3.7%">รวม</th>
+                <th rowspan="2" style="width:4.5%">ค่าเฉลี่ย</th>
+                <th rowspan="2" style="width:3.8%">SD</th>
             </tr>
             <tr>
                 <th>ช่วงคะแนน</th>
@@ -50,6 +52,7 @@
                             {{ $course->subject_code }} {{ strtoupper($course->subject) }}<br>
                             {{ $course->teacher }}
                         </td>
+                        <td rowspan="{{ $rowspan }}" class="left reporter-cell">{{ $reporter }}</td>
                     @endif
                     <td>{{ $presenter->formatSectionLabel($std) }}</td>
                     <td>{{ (int) $std->total_std }}</td>
@@ -74,7 +77,9 @@
             @empty
                 <tr>
                     <td>{{ $number }}</td>
-                    <td class="left" colspan="{{ $totalColumns - 1 }}">ยังไม่มีข้อมูลจำนวนนักศึกษา</td>
+                    <td class="left">{{ $course->subject_code }} {{ strtoupper($course->subject) }}</td>
+                    <td class="left reporter-cell">{{ $reporter }}</td>
+                    <td class="left" colspan="{{ $totalColumns - 3 }}">ยังไม่มีข้อมูลจำนวนนักศึกษา</td>
                 </tr>
             @endforelse
 

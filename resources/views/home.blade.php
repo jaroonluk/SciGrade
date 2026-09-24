@@ -612,13 +612,13 @@
                                 </div>
                             </div>
                         </a>
-                        <a href="{{ route('dept-admin.reviews.index') }}#registrar-bulk-upload" class="menu-card tone-review rounded-xl p-5 block">
+                        <a href="{{ route('dept-admin.registrar-upload.index') }}" class="menu-card tone-review rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="upload-cloud" class="w-5 h-5"></i></div>
                                 <div>
                                     <p class="menu-step">1.2</p>
                                     <p class="font-semibold text-green-950">อัปโหลด มข.11 (สาขาวิชา)</p>
-                                    <p class="text-sm text-green-900/65 mt-1">อัปโหลดใบ มข.11 ของสาขาหลายไฟล์ในครั้งเดียว</p>
+                                    <p class="text-sm text-green-900/65 mt-1">เลือกภาค/ปีแล้วอัปโหลดใบ มข.11 ของสาขาหลายไฟล์ในครั้งเดียว</p>
                                 </div>
                             </div>
                         </a>

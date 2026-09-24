@@ -4,6 +4,7 @@ namespace App\Services\DeptAdmin;
 
 use App\Models\GradeReport;
 use App\Models\GradeStd;
+use App\Models\TblUser;
 use Illuminate\Support\Collection;
 
 class DepartmentReportExportPresenter
@@ -77,6 +78,8 @@ class DepartmentReportExportPresenter
             return collect();
         }
 
+        $reporterNames = $this->reporterNameMap($reports);
+
         // ตาม buildOptimizedSQL ใน gt_report_68.php:
         // ORDER BY MIN(subject_code) ของ subject_code2 ASC, subject_code ASC
         // (ใช้ sortBy แบบ key เดียว — sortBy([...]) ใน Laravel เป็น comparator 2 args)
@@ -87,7 +90,7 @@ class DepartmentReportExportPresenter
 
         return $reports
             ->groupBy(fn (GradeReport $report) => strtoupper(trim((string) $report->subject_code)))
-            ->map(function (Collection $group) {
+            ->map(function (Collection $group) use ($reporterNames) {
                 $primary = $group->sortBy('grade_id')->first();
                 $subjectCode2 = trim((string) ($primary->subject_code2 ?: $primary->subject_code));
 
@@ -121,6 +124,7 @@ class DepartmentReportExportPresenter
                     'subject_code2' => $subjectCode2,
                     'subject' => $this->preferredSubjectName($group),
                     'teacher' => $teachers->implode(', '),
+                    'reporter' => $this->reportersForGroup($group, $reporterNames),
                     'reason' => $reasons->isEmpty() ? '-' : $reasons->implode(' / '),
                     'mean' => $this->preferredMetric($group, 'mean'),
                     'sd' => $this->preferredMetric($group, 'sd'),
@@ -179,6 +183,85 @@ class DepartmentReportExportPresenter
             'num_v' => (int) $sections->sum('num_v'),
             'num_w' => (int) $sections->sum('num_w'),
         ];
+    }
+
+    /**
+     * @param  Collection<int, GradeReport>  $reports
+     * @return array<string, string> username => ชื่อ-สกุล
+     */
+    private function reporterNameMap(Collection $reports): array
+    {
+        $usernames = [];
+
+        foreach ($reports as $report) {
+            $owner = trim((string) $report->username);
+            if ($owner !== '') {
+                $usernames[$owner] = true;
+            }
+
+            foreach ($report->gradeStds as $std) {
+                $sectionUser = trim((string) ($std->getAttributes()['username'] ?? $std->username ?? ''));
+                if ($sectionUser !== '') {
+                    $usernames[$sectionUser] = true;
+                }
+            }
+        }
+
+        if ($usernames === []) {
+            return [];
+        }
+
+        try {
+            return TblUser::query()
+                ->with('titleRelation')
+                ->whereIn('username', array_keys($usernames))
+                ->get()
+                ->mapWithKeys(function (TblUser $user) {
+                    $name = trim($user->displayName());
+                    if ($name === '') {
+                        $name = trim($user->teacherName());
+                    }
+
+                    return [(string) $user->username => $name !== '' ? $name : (string) $user->username];
+                })
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  Collection<int, GradeReport>  $group
+     * @param  array<string, string>  $nameMap
+     */
+    private function reportersForGroup(Collection $group, array $nameMap): string
+    {
+        $names = [];
+
+        foreach ($group as $report) {
+            $usernames = [];
+
+            $owner = trim((string) $report->username);
+            if ($owner !== '') {
+                $usernames[$owner] = true;
+            }
+
+            foreach ($report->gradeStds as $std) {
+                $sectionUser = trim((string) ($std->getAttributes()['username'] ?? $std->username ?? ''));
+                if ($sectionUser !== '') {
+                    $usernames[$sectionUser] = true;
+                }
+            }
+
+            foreach (array_keys($usernames) as $username) {
+                $label = trim((string) ($nameMap[$username] ?? $username));
+                if ($label !== '') {
+                    $names[$label] = true;
+                }
+            }
+        }
+
+        return $names === [] ? '-' : implode(', ', array_keys($names));
     }
 
     /**
