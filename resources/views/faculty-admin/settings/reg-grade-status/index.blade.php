@@ -99,9 +99,9 @@
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
             Admin กลางติกได้เฉพาะ
             <span class="font-medium text-orange-700">ตรวจแล้ว</span> /
-            <span class="font-medium text-green-700">คณะอนุมัติ</span> /
+            <span class="font-medium text-green-700">ผ่านที่ประชุมกรรมการคณะฯ</span> /
             <span class="font-medium text-red-700">ส่งกลับแก้ไข</span>
-            (กดครั้งเดียวมีผลทุก Section ของวิชานั้น)
+            (กดครั้งเดียวมีผลทุก Section ของวิชานั้น · ส่งกลับแก้ไขแล้วต้องรออาจารย์ส่งเกรดใหม่)
         </p>
     </div>
 
@@ -143,7 +143,7 @@
                     <option value="2" @selected(($statusFilter ?? 'all') === '2')>นำเข้าที่ประชุมสาขา</option>
                     <option value="3" @selected(($statusFilter ?? 'all') === '3')>ผ่านที่ประชุมสาขา</option>
                     <option value="4" @selected(($statusFilter ?? 'all') === '4')>ตรวจแล้ว</option>
-                    <option value="5" @selected(($statusFilter ?? 'all') === '5')>คณะอนุมัติ</option>
+                    <option value="5" @selected(($statusFilter ?? 'all') === '5')>ผ่านที่ประชุมกรรมการคณะฯ</option>
                     <option value="6" @selected(($statusFilter ?? 'all') === '6')>ส่งกลับแก้ไข</option>
                 </select>
             </div>
@@ -193,7 +193,7 @@
             <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
                 <i data-lucide="badge-check" class="w-5 h-5"></i>
             </div>
-            <p class="text-xs text-green-800">คณะอนุมัติ</p>
+            <p class="text-xs text-green-800">ผ่านที่ประชุมกรรมการคณะฯ</p>
             <p class="text-lg font-bold text-green-800 summary-5">{{ $summary[5] ?? 0 }}</p>
         </div>
         <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
@@ -208,7 +208,7 @@
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200 w-full">
         <div class="px-4 py-3 bg-amber-50 border-b border-amber-200 text-sm text-[#5C2E1F]">
             พบ {{ number_format($courses->count()) }} รายวิชา
-            <span class="text-xs text-gray-500 ml-2">ติกที่แถวแรกของวิชา: ตรวจแล้ว / คณะอนุมัติ / ส่งกลับแก้ไข — มีผลทุก Sec.</span>
+            <span class="text-xs text-gray-500 ml-2">ติกที่แถวแรกของวิชา: ตรวจแล้ว ↔ ผ่านที่ประชุมกรรมการคณะฯ / ส่งกลับแก้ไข — มีผลทุก Sec. (ส่งกลับแล้วรออาจารย์ส่งใหม่)</span>
         </div>
         <table class="w-full text-sm table-fixed min-w-[1280px]" id="status-table">
             <colgroup>
@@ -233,7 +233,7 @@
                     <th class="px-1.5 py-2 text-center text-indigo-700 leading-tight whitespace-normal">นำเข้าที่<br>ประชุมสาขา</th>
                     <th class="px-1.5 py-2 text-center text-sky-700 leading-tight whitespace-normal">ผ่านที่<br>ประชุมสาขา</th>
                     <th class="px-1.5 py-2 text-center text-orange-700 leading-tight whitespace-normal">ตรวจแล้ว</th>
-                    <th class="px-1.5 py-2 text-center text-green-700 leading-tight whitespace-normal">คณะอนุมัติ</th>
+                    <th class="px-1.5 py-2 text-center text-green-700 leading-tight whitespace-normal">ผ่านที่ประชุม<br>กรรมการคณะฯ</th>
                     <th class="px-1.5 py-2 text-center text-red-700 leading-tight whitespace-normal">ส่งกลับ<br>แก้ไข</th>
                 </tr>
             </thead>
@@ -254,9 +254,12 @@
                                 : ($isGroupStart ? 'bg-[#FFF8F0] course-group-start' : ($index % 2 === 0 ? 'bg-white' : 'bg-[#F0FFFF]/40')));
                         $isStatusControlRow = (bool) ($row->is_course_start ?? ! $isContinuation);
                         $controlGradeId = $row->course_grade_id ?: $row->grade_id;
-                        $canMarkChecked = $isStatusControlRow && (bool) ($row->course_can_mark_checked ?? false) && $controlGradeId;
-                        $canApproveFaculty = $isStatusControlRow && (bool) ($row->course_can_approve_faculty ?? false) && $controlGradeId;
-                        $canSendBack = $isStatusControlRow && (bool) ($row->course_can_send_back_faculty ?? false) && $controlGradeId;
+                        $canMarkChecked = $isStatusControlRow && (bool) ($row->course_can_mark_checked ?? false) && $controlGradeId
+                            && (int) $row->status !== 4;
+                        $canApproveFaculty = $isStatusControlRow && (bool) ($row->course_can_approve_faculty ?? false) && $controlGradeId
+                            && (int) $row->status !== 5;
+                        $canSendBack = $isStatusControlRow && (bool) ($row->course_can_send_back_faculty ?? false) && $controlGradeId
+                            && (int) $row->status !== 6;
                         $radioName = 'status-'.$index.'-'.($row->grade_id ?: $row->COURSECODE.'-'.$row->SECTION);
                     @endphp
                     <tr class="border-t border-amber-100 {{ $rowClass }}"
@@ -320,7 +323,7 @@
                                 elseif ($statusValue === 6 && $canSendBack) $action = 'send_back';
                                 $title = match ($action) {
                                     'check' => 'คลิกเพื่อตั้งเป็นตรวจแล้ว (ทุก Section)',
-                                    'approve' => 'คลิกเพื่อคณะอนุมัติ (ทุก Section)',
+                                    'approve' => 'คลิกเพื่อผ่านที่ประชุมกรรมการคณะฯ (ทุก Section)',
                                     'send_back' => 'คลิกเพื่อส่งกลับแก้ไข (ทุก Section)',
                                     default => '',
                                 };
@@ -384,7 +387,7 @@
         r.dataset.action = action;
         r.title = ({
             check: 'คลิกเพื่อตั้งเป็นตรวจแล้ว (ทุก Section)',
-            approve: 'คลิกเพื่อคณะอนุมัติ (ทุก Section)',
+            approve: 'คลิกเพื่อผ่านที่ประชุมกรรมการคณะฯ (ทุก Section)',
             send_back: 'คลิกเพื่อส่งกลับแก้ไข (ทุก Section)',
         })[action] || '';
         r.style.cursor = 'pointer';
@@ -408,7 +411,9 @@
             r.dataset.busy = '0';
 
             if (!isControl || !setUrl) return;
-            if (targetStatus === 3 && value === 4) enableRadio(r, 'check');
+            // ส่งกลับแก้ไขแล้ว (6) — รออาจารย์ส่งเกรดใหม่ ไม่ให้เปลี่ยนสถานะคืน
+            if (targetStatus === 6) return;
+            if ((targetStatus === 3 || targetStatus === 5) && value === 4) enableRadio(r, 'check');
             if ((targetStatus === 3 || targetStatus === 4) && value === 5) enableRadio(r, 'approve');
             if ([3, 4, 5].includes(targetStatus) && value === 6) enableRadio(r, 'send_back');
         });

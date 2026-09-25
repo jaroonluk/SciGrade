@@ -157,6 +157,41 @@ class GradeReportCentralApprovalService
         });
     }
 
+    /**
+     * เปลี่ยนกลับจากผ่านที่ประชุมกรรมการคณะฯ → ตรวจแล้ว
+     */
+    public function revertToFacultyChecked(GradeReport $report, string $approverUsername, ?string $remark = null): GradeReport
+    {
+        return DB::connection('scigrad')->transaction(function () use ($report, $approverUsername, $remark) {
+            $report = GradeReport::query()->lockForUpdate()->findOrFail($report->grade_id);
+            $from = (int) $report->approv;
+
+            if ($from === GradeApprovalStatus::FacultyChecked->value) {
+                return $report->fresh(['gradeStds', 'files', 'latestCentralApprovalLog.approver']) ?? $report;
+            }
+
+            if ($from !== GradeApprovalStatus::CentralApproved->value) {
+                throw new InvalidArgumentException('สามารถเปลี่ยนกลับเป็น “ตรวจแล้ว” ได้เฉพาะรายการที่ผ่านที่ประชุมกรรมการคณะฯ แล้วเท่านั้น');
+            }
+
+            $report->update([
+                'approv' => GradeApprovalStatus::FacultyChecked->value,
+                'dateapprove2' => null,
+            ]);
+
+            $this->writeLog(
+                $report,
+                'central_revert_checked',
+                $from,
+                GradeApprovalStatus::FacultyChecked->value,
+                $approverUsername,
+                $remark,
+            );
+
+            return $report->fresh(['gradeStds', 'files', 'latestCentralApprovalLog.approver']);
+        });
+    }
+
     private function writeLog(
         GradeReport $report,
         string $action,

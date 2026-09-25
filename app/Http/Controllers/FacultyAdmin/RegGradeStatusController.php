@@ -78,7 +78,7 @@ class RegGradeStatusController extends Controller
         $action = (string) $request->input('action', '');
         if (! in_array($action, ['check', 'approve', 'send_back'], true)) {
             return response()->json([
-                'message' => 'สถานะที่ Admin กลางตั้งได้มีเพียง ตรวจแล้ว / คณะอนุมัติ / ส่งกลับแก้ไข',
+                'message' => 'สถานะที่ Admin กลางตั้งได้มีเพียง ตรวจแล้ว / ผ่านที่ประชุมกรรมการคณะฯ / ส่งกลับแก้ไข',
             ], 422);
         }
 
@@ -86,7 +86,7 @@ class RegGradeStatusController extends Controller
             $gradeReport,
             function (GradeReport $report) use ($action) {
                 return match ($action) {
-                    'check' => $this->approvalService->markChecked($report, $this->approverUsername()),
+                    'check' => $this->setToChecked($report),
                     'approve' => $this->approvalService->approve($report, $this->approverUsername()),
                     default => $this->sendBackReport($report),
                 };
@@ -96,7 +96,7 @@ class RegGradeStatusController extends Controller
         if ($updatedIds === []) {
             $fallback = match ($action) {
                 'check' => 'ไม่มีรายการที่สามารถตั้งเป็นตรวจแล้วได้',
-                'approve' => 'ไม่มีรายการที่สามารถคณะอนุมัติได้',
+                'approve' => 'ไม่มีรายการที่สามารถตั้งเป็นผ่านที่ประชุมกรรมการคณะฯ ได้',
                 default => 'ไม่มีรายการที่สามารถส่งกลับแก้ไขได้',
             };
 
@@ -105,7 +105,7 @@ class RegGradeStatusController extends Controller
 
         [$status, $approv, $message] = match ($action) {
             'check' => [4, GradeApprovalStatus::FacultyChecked->value, 'ตั้งเป็นตรวจแล้วทุก Section เรียบร้อย'],
-            'approve' => [5, GradeApprovalStatus::CentralApproved->value, 'คณะอนุมัติทุก Section เรียบร้อย'],
+            'approve' => [5, GradeApprovalStatus::CentralApproved->value, 'ผ่านที่ประชุมกรรมการคณะฯ ทุก Section เรียบร้อย'],
             default => [6, GradeApprovalStatus::DepartmentRejected->value, 'ส่งกลับแก้ไขทุก Section เรียบร้อย'],
         };
 
@@ -148,6 +148,21 @@ class RegGradeStatusController extends Controller
             'grade_ids' => $updatedIds,
             'message' => 'เปลี่ยนกลับเป็นผ่านที่ประชุมสาขาเรียบร้อย',
         ]);
+    }
+
+    private function setToChecked(GradeReport $report): GradeReport
+    {
+        $from = (int) $report->approv;
+
+        if ($from === GradeApprovalStatus::FacultyChecked->value) {
+            return $report->fresh(['gradeStds', 'files', 'latestCentralApprovalLog.approver']) ?? $report;
+        }
+
+        if ($from === GradeApprovalStatus::CentralApproved->value) {
+            return $this->approvalService->revertToFacultyChecked($report, $this->approverUsername());
+        }
+
+        return $this->approvalService->markChecked($report, $this->approverUsername());
     }
 
     private function sendBackReport(GradeReport $report): GradeReport

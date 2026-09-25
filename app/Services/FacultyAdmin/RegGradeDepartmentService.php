@@ -854,13 +854,14 @@ class RegGradeDepartmentService
                 fn (object $item) => in_array((int) $item->status, [2, 3], true) && $item->grade_id
             );
             $row->course_can_mark_checked = $group->contains(
-                fn (object $item) => (int) $item->status === 3
+                fn (object $item) => in_array((int) $item->status, [3, 5], true)
                     && $item->grade_id
-                    && (int) ($item->approv ?? 0) === GradeApprovalStatus::DepartmentApproved->value
+                    && (int) ($item->approv ?? 0) !== GradeApprovalStatus::DepartmentRejected->value
             );
             $row->course_can_approve_faculty = $group->contains(
                 fn (object $item) => in_array((int) $item->status, [3, 4], true) && $item->grade_id
             );
+            // ส่งกลับแก้ไขแล้ว — รออาจารย์ส่งเกรดใหม่ ไม่ให้เปลี่ยนสถานะคืนจากหน้านี้
             $row->course_can_send_back_faculty = $group->contains(
                 fn (object $item) => in_array((int) $item->status, [3, 4, 5], true) && $item->grade_id
             );
