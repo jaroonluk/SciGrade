@@ -134,6 +134,26 @@
             font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : '11px' }};
             line-height: 1.35;
         }
+        /* แถวหมายเหตุ/ผู้รายงาน — ตารางแยกเพื่อให้ DomPDF วาดขอบครบเหมือน Word */
+        table.report-foot {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: -1px;
+            table-layout: fixed;
+            mso-table-layout-alt: fixed;
+            page-break-inside: avoid;
+        }
+        table.report-foot td {
+            border: 1px solid #333;
+            padding: {{ ($format ?? 'pdf') === 'word' ? '1px 2px' : '3px 4px' }};
+            text-align: left;
+            vertical-align: middle;
+            font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : 'inherit' }};
+            line-height: 1.35;
+        }
+        table.report-foot tr.reporter-row td {
+            font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : '11px' }};
+        }
         .print-footer {
             margin-top: 16px;
             text-align: right;

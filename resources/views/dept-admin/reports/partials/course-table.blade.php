@@ -7,9 +7,13 @@
     $totalColumns = 19;
     $reporter = trim((string) ($course->reporter ?? '')) ?: '-';
     $sectionCount = $sections->count();
-    // ตามแบบ x3 / print: rowspan ครอบ Section + รวม + %
+    // rowspan เฉพาะ ลำดับที่ + ชื่อวิชา (ตามแบบตัวอย่าง) — ไม่ใช้ rowspan ที่ค่าเฉลี่ย/SD
+    // เพราะ DomPDF วาดเส้นขอบด้านขวาและแถว colspan ท้ายตารางพัง
     $metaRowspan = $sectionCount > 0 ? $sectionCount + 2 : 1;
     $subjectHtml = e($course->subject_code).' '.e(strtoupper((string) $course->subject)).'<br>'.e($course->teacher);
+    $empty = '&nbsp;';
+    $noteText = 'หมายเหตุ : '.($course->reason ?: '-');
+    $reporterText = 'ผู้รายงาน : '.$reporter;
 @endphp
 
 <div class="report-block {{ $sectionCount <= 6 ? 'report-block-compact' : '' }}">
@@ -67,8 +71,11 @@
                     <td>{{ (int) $std->num_w }}</td>
                     <td>{{ (int) $std->total_std }}</td>
                     @if ($index === 0)
-                        <td rowspan="{{ $metaRowspan }}" class="course-meta">{{ $presenter->formatMean($course->mean) }}</td>
-                        <td rowspan="{{ $metaRowspan }}" class="course-meta">{{ $presenter->formatSd($course->sd) }}</td>
+                        <td class="course-meta">{{ $presenter->formatMean($course->mean) }}</td>
+                        <td class="course-meta">{{ $presenter->formatSd($course->sd) }}</td>
+                    @else
+                        <td>{!! $empty !!}</td>
+                        <td>{!! $empty !!}</td>
                     @endif
                 </tr>
             @empty
@@ -96,6 +103,8 @@
                     <td>{{ $summary['num_v'] }}</td>
                     <td>{{ $summary['num_w'] }}</td>
                     <td>{{ $totalAll }}</td>
+                    <td>{!! $empty !!}</td>
+                    <td>{!! $empty !!}</td>
                 </tr>
                 <tr class="summary-row">
                     <td class="strong">%</td>
@@ -113,15 +122,20 @@
                     <td>{{ $presenter->formatPercent($summary['num_v'], $totalAll) }}</td>
                     <td>{{ $presenter->formatPercent($summary['num_w'], $totalAll) }}</td>
                     <td>100.00</td>
+                    <td>{!! $empty !!}</td>
+                    <td>{!! $empty !!}</td>
                 </tr>
             @endif
-
-            <tr class="note-row">
-                <td colspan="{{ $totalColumns }}" class="left">หมายเหตุ : {{ $course->reason ?: '-' }}</td>
-            </tr>
-            <tr class="reporter-row">
-                <td colspan="{{ $totalColumns }}" class="left">ผู้รายงาน : {{ $reporter }}</td>
-            </tr>
         </tbody>
+    </table>
+
+    {{-- แยกตารางท้าย: DomPDF วาด colspan หลัง rowspan ในตารางเดียวกันไม่ครบความกว้าง --}}
+    <table class="report-foot" border="1" cellspacing="0" cellpadding="0" style="width:100%; border-collapse:collapse; mso-table-layout-alt:fixed;">
+        <tr class="note-row">
+            <td class="left">{{ $noteText }}</td>
+        </tr>
+        <tr class="reporter-row">
+            <td class="left">{{ $reporterText }}</td>
+        </tr>
     </table>
 </div>
