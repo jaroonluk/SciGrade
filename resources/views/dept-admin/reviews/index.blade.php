@@ -181,7 +181,7 @@
     </form>
 
     <div class="overflow-x-auto bg-white rounded-xl border border-amber-200">
-        <table class="w-full text-sm min-w-[1040px]">
+        <table class="w-full text-sm min-w-[1120px]">
             <thead class="bg-amber-50">
                 <tr>
                     <th class="px-3 py-2 text-center w-10">
@@ -401,7 +401,7 @@
 
             if (box && !box.querySelector('.js-reg-admin-file-row')) {
                 const empty = document.createElement('span');
-                empty.className = 'js-registrar-empty js-registrar-dept-empty text-xs text-gray-400';
+                empty.className = 'js-registrar-empty js-registrar-dept-empty text-[11px] text-emerald-800/45';
                 empty.textContent = 'ไม่มีไฟล์';
                 box.appendChild(empty);
             }

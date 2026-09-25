@@ -73,15 +73,17 @@ class GradeReportFilesAdminPartialTest extends TestCase
 
         $html = view('partials.grade-report-files-admin', ['report' => $report])->render();
 
+        $this->assertStringContainsString('อาจารย์อัปโหลด', $html);
+        $this->assertStringContainsString('Admin สาขาอัปโหลด', $html);
         $this->assertStringContainsString('แบบรายงานผลการสอบไล่(1)', $html);
         $this->assertStringContainsString('แบบรายงานผลการสอบไล่(2)', $html);
         $this->assertStringNotContainsString('แบบรายงานผลการสอบไล่-Sec', $html);
 
         $exam1Pos = strpos($html, 'แบบรายงานผลการสอบไล่(1)');
         $exam2Pos = strpos($html, 'แบบรายงานผลการสอบไล่(2)');
-        $reg1Pos = strpos($html, 'ใบส่งผลการศึกษา (REG)-Sec1');
-        $reg2Pos = strpos($html, 'ใบส่งผลการศึกษา (REG)-Sec2');
-        $reg3Pos = strpos($html, 'ใบส่งผลการศึกษา (REG)-Sec3');
+        $reg1Pos = strpos($html, 'มข.11-Sec1');
+        $reg2Pos = strpos($html, 'มข.11-Sec2');
+        $reg3Pos = strpos($html, 'มข.11-Sec3');
 
         $this->assertNotFalse($exam1Pos);
         $this->assertNotFalse($exam2Pos);
