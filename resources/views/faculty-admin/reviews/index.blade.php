@@ -65,10 +65,14 @@
 
 @section('content')
 @php
-    $sortBy = $filters['sort_by'] ?? 'subject_code';
-    $sortDir = $filters['sort_dir'] ?? 'asc';
+    $sortBy = $filters['sort_by'] ?? 'created';
+    $sortDir = $filters['sort_dir'] ?? 'desc';
     $sortLink = function (string $column) use ($sortBy, $sortDir) {
-        $dir = ($sortBy === $column && $sortDir === 'asc') ? 'desc' : 'asc';
+        if ($sortBy === $column) {
+            $dir = $sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $dir = $column === 'created' ? 'desc' : 'asc';
+        }
 
         return route('faculty-admin.reviews.index', array_merge(
             request()->except(['page', 'sort_by', 'sort_dir']),

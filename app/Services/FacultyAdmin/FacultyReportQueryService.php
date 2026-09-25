@@ -83,12 +83,16 @@ class FacultyReportQueryService
      */
     public function applySort(Builder $query, array $filters): Builder
     {
-        $sortBy = $filters['sort_by'] ?? 'subject_code';
-        $sortDir = strtolower((string) ($filters['sort_dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc';
+        $sortBy = $filters['sort_by'] ?? 'created';
+        $sortDir = strtolower((string) ($filters['sort_dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sortBy === 'created') {
+            // ใช้ created_stamp เพื่อเรียงตามวันเวลาที่กรอกจริง
+            return $query->orderBy('created_stamp', $sortDir)->orderByDesc('grade_id');
+        }
 
         $column = match ($sortBy) {
             'subject' => 'subject',
-            'created' => 'created',
             'status' => 'approv',
             default => 'subject_code',
         };

@@ -84,7 +84,8 @@ class DepartmentReportQueryService
 
         $this->applyEducationLevel($query, $filters['education_level'] ?? null);
 
-        return $query->orderBy('subject_code')->orderBy('grade_id');
+        // กรอกล่าสุดขึ้นก่อน แล้วเรียงย้อนหลังตามเวลา
+        return $query->orderByDesc('created_stamp')->orderByDesc('grade_id');
     }
 
     /**

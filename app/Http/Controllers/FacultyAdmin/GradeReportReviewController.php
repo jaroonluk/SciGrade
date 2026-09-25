@@ -38,8 +38,8 @@ class GradeReportReviewController extends Controller
             $filters['status'] = null;
         }
 
-        $filters['sort_by'] = $filters['sort_by'] ?: 'subject_code';
-        $filters['sort_dir'] = $filters['sort_dir'] ?: 'asc';
+        $filters['sort_by'] = $filters['sort_by'] ?: 'created';
+        $filters['sort_dir'] = $filters['sort_dir'] ?: 'desc';
 
         $reports = $this->queryService
             ->baseQuery($filters)
