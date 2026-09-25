@@ -221,7 +221,8 @@
                     <option value="1" @selected(($statusFilter ?? 'all') === '1')>ส่งแล้ว</option>
                     <option value="2" @selected(($statusFilter ?? 'all') === '2')>นำเข้าที่ประชุมสาขา</option>
                     <option value="3" @selected(($statusFilter ?? 'all') === '3')>ผ่านที่ประชุมสาขา</option>
-                    <option value="4" @selected(($statusFilter ?? 'all') === '4')>ผ่านคณะฯ</option>
+                    <option value="4" @selected(($statusFilter ?? 'all') === '4')>ผ่านคณะฯ / ตรวจแล้ว</option>
+                    <option value="5" @selected(($statusFilter ?? 'all') === '5')>ส่งกลับแก้ไข</option>
                 </select>
             </div>
             <button type="submit" class="px-5 py-2.5 bg-[#8B4513] text-white rounded-lg text-sm font-medium hover:bg-[#6B3410]">
@@ -230,7 +231,7 @@
         </form>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
             <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center">
                 <i data-lucide="circle" class="w-5 h-5"></i>
@@ -265,6 +266,13 @@
             </div>
             <p class="text-xs text-green-800">ผ่านที่ประชุมกรรมการคณะฯ</p>
             <p class="text-lg font-bold text-green-800 summary-4">{{ $summary[4] ?? 0 }}</p>
+        </div>
+        <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+            <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
+                <i data-lucide="undo-2" class="w-5 h-5"></i>
+            </div>
+            <p class="text-xs text-red-800">ส่งกลับแก้ไข</p>
+            <p class="text-lg font-bold text-red-800 summary-5">{{ $summary[5] ?? 0 }}</p>
         </div>
     </div>
 
@@ -340,7 +348,7 @@
                         $canQueueMeeting = $isStatusControlRow && (bool) ($row->course_can_queue_meeting ?? false) && $controlGradeId;
                         $canPassMeeting = $isStatusControlRow && (bool) ($row->course_can_pass_meeting ?? $row->course_can_approve_dept ?? false) && $controlGradeId;
                         $canRevertDept = $isStatusControlRow && (bool) ($row->course_can_revert_dept ?? false) && $controlGradeId;
-                        $facultyLocked = $isStatusControlRow && (int) $row->status === 4;
+                        $facultyLocked = $isStatusControlRow && in_array((int) $row->status, [4, 5], true);
                         $radioName = 'status-'.$index.'-'.($row->grade_id ?: $row->COURSECODE.'-'.$row->SECTION);
                         $programTypes = is_array($row->program_types ?? null) ? $row->program_types : [];
                         $programTypeLabels = [
@@ -423,9 +431,14 @@
                         </td>
                         @foreach ([0, 1, 2, 3, 4] as $statusValue)
                             @php
-                                $isActive = (int) $row->status === $statusValue;
+                                $rowStatus = (int) $row->status;
+                                $isActive = match ($statusValue) {
+                                    1 => in_array($rowStatus, [1, 6], true),
+                                    4 => in_array($rowStatus, [4, 5], true),
+                                    default => $rowStatus === $statusValue,
+                                };
                                 $action = null;
-                                if (! $facultyLocked && $statusValue !== (int) $row->status) {
+                                if (! $facultyLocked && $statusValue !== $rowStatus) {
                                     if ($statusValue === 2 && $canQueueMeeting) {
                                         $action = '2';
                                     } elseif ($statusValue === 3 && $canPassMeeting) {
@@ -514,7 +527,7 @@
         const cells = row.querySelectorAll('.status-cell');
         const setUrl = row.dataset.setStatusUrl || '';
         const isControl = row.dataset.statusControl === '1';
-        const facultyLocked = targetStatus === 4;
+        const facultyLocked = targetStatus === 4 || targetStatus === 5;
 
         radios.forEach((r) => {
             const value = Number(r.value);

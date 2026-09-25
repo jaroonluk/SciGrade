@@ -176,6 +176,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/settings/reg-grade-manage/bulk', [RegGradeManageController::class, 'bulkDestroy'])->name('settings.reg-grade-manage.bulk-destroy');
 
         Route::get('/settings/reg-grade-status', [RegGradeStatusController::class, 'index'])->name('settings.reg-grade-status.index');
+        Route::post('/settings/reg-grade-status/{gradeReport}/set-status', [RegGradeStatusController::class, 'setStatus'])->name('settings.reg-grade-status.set-status');
         Route::post('/settings/reg-grade-status/{gradeReport}/approve-faculty', [RegGradeStatusController::class, 'approveFaculty'])->name('settings.reg-grade-status.approve-faculty');
         Route::post('/settings/reg-grade-status/{gradeReport}/revert-faculty', [RegGradeStatusController::class, 'revertFaculty'])->name('settings.reg-grade-status.revert-faculty');
 

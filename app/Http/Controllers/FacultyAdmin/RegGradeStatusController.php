@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\FacultyAdmin;
 
+use App\Enums\GradeApprovalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\GradeReport;
 use App\Services\FacultyAdmin\GradeReportCentralApprovalService;
@@ -44,10 +45,12 @@ class RegGradeStatusController extends Controller
             2 => $courses->where('status', 2)->count(),
             3 => $courses->where('status', 3)->count(),
             4 => $courses->where('status', 4)->count(),
+            5 => $courses->where('status', 5)->count(),
+            6 => $courses->where('status', 6)->count(),
         ];
 
         $statusFilter = $request->input('status', 'all');
-        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3', '4'], true)) {
+        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3', '4', '5', '6'], true)) {
             $statusFilter = 'all';
         }
 
@@ -68,27 +71,60 @@ class RegGradeStatusController extends Controller
         ]);
     }
 
-    public function approveFaculty(GradeReport $gradeReport): JsonResponse
+    public function setStatus(Request $request, GradeReport $gradeReport): JsonResponse
     {
         abort_unless(SciGradeRole::isFacultyCapable(), 403);
 
+        $action = (string) $request->input('action', '');
+        if (! in_array($action, ['check', 'approve', 'send_back'], true)) {
+            return response()->json([
+                'message' => 'สถานะที่ Admin กลางตั้งได้มีเพียง ตรวจแล้ว / คณะอนุมัติ / ส่งกลับแก้ไข',
+            ], 422);
+        }
+
         [$updatedIds, $lastError] = $this->applyToCourseReports(
             $gradeReport,
-            fn (GradeReport $report) => $this->approvalService->approve($report, $this->approverUsername()),
+            function (GradeReport $report) use ($action) {
+                return match ($action) {
+                    'check' => $this->approvalService->markChecked($report, $this->approverUsername()),
+                    'approve' => $this->approvalService->approve($report, $this->approverUsername()),
+                    default => $this->sendBackReport($report),
+                };
+            },
         );
 
         if ($updatedIds === []) {
-            return response()->json(['message' => $lastError ?? 'ไม่มีรายการที่สามารถอนุมัติได้'], 422);
+            $fallback = match ($action) {
+                'check' => 'ไม่มีรายการที่สามารถตั้งเป็นตรวจแล้วได้',
+                'approve' => 'ไม่มีรายการที่สามารถคณะอนุมัติได้',
+                default => 'ไม่มีรายการที่สามารถส่งกลับแก้ไขได้',
+            };
+
+            return response()->json(['message' => $lastError ?? $fallback], 422);
         }
+
+        [$status, $approv, $message] = match ($action) {
+            'check' => [4, GradeApprovalStatus::FacultyChecked->value, 'ตั้งเป็นตรวจแล้วทุก Section เรียบร้อย'],
+            'approve' => [5, GradeApprovalStatus::CentralApproved->value, 'คณะอนุมัติทุก Section เรียบร้อย'],
+            default => [6, GradeApprovalStatus::DepartmentRejected->value, 'ส่งกลับแก้ไขทุก Section เรียบร้อย'],
+        };
 
         return response()->json([
             'ok' => true,
-            'status' => 4,
-            'approv' => 2,
+            'status' => $status,
+            'approv' => $approv,
+            'action' => $action,
             'grade_id' => $gradeReport->grade_id,
             'grade_ids' => $updatedIds,
-            'message' => 'ผ่านที่ประชุมกรรมการคณะฯ เรียบร้อย',
+            'message' => $message,
         ]);
+    }
+
+    public function approveFaculty(GradeReport $gradeReport): JsonResponse
+    {
+        request()->merge(['action' => 'approve']);
+
+        return $this->setStatus(request(), $gradeReport);
     }
 
     public function revertFaculty(GradeReport $gradeReport): JsonResponse
@@ -107,11 +143,30 @@ class RegGradeStatusController extends Controller
         return response()->json([
             'ok' => true,
             'status' => 3,
-            'approv' => 1,
+            'approv' => GradeApprovalStatus::DepartmentApproved->value,
             'grade_id' => $gradeReport->grade_id,
             'grade_ids' => $updatedIds,
             'message' => 'เปลี่ยนกลับเป็นผ่านที่ประชุมสาขาเรียบร้อย',
         ]);
+    }
+
+    private function sendBackReport(GradeReport $report): GradeReport
+    {
+        $from = (int) $report->approv;
+
+        if ($from === GradeApprovalStatus::CentralApproved->value) {
+            return $this->approvalService->sendBackForInstructorEdit(
+                $report,
+                $this->approverUsername(),
+                'ส่งกลับให้อาจารย์แก้ไข',
+            );
+        }
+
+        return $this->approvalService->reject(
+            $report,
+            $this->approverUsername(),
+            'ส่งกลับให้อาจารย์แก้ไข',
+        );
     }
 
     /**

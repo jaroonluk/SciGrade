@@ -8,6 +8,7 @@ use App\Models\GradeReportReg;
 use App\Models\DepartmentSubjectPattern;
 use App\Models\TblDepartment;
 use App\Models\TblUser;
+use App\Enums\GradeApprovalStatus;
 use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Support\SubjectDegree;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -737,12 +738,14 @@ class RegGradeDepartmentService
     private function statusFieldsFromReport(GradeReport $report, string|int|null $section = null): array
     {
         $approv = (int) $report->approv;
-        // 0 ยังไม่ส่ง | 1 ส่งแล้ว | 2 นำเข้าที่ประชุมสาขา | 3 ผ่านที่ประชุมสาขา | 4 ผ่านคณะฯ
+        // 0 ยังไม่ส่ง | 1 ส่งแล้ว | 2 นำเข้าที่ประชุมสาขา | 3 ผ่านที่ประชุมสาขา
+        // 4 ตรวจแล้ว | 5 คณะอนุมัติ | 6 ส่งกลับแก้ไข
         $status = match (true) {
-            $approv === 2 => 4,
-            $approv === 1, $approv === 3 => 3,
-            $approv === 4 => 2,
-            $approv === -1 => 1,
+            $approv === GradeApprovalStatus::CentralApproved->value => 5,
+            $approv === GradeApprovalStatus::FacultyChecked->value => 4,
+            $approv === GradeApprovalStatus::DepartmentApproved->value => 3,
+            $approv === GradeApprovalStatus::DepartmentMeetingQueued->value => 2,
+            $approv === GradeApprovalStatus::DepartmentRejected->value => 6,
             default => 1,
         };
 
@@ -850,11 +853,19 @@ class RegGradeDepartmentService
             $row->course_can_revert_dept = $group->contains(
                 fn (object $item) => in_array((int) $item->status, [2, 3], true) && $item->grade_id
             );
+            $row->course_can_mark_checked = $group->contains(
+                fn (object $item) => (int) $item->status === 3
+                    && $item->grade_id
+                    && (int) ($item->approv ?? 0) === GradeApprovalStatus::DepartmentApproved->value
+            );
             $row->course_can_approve_faculty = $group->contains(
-                fn (object $item) => (int) $item->status === 3 && $item->grade_id
+                fn (object $item) => in_array((int) $item->status, [3, 4], true) && $item->grade_id
+            );
+            $row->course_can_send_back_faculty = $group->contains(
+                fn (object $item) => in_array((int) $item->status, [3, 4, 5], true) && $item->grade_id
             );
             $row->course_can_revert_faculty = $group->contains(
-                fn (object $item) => (int) $item->status === 4 && $item->grade_id
+                fn (object $item) => (int) $item->status === 5 && $item->grade_id
             );
 
             $prevCode = $code;

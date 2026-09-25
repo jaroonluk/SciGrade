@@ -56,15 +56,16 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
         $this->actingAs(new User(['name' => 'Faculty Admin', 'email' => 'faculty@kku.ac.th']));
 
         $html = view('faculty-admin.settings.reg-grade-status.index', $this->viewData(
-            status: 2,
+            status: 3,
             courseCanApproveFaculty: true,
             courseCanApproveDept: false,
         ))->render();
 
-        $this->assertStringContainsString('ติกสลับได้ที่แถวแรกของวิชา', $html);
+        $this->assertStringContainsString('ติกที่แถวแรกของวิชา', $html);
         $this->assertStringContainsString('แบบรายงานผลการสอบไล่(1)', $html);
         $this->assertSame(1, substr_count($html, 'data-status-control="1"'));
-        $this->assertSame(1, preg_match_all('/class="[^"]*btn-faculty-status[^"]*"/', $html));
+        $this->assertGreaterThanOrEqual(1, preg_match_all('/class="[^"]*btn-faculty-status[^"]*"/', $html));
+        $this->assertStringContainsString('data-set-status-url=', $html);
     }
 
     /**
@@ -88,7 +89,9 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
             'approv' => match ($status) {
                 2 => 4,
                 3 => 1,
-                4 => 2,
+                4 => 3,
+                5 => 2,
+                6 => -1,
                 default => 0,
             },
             'section_count' => 2,
@@ -98,8 +101,10 @@ class RegGradeStatusMultiSectionViewTest extends TestCase
             'course_can_pass_meeting' => in_array($status, [1, 2], true) && $courseCanApproveDept,
             'course_can_approve_dept' => in_array($status, [1, 2], true) && $courseCanApproveDept,
             'course_can_revert_dept' => in_array($status, [2, 3], true),
-            'course_can_approve_faculty' => $courseCanApproveFaculty,
-            'course_can_revert_faculty' => false,
+            'course_can_mark_checked' => $status === 3 && $courseCanApproveFaculty,
+            'course_can_approve_faculty' => in_array($status, [3, 4], true) && $courseCanApproveFaculty,
+            'course_can_send_back_faculty' => in_array($status, [3, 4, 5], true) && $courseCanApproveFaculty,
+            'course_can_revert_faculty' => $status === 5 && $courseCanApproveFaculty,
             'program_types' => [],
         ];
 

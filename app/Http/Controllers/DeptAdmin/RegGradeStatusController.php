@@ -67,17 +67,24 @@ class RegGradeStatusController extends Controller
             1 => $courses->where('status', 1)->count(),
             2 => $courses->where('status', 2)->count(),
             3 => $courses->where('status', 3)->count(),
-            4 => $courses->where('status', 4)->count(),
+            4 => $courses->where('status', 4)->count() + $courses->where('status', 5)->count(),
+            5 => $courses->where('status', 6)->count(),
         ];
 
         $statusFilter = $request->input('status', 'all');
-        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3', '4'], true)) {
+        if ($statusFilter !== 'all' && ! in_array((string) $statusFilter, ['0', '1', '2', '3', '4', '5'], true)) {
             $statusFilter = 'all';
         }
 
         if ($statusFilter !== 'all') {
             $statusValue = (int) $statusFilter;
-            $courses = $courses->where('status', $statusValue)->values();
+            if ($statusValue === 4) {
+                $courses = $courses->whereIn('status', [4, 5])->values();
+            } elseif ($statusValue === 5) {
+                $courses = $courses->where('status', 6)->values();
+            } else {
+                $courses = $courses->where('status', $statusValue)->values();
+            }
         }
 
         $programTypeMap = [];

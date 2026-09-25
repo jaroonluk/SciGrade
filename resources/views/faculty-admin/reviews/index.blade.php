@@ -381,8 +381,7 @@
                                 @if ($canMarkChecked)
                                     <form method="POST" action="{{ route('faculty-admin.reviews.mark-checked', $report) }}" class="inline">
                                         @csrf
-                                        <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600"
-                                            onclick="return confirm('ยืนยันว่าตรวจเอกสารแล้ว พร้อมส่งกรรมการคณะฯ?')">
+                                        <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600">
                                             ตรวจแล้ว
                                         </button>
                                     </form>
@@ -394,17 +393,21 @@
                                             คณะอนุมัติ
                                         </button>
                                     </form>
-                                    <button type="button" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 btn-reject"
-                                        data-action="{{ route('faculty-admin.reviews.reject', $report) }}">
-                                        ส่งกลับแก้ไข
-                                    </button>
+                                    <form method="POST" action="{{ route('faculty-admin.reviews.reject', $report) }}" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="remark" value="ส่งกลับให้อาจารย์แก้ไข">
+                                        <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
+                                            ส่งกลับแก้ไข
+                                        </button>
+                                    </form>
                                 @elseif ($canSendBack)
-                                    <button type="button"
-                                        class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 btn-send-back"
-                                        data-action="{{ route('faculty-admin.reviews.send-back', $report) }}"
-                                        data-subject="{{ $report->subject_code }}">
-                                        ส่งกลับแก้ไข
-                                    </button>
+                                    <form method="POST" action="{{ route('faculty-admin.reviews.send-back', $report) }}" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="remark" value="ส่งกลับให้อาจารย์แก้ไข">
+                                        <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
+                                            ส่งกลับแก้ไข
+                                        </button>
+                                    </form>
                                 @elseif ((int) $report->approv === -1)
                                     <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
                                 @else
@@ -423,35 +426,6 @@
     </div>
 
     <div>{{ $reports->links() }}</div>
-</div>
-
-<div id="reject-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden no-print">
-    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl mx-4">
-        <h3 class="font-bold text-lg mb-3 text-[#5C2E1F]">เหตุผลการส่งกลับแก้ไข</h3>
-        <form id="reject-form" method="POST">
-            @csrf
-            <textarea name="remark" rows="3" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm mb-4" placeholder="ระบุเหตุผล (ถ้ามี)"></textarea>
-            <div class="flex gap-3 justify-end">
-                <button type="button" id="btn-cancel-reject" class="px-4 py-2 border rounded-lg text-sm">ยกเลิก</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">ยืนยัน</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="send-back-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden no-print">
-    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl mx-4">
-        <h3 class="font-bold text-lg mb-2 text-[#5C2E1F]">ส่งกลับให้อาจารย์แก้ไข</h3>
-        <p id="send-back-subject" class="text-sm text-gray-600 mb-3"></p>
-        <form id="send-back-form" method="POST">
-            @csrf
-            <textarea name="remark" rows="3" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm mb-4" placeholder="ระบุเหตุผล (ถ้ามี)"></textarea>
-            <div class="flex gap-3 justify-end">
-                <button type="button" id="btn-cancel-send-back" class="px-4 py-2 border rounded-lg text-sm">ยกเลิก</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">ยืนยันส่งกลับ</button>
-            </div>
-        </form>
-    </div>
 </div>
 @endsection
 
@@ -609,28 +583,6 @@
     });
 
     updateBulkSelection();
-
-    const modal = document.getElementById('reject-modal');
-    const form = document.getElementById('reject-form');
-    document.querySelectorAll('.btn-reject').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            form.action = btn.dataset.action;
-            modal.classList.remove('hidden');
-        });
-    });
-    document.getElementById('btn-cancel-reject').onclick = () => modal.classList.add('hidden');
-
-    const sendBackModal = document.getElementById('send-back-modal');
-    const sendBackForm = document.getElementById('send-back-form');
-    const sendBackSubject = document.getElementById('send-back-subject');
-    document.querySelectorAll('.btn-send-back').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            sendBackForm.action = btn.dataset.action;
-            sendBackSubject.textContent = `รายวิชา ${btn.dataset.subject} (คณะอนุมัติแล้ว) จะถูกส่งกลับให้อาจารย์แก้ไข`;
-            sendBackModal.classList.remove('hidden');
-        });
-    });
-    document.getElementById('btn-cancel-send-back').onclick = () => sendBackModal.classList.add('hidden');
 })();
 </script>
 @endpush
