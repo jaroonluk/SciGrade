@@ -86,11 +86,18 @@
         }
         table.report td.course-meta {
             vertical-align: top;
-        }
-        /* เซลล์ว่างแทน rowspan — ต้องมีเนื้อหา (&nbsp;) เพื่อให้ DomPDF วาดเส้นขอบ */
-        table.report td.course-meta-span {
-            vertical-align: top;
             border: 1px solid #333;
+        }
+        table.report td.course-meta-order {
+            text-align: center;
+            vertical-align: top;
+            padding-top: 6px;
+        }
+        table.report td.course-meta-subject {
+            text-align: left;
+            vertical-align: top;
+            line-height: 1.3;
+            padding-top: 4px;
         }
         table.report th,
         table.report td {
