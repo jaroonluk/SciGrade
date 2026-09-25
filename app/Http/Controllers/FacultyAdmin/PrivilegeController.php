@@ -100,7 +100,8 @@ class PrivilegeController extends Controller
     }
 
     /**
-     * สาขาที่ให้เลือกตอนกำหนดสิทธิ์ (ไม่รวมหน่วยงานสนับสนุน / กลุ่มภาระงาน)
+     * สาขาที่ให้เลือกตอนกำหนดสิทธิ์ (ไม่รวมหน่วยงานสนับสนุน / กลุ่มภาระงาน
+     * ยกเว้นกลุ่มภาระงานด้านเทคโนโลยีสารสนเทศ)
      *
      * @return \Illuminate\Support\Collection<int, TblDepartment>
      */
@@ -113,17 +114,27 @@ class PrivilegeController extends Controller
             30, // กลุ่มผู้พัฒนาระบบ
         ];
 
+        /** @var list<int> กลุ่มภาระงานที่อนุญาตให้เลือกเป็นสาขาที่ดูแลได้ */
+        $allowedWorkloadGroupIds = [
+            21, // กลุ่มภาระงานด้านเทคโนโลยีสารสนเทศ
+        ];
+
         return TblDepartment::query()
             ->orderBy('department_name')
             ->get(['department_id', 'department_name'])
-            ->reject(function (TblDepartment $dept) use ($excludedIds) {
+            ->reject(function (TblDepartment $dept) use ($excludedIds, $allowedWorkloadGroupIds) {
+                $id = (int) $dept->department_id;
                 $name = (string) $dept->department_name;
 
-                if (str_starts_with($name, 'กลุ่มภาระงาน') || str_starts_with($name, 'งาน')) {
+                if (in_array($id, $excludedIds, true)) {
                     return true;
                 }
 
-                return in_array((int) $dept->department_id, $excludedIds, true);
+                if (in_array($id, $allowedWorkloadGroupIds, true)) {
+                    return false;
+                }
+
+                return str_starts_with($name, 'กลุ่มภาระงาน') || str_starts_with($name, 'งาน');
             })
             ->values();
     }
