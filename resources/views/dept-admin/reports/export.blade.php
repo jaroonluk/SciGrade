@@ -117,13 +117,28 @@
             vertical-align: middle;
             white-space: nowrap;
             word-break: keep-all;
-            line-height: 1.25;
-            padding: {{ ($format ?? 'pdf') === 'word' ? '2px 3px' : '4px 6px' }};
+            line-height: 1.45;
+            padding: {{ ($format ?? 'pdf') === 'word' ? '3px 3px' : '5px 6px' }};
         }
         table.report th.th-subject-header {
             text-align: center;
             vertical-align: middle;
-            line-height: 1.25;
+            line-height: 1.45;
+            padding-top: {{ ($format ?? 'pdf') === 'word' ? '3px' : '5px' }};
+        }
+        /* ให้ไม้เอก/ไม้โท ของไทยแสดงครบ ไม่ถูกตัดขอบเซลล์ */
+        table.report th.th-thai {
+            line-height: 1.5;
+            padding-top: {{ ($format ?? 'pdf') === 'word' ? '3px' : '6px' }};
+            padding-bottom: {{ ($format ?? 'pdf') === 'word' ? '2px' : '4px' }};
+        }
+        table.report th.th-mean {
+            white-space: nowrap;
+            word-break: keep-all;
+        }
+        table.report td.course-meta-filler {
+            border: 1px solid #333;
+            background: #fff;
         }
         table.report tr.note-row td,
         table.report tr.reporter-row td {
