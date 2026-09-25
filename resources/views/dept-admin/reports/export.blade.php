@@ -60,8 +60,8 @@
         .subtitle, .meta { text-align: center; font-size: {{ ($format ?? 'pdf') === 'word' ? '10pt' : '13px' }}; margin: 4px 0; line-height: 1.35; }
         .report-block {
             margin-bottom: {{ ($format ?? 'pdf') === 'word' ? '14px' : '18px' }};
-            page-break-inside: auto;
-            break-inside: auto;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         .report-block-compact {
             page-break-inside: avoid;
@@ -75,15 +75,17 @@
             mso-table-layout-alt: fixed;
             mso-table-lspace: 0pt;
             mso-table-rspace: 0pt;
-            page-break-inside: auto;
+            page-break-inside: avoid;
         }
-        /* DomPDF: หัวตารางซ้ำเมื่อข้ามหน้า — ห้ามตัดกลางแถว */
         table.report thead { display: table-header-group; }
         table.report tbody { display: table-row-group; }
         table.report tr {
             page-break-inside: avoid;
             break-inside: avoid;
             page-break-after: auto;
+        }
+        table.report td.course-meta {
+            vertical-align: top;
         }
         table.report th,
         table.report td {
@@ -117,22 +119,6 @@
             text-align: right;
             padding-right: 6px;
             font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
-        }
-        table.report td.course-meta-empty {
-            border-top-color: #333;
-            background: #fff;
-        }
-        table.report .cont-label {
-            font-weight: 600;
-            color: #444;
-            font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
-        }
-        table.report tr.cont-hint-row td.cont-hint {
-            text-align: left;
-            font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
-            color: #555;
-            background: #fafafa;
-            font-style: italic;
         }
         table.report tr.reporter-row td {
             text-align: left;
