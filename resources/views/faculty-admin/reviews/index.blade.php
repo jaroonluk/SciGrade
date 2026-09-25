@@ -247,9 +247,9 @@
                     <select name="type" class="border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[14rem]">
                         <option value="all">ทั้งหมด</option>
                         <option value="exam_report">แบบรายงานผลการสอบไล่ (อาจารย์)</option>
-                        <option value="registrar_instructor">REG ของอาจารย์</option>
-                        <option value="registrar_dept">REG ของ Admin สาขา</option>
-                        <option value="registrar">REG ทั้งหมด (อาจารย์ + สาขา)</option>
+                        <option value="registrar_instructor">มข.11 ของอาจารย์</option>
+                        <option value="registrar_dept">มข.11 ของ Admin สาขา</option>
+                        <option value="registrar">มข.11 ทั้งหมด (อาจารย์ + สาขา)</option>
                     </select>
                 </div>
                 <button type="button" id="btn-select-all-download"
