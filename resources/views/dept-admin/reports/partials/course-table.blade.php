@@ -12,9 +12,8 @@
     $noteText = 'หมายเหตุ : '.($course->reason ?: '-');
     $reporterText = 'ผู้รายงาน : '.$reporter;
     /*
-     | คอลัมน์ tbody ต้องครบ 19 ช่องทุกแถว (ห้ามพึ่ง rowspan ใน body)
-     | 1 ลำดับที่ | 2 ชื่อวิชา | 3 กลุ่ม(Section) | 4 เกรด(จำนวน) | 5-16 A..W | 17 รวม | 18 ค่าเฉลี่ย | 19 SD
-     | DomPDF ทำลาย rowspan แล้วเลื่อน "8 IN" ไปคอลัมน์ผิด — ใส่เซลล์ครบทุกแถวจึงถูกต้องเสมอ
+     | คอลัมน์ tbody ต้องครบ 19 ช่องทุกแถว
+     | 1 ลำดับที่ | 2 ชื่อวิชา | 3 กลุ่ม | 4 เกรด | 5-16 A..W | 17 รวม | 18 ค่าเฉลี่ย | 19 SD
      */
 @endphp
 
@@ -53,17 +52,15 @@
         <tbody>
             @forelse ($sections as $index => $std)
                 @php
-                    $sectionLabel = $presenter->formatSectionLabel($std); // คอลัมน์กลุ่ม
-                    $studentCount = (int) $std->total_std;               // คอลัมน์เกรด = จำนวน
+                    $sectionLabel = $presenter->formatSectionLabel($std);
+                    $studentCount = (int) $std->total_std;
+                    // แถวในบล็อก meta: 0 = แรก, สุดท้าย = รวม/%
+                    $metaPos = $index === 0 ? 'meta-span-start' : 'meta-span-mid';
                 @endphp
                 <tr class="section-row">
-                    {{-- 1 ลำดับที่ --}}
-                    <td class="course-meta course-meta-order">{{ $index === 0 ? $number : '' }}{!! $index === 0 ? '' : $empty !!}</td>
-                    {{-- 2 ชื่อวิชา --}}
-                    <td class="left course-meta course-meta-subject">{!! ($index === 0 ? $subjectHtml : $empty) !!}</td>
-                    {{-- 3 กลุ่ม = Section เช่น 8 IN --}}
+                    <td class="course-meta course-meta-order {{ $metaPos }}">{{ $index === 0 ? $number : '' }}{!! $index === 0 ? '' : $empty !!}</td>
+                    <td class="left course-meta course-meta-subject {{ $metaPos }}">{!! ($index === 0 ? $subjectHtml : $empty) !!}</td>
                     <td class="col-section">{{ $sectionLabel !== '' ? $sectionLabel : '-' }}</td>
-                    {{-- 4 เกรด = จำนวนนักศึกษา --}}
                     <td class="col-grade-count">{{ $studentCount }}</td>
                     <td>{{ (int) $std->num_a }}</td>
                     <td>{{ (int) $std->num_bb }}</td>
@@ -78,13 +75,12 @@
                     <td>{{ (int) $std->num_v }}</td>
                     <td>{{ (int) $std->num_w }}</td>
                     <td>{{ $studentCount }}</td>
-                    {{-- 18-19 ค่าเฉลี่ย / SD --}}
                     @if ($index === 0)
-                        <td class="course-meta">{{ $presenter->formatMean($course->mean) }}</td>
-                        <td class="course-meta">{{ $presenter->formatSd($course->sd) }}</td>
+                        <td class="course-meta {{ $metaPos }}">{{ $presenter->formatMean($course->mean) }}</td>
+                        <td class="course-meta {{ $metaPos }}">{{ $presenter->formatSd($course->sd) }}</td>
                     @else
-                        <td>{!! $empty !!}</td>
-                        <td>{!! $empty !!}</td>
+                        <td class="course-meta {{ $metaPos }}">{!! $empty !!}</td>
+                        <td class="course-meta {{ $metaPos }}">{!! $empty !!}</td>
                     @endif
                 </tr>
             @empty
@@ -97,8 +93,8 @@
 
             @if ($sections->isNotEmpty())
                 <tr class="summary-row">
-                    <td class="course-meta-filler">{!! $empty !!}</td>
-                    <td class="course-meta-filler">{!! $empty !!}</td>
+                    <td class="course-meta course-meta-filler meta-span-mid">{!! $empty !!}</td>
+                    <td class="course-meta course-meta-filler meta-span-mid">{!! $empty !!}</td>
                     <td class="strong">รวม</td>
                     <td>{{ $totalAll }}</td>
                     <td>{{ $summary['num_a'] }}</td>
@@ -114,12 +110,12 @@
                     <td>{{ $summary['num_v'] }}</td>
                     <td>{{ $summary['num_w'] }}</td>
                     <td>{{ $totalAll }}</td>
-                    <td>{!! $empty !!}</td>
-                    <td>{!! $empty !!}</td>
+                    <td class="course-meta meta-span-mid">{!! $empty !!}</td>
+                    <td class="course-meta meta-span-mid">{!! $empty !!}</td>
                 </tr>
                 <tr class="summary-row">
-                    <td class="course-meta-filler">{!! $empty !!}</td>
-                    <td class="course-meta-filler">{!! $empty !!}</td>
+                    <td class="course-meta course-meta-filler meta-span-end">{!! $empty !!}</td>
+                    <td class="course-meta course-meta-filler meta-span-end">{!! $empty !!}</td>
                     <td class="strong">%</td>
                     <td>-</td>
                     <td>{{ $presenter->formatPercent($summary['num_a'], $totalAll) }}</td>
@@ -135,8 +131,8 @@
                     <td>{{ $presenter->formatPercent($summary['num_v'], $totalAll) }}</td>
                     <td>{{ $presenter->formatPercent($summary['num_w'], $totalAll) }}</td>
                     <td>100.00</td>
-                    <td>{!! $empty !!}</td>
-                    <td>{!! $empty !!}</td>
+                    <td class="course-meta meta-span-end">{!! $empty !!}</td>
+                    <td class="course-meta meta-span-end">{!! $empty !!}</td>
                 </tr>
             @endif
         </tbody>

@@ -112,6 +112,30 @@
             line-height: 1.3;
             padding-top: 4px;
         }
+        table.report td.course-meta-filler {
+            background: #fff;
+        }
+        @if (($format ?? 'pdf') === 'pdf')
+        /* PDF: เส้นแนวนอนในคอลัมน์ ลำดับที่ / ชื่อวิชา / ค่าเฉลี่ย / SD เป็นสีขาว (คล้าย rowspan) */
+        table.report td.meta-span-start {
+            border-top: 1px solid #333;
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+            border-bottom: 1px solid #ffffff;
+        }
+        table.report td.meta-span-mid {
+            border-top: 1px solid #ffffff;
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+            border-bottom: 1px solid #ffffff;
+        }
+        table.report td.meta-span-end {
+            border-top: 1px solid #ffffff;
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+            border-bottom: 1px solid #333;
+        }
+        @endif
         table.report th.th-order {
             text-align: center;
             vertical-align: middle;
@@ -135,10 +159,6 @@
         table.report th.th-mean {
             white-space: nowrap;
             word-break: keep-all;
-        }
-        table.report td.course-meta-filler {
-            border: 1px solid #333;
-            background: #fff;
         }
         table.report tr.note-row td,
         table.report tr.reporter-row td {
