@@ -84,6 +84,19 @@
             break-inside: avoid;
             page-break-after: auto;
         }
+        table.report th,
+        table.report td {
+            border: 1px solid #333;
+            padding: {{ ($format ?? 'pdf') === 'word' ? '1px 2px' : '3px 4px' }};
+            text-align: center;
+            vertical-align: middle;
+            word-wrap: break-word;
+            font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : 'inherit' }};
+            line-height: 1.2;
+        }
+        table.report th { background: #f0f0f0; font-weight: 600; }
+        table.report .left { text-align: left; }
+        table.report .strong { font-weight: 700; }
         table.report td.course-meta {
             vertical-align: top;
             border: 1px solid #333;
@@ -99,23 +112,6 @@
             line-height: 1.3;
             padding-top: 4px;
         }
-        table.report th,
-        table.report td {
-            border: 1px solid #333;
-            padding: {{ ($format ?? 'pdf') === 'word' ? '1px 2px' : '3px 4px' }};
-            text-align: center;
-            vertical-align: middle;
-            word-wrap: break-word;
-            font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : 'inherit' }};
-            line-height: 1.2;
-        }
-        table.report tr.note-row td,
-        table.report tr.reporter-row td {
-            border: 1px solid #333;
-        }
-        table.report th { background: #f0f0f0; font-weight: 600; }
-        table.report .left { text-align: left; }
-        table.report .strong { font-weight: 700; }
         table.report th.th-order {
             text-align: center;
             vertical-align: middle;
@@ -129,15 +125,12 @@
             vertical-align: middle;
             line-height: 1.25;
         }
-        table.report th.score-range-label {
-            background: #f0f0f0;
-            font-weight: 600;
-            text-align: right;
-            padding-right: 6px;
-            font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
+        table.report tr.note-row td,
+        table.report tr.reporter-row td {
+            border: 1px solid #333;
+            text-align: left;
         }
         table.report tr.reporter-row td {
-            text-align: left;
             font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : '11px' }};
             line-height: 1.35;
         }

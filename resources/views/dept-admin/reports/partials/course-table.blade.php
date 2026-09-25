@@ -7,29 +7,27 @@
     $totalColumns = 19;
     $reporter = trim((string) ($course->reporter ?? '')) ?: '-';
     $sectionCount = $sections->count();
-    $subjectHtml = $course->subject_code.' '.strtoupper((string) $course->subject).'<br>'.$course->teacher;
-    // rowspan เฉพาะ ลำดับที่ + ชื่อวิชา ครอบ Section + รวม + % (ตามแบบตัวอย่าง)
+    // ตามแบบ x3 / print: rowspan ครอบ Section + รวม + %
     $metaRowspan = $sectionCount > 0 ? $sectionCount + 2 : 1;
-    $empty = '&nbsp;';
+    $subjectHtml = e($course->subject_code).' '.e(strtoupper((string) $course->subject)).'<br>'.e($course->teacher);
 @endphp
 
-<div class="report-block {{ $sectionCount <= 4 ? 'report-block-compact' : '' }}">
+<div class="report-block {{ $sectionCount <= 6 ? 'report-block-compact' : '' }}">
     <table class="report" border="1" cellspacing="0" cellpadding="0" style="width:100%; border-collapse:collapse; mso-table-layout-alt:fixed;">
         <thead>
             <tr>
-                <th class="th-order" style="width:4%">ลำดับที่</th>
-                <th class="th-subject-header" style="width:16%">ชื่อวิชา<br>(อาจารย์ผู้สอน)</th>
-                <th style="width:8%">กลุ่ม<br>(คณะ)</th>
-                <th style="width:4.5%">เกรด</th>
+                <th rowspan="2" class="th-order" style="width:4%">ลำดับที่</th>
+                <th rowspan="2" class="th-subject-header" style="width:14%">ชื่อวิชา<br>(อาจารย์ผู้สอน)</th>
+                <th rowspan="2" style="width:9%">กลุ่ม<br>(คณะ)</th>
+                <th style="width:5%">เกรด</th>
                 @foreach (['A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F', 'I', 'S', 'U', 'W'] as $grade)
-                    <th style="width:3.9%">{{ $grade }}</th>
+                    <th style="width:4%">{{ $grade }}</th>
                 @endforeach
-                <th style="width:3.9%">รวม</th>
-                <th style="width:5%">ค่าเฉลี่ย</th>
-                <th style="width:4%">SD</th>
+                <th style="width:4%">รวม</th>
+                <th rowspan="2" style="width:5%">ค่าเฉลี่ย</th>
+                <th rowspan="2" style="width:4%">SD</th>
             </tr>
             <tr>
-                <th colspan="3" class="score-range-label">&nbsp;</th>
                 <th>ช่วงคะแนน</th>
                 <td>{{ $presenter->scoreDisplay($course->score_a) }}</td>
                 <td>{{ $presenter->scoreDisplay($course->score_bb) }}</td>
@@ -44,8 +42,6 @@
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
             </tr>
         </thead>
         <tbody>
@@ -71,11 +67,8 @@
                     <td>{{ (int) $std->num_w }}</td>
                     <td>{{ (int) $std->total_std }}</td>
                     @if ($index === 0)
-                        <td>{{ $presenter->formatMean($course->mean) }}</td>
-                        <td>{{ $presenter->formatSd($course->sd) }}</td>
-                    @else
-                        <td>{!! $empty !!}</td>
-                        <td>{!! $empty !!}</td>
+                        <td rowspan="{{ $metaRowspan }}" class="course-meta">{{ $presenter->formatMean($course->mean) }}</td>
+                        <td rowspan="{{ $metaRowspan }}" class="course-meta">{{ $presenter->formatSd($course->sd) }}</td>
                     @endif
                 </tr>
             @empty
@@ -103,8 +96,6 @@
                     <td>{{ $summary['num_v'] }}</td>
                     <td>{{ $summary['num_w'] }}</td>
                     <td>{{ $totalAll }}</td>
-                    <td>{!! $empty !!}</td>
-                    <td>{!! $empty !!}</td>
                 </tr>
                 <tr class="summary-row">
                     <td class="strong">%</td>
@@ -122,8 +113,6 @@
                     <td>{{ $presenter->formatPercent($summary['num_v'], $totalAll) }}</td>
                     <td>{{ $presenter->formatPercent($summary['num_w'], $totalAll) }}</td>
                     <td>100.00</td>
-                    <td>{!! $empty !!}</td>
-                    <td>{!! $empty !!}</td>
                 </tr>
             @endif
 
