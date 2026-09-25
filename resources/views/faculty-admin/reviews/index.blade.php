@@ -89,8 +89,8 @@
         <div>
             <h2 class="text-xl font-bold text-[#5C2E1F]">อนุมัติรายวิชาที่ผ่านกรรมการคณะฯ</h2>
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                แสดงทุกสถานะ — กด «ตรวจแล้ว» หลังตรวจสอบเอกสารก่อนส่งกรรมการคณะฯ
-                อนุมัติระดับคณะได้เมื่อสาขาวิชาอนุมัติแล้ว
+                กด «ตรวจแล้ว» หลังตรวจสอบเอกสาร แล้วจึงกด «ผ่านที่ประชุมกรรมการคณะฯ»
+                — ทำรายการได้เมื่อผ่านที่ประชุมสาขาแล้ว
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -142,9 +142,10 @@
                 <select name="status" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">ทุกสถานะ</option>
                     <option value="0" @selected(($filters['status'] ?? '') === '0' || ($filters['status'] ?? null) === 0)>อาจารย์บันทึกแล้ว</option>
-                    <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>สาขาอนุมัติ</option>
+                    <option value="4" @selected(($filters['status'] ?? '') === '4' || ($filters['status'] ?? null) === 4)>นำเข้าที่ประชุมสาขา</option>
+                    <option value="1" @selected(($filters['status'] ?? '') === '1' || ($filters['status'] ?? null) === 1)>ผ่านที่ประชุมสาขา</option>
                     <option value="3" @selected(($filters['status'] ?? '') === '3' || ($filters['status'] ?? null) === 3)>ตรวจแล้ว</option>
-                    <option value="2" @selected(($filters['status'] ?? '') === '2' || ($filters['status'] ?? null) === 2)>คณะอนุมัติ</option>
+                    <option value="2" @selected(($filters['status'] ?? '') === '2' || ($filters['status'] ?? null) === 2)>ผ่านที่ประชุมกรรมการคณะฯ</option>
                     <option value="-1" @selected(($filters['status'] ?? '') === '-1' || ($filters['status'] ?? null) === -1)>ส่งกลับแก้ไข</option>
                 </select>
             </div>
@@ -181,7 +182,7 @@
 
             <div class="md:col-span-3 lg:col-span-4 flex gap-3">
                 <button type="submit" class="px-5 py-2 bg-[#8B4513] text-white rounded-lg text-sm font-semibold hover:bg-[#6B3410]">ค้นหา</button>
-                <a href="{{ route('faculty-admin.reviews.index', ['term' => $filters['term'], 'year' => $filters['year'], 'status' => 1]) }}"
+                <a href="{{ route('faculty-admin.reviews.index', ['term' => $filters['term'], 'year' => $filters['year']]) }}"
                    class="px-5 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">ล้างตัวกรอง</a>
             </div>
         </form>
@@ -217,7 +218,7 @@
                 <button type="submit" id="btn-bulk-approve"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled>
-                    คณะอนุมัติที่เลือก (<span id="selected-count">0</span>)
+                    ผ่านที่ประชุมกรรมการคณะฯ ที่เลือก (<span id="selected-count">0</span>)
                 </button>
             </div>
         </div>
@@ -304,10 +305,14 @@
             <tbody>
                 @forelse ($reports as $report)
                     @php
+                        $approv = (int) $report->approv;
                         $canAct = $report->canFacultyApprove();
                         $canMarkChecked = $report->canMarkFacultyChecked();
-                        $canSendBack = (int) $report->approv === 2;
-                        $badge = match ((int) $report->approv) {
+                        $canApproveCentral = $canAct;
+                        $canReject = $canAct;
+                        $canSendBack = $approv === 2;
+                        $badge = match ($approv) {
+                            4 => 'status-checked',
                             1 => 'status-dept',
                             3 => 'status-checked',
                             2 => 'status-approved',
@@ -379,21 +384,23 @@
                         <td class="px-3 py-2">
                             <div class="flex flex-wrap justify-center gap-2">
                                 @if ($canMarkChecked)
-                                    <form method="POST" action="{{ route('faculty-admin.reviews.mark-checked', $report) }}" class="inline">
+                                    <form method="POST" action="{{ route('faculty-admin.reviews.mark-checked', $report) }}" class="inline-flex">
                                         @csrf
                                         <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600">
                                             ตรวจแล้ว
                                         </button>
                                     </form>
                                 @endif
-                                @if ($canAct)
-                                    <form method="POST" action="{{ route('faculty-admin.reviews.approve', $report) }}" class="inline">
+                                @if ($canApproveCentral)
+                                    <form method="POST" action="{{ route('faculty-admin.reviews.approve', $report) }}" class="inline-flex">
                                         @csrf
                                         <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
-                                            คณะอนุมัติ
+                                            ผ่านที่ประชุมกรรมการคณะฯ
                                         </button>
                                     </form>
-                                    <form method="POST" action="{{ route('faculty-admin.reviews.reject', $report) }}" class="inline">
+                                @endif
+                                @if ($canReject)
+                                    <form method="POST" action="{{ route('faculty-admin.reviews.reject', $report) }}" class="inline-flex">
                                         @csrf
                                         <input type="hidden" name="remark" value="ส่งกลับให้อาจารย์แก้ไข">
                                         <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
@@ -401,17 +408,19 @@
                                         </button>
                                     </form>
                                 @elseif ($canSendBack)
-                                    <form method="POST" action="{{ route('faculty-admin.reviews.send-back', $report) }}" class="inline">
+                                    <form method="POST" action="{{ route('faculty-admin.reviews.send-back', $report) }}" class="inline-flex">
                                         @csrf
                                         <input type="hidden" name="remark" value="ส่งกลับให้อาจารย์แก้ไข">
                                         <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
                                             ส่งกลับแก้ไข
                                         </button>
                                     </form>
-                                @elseif ((int) $report->approv === -1)
+                                @elseif ($approv === -1)
                                     <span class="text-xs text-red-700 w-full text-center">{{ $report->reason ?: 'ส่งกลับแก้ไข' }}</span>
-                                @else
-                                    <span class="text-xs text-gray-500">รอสาขาอนุมัติ</span>
+                                @elseif (! $canMarkChecked && ! $canApproveCentral)
+                                    <span class="text-xs text-gray-500">
+                                        {{ $approv === 4 ? 'รอผ่านที่ประชุมสาขา' : 'รอสาขาอนุมัติ' }}
+                                    </span>
                                 @endif
                             </div>
                         </td>

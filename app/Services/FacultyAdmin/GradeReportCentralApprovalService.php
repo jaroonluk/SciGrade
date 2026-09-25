@@ -21,11 +21,11 @@ class GradeReportCentralApprovalService
             $from = (int) $report->approv;
 
             if ($from === GradeApprovalStatus::CentralApproved->value) {
-                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว');
+                throw new InvalidArgumentException('รายการผ่านที่ประชุมกรรมการคณะฯ แล้ว');
             }
 
             if (! in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
-                throw new InvalidArgumentException('สามารถอนุมัติระดับคณะได้เฉพาะรายการที่สาขาอนุมัติแล้วเท่านั้น');
+                throw new InvalidArgumentException('สามารถอนุมัติระดับคณะได้เฉพาะรายการที่ผ่านที่ประชุมสาขาแล้วเท่านั้น');
             }
 
             $report->update([
@@ -46,11 +46,11 @@ class GradeReportCentralApprovalService
             $from = (int) $report->approv;
 
             if ($from === GradeApprovalStatus::CentralApproved->value) {
-                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว ไม่สามารถส่งกลับได้');
+                throw new InvalidArgumentException('รายการผ่านที่ประชุมกรรมการคณะฯ แล้ว ไม่สามารถส่งกลับได้');
             }
 
             if (! in_array($from, GradeApprovalStatus::facultyReviewableValues(), true)) {
-                throw new InvalidArgumentException('สามารถไม่อนุมัติระดับคณะได้เฉพาะรายการที่สาขาอนุมัติแล้วเท่านั้น');
+                throw new InvalidArgumentException('สามารถไม่อนุมัติระดับคณะได้เฉพาะรายการที่ผ่านที่ประชุมสาขาแล้วเท่านั้น');
             }
 
             $report->update([
@@ -76,11 +76,11 @@ class GradeReportCentralApprovalService
             }
 
             if ($from === GradeApprovalStatus::CentralApproved->value) {
-                throw new InvalidArgumentException('รายการผ่านการอนุมัติคณะแล้ว');
+                throw new InvalidArgumentException('รายการผ่านที่ประชุมกรรมการคณะฯ แล้ว');
             }
 
             if ($from !== GradeApprovalStatus::DepartmentApproved->value) {
-                throw new InvalidArgumentException('สามารถกดตรวจแล้วได้เฉพาะรายการที่สาขาอนุมัติแล้วเท่านั้น');
+                throw new InvalidArgumentException('สามารถกดตรวจแล้วได้เฉพาะรายการที่ผ่านที่ประชุมสาขาแล้วเท่านั้น');
             }
 
             $report->update([
@@ -107,7 +107,7 @@ class GradeReportCentralApprovalService
             $from = (int) $report->approv;
 
             if ($from !== GradeApprovalStatus::CentralApproved->value) {
-                throw new InvalidArgumentException('สามารถส่งกลับให้อาจารย์แก้ไขได้เฉพาะรายการที่คณะอนุมัติแล้วเท่านั้น');
+                throw new InvalidArgumentException('สามารถส่งกลับให้อาจารย์แก้ไขได้เฉพาะรายการที่ผ่านที่ประชุมกรรมการคณะฯ แล้วเท่านั้น');
             }
 
             $report->update([

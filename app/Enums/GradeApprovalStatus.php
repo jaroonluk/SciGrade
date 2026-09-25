@@ -19,7 +19,7 @@ enum GradeApprovalStatus: int
             self::DepartmentMeetingQueued => 'นำเข้าที่ประชุมสาขา',
             self::DepartmentApproved => 'ผ่านที่ประชุมสาขา',
             self::FacultyChecked => 'ตรวจแล้ว — รอกรรมการคณะฯ',
-            self::CentralApproved => 'คณะอนุมัติ',
+            self::CentralApproved => 'ผ่านที่ประชุมกรรมการคณะฯ',
             self::DepartmentRejected => 'ยังไม่ผ่านการรับรองผลสอบ',
         };
     }
@@ -31,7 +31,7 @@ enum GradeApprovalStatus: int
             self::DepartmentMeetingQueued => 'นำเข้าที่ประชุมสาขา',
             self::DepartmentApproved => 'ผ่านที่ประชุมสาขา',
             self::FacultyChecked => 'ตรวจแล้ว',
-            self::CentralApproved => 'คณะอนุมัติ',
+            self::CentralApproved => 'ผ่านที่ประชุมกรรมการคณะฯ',
             self::DepartmentRejected => 'ส่งกลับแก้ไข',
         };
     }

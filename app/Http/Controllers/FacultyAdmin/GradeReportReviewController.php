@@ -33,8 +33,9 @@ class GradeReportReviewController extends Controller
         $filters['term'] = $filters['term'] ?? AcademicTerm::defaultTerm();
         $filters['year'] = $filters['year'] ?? AcademicTerm::defaultYear();
 
+        // ค่าเริ่มต้น: ทุกสถานะ — เพื่อให้หลังกดทำรายการแล้วยังเห็นรายการเดิมในหน้า
         if (! $request->has('status')) {
-            $filters['status'] = 1;
+            $filters['status'] = null;
         }
 
         $filters['sort_by'] = $filters['sort_by'] ?: 'subject_code';

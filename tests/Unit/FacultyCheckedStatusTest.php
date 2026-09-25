@@ -98,7 +98,7 @@ class FacultyCheckedStatusTest extends TestCase
         $this->assertSame('ผ่านที่ประชุมสาขาแล้ว — รอคณะ', $checked->instructorTrackStatusLabel());
 
         $done = new GradeReport(['approv' => 2]);
-        $this->assertSame('คณะอนุมัติแล้ว — เสร็จสิ้น', $done->instructorTrackStatusLabel());
+        $this->assertSame('ผ่านที่ประชุมกรรมการคณะฯแล้ว — เสร็จสิ้น', $done->instructorTrackStatusLabel());
     }
 
     #[Test]
@@ -106,6 +106,7 @@ class FacultyCheckedStatusTest extends TestCase
     {
         $this->assertSame('นำเข้าที่ประชุมสาขา', GradeApprovalStatus::DepartmentMeetingQueued->shortLabel());
         $this->assertSame('ผ่านที่ประชุมสาขา', GradeApprovalStatus::DepartmentApproved->shortLabel());
+        $this->assertSame('ผ่านที่ประชุมกรรมการคณะฯ', GradeApprovalStatus::CentralApproved->shortLabel());
         $this->assertSame([0, 4], GradeApprovalStatus::departmentPreMeetingValues());
     }
 }
