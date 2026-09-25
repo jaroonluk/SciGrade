@@ -135,8 +135,8 @@ class ThesisGradePageController extends Controller
                 'ok' => false,
                 'message' => 'อัปโหลดไม่สำเร็จ เพราะระบบประมวลผลไฟล์ PDF ไม่ได้ในขณะนี้',
                 'reason' => 'unexpected_error',
-                'hint' => 'กรุณาลองใหม่อีกครั้ง หรือกรอกข้อมูลด้วยตนเองในแบบฟอร์มด้านล่างแทน',
-                'can_manual' => true,
+                'hint' => 'กรุณาลองอัปโหลดใบ มข.11 จากระบบ REG อีกครั้ง',
+                'can_manual' => false,
             ];
             if ($request->expectsJson()) {
                 return response()->json($payload, 422);
@@ -184,7 +184,7 @@ class ThesisGradePageController extends Controller
             $payload = [
                 'ok' => true,
                 'draft_created' => false,
-                'message' => 'อ่านชื่อวิชาเป็น '.$parsed['subject'].' จาก PDF แล้ว — กรุณากรอกรหัสวิชาเองแล้วบันทึกร่าง',
+                'message' => 'อ่านชื่อวิชาเป็น '.$parsed['subject'].' จาก PDF แล้ว — กรุณาตรวจและกรอกรหัสวิชาในขั้นที่ 2',
                 'warnings' => $parsed['warnings'],
                 'prefill' => [
                     'subject_code' => $parsed['subject_code'],
@@ -246,8 +246,8 @@ class ThesisGradePageController extends Controller
                 return response()->json([
                     'ok' => false,
                     'message' => $e->getMessage(),
-                    'hint' => 'กรุณาตรวจสอบรหัสวิชา ชื่อวิชา และข้อมูลอื่น แล้วกรอกเองในแบบฟอร์มด้านล่าง',
-                    'can_manual' => true,
+                    'hint' => 'กรุณาตรวจสอบรหัสวิชา ชื่อวิชา จากใบ มข.11 แล้วลองอัปโหลดอีกครั้ง',
+                    'can_manual' => false,
                     'prefill' => [
                         'subject_code' => $parsed['subject_code'],
                         'subject' => $parsed['subject'],
@@ -278,14 +278,14 @@ class ThesisGradePageController extends Controller
                     'ok' => false,
                     'message' => $message,
                     'reason' => 'storage_failed',
-                    'hint' => 'ข้อมูลที่อ่านได้ยังอยู่ในร่างแล้ว — สามารถกรอก/แก้ไขต่อได้ แล้วลองอัปโหลดไฟล์อีกครั้งในขั้นที่ 3',
-                    'can_manual' => true,
-                    'edit_url' => route('thesis-grades.edit', ['thesisGrade' => $report, 'step' => 1]),
+                    'hint' => 'ข้อมูลที่อ่านได้ยังอยู่ในร่างแล้ว — ตรวจในขั้นที่ 2 แล้วลองอัปโหลดไฟล์อีกครั้งในขั้นที่ 3',
+                    'can_manual' => false,
+                    'edit_url' => route('thesis-grades.edit', ['thesisGrade' => $report, 'step' => 2]),
                 ], 500);
             }
 
             return redirect()
-                ->route('thesis-grades.edit', ['thesisGrade' => $report, 'step' => 1])
+                ->route('thesis-grades.edit', ['thesisGrade' => $report, 'step' => 2])
                 ->with('error', $message);
         }
 

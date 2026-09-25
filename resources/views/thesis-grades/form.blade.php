@@ -121,17 +121,21 @@
 >
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-            @php
-                $headingCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) old('subject_code', $report?->subject_code ?? '')) ?: '') ?: 'ยังไม่มีรหัสวิชา';
-                $headingSubject = $selectedSubject !== '' ? $selectedSubject : 'ยังไม่เลือกชื่อวิชา';
-                $headingSection = str_pad((string) ((int) preg_replace('/\D/', '', (string) old('section', $report?->paddedSection() ?? '01')) ?: 1), 2, '0', STR_PAD_LEFT);
-            @endphp
-            <p class="text-xs text-[#7A4A3A]">รหัสวิชา · ชื่อวิชา · กลุ่ม</p>
-            <h2 id="course-context-text" class="text-xl font-bold text-[#5C2E1F] mt-0.5">{{ $headingCode }} · {{ $headingSubject }} · กลุ่ม {{ $headingSection }}</h2>
+            @if ($report)
+                @php
+                    $headingCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) old('subject_code', $report->subject_code ?? '')) ?: '') ?: '—';
+                    $headingSubject = $selectedSubject !== '' ? $selectedSubject : '—';
+                    $headingSection = str_pad((string) ((int) preg_replace('/\D/', '', (string) old('section', $report->paddedSection() ?? '01')) ?: 1), 2, '0', STR_PAD_LEFT);
+                @endphp
+                <p class="text-xs text-[#7A4A3A]">รหัสวิชา · ชื่อวิชา · กลุ่ม</p>
+                <h2 id="course-context-text" class="text-xl font-bold text-[#5C2E1F] mt-0.5">{{ $headingCode }} · {{ $headingSubject }} · กลุ่ม {{ $headingSection }}</h2>
+            @else
+                <h2 id="course-context-text" class="text-xl font-bold text-[#5C2E1F]">ส่งผลวิทยานิพนธ์ / การศึกษาอิสระ</h2>
+            @endif
             <p class="text-sm text-[#7A4A3A]/80 mt-1">
                 ให้เกรดที่
                 <a href="{{ $regUrl }}" target="_blank" rel="noopener" class="underline text-[#a16207]">REG</a>
-                ก่อน แล้วอัปโหลดใบ มข.11 — ระบบอ่านข้อมูลและเก็บไฟล์บน S3 ให้เอง
+                ก่อน แล้วอัปโหลดใบ มข.11 — ระบบอ่านข้อมูลให้อัตโนมัติ
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -204,11 +208,11 @@
         <ol id="wizard-stepper" class="wizard-trail" aria-label="ขั้นตอนการส่งผลการเรียนวิทยานิพนธ์">
             <li class="wizard-step-item {{ (int) $step === 1 ? 'is-current' : ((int) $step > 1 ? 'is-done' : '') }}" data-wizard-dot="1" data-tone="1" data-go-step="1" role="button" tabindex="0">
                 <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">1</span></span>
-                <span class="wizard-label">รายวิชา</span>
+                <span class="wizard-label">อัปโหลด มข.11</span>
             </li>
             <li class="wizard-step-item {{ (int) $step === 2 ? 'is-current' : ((int) $step > 2 ? 'is-done' : '') }}" data-wizard-dot="2" data-tone="2" data-go-step="2" role="button" tabindex="0">
                 <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">2</span></span>
-                <span class="wizard-label">ตรวจความครบถ้วน</span>
+                <span class="wizard-label">ตรวจรายวิชา</span>
             </li>
             <li class="wizard-step-item {{ (int) $step === 3 ? 'is-current' : '' }}" data-wizard-dot="3" data-tone="3" data-go-step="3" role="button" tabindex="0">
                 <span class="wizard-chevron" aria-hidden="true"><span class="wizard-arrow-num">3</span></span>
@@ -226,108 +230,216 @@
         <input type="hidden" name="step" id="form-step" value="{{ $step }}">
 
         <div class="thesis-panel" data-step="1">
-            <div class="form-section rounded-xl p-5 space-y-4">
+            <div class="form-section rounded-xl p-5 space-y-5">
                 @if ($editable && ! $report)
-                    <div>
-                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">อัปโหลดใบ มข.11 / TS (แนะนำ)</label>
-                        <p class="text-xs text-[#7A4A3A]/80 mb-2">ตั้งชื่อไฟล์อย่างไรก็ได้ — ระบบอ่านข้อความจาก PDF (THESIS / INDEPENDENT STUDY / DISSERTATION) แล้วกรอกให้อัตโนมัติ หากรหัสวิชาไม่พบในฐานข้อมูล ยังใช้ค่าจากไฟล์ได้หรือแก้เอง</p>
-                        <label class="file-drop block" id="quick-drop">
-                            <input type="file" accept="application/pdf" class="hidden" id="quick-input">
-                            <p class="font-medium text-[#854d0e]" id="quick-drop-label">ลากวางหรือคลิกเพื่อเลือก PDF</p>
-                            <p class="text-xs text-[#7A4A3A]/70 mt-1">เฉพาะ .pdf ไม่เกิน 15 MB</p>
-                        </label>
-                        <div id="quick-upload-status" class="hidden mt-2 rounded-lg border px-3 py-2 text-sm leading-relaxed"></div>
-                    </div>
-                    <div class="flex items-center gap-3 text-xs text-[#7A4A3A]/70">
-                        <span class="flex-1 border-t border-amber-200"></span>
-                        <span>หรือกรอกเอง</span>
-                        <span class="flex-1 border-t border-amber-200"></span>
-                    </div>
-                @endif
-
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ภาคการศึกษา</label>
-                        <select name="term" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="term">
-                            <option value="1" @selected((int) old('term', $report?->term ?? $term) === 1)>ภาคต้น</option>
-                            <option value="2" @selected((int) old('term', $report?->term ?? $term) === 2)>ภาคปลาย</option>
-                            <option value="3" @selected((int) old('term', $report?->term ?? $term) === 3)>ภาคการศึกษาพิเศษ</option>
-                        </select>
-                        <span class="field-hint-review hidden" data-review-hint="term"></span>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ปีการศึกษา</label>
-                        <select name="year" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="year">
-                            @foreach ($years as $y)
-                                <option value="{{ $y }}" @selected((int) old('year', $report?->year ?? $year) === (int) $y)>{{ $y }}</option>
-                            @endforeach
-                        </select>
-                        <span class="field-hint-review hidden" data-review-hint="year"></span>
-                    </div>
-                </div>
-
-                <div class="rounded-xl border border-amber-200 bg-white p-4 space-y-3">
-                    <div class="flex flex-wrap items-end gap-3">
-                        <div class="relative flex-1 min-w-[12rem]">
-                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">รหัสวิชา</label>
-                            <input type="text" name="subject_code" id="subject_code"
-                                   value="{{ old('subject_code', $report?->subject_code ?? '') }}"
-                                   autocomplete="off" @disabled(! $editable)
-                                   placeholder="พิมพ์บางส่วน เช่น SC05"
-                                   class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
-                                   data-review-field="subject_code">
-                            <div id="subject-suggest" class="suggest-list hidden"></div>
-                            <span class="field-hint-review hidden" data-review-hint="subject_code"></span>
+                    <div class="flex items-start gap-3">
+                        <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#8B4513]/10 text-[#8B4513]">
+                            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                        </span>
+                        <div>
+                            <h3 class="font-semibold text-[#5C2E1F]">นำเข้าข้อมูลจากใบ มข.11</h3>
+                            <p class="text-sm text-[#7A4A3A]/80 mt-1 leading-relaxed">
+                                อัปโหลด PDF จากระบบ REG เท่านั้น — ระบบอ่านรหัสวิชา ชื่อวิชา กลุ่ม และรายชื่อนักศึกษาให้อัตโนมัติ
+                            </p>
                         </div>
-                        <div class="flex-1 min-w-[12rem]">
-                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ชื่อวิชา <span class="font-normal text-[#7A4A3A]/70">(แสดงข้างรหัส)</span></label>
-                            <select name="subject" id="subject" @disabled(! $editable)
-                                    class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
-                                    data-review-field="subject">
-                                <option value="">— เลือกชนิดวิชา —</option>
-                                @foreach ($subjectChoices as $choice)
-                                    <option value="{{ $choice }}" @selected($selectedSubject === $choice)>{{ $choice }}</option>
+                    </div>
+
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="flex items-center gap-1.5 text-sm font-medium text-[#5C2E1F] mb-1">
+                                <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-[#8B4513]"></i>
+                                ภาคการศึกษา
+                            </label>
+                            <select name="term" id="term" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="term">
+                                <option value="1" @selected((int) old('term', $term) === 1)>ภาคต้น</option>
+                                <option value="2" @selected((int) old('term', $term) === 2)>ภาคปลาย</option>
+                                <option value="3" @selected((int) old('term', $term) === 3)>ภาคการศึกษาพิเศษ</option>
+                            </select>
+                            <span class="field-hint-review hidden" data-review-hint="term"></span>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-1.5 text-sm font-medium text-[#5C2E1F] mb-1">
+                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-[#8B4513]"></i>
+                                ปีการศึกษา
+                            </label>
+                            <select name="year" id="year" class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="year">
+                                @foreach ($years as $y)
+                                    <option value="{{ $y }}" @selected((int) old('year', $year) === (int) $y)>{{ $y }}</option>
                                 @endforeach
                             </select>
-                            <span class="field-hint-review hidden" data-review-hint="subject"></span>
-                        </div>
-                        <div class="w-28">
-                            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">กลุ่ม</label>
-                            <input type="text" name="section" id="section" value="{{ old('section', $report?->paddedSection() ?? '01') }}" @disabled(! $editable)
-                                   class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="01"
-                                   data-review-field="section">
-                            <span class="field-hint-review hidden" data-review-hint="section"></span>
+                            <span class="field-hint-review hidden" data-review-hint="year"></span>
                         </div>
                     </div>
-                    <p id="subject-catalog-hint" class="text-xs text-[#7A4A3A]/70">มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)</p>
-                </div>
+
+                    <label class="file-drop block" id="quick-drop">
+                        <input type="file" accept="application/pdf" class="hidden" id="quick-input">
+                        <span class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-[#a16207] mb-2">
+                            <i data-lucide="file-up" class="w-6 h-6"></i>
+                        </span>
+                        <p class="font-medium text-[#854d0e]" id="quick-drop-label">ลากวางหรือคลิกเพื่ออัปโหลด PDF</p>
+                        <p class="text-xs text-[#7A4A3A]/70 mt-1">ใบ มข.11 จาก REG · เฉพาะ .pdf · ไม่เกิน 15 MB</p>
+                    </label>
+                    <div id="quick-upload-status" class="hidden mt-2 rounded-lg border px-3 py-2 text-sm leading-relaxed"></div>
+                @elseif ($report)
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-4 flex items-start gap-3">
+                        <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 text-emerald-700">
+                            <i data-lucide="circle-check" class="w-5 h-5"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="font-semibold text-emerald-900">นำเข้าข้อมูลจากไฟล์แล้ว</p>
+                            <p class="text-sm text-emerald-900/80 mt-1 leading-relaxed">
+                                กด «ถัดไป» เพื่อตรวจรายวิชาและรายชื่อนักศึกษาที่ระบบอ่านจากใบ มข.11
+                            </p>
+                            @if ($report->files->contains(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT))
+                                <p class="text-xs text-emerald-800/70 mt-2 truncate flex items-center gap-1">
+                                    <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0"></i>
+                                    {{ $report->files->first(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT)?->original_name }}
+                                </p>
+                            @endif
+                        </div>
+                    </div>
+                @else
+                    <p class="text-sm text-[#7A4A3A]">ไม่สามารถแก้ไขรายการนี้ได้</p>
+                @endif
             </div>
         </div>
 
         <div class="thesis-panel" data-step="2">
-            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-4">
-                <p class="font-semibold">ตัวช่วยตรวจเค้าโครง</p>
-                <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากให้ S=0 ต้องแนบบันทึกข้อความชี้แจง (PDF) — ระเบียบ พ.ศ. 2566 ยกเลิกการตกออกจาก S=0 สองภาคติดแล้ว</p>
-                @if ($report)
-                    <p class="mt-2">กด «พิมพ์บันทึก S=0» ที่นักศึกษาที่ได้ S=0 เพื่อพิมพ์หรือดาวน์โหลด Word ตามแบบฟอร์มชี้แจง โดยระบบเติมรหัสวิชา ชื่อวิชา กลุ่ม และภาค/ปีให้อัตโนมัติ</p>
-                @endif
-            </div>
-            <div id="uncertain-review-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                <p class="font-semibold">มีช่องที่ระบบอ่านจาก PDF ได้ไม่แน่ใจ</p>
-                <p class="mt-1">ช่องที่มีกรอบสีแดง — กรุณาตรวจสอบหรือกรอกเองให้ถูกต้อง</p>
+            <div class="form-section rounded-xl p-5 mb-4 space-y-4" id="course-review-panel">
+                <div class="flex items-start gap-3">
+                    <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-100 text-orange-700">
+                        <i data-lucide="book-open" class="w-5 h-5"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-semibold text-[#5C2E1F]">รายละเอียดรายวิชา</h3>
+                        <p class="text-sm text-[#7A4A3A]/80 mt-0.5">ตรวจข้อมูลที่อ่านจากไฟล์ — แก้ได้เมื่อระบบไฮไลต์ว่าไม่แน่ใจ</p>
+                    </div>
+                </div>
+
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @if ($report)
+                        <div>
+                            <label class="flex items-center gap-1.5 text-sm font-medium text-[#5C2E1F] mb-1">
+                                <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-[#8B4513]"></i>
+                                ภาคการศึกษา
+                            </label>
+                            <select name="term" id="term" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="term">
+                                <option value="1" @selected((int) old('term', $report->term) === 1)>ภาคต้น</option>
+                                <option value="2" @selected((int) old('term', $report->term) === 2)>ภาคปลาย</option>
+                                <option value="3" @selected((int) old('term', $report->term) === 3)>ภาคการศึกษาพิเศษ</option>
+                            </select>
+                            <span class="field-hint-review hidden" data-review-hint="term"></span>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-1.5 text-sm font-medium text-[#5C2E1F] mb-1">
+                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-[#8B4513]"></i>
+                                ปีการศึกษา
+                            </label>
+                            <select name="year" id="year" @disabled(! $editable) class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" data-review-field="year">
+                                @foreach ($years as $y)
+                                    <option value="{{ $y }}" @selected((int) old('year', $report->year) === (int) $y)>{{ $y }}</option>
+                                @endforeach
+                            </select>
+                            <span class="field-hint-review hidden" data-review-hint="year"></span>
+                        </div>
+                    @else
+                        <div class="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-[#8B4513]/70 flex items-center gap-1">
+                                <i data-lucide="calendar-range" class="w-3 h-3"></i> ภาคการศึกษา
+                            </p>
+                            <p id="term-display" class="text-sm font-semibold text-[#5C2E1F] mt-0.5">—</p>
+                        </div>
+                        <div class="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-[#8B4513]/70 flex items-center gap-1">
+                                <i data-lucide="calendar" class="w-3 h-3"></i> ปีการศึกษา
+                            </p>
+                            <p id="year-display" class="text-sm font-semibold text-[#5C2E1F] mt-0.5">—</p>
+                        </div>
+                    @endif
+                    <div>
+                        <label class="flex items-center gap-1.5 text-sm font-medium text-[#5C2E1F] mb-1">
+                            <i data-lucide="layers" class="w-3.5 h-3.5 text-[#8B4513]"></i>
+                            กลุ่ม
+                        </label>
+                        <input type="text" name="section" id="section" value="{{ old('section', $report?->paddedSection() ?? '01') }}" @disabled(! $editable)
+                               class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="01"
+                               data-review-field="section">
+                        <span class="field-hint-review hidden" data-review-hint="section"></span>
+                    </div>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div class="relative">
+                        <label class="flex items-center gap-1.5 text-sm font-medium text-[#5C2E1F] mb-1">
+                            <i data-lucide="hash" class="w-3.5 h-3.5 text-[#8B4513]"></i>
+                            รหัสวิชา
+                        </label>
+                        <input type="text" name="subject_code" id="subject_code"
+                               value="{{ old('subject_code', $report?->subject_code ?? '') }}"
+                               autocomplete="off" @disabled(! $editable)
+                               placeholder="เช่น SC868701"
+                               class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
+                               data-review-field="subject_code">
+                        <div id="subject-suggest" class="suggest-list hidden"></div>
+                        <span class="field-hint-review hidden" data-review-hint="subject_code"></span>
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-1.5 text-sm font-medium text-[#5C2E1F] mb-1">
+                            <i data-lucide="graduation-cap" class="w-3.5 h-3.5 text-[#8B4513]"></i>
+                            ชื่อวิชา
+                        </label>
+                        <select name="subject" id="subject" @disabled(! $editable)
+                                class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
+                                data-review-field="subject">
+                            <option value="">— เลือกชนิดวิชา —</option>
+                            @foreach ($subjectChoices as $choice)
+                                <option value="{{ $choice }}" @selected($selectedSubject === $choice)>{{ $choice }}</option>
+                            @endforeach
+                        </select>
+                        <span class="field-hint-review hidden" data-review-hint="subject"></span>
+                    </div>
+                </div>
+                <p id="subject-catalog-hint" class="text-xs text-[#7A4A3A]/70 flex items-center gap-1.5">
+                    <i data-lucide="info" class="w-3.5 h-3.5 shrink-0"></i>
+                    <span>ค่าเหล่านี้มาจากการอ่านไฟล์ — แก้เฉพาะเมื่อระบบไฮไลต์ว่าไม่แน่ใจ</span>
+                </p>
             </div>
 
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-4 flex items-start gap-3">
+                <i data-lucide="shield-alert" class="w-4 h-4 shrink-0 mt-0.5 text-amber-700"></i>
+                <div>
+                    <p class="font-semibold">ตัวช่วยตรวจเค้าโครง</p>
+                    <p class="mt-1 leading-relaxed">ปริญญาโทต้องได้รับอนุมัติเค้าโครงภายใน 2 ภาคที่มีการลงวิทยานิพนธ์ · ปริญญาเอกภายใน 4 ภาค หากให้ S=0 ต้องแนบบันทึกข้อความชี้แจง (PDF)</p>
+                    @if ($report)
+                        <p class="mt-2">กด «พิมพ์บันทึก S=0» ที่นักศึกษาที่ได้ S=0 เพื่อพิมพ์หรือดาวน์โหลด Word</p>
+                    @endif
+                </div>
+            </div>
+            <div id="uncertain-review-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-start gap-3">
+                <i data-lucide="circle-alert" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <div>
+                    <p class="font-semibold">มีช่องที่ระบบอ่านจาก PDF ได้ไม่แน่ใจ</p>
+                    <p class="mt-1">ช่องที่มีกรอบสีแดง — กรุณาตรวจสอบให้ถูกต้อง</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 mb-3">
+                <i data-lucide="users" class="w-4 h-4 text-[#8B4513]"></i>
+                <h3 class="font-semibold text-[#5C2E1F]">รายชื่อนักศึกษา</h3>
+            </div>
             <div id="student-summary" class="grid sm:grid-cols-2 gap-3 mb-4 text-sm"></div>
             <div id="student-list" class="space-y-3"></div>
+            <div id="student-empty" class="hidden rounded-xl border border-dashed border-amber-200 px-4 py-8 text-center text-sm text-[#7A4A3A]">
+                <i data-lucide="user-round-x" class="w-8 h-8 mx-auto mb-2 text-amber-400"></i>
+                <p>ยังไม่มีรายชื่อนักศึกษา — กรุณาย้อนกลับไปอัปโหลดใบ มข.11</p>
+            </div>
 
-            @if ($editable)
+            @if ($editable && $report && $report->files->contains(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT))
                 <div class="flex flex-wrap gap-2 mt-4">
-                    <button type="button" id="add-student" class="px-3 py-2 bg-[#a16207] text-white rounded-lg text-sm font-semibold hover:bg-[#854d0e]">+ เพิ่มนักศึกษา</button>
-                    @if ($report && $report->files->contains(fn ($f) => $f->resolvedType() === \App\Models\ThesisGradeFile::TYPE_TS_REPORT))
-                        <button type="submit" form="reparse-ts-form" class="px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
-                            อ่านหน่วยกิตจากใบส่งเกรดอีกครั้ง
-                        </button>
-                    @endif
+                    <button type="submit" form="reparse-ts-form" class="inline-flex items-center gap-1.5 px-3 py-2 border border-amber-300 rounded-lg text-sm text-[#5C2E1F] hover:bg-amber-50">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        อ่านหน่วยกิตจากใบส่งเกรดอีกครั้ง
+                    </button>
                 </div>
             @endif
         </div>
@@ -538,7 +650,7 @@
     };
 </script>
 <script src="{{ asset('js/image-only-pdf-guide.js') }}?v={{ filemtime(public_path('js/image-only-pdf-guide.js')) }}"></script>
-<script src="{{ asset('js/thesis-grade-form.js') }}?v=20"></script>
+<script src="{{ asset('js/thesis-grade-form.js') }}?v={{ filemtime(public_path('js/thesis-grade-form.js')) }}"></script>
 @if (collect((array) session('pdf_warnings'))->contains(fn ($w) => \App\Support\ImageOnlyPdfMessage::matches((string) $w))
     || \App\Support\ImageOnlyPdfMessage::matches((string) session('error', '')))
 <script>

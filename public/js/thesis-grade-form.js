@@ -122,14 +122,46 @@
         const sectionRaw = document.querySelector('[name="section"]')?.value || '01';
         const section = String(sectionRaw).replace(/\D/g, '') || '1';
         const sectionPad = section.padStart(2, '0');
-        const label = [
+        const termEl = document.querySelector('[name="term"]');
+        const yearEl = document.querySelector('[name="year"]');
+        const termLabel = termEl?.selectedOptions?.[0]?.textContent?.trim() || termEl?.value || '—';
+        const yearLabel = yearEl?.value || '—';
+
+        const termDisplay = document.getElementById('term-display');
+        const yearDisplay = document.getElementById('year-display');
+        if (termDisplay) termDisplay.textContent = termLabel;
+        if (yearDisplay) yearDisplay.textContent = yearLabel;
+
+        const heading = document.getElementById('course-context-text');
+        if (!heading) return;
+
+        // หน้าสร้างใหม่: ไม่โชว์รายวิชาจนกว่าจะมีข้อมูลจากไฟล์ / อยู่ขั้นตรวจ
+        if (!root.dataset.reportId) {
+            if (code || subject) {
+                heading.textContent = [code || '—', subject || '—', `กลุ่ม ${sectionPad}`].join(' · ');
+            } else {
+                heading.textContent = 'ส่งผลวิทยานิพนธ์ / การศึกษาอิสระ';
+            }
+            return;
+        }
+
+        heading.textContent = [
             code || 'ยังไม่มีรหัสวิชา',
             subject || 'ยังไม่เลือกชื่อวิชา',
             `กลุ่ม ${sectionPad}`,
         ].join(' · ');
+    }
 
-        const heading = document.getElementById('course-context-text');
-        if (heading) heading.textContent = label;
+    function refreshIcons() {
+        if (window.lucide?.createIcons) {
+            window.lucide.createIcons();
+        }
+    }
+
+    function updateStudentEmptyState() {
+        const empty = document.getElementById('student-empty');
+        if (!empty) return;
+        empty.classList.toggle('hidden', students.length > 0);
     }
 
     function updateUncertainBanner() {
@@ -199,7 +231,9 @@
         renderTsName();
         renderFiles();
         updateCourseContext();
+        updateStudentEmptyState();
         updateSubmitChecklist(false);
+        refreshIcons();
     }
 
     function confirmChecks() {
@@ -284,9 +318,10 @@
     function renderStudents() {
         if (!listEl) return;
         if (students.length === 0) {
-            listEl.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มีรายชื่อ — กดเพิ่มนักศึกษา หรืออัปโหลดใบ มข.11 / TS ในขั้นที่ 1</p>';
+            listEl.innerHTML = '';
             renderSummary();
             renderFiles();
+            updateStudentEmptyState();
             return;
         }
 
@@ -414,6 +449,7 @@
         renderSummary();
         renderFiles();
         updateUncertainBanner();
+        updateStudentEmptyState();
     }
 
     function renderSummary() {
@@ -647,6 +683,21 @@
     });
     document.getElementById('next-step')?.addEventListener('click', () => {
         collectFromDom();
+        if (editable && !root.dataset.reportId && step === 1) {
+            const code = (document.getElementById('subject_code')?.value || '').trim();
+            if (!code && students.length === 0) {
+                const status = document.getElementById('quick-upload-status');
+                if (status) {
+                    status.classList.remove('hidden');
+                    status.className = 'mt-2 rounded-lg border px-3 py-2 text-sm leading-relaxed border-amber-300 bg-amber-50 text-amber-950';
+                    status.innerHTML = '<p class="font-semibold">กรุณาอัปโหลดใบ มข.11 ก่อน</p><p class="mt-1">ระบบจะอ่านข้อมูลรายวิชาและนักศึกษาให้อัตโนมัติ</p>';
+                }
+                document.getElementById('quick-drop')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            goStep(2);
+            return;
+        }
         if (editable && !root.dataset.reportId) {
             document.getElementById('form-intent').value = 'draft';
             document.getElementById('form-step').value = String(Math.min(3, step + 1));
@@ -654,11 +705,6 @@
             return;
         }
         goStep(step + 1);
-    });
-    document.getElementById('add-student')?.addEventListener('click', () => {
-        collectFromDom();
-        students.push(normalizeStudent({}));
-        renderStudents();
     });
     document.getElementById('delete-draft')?.addEventListener('click', () => {
         if (confirm('ต้องการลบรายการนี้หรือไม่? การลบจะลบไฟล์แนบด้วย')) {
@@ -756,7 +802,8 @@
         updateCourseContext();
         updateUncertainBanner();
         renderTsName();
-        codeInput?.focus();
+        goStep(2);
+        document.getElementById('subject_code')?.focus();
     }
 
     async function searchSubjects(q) {
@@ -772,16 +819,16 @@
         updateCourseContext();
         if (q.length < 1) {
             suggest?.classList.add('hidden');
-            setCatalogHint('มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: กรอกเองได้ (ชื่อวิชาเลือก THESIS / INDEPENDENT STUDY / DISSERTATION)', false);
+            setCatalogHint('มีในฐานข้อมูล: พิมพ์แล้วเลือกรายการ · ไม่มี: ใช้รหัสจากใบ มข.11', false);
             return;
         }
         timer = setTimeout(async () => {
             const rows = await searchSubjects(q);
             if (!suggest) return;
             if (!Array.isArray(rows) || !rows.length) {
-                suggest.innerHTML = '<div class="suggest-item text-[#7A4A3A]">ไม่พบรหัสในฐานข้อมูล — กรอกรหัสเองได้ และเลือกชื่อวิชาทางขวา</div>';
+                suggest.innerHTML = '<div class="suggest-item text-[#7A4A3A]">ไม่พบรหัสในฐานข้อมูล — ตรวจรหัสจากใบ มข.11 อีกครั้ง</div>';
                 suggest.classList.remove('hidden');
-                setCatalogHint('ไม่พบในฐานข้อมูล — ใช้รหัสที่พิมพ์และเลือกชื่อวิชาเองได้', true);
+                setCatalogHint('ไม่พบในฐานข้อมูล — ใช้รหัสที่อ่านจากไฟล์ หรือแก้ให้ตรงใบ มข.11', true);
                 return;
             }
 
@@ -794,7 +841,7 @@
                 setCatalogHint(`พบในฐานข้อมูล: ${exact.subject_code} · ${exact.subject || exact.subject_choice}`, false);
                 updateCourseContext();
             } else {
-                setCatalogHint('พบรายการใกล้เคียง — คลิกเพื่อเลือก หรือกรอกเองได้', false);
+                setCatalogHint('พบรายการใกล้เคียง — คลิกเพื่อเลือก', false);
             }
 
             suggest.innerHTML = rows.map((r) => {
@@ -882,7 +929,7 @@
             const data = await res.json().catch(() => ({}));
             if (! res.ok) {
                 const title = data.message || 'อัปโหลดหรืออ่านไฟล์ไม่สำเร็จ';
-                const hint = data.hint || 'กรุณากรอกรหัสวิชา ชื่อวิชา ภาคการศึกษา ปีการศึกษา กลุ่มเรียน และรายชื่อนักศึกษาด้วยตนเองในแบบฟอร์มด้านล่างแทน';
+                const hint = data.hint || 'กรุณาใช้ใบ มข.11 ที่ส่งออกจากระบบ REG โดยตรง แล้วลองอัปโหลดอีกครั้ง';
                 if (data.image_pdf || window.SciGradeImagePdfGuide?.matches(title) || window.SciGradeImagePdfGuide?.matches(hint)) {
                     await window.SciGradeImagePdfGuide.show({
                         title: data.title,
@@ -902,11 +949,11 @@
                         students: (data.prefill.students || []).map((s) => s.uncertain_fields || {}),
                     });
                 }
-                if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
+                if (label) label.textContent = 'ลากวางหรือคลิกเพื่ออัปโหลด PDF';
                 return;
             }
 
-            // อ่านชนิดวิชาได้แล้ว แต่ยังต้องกรอกรหัสเอง
+            // อ่านชนิดวิชาได้แล้ว แต่ยังต้องกรอกรหัสในขั้นตรวจ
             if (data.draft_created === false && data.prefill) {
                 applyPrefill(data.prefill, data.prefill.students, {
                     course: data.uncertain_fields || data.prefill.uncertain_fields || {},
@@ -916,8 +963,8 @@
                     data.message || 'อ่านข้อมูลจาก PDF แล้ว',
                     ...(Array.isArray(data.warnings) ? data.warnings : []),
                 ];
-                showStatus('info', 'อ่านจาก PDF แล้ว — กรุณากรอกรหัสวิชาแล้วบันทึกร่าง', hints.slice(1).join(' ') || hints[0]);
-                if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
+                showStatus('info', 'อ่านจาก PDF แล้ว — กรุณาตรวจรหัสวิชาในขั้นที่ 2', hints.slice(1).join(' ') || hints[0]);
+                if (label) label.textContent = 'ลากวางหรือคลิกเพื่ออัปโหลด PDF';
                 return;
             }
 
@@ -929,9 +976,9 @@
             showStatus(
                 'error',
                 'อัปโหลดไม่สำเร็จ เพราะเชื่อมต่อกับเซิร์ฟเวอร์ไม่ได้',
-                'กรุณาลองใหม่อีกครั้ง หรือกรอกข้อมูลด้วยตนเองในแบบฟอร์มด้านล่างแทน',
+                'กรุณาลองอัปโหลดไฟล์อีกครั้ง',
             );
-            if (label) label.textContent = 'ลากวางหรือคลิกเพื่อเลือก PDF';
+            if (label) label.textContent = 'ลากวางหรือคลิกเพื่ออัปโหลด PDF';
         }
     }
 
@@ -995,8 +1042,8 @@
         });
     });
 
-    if (!students.length && editable) {
-        students.push(normalizeStudent({}));
+    if (!students.length && editable && root.dataset.reportId) {
+        // มีร่างแล้วแต่ยังไม่มีนักศึกษา — แสดง empty state ไม่สร้างแถวว่าง
     }
 
     applyCourseUncertainMarks();
