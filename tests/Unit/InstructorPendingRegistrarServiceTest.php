@@ -124,4 +124,89 @@ class InstructorPendingRegistrarServiceTest extends TestCase
         $this->assertSame([], $service->attachFromSession($report, 'teacher01', $user->id));
         $this->assertTrue(UploadStorage::disk()->exists($sourcePath));
     }
+
+    #[Test]
+    public function it_keeps_only_latest_instructor_registrar_per_section_when_purging_duplicates(): void
+    {
+        config(['filesystems.upload_disk' => 'local']);
+        Storage::fake('local');
+
+        try {
+            $report = GradeReport::query()->create([
+                'created' => now()->toDateString(),
+                'term' => '2',
+                'year' => '2568',
+                'subject_code' => 'SC700001',
+                'subject_code2' => 'SC700001',
+                'subject' => 'Test Subject',
+                'username' => 'teacher01',
+                'score_a' => '0',
+                'score_bb' => '0',
+                'score_b' => '0',
+                'score_cc' => '0',
+                'score_c' => '0',
+                'score_dd' => '0',
+                'score_d' => '0',
+                'score_f' => '0',
+                'approv' => 0,
+            ]);
+            GradeStd::query()->create([
+                'grade_id' => $report->grade_id,
+                'sec' => '1',
+                'fac' => 'SC',
+                'total_std' => 10,
+                'num_a' => 10,
+            ]);
+            GradeStd::query()->create([
+                'grade_id' => $report->grade_id,
+                'sec' => '2',
+                'fac' => 'SC',
+                'total_std' => 8,
+                'num_a' => 8,
+            ]);
+
+            UploadStorage::disk()->put('grade-report-files/'.$report->grade_id.'/registrar/old-01.pdf', '%PDF-1.4 a');
+            UploadStorage::disk()->put('grade-report-files/'.$report->grade_id.'/registrar/new-01.pdf', '%PDF-1.4 b');
+            UploadStorage::disk()->put('grade-report-files/'.$report->grade_id.'/registrar/sec-02.pdf', '%PDF-1.4 c');
+
+            $old = GradeReportFile::query()->create([
+                'grade_id' => $report->grade_id,
+                'file_type' => GradeReportFile::TYPE_REGISTRAR,
+                'original_name' => 'SC700001-01.pdf',
+                'stored_path' => 'grade-report-files/'.$report->grade_id.'/registrar/old-01.pdf',
+                'uploaded_at' => now()->subMinute(),
+                'username' => 'teacher01',
+            ]);
+            $newer = GradeReportFile::query()->create([
+                'grade_id' => $report->grade_id,
+                'file_type' => GradeReportFile::TYPE_REGISTRAR,
+                'original_name' => 'SC700001-01.pdf',
+                'stored_path' => 'grade-report-files/'.$report->grade_id.'/registrar/new-01.pdf',
+                'uploaded_at' => now(),
+                'username' => 'teacher01',
+            ]);
+            $sec2 = GradeReportFile::query()->create([
+                'grade_id' => $report->grade_id,
+                'file_type' => GradeReportFile::TYPE_REGISTRAR,
+                'original_name' => 'SC700001-02.pdf',
+                'stored_path' => 'grade-report-files/'.$report->grade_id.'/registrar/sec-02.pdf',
+                'uploaded_at' => now(),
+                'username' => 'teacher01',
+            ]);
+        } catch (\Throwable $e) {
+            $this->markTestSkipped('scigrad database not available: '.$e->getMessage());
+        }
+
+        $service = new InstructorPendingRegistrarService(
+            new GradeReportAttachmentNameService,
+            app(AuditLogService::class),
+        );
+
+        $deleted = $service->purgeDuplicateInstructorRegistrarFiles($report);
+
+        $this->assertSame(1, $deleted);
+        $this->assertNull(GradeReportFile::query()->find($old->file_id));
+        $this->assertNotNull(GradeReportFile::query()->find($newer->file_id));
+        $this->assertNotNull(GradeReportFile::query()->find($sec2->file_id));
+    }
 }

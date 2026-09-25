@@ -11,10 +11,11 @@
         ->filter(fn ($f) => $f->resolvedType() === GradeReportFile::TYPE_EXAM_REPORT)
         ->sortBy(fn ($f) => (int) $f->file_id)
         ->values();
-    $regInstructorFiles = $sortBySection($report->files->filter(
-        fn ($f) => $f->resolvedType() === GradeReportFile::TYPE_REGISTRAR && $f->isInstructorUpload($report)
+    $registrarLatest = GradeReportFile::latestRegistrarPerSection($report->files, $report);
+    $regInstructorFiles = $sortBySection($registrarLatest->filter(
+        fn ($f) => $f->isInstructorUpload($report)
     ));
-    $regDeptFiles = $sortBySection($report->files->filter(
+    $regDeptFiles = $sortBySection($registrarLatest->filter(
         fn ($f) => $f->isDeptAdminUpload($report)
     ));
     $hasInstructorFiles = $examFiles->isNotEmpty() || $regInstructorFiles->isNotEmpty();

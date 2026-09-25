@@ -13,6 +13,7 @@ use App\Services\DeptAdmin\DepartmentAccessService;
 use App\Services\DeptAdmin\DepartmentReportQueryService;
 use App\Services\DeptAdmin\DeptRegistrarBulkUploadService;
 use App\Services\DeptAdmin\GradeReportApprovalService;
+use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\StaffAuthService;
 use App\Support\AcademicTerm;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +31,7 @@ class GradeReportReviewController extends Controller
         private readonly DepartmentReportQueryService $queryService,
         private readonly GradeReportApprovalService $approvalService,
         private readonly DeptRegistrarBulkUploadService $registrarUpload,
+        private readonly InstructorPendingRegistrarService $pendingRegistrar,
         private readonly AuditLogService $auditLog,
     ) {}
 
@@ -100,6 +102,18 @@ class GradeReportReviewController extends Controller
             ->baseQuery($filters)
             ->paginate($perPage)
             ->withQueryString();
+
+        // ล้างไฟล์ มข.11 ที่ซ้ำ Section เดียวกัน (เหลือไฟล์ล่าสุด) แล้วโหลดไฟล์ใหม่สำหรับแสดงผล
+        $reports->getCollection()->transform(function (GradeReport $report) {
+            $purgedInstructor = $this->pendingRegistrar->purgeDuplicateInstructorRegistrarFiles($report);
+            $purgedDept = $this->registrarUpload->purgeDuplicateDeptRegistrarFiles($report);
+            if ($purgedInstructor > 0 || $purgedDept > 0) {
+                $report->unsetRelation('files');
+                $report->load(['files', 'gradeStds', 'latestDeptApprovalLog.approver']);
+            }
+
+            return $report;
+        });
 
         return view('dept-admin.reviews.index', [
             'reports' => $reports,

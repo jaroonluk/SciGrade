@@ -161,6 +161,9 @@ class InstructorPendingRegistrarService
             }
         }
 
+        // เก็บเฉพาะ มข.11 ล่าสุดต่อ Section ของอาจารย์ (กันซ้ำจาก race / คิวซ้ำ)
+        $this->purgeDuplicateInstructorRegistrarFiles($report);
+
         if ($remaining === []) {
             $this->forgetSession();
         } else {
@@ -178,6 +181,41 @@ class InstructorPendingRegistrarService
         }
 
         return $attached;
+    }
+
+    /**
+     * ลบไฟล์ มข.11 ของอาจารย์ที่ซ้ำ Section เดียวกัน เหลือเฉพาะ file_id ล่าสุด
+     */
+    public function purgeDuplicateInstructorRegistrarFiles(GradeReport $report): int
+    {
+        $report->loadMissing('gradeStds');
+        $deleted = 0;
+
+        $files = GradeReportFile::query()
+            ->where('grade_id', $report->grade_id)
+            ->ofType(GradeReportFile::TYPE_REGISTRAR)
+            ->orderByDesc('file_id')
+            ->get()
+            ->filter(fn (GradeReportFile $file) => $file->isInstructorUpload($report));
+
+        $seenSections = [];
+        foreach ($files as $file) {
+            $sec = $file->resolvedSection($report);
+            if ($sec === null || $sec <= 0) {
+                continue;
+            }
+            $key = (int) $sec;
+            if (isset($seenSections[$key])) {
+                $file->delete();
+                $deleted++;
+                continue;
+            }
+            $seenSections[$key] = true;
+        }
+
+        $report->unsetRelation('files');
+
+        return $deleted;
     }
 
     public function hasPending(): bool
@@ -383,6 +421,7 @@ class InstructorPendingRegistrarService
 
     /**
      * ลบไฟล์ REG ของอาจารย์ใน Section เดียวกันก่อนแนบไฟล์ใหม่ (กันไฟล์เก่าค้าง)
+     * ดึงจาก DB ใหม่ทุกครั้ง — ไม่ใช้ relation ที่อาจค้างหลังเพิ่งสร้างไฟล์ในรอบเดียวกัน
      */
     public function deleteInstructorRegistrarForSection(GradeReport $report, ?int $section): int
     {
@@ -390,11 +429,17 @@ class InstructorPendingRegistrarService
             return 0;
         }
 
-        $report->loadMissing(['files', 'gradeStds']);
+        $report->loadMissing('gradeStds');
         $deleted = 0;
 
-        foreach ($report->files as $file) {
-            if (! $file->isRegistrar() || ! $file->isInstructorUpload($report)) {
+        $files = GradeReportFile::query()
+            ->where('grade_id', $report->grade_id)
+            ->ofType(GradeReportFile::TYPE_REGISTRAR)
+            ->orderByDesc('file_id')
+            ->get();
+
+        foreach ($files as $file) {
+            if (! $file->isInstructorUpload($report)) {
                 continue;
             }
             $sec = $file->resolvedSection($report);
@@ -405,6 +450,43 @@ class InstructorPendingRegistrarService
             $deleted++;
         }
 
+        $report->unsetRelation('files');
+
+        return $deleted;
+    }
+
+    /**
+     * ลบไฟล์ REG ของ Admin สาขาใน Section เดียวกันก่อนอัปโหลดใหม่
+     */
+    public function deleteDeptRegistrarForSection(GradeReport $report, ?int $section): int
+    {
+        if ($section === null || $section <= 0) {
+            return 0;
+        }
+
+        $report->loadMissing('gradeStds');
+        $deleted = 0;
+
+        $files = GradeReportFile::query()
+            ->where('grade_id', $report->grade_id)
+            ->ofType(GradeReportFile::TYPE_REGISTRAR)
+            ->orderByDesc('file_id')
+            ->get();
+
+        foreach ($files as $file) {
+            if (! $file->isDeptAdminUpload($report)) {
+                continue;
+            }
+            $sec = $file->resolvedSection($report);
+            if ($sec === null || (int) $sec !== (int) $section) {
+                continue;
+            }
+            $file->delete();
+            $deleted++;
+        }
+
+        $report->unsetRelation('files');
+
         return $deleted;
     }
 
@@ -413,7 +495,7 @@ class InstructorPendingRegistrarService
      */
     public function purgeOrphanInstructorRegistrarFiles(GradeReport $report): int
     {
-        $report->loadMissing(['files', 'gradeStds']);
+        $report->loadMissing('gradeStds');
         $activeSecs = $report->gradeStds
             ->map(fn ($row) => (int) $row->sec)
             ->filter(fn ($sec) => $sec > 0)
@@ -421,8 +503,13 @@ class InstructorPendingRegistrarService
             ->all();
 
         $deleted = 0;
-        foreach ($report->files as $file) {
-            if (! $file->isRegistrar() || ! $file->isInstructorUpload($report)) {
+        $files = GradeReportFile::query()
+            ->where('grade_id', $report->grade_id)
+            ->ofType(GradeReportFile::TYPE_REGISTRAR)
+            ->get();
+
+        foreach ($files as $file) {
+            if (! $file->isInstructorUpload($report)) {
                 continue;
             }
             $sec = $file->resolvedSection($report);
@@ -435,6 +522,8 @@ class InstructorPendingRegistrarService
             $file->delete();
             $deleted++;
         }
+
+        $report->unsetRelation('files');
 
         return $deleted;
     }

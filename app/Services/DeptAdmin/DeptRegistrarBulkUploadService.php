@@ -157,6 +157,12 @@ class DeptRegistrarBulkUploadService
         try {
             $parsed = $this->parseFilename($originalName);
             $sectionInt = $parsed['section_int'] ?? null;
+
+            // แทนที่ มข.11 ของ Admin สาขาใน Section เดียวกัน กันไฟล์ซ้ำ
+            if ($sectionInt !== null) {
+                $this->deleteDeptRegistrarForSection($report, $sectionInt);
+            }
+
             $displayName = $this->attachmentNames->generateDisplayName(
                 $report,
                 GradeReportFile::TYPE_REGISTRAR,
@@ -280,5 +286,75 @@ class DeptRegistrarBulkUploadService
         }
 
         return 'ไม่สามารถอัปโหลดได้ในสถานะนี้';
+    }
+
+    /**
+     * ลบไฟล์ มข.11 ของ Admin สาขาใน Section เดียวกันก่อนอัปโหลดใหม่
+     */
+    private function deleteDeptRegistrarForSection(GradeReport $report, int $section): int
+    {
+        if ($section <= 0) {
+            return 0;
+        }
+
+        $report->loadMissing('gradeStds');
+        $deleted = 0;
+
+        $files = GradeReportFile::query()
+            ->where('grade_id', $report->grade_id)
+            ->ofType(GradeReportFile::TYPE_REGISTRAR)
+            ->orderByDesc('file_id')
+            ->get();
+
+        foreach ($files as $file) {
+            if (! $file->isDeptAdminUpload($report)) {
+                continue;
+            }
+            $sec = $file->resolvedSection($report);
+            if ($sec === null || (int) $sec !== $section) {
+                continue;
+            }
+            $file->delete();
+            $deleted++;
+        }
+
+        $report->unsetRelation('files');
+
+        return $deleted;
+    }
+
+    /**
+     * ลบไฟล์ มข.11 ของ Admin สาขาที่ซ้ำ Section เดียวกัน เหลือเฉพาะ file_id ล่าสุด
+     */
+    public function purgeDuplicateDeptRegistrarFiles(GradeReport $report): int
+    {
+        $report->loadMissing('gradeStds');
+        $deleted = 0;
+
+        $files = GradeReportFile::query()
+            ->where('grade_id', $report->grade_id)
+            ->ofType(GradeReportFile::TYPE_REGISTRAR)
+            ->orderByDesc('file_id')
+            ->get()
+            ->filter(fn (GradeReportFile $file) => $file->isDeptAdminUpload($report));
+
+        $seenSections = [];
+        foreach ($files as $file) {
+            $sec = $file->resolvedSection($report);
+            if ($sec === null || $sec <= 0) {
+                continue;
+            }
+            $key = (int) $sec;
+            if (isset($seenSections[$key])) {
+                $file->delete();
+                $deleted++;
+                continue;
+            }
+            $seenSections[$key] = true;
+        }
+
+        $report->unsetRelation('files');
+
+        return $deleted;
     }
 }

@@ -421,6 +421,14 @@ class GradeReportFile extends Model
             ];
         }
 
+        // ชื่อที่ระบบ bump ลำดับ เช่น SC101011-01_02.pdf
+        if (preg_match('/^([A-Za-z0-9]+)-(\d{1,2})_\d+\.pdf$/i', $base, $match)) {
+            return [
+                'code' => strtoupper($match[1]),
+                'section' => (string) (int) $match[2],
+            ];
+        }
+
         if (preg_match('/^([A-Za-z0-9]+)-(\d{1,2})-\d+\.pdf$/i', $base, $match)) {
             return [
                 'code' => strtoupper($match[1]),
@@ -429,6 +437,27 @@ class GradeReportFile extends Model
         }
 
         return ['code' => null, 'section' => null];
+    }
+
+    /**
+     * คงไฟล์ มข.11 ล่าสุดต่อ Section (แยกตามแหล่งอัปโหลดอาจารย์/สาขา)
+     * ใช้ตอนแสดงผลเพื่อไม่ให้ Section ละหลายไฟล์ซ้ำ
+     *
+     * @param  iterable<int, self>  $files
+     * @return \Illuminate\Support\Collection<int, self>
+     */
+    public static function latestRegistrarPerSection(iterable $files, ?GradeReport $report = null): \Illuminate\Support\Collection
+    {
+        return collect($files)
+            ->filter(fn ($file) => $file instanceof self && $file->isRegistrar())
+            ->groupBy(function (self $file) use ($report) {
+                $sec = $file->resolvedSection($report);
+                $source = $file->isInstructorUpload($report) ? 'instructor' : 'dept';
+
+                return $source.'|'.($sec !== null ? 's'.$sec : 'id'.$file->file_id);
+            })
+            ->map(fn ($group) => $group->sortByDesc(fn (self $file) => (int) $file->file_id)->first())
+            ->values();
     }
 
     public function scopeOfType(Builder $query, string $type): Builder
