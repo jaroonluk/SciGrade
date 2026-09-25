@@ -87,6 +87,11 @@
         table.report td.course-meta {
             vertical-align: top;
         }
+        /* เซลล์ว่างแทน rowspan — ต้องมีเนื้อหา (&nbsp;) เพื่อให้ DomPDF วาดเส้นขอบ */
+        table.report td.course-meta-span {
+            vertical-align: top;
+            border: 1px solid #333;
+        }
         table.report th,
         table.report td {
             border: 1px solid #333;
@@ -96,6 +101,10 @@
             word-wrap: break-word;
             font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : 'inherit' }};
             line-height: 1.2;
+        }
+        table.report tr.note-row td,
+        table.report tr.reporter-row td {
+            border: 1px solid #333;
         }
         table.report th { background: #f0f0f0; font-weight: 600; }
         table.report .left { text-align: left; }

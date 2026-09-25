@@ -7,9 +7,9 @@
     $totalColumns = 19;
     $reporter = trim((string) ($course->reporter ?? '')) ?: '-';
     $sectionCount = $sections->count();
-    // rowspan ครอบแถว Section + รวม + % (ไม่รวมหมายเหตุ/ผู้รายงาน) — ตามแบบตัวอย่าง
-    $metaRowspan = $sectionCount > 0 ? $sectionCount + 2 : 1;
     $subjectHtml = $course->subject_code.' '.strtoupper((string) $course->subject).'<br>'.$course->teacher;
+    // DomPDF วาดเส้นขอบพังเมื่อใช้ rowspan ข้ามแถวสรุป — ใส่เซลล์ครบทุกแถวแทน
+    $empty = '&nbsp;';
 @endphp
 
 <div class="report-block {{ $sectionCount <= 4 ? 'report-block-compact' : '' }}">
@@ -43,16 +43,19 @@
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
-                <td></td>
-                <td></td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
             </tr>
         </thead>
         <tbody>
             @forelse ($sections as $index => $std)
                 <tr class="section-row">
                     @if ($index === 0)
-                        <td rowspan="{{ $metaRowspan }}" class="course-meta">{{ $number }}</td>
-                        <td rowspan="{{ $metaRowspan }}" class="left course-meta">{!! $subjectHtml !!}</td>
+                        <td class="course-meta">{{ $number }}</td>
+                        <td class="left course-meta">{!! $subjectHtml !!}</td>
+                    @else
+                        <td class="course-meta-span">{!! $empty !!}</td>
+                        <td class="course-meta-span">{!! $empty !!}</td>
                     @endif
                     <td>{{ $presenter->formatSectionLabel($std) }}</td>
                     <td>{{ (int) $std->total_std }}</td>
@@ -70,8 +73,11 @@
                     <td>{{ (int) $std->num_w }}</td>
                     <td>{{ (int) $std->total_std }}</td>
                     @if ($index === 0)
-                        <td rowspan="{{ $metaRowspan }}" class="course-meta">{{ $presenter->formatMean($course->mean) }}</td>
-                        <td rowspan="{{ $metaRowspan }}" class="course-meta">{{ $presenter->formatSd($course->sd) }}</td>
+                        <td class="course-meta">{{ $presenter->formatMean($course->mean) }}</td>
+                        <td class="course-meta">{{ $presenter->formatSd($course->sd) }}</td>
+                    @else
+                        <td class="course-meta-span">{!! $empty !!}</td>
+                        <td class="course-meta-span">{!! $empty !!}</td>
                     @endif
                 </tr>
             @empty
@@ -84,6 +90,8 @@
 
             @if ($sections->isNotEmpty())
                 <tr class="summary-row">
+                    <td class="course-meta-span">{!! $empty !!}</td>
+                    <td class="course-meta-span">{!! $empty !!}</td>
                     <td class="strong">รวม</td>
                     <td>{{ $totalAll }}</td>
                     <td>{{ $summary['num_a'] }}</td>
@@ -99,8 +107,12 @@
                     <td>{{ $summary['num_v'] }}</td>
                     <td>{{ $summary['num_w'] }}</td>
                     <td>{{ $totalAll }}</td>
+                    <td class="course-meta-span">{!! $empty !!}</td>
+                    <td class="course-meta-span">{!! $empty !!}</td>
                 </tr>
                 <tr class="summary-row">
+                    <td class="course-meta-span">{!! $empty !!}</td>
+                    <td class="course-meta-span">{!! $empty !!}</td>
                     <td class="strong">%</td>
                     <td>-</td>
                     <td>{{ $presenter->formatPercent($summary['num_a'], $totalAll) }}</td>
@@ -116,6 +128,8 @@
                     <td>{{ $presenter->formatPercent($summary['num_v'], $totalAll) }}</td>
                     <td>{{ $presenter->formatPercent($summary['num_w'], $totalAll) }}</td>
                     <td>100.00</td>
+                    <td class="course-meta-span">{!! $empty !!}</td>
+                    <td class="course-meta-span">{!! $empty !!}</td>
                 </tr>
             @endif
 
