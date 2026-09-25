@@ -58,15 +58,32 @@
         * { box-sizing: border-box; }
         h1 { text-align: center; font-size: {{ ($format ?? 'pdf') === 'word' ? '14pt' : '18px' }}; margin: 0 0 6px; }
         .subtitle, .meta { text-align: center; font-size: {{ ($format ?? 'pdf') === 'word' ? '10pt' : '13px' }}; margin: 4px 0; line-height: 1.35; }
-        .report-block { margin-bottom: {{ ($format ?? 'pdf') === 'word' ? '14px' : '24px' }}; page-break-inside: avoid; }
+        .report-block {
+            margin-bottom: {{ ($format ?? 'pdf') === 'word' ? '14px' : '18px' }};
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+        .report-block-compact {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
         table.report {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 12px;
+            margin-top: 10px;
             table-layout: fixed;
             mso-table-layout-alt: fixed;
             mso-table-lspace: 0pt;
             mso-table-rspace: 0pt;
+            page-break-inside: auto;
+        }
+        /* DomPDF: หัวตารางซ้ำเมื่อข้ามหน้า — ห้ามตัดกลางแถว */
+        table.report thead { display: table-header-group; }
+        table.report tbody { display: table-row-group; }
+        table.report tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            page-break-after: auto;
         }
         table.report th,
         table.report td {
@@ -94,18 +111,33 @@
             vertical-align: middle;
             line-height: 1.25;
         }
-        table.report th.th-reporter-header {
-            text-align: center;
-            vertical-align: middle;
-            line-height: 1.25;
-            white-space: nowrap;
-        }
-        table.report td.reporter-cell {
-            text-align: left;
-            vertical-align: middle;
+        table.report th.score-range-label {
+            background: #f0f0f0;
+            font-weight: 600;
+            text-align: right;
+            padding-right: 6px;
             font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
-            line-height: 1.3;
-            word-break: break-word;
+        }
+        table.report td.course-meta-empty {
+            border-top-color: #333;
+            background: #fff;
+        }
+        table.report .cont-label {
+            font-weight: 600;
+            color: #444;
+            font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
+        }
+        table.report tr.cont-hint-row td.cont-hint {
+            text-align: left;
+            font-size: {{ ($format ?? 'pdf') === 'word' ? '7.5pt' : '10px' }};
+            color: #555;
+            background: #fafafa;
+            font-style: italic;
+        }
+        table.report tr.reporter-row td {
+            text-align: left;
+            font-size: {{ ($format ?? 'pdf') === 'word' ? '8pt' : '11px' }};
+            line-height: 1.35;
         }
         .print-footer {
             margin-top: 16px;
