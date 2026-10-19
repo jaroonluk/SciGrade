@@ -13,7 +13,7 @@
 <div class="max-w-xl mx-auto">
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">กำหนดภาคการศึกษาปัจจุบัน</h2>
     <p class="text-sm text-[#7A4A3A]/80 mb-6">
-        ค่านี้ใช้เป็นค่าเริ่มต้นในหน้า dashboard และหน้าอื่นๆ ของระบบรายงานผลการสอบ
+        ค่านี้ใช้เป็นค่าเริ่มต้นในหน้า dashboard และหน้าอื่นๆ ของระบบรายงานผลการเรียน
     </p>
 
     <div class="form-section rounded-xl p-5">

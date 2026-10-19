@@ -101,7 +101,7 @@ def title_slide(prs):
 
     p2 = tf.add_paragraph()
     r2 = p2.add_run()
-    r2.text = "ระบบรายงานผลการสอบ"
+    r2.text = "ระบบรายงานผลการเรียน"
     set_run(r2, 28, True, WHITE)
 
     p3 = tf.add_paragraph()
@@ -617,7 +617,7 @@ def build_a4_pdf():
     )
 
     story = []
-    story.append(Paragraph("SciGrade — ระบบรายงานผลการสอบ", styles["H1"]))
+    story.append(Paragraph("SciGrade — ระบบรายงานผลการเรียน", styles["H1"]))
     story.append(
         Paragraph(
             "คณะวิทยาศาสตร์  •  สรุปโครงสร้างระบบสำหรับผู้บริหาร (1 หน้า)",

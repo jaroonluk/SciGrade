@@ -21,7 +21,7 @@
                 </div>
 
                 <h1 class="text-xl font-bold text-[#5C2E1F] leading-snug">
-                    ระบบรายงานผลการสอบ
+                    ระบบรายงานผลการเรียน
                 </h1>
                 <p class="mt-1 text-sm font-medium text-[#8B4513]">
                     คณะวิทยาศาสตร์

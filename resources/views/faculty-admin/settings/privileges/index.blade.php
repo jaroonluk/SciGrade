@@ -65,9 +65,9 @@
 @endphp
 <div class="max-w-6xl mx-auto space-y-6">
     <div>
-        <h2 class="text-xl font-bold text-[#5C2E1F]">ผู้มีสิทธิใช้งานระบบรายงานผลการสอบ</h2>
+        <h2 class="text-xl font-bold text-[#5C2E1F]">ผู้มีสิทธิใช้งานระบบรายงานผลการเรียน</h2>
         <p class="text-sm text-[#7A4A3A]/80 mt-1">
-            ระบบรายงานผลการสอบ (system_id = 11) —
+            ระบบรายงานผลการเรียน (system_id = 11) —
             <span class="font-medium">0</span> = เจ้าหน้าที่งานบริการ (รับเอกสารทั้งหมด),
             <span class="font-medium">3</span> = เจ้าหน้าที่งานบริการ(ปริญญาตรี),
             <span class="font-medium">4</span> = เจ้าหน้าที่งานบริการ(บัณฑิตศึกษา),

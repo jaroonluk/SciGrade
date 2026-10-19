@@ -146,7 +146,7 @@ def page_background(c, width, height):
 
 def header(c, width, height, subtitle):
     text_left(c, "SciGrade", 36, height - 32, 26, True, BROWN)
-    text_left(c, "ระบบรายงานผลการสอบ  •  คณะวิทยาศาสตร์", 36, height - 50, 13, False, MUTED)
+    text_left(c, "ระบบรายงานผลการเรียน  •  คณะวิทยาศาสตร์", 36, height - 50, 13, False, MUTED)
     text_left(c, subtitle, 36, height - 68, 12, False, AMBER)
 
 
