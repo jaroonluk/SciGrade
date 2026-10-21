@@ -337,7 +337,7 @@
                                             </span>
                                         @endif
                                         @if ($canManageMine)
-                                            <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 5]) }}"
+                                            <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 3]) }}"
                                                class="action-btn border border-amber-300 text-[#5C2E1F] hover:bg-amber-50"
                                                title="แก้ไขได้เฉพาะ Section ที่คุณกรอก">
                                                 <i data-lucide="pencil" class="w-3.5 h-3.5"></i> แก้ไข

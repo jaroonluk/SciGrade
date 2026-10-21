@@ -3185,12 +3185,12 @@ function renderRegUploadSlots(config) {
     if (countEl) {
         countEl.textContent = required.length
             ? `คุณกรอก ${required.length} Section — ต้องอัปโหลด มข.11 จำนวน ${required.length} ไฟล์ (Section ละ 1 ไฟล์): ${required.join(', ')}`
-            : 'ยังไม่มี Section จากขั้นตอนที่ 4 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน';
+            : 'ยังไม่มี Section จากขั้นตอนที่ 3 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน';
         countEl.className = `text-sm font-semibold ${required.length ? 'text-[#5C2E1F]' : 'text-amber-800'}`;
     }
 
     if (!required.length) {
-        list.innerHTML = '<p class="text-sm text-amber-800">ยังไม่มี Section จากขั้นตอนที่ 4 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน</p>';
+        list.innerHTML = '<p class="text-sm text-amber-800">ยังไม่มี Section จากขั้นตอนที่ 3 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน</p>';
         if (summary) summary.textContent = '';
         renderRegCompleteness(config);
         return;
@@ -3377,7 +3377,7 @@ async function uploadMultipleRegistrarPdfs(fileList, config = window.wizardConfi
 
     const required = requiredRegSections();
     if (!required.length) {
-        showToast('ยังไม่มี Section จากขั้นตอนที่ 4 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน', 'error');
+        showToast('ยังไม่มี Section จากขั้นตอนที่ 3 — กรุณาย้อนกลับไปเพิ่ม Section ก่อน', 'error');
         return;
     }
 
@@ -3446,7 +3446,7 @@ function syncWizardRegStatus(config) {
 
     if (help) {
         help.innerHTML = progress.total === 0
-            ? 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section ที่คุณกรอก'
+            ? 'กรุณาย้อนกลับไปขั้นตอนที่ 3 เพิ่ม Section ก่อน แล้วจึงแนบแบบฟอร์ม มข.11 ให้ครบทุก Section ที่คุณกรอก'
             : `ระบบตรวจพบว่าคุณกรอก <strong>${progress.total}</strong> Section — ต้องอัปโหลด มข.11 <strong>${progress.total} ไฟล์</strong> (Section ละ 1 ไฟล์)
                 <strong class="font-semibold text-[#5C2E1F]">ตั้งชื่อไฟล์อย่างไรก็ได้</strong>
                 — ระบบตั้งชื่อเป็น <span class="font-semibold text-[#854d0e]">รหัสวิชา-กลุ่ม.pdf</span> ให้อัตโนมัติ
@@ -3844,10 +3844,10 @@ function renderSectionOverview(config = window.wizardConfig) {
             currentHelp.textContent = 'ตรวจประวัติแบบรายงานด้านล่างได้ — แก้ไขได้เฉพาะไฟล์ของตนเองเมื่อ Admin ยังไม่เปลี่ยนสถานะ';
         } else if (summary.remainCount > 0) {
             currentLabel.textContent = 'ยังไม่ได้เลือก Section ในรอบนี้';
-            currentHelp.textContent = `ยังเหลือ Section ${summary.remaining.join(', ')} ที่ยังไม่ส่ง — ย้อนกลับไปขั้นตอนที่ 4 หากต้องการเพิ่ม`;
+            currentHelp.textContent = `ยังเหลือ Section ${summary.remaining.join(', ')} ที่ยังไม่ส่ง — ย้อนกลับไปขั้นตอนที่ 3 หากต้องการเพิ่ม`;
         } else {
             currentLabel.textContent = 'ยังไม่มี Section';
-            currentHelp.textContent = 'กรุณาย้อนกลับไปขั้นตอนที่ 4 เพื่อกรอกจำนวนนักศึกษา';
+            currentHelp.textContent = 'กรุณาย้อนกลับไปขั้นตอนที่ 3 เพื่อกรอกจำนวนนักศึกษา';
         }
     }
 
@@ -3954,7 +3954,7 @@ function renderSectionBoard(config = window.wizardConfig) {
 
     const rows = buildMergedSectionBoardRows(config);
     if (!rows.length) {
-        boardEl.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มี Section ในรายงานนี้ — กรุณาย้อนกลับไปเพิ่มในขั้นตอนที่ 4</p>';
+        boardEl.innerHTML = '<p class="text-sm text-[#7A4A3A]/70">ยังไม่มี Section ในรายงานนี้ — กรุณาย้อนกลับไปเพิ่มในขั้นตอนที่ 3</p>';
         if (ownPanel) ownPanel.classList.add('hidden');
         return;
     }
@@ -4200,7 +4200,7 @@ function syncExamUploadUi(config = window.wizardConfig) {
     }
 
     if (mySecs.length === 0) {
-        status.textContent = 'Section ที่กรอกไปแล้วมีแบบรายงานครบแล้ว — รอบนี้ไม่ต้องอัปโหลดเพิ่ม (หรือย้อนกลับไปเพิ่ม Section ใหม่ที่ขั้นตอนที่ 4)';
+        status.textContent = 'Section ที่กรอกไปแล้วมีแบบรายงานครบแล้ว — รอบนี้ไม่ต้องอัปโหลดเพิ่ม (หรือย้อนกลับไปเพิ่ม Section ใหม่ที่ขั้นตอนที่ 3)';
         status.className = 'text-xs text-[#7A4A3A]';
     } else if (saved) {
         status.textContent = 'มีแบบรายงานของ Section รอบนี้แล้ว — คลิกเพื่อดู หรือลบแล้วอัปโหลดใหม่';
@@ -4300,7 +4300,7 @@ async function deleteExamReportPacket(config = window.wizardConfig, fileIds = []
 }
 
 function nextWizardStep(current) {
-    return Math.min(Number(current) + 1, 5);
+    return Math.min(Number(current) + 1, 3);
 }
 
 function prevWizardStep(current) {
@@ -4310,10 +4310,60 @@ function prevWizardStep(current) {
 function migrateLegacyWizardStep(step) {
     const n = Number(step) || 1;
     if (n <= 2) return n;
-    if (n === 3 || n === 4 || n === 5) return 3;
-    if (n === 6 || n === 7) return 4;
-    if (n >= 8) return 5;
-    return 1;
+    // ขั้นพิมพ์/อัปโหลดเดิม (4–8) รวมเข้าขั้นจำนวนนักศึกษา
+    return 3;
+}
+
+function wizardStepTitle(step) {
+    return ({
+        1: '1. ข้อมูลรายวิชา',
+        2: '2. หมายเหตุ',
+        3: '3. จำนวนนักศึกษา',
+    })[Number(step)] || `ขั้นตอนที่ ${step}`;
+}
+
+function wizardStepFocusSelector(step, message = '') {
+    const msg = String(message || '');
+    if (step === 1) {
+        const code = document.getElementById('subject-code')?.value?.trim();
+        return code ? '#subject-name' : '#subject-code';
+    }
+    if (step === 2) {
+        if (msg.includes('ตัดเกรดร่วม') || msg.includes('วิชาที่ตัดเกรด')) return '#joint-subject-search';
+        if (msg.includes('ได้ I')) return '#std-i2';
+        if (msg.includes('อื่นๆ')) return '#std-i3';
+        return '#remark-joint';
+    }
+    if (step === 3) {
+        if (msg.includes('คณะ')) return '#section-std-results';
+        return '#section-std-form';
+    }
+    return '#wizard-stepper';
+}
+
+function showWizardIncomplete(step, message) {
+    const banner = document.getElementById('wizard-incomplete-msg');
+    const text = `ต้องแก้ไข${wizardStepTitle(step)}\n${message}`;
+    if (banner) {
+        banner.textContent = text;
+        banner.classList.remove('hidden');
+    }
+    showToast(text, 'error');
+    const target = document.querySelector(wizardStepFocusSelector(step, message))
+        || document.querySelector(`[data-wizard-step="${step}"]`)
+        || document.getElementById('wizard-stepper');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (target && typeof target.focus === 'function' && !target.disabled) {
+        try { target.focus({ preventScroll: true }); } catch { /* ignore */ }
+    }
+}
+
+function clearWizardIncomplete() {
+    const banner = document.getElementById('wizard-incomplete-msg');
+    if (banner) {
+        banner.textContent = '';
+        banner.classList.add('hidden');
+    }
 }
 
 function validateWizardStep(step, config) {
@@ -4340,7 +4390,7 @@ function validateWizardStep(step, config) {
     }
     if (step === 3) {
         if (!sectionStdRows.length) {
-            return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อนไปต่อ)';
+            return 'กรุณาเพิ่มข้อมูลจำนวนนักศึกษาอย่างน้อย 1 Section (กด «บันทึก Section นี้» ก่อนเสร็จสิ้น)';
         }
         for (let i = 0; i < sectionStdRows.length; i += 1) {
             const row = sectionStdRows[i];
@@ -4349,9 +4399,6 @@ function validateWizardStep(step, config) {
             }
         }
         return null;
-    }
-    if (step === 5) {
-        return requiredAttachmentError(config);
     }
     return null;
 }
@@ -4375,7 +4422,7 @@ function showWizardStep(step, config) {
     const back = document.getElementById('wizard-back');
     const next = document.getElementById('wizard-next');
     if (back) back.classList.toggle('hidden', step <= 1);
-    if (next) next.textContent = step === 5 ? 'เสร็จสิ้น' : (step === 3 ? 'บันทึกแล้วไปต่อ' : 'ถัดไป');
+    if (next) next.textContent = step === 3 ? 'เสร็จสิ้น' : 'ถัดไป';
 
     if (step === 2) refreshCourseContext();
     if (step === 3) {
@@ -4385,14 +4432,7 @@ function showWizardStep(step, config) {
         updateGradeRangeColumnHeaders();
         renderSectionStdList();
     }
-    if (step === 4 || step === 5) {
-        renderUploadedRegFiles();
-    }
-    if (step === 5) {
-        refreshCourseContext().finally(() => loadSectionBoard(config));
-    } else {
-        updateAttachmentChecklist(config);
-    }
+    updateAttachmentChecklist(config);
     if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
@@ -4542,7 +4582,7 @@ async function saveWizardReport(config) {
     overlay?.classList.add('hidden');
     document.body.style.overflow = '';
     // ไฟล์ REG ยังเป็น pending จนกว่าจะกดเสร็จสิ้น — ไม่ทำเครื่องหมายว่าอัปโหลดเข้าฐานแล้ว
-    persistWizardState(config, 4);
+    persistWizardState(config, 3);
     refreshCourseContext();
     return { ok: true };
 }
@@ -4575,12 +4615,14 @@ async function stageExamReport(config, file) {
     );
 }
 
-async function finalizeWizardAttachments(config) {
+async function finalizeWizardAttachments(config, options = {}) {
+    const requireExam = Boolean(options.requireExam);
     if (!config.currentReportId) {
-        return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณาย้อนกลับไปกด «บันทึกแล้วไปต่อ» ที่ขั้นตอนจำนวนนักศึกษา' };
+        return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณากรอกจำนวนนักศึกษาให้ครบแล้วกดเสร็จสิ้นอีกครั้ง' };
     }
 
-    if (!hasRegistrarAttachment(config)) {
+    const hasPendingOrSavedReg = hasRegistrarAttachment(config);
+    if (!hasPendingOrSavedReg && (config.cameFromUpload || window.wizardHasPendingReg)) {
         const missing = missingRegSections();
         return {
             ok: false,
@@ -4589,8 +4631,13 @@ async function finalizeWizardAttachments(config) {
                 : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาอัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา',
         };
     }
-    if (!hasExamReportAttachment(config)) {
-        return { ok: false, error: 'ยังไม่ได้เลือกแบบรายงานผลการสอบไล่ — กรุณาเลือกไฟล์ในขั้นตอนนี้ก่อนกดเสร็จสิ้น' };
+    if (requireExam && !hasExamReportAttachment(config)) {
+        return { ok: false, error: 'ยังไม่ได้เลือกแบบรายงานผลการสอบไล่' };
+    }
+
+    // ไม่มีไฟล์ค้างแนบ — จบได้เลยหลังบันทึกข้อมูล
+    if (!hasPendingOrSavedReg && !window.pendingExamFile && !config.hasPendingExam) {
+        return { ok: true, data: { skipped: true } };
     }
 
     const overlay = document.getElementById('save-overlay');
@@ -4607,10 +4654,10 @@ async function finalizeWizardAttachments(config) {
     if (window.pendingExamFile) {
         formData.append('attachment', window.pendingExamFile);
         formData.append('file_type', 'exam_report');
+        examTargetSectionsThisRound(config).forEach((sec) => {
+            formData.append('exam_sections[]', String(sec));
+        });
     }
-    examTargetSectionsThisRound(config).forEach((sec) => {
-        formData.append('exam_sections[]', String(sec));
-    });
     requiredRegSections().forEach((sec) => {
         formData.append('required_sections[]', String(sec));
     });
@@ -4637,7 +4684,9 @@ async function finalizeWizardAttachments(config) {
         window.pendingExamFile = null;
         window.pendingRegFileName = null;
         config.hasPendingExam = false;
-        config.hasExamReportFile = true;
+        if (data.exam_file || config.hasExamReportFile) {
+            config.hasExamReportFile = true;
+        }
         config.hasRegistrarFile = true;
         window.wizardHasPendingReg = false;
         config.hasPendingRegistrar = false;
@@ -4678,17 +4727,16 @@ async function finalizeWizardAttachments(config) {
         const successMsg = document.getElementById('save-overlay-success-msg');
         if (successMsg) {
             successMsg.textContent = data.message
-                || 'อัปโหลดแบบฟอร์ม มข.11 และใบรายงานผลการสอบไล่ (ใบขวาง) เข้าสู่ระบบเรียบร้อยแล้ว';
+                || 'บันทึกข้อมูลและแนบไฟล์ มข.11 เข้าสู่ระบบเรียบร้อยแล้ว';
         }
         success?.classList.remove('hidden');
         if (typeof lucide !== 'undefined') lucide.createIcons();
-        await new Promise((resolve) => setTimeout(resolve, 900));
+        await new Promise((resolve) => setTimeout(resolve, 700));
         overlay?.classList.add('hidden');
         success?.classList.add('hidden');
         document.body.style.overflow = '';
         updateAttachmentChecklist(config);
-        showToast('อัปโหลด มข.11 และใบขวางเข้าสู่ระบบเรียบร้อย', 'success');
-        await loadSectionBoard(config);
+        showToast('บันทึกข้อมูลเรียบร้อย', 'success');
         return { ok: true, data };
     } catch (err) {
         loading?.classList.add('hidden');
@@ -4828,7 +4876,7 @@ function printReportUrl(reportId, sections = null, options = {}) {
 
 function openWizardExamPrint(config, { autoPrint = false } = {}) {
     if (!config?.currentReportId) {
-        showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «บันทึกแล้วไปต่อ» อีกครั้ง', 'error');
+        showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «เสร็จสิ้น» ให้ครบก่อน', 'error');
         return null;
     }
     const url = printReportUrl(config.currentReportId, null, { autoPrint });
@@ -4843,7 +4891,7 @@ function openWizardExamPrint(config, { autoPrint = false } = {}) {
 /** ดาวน์โหลดใบขวาง (เปิดหน้าพิมพ์/บันทึก PDF) แล้วให้ผู้ใช้เลือกเปิดดูหรือยกเลิก */
 function prepareExamReportDownload(config) {
     if (!config?.currentReportId) {
-        showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «บันทึกแล้วไปต่อ» อีกครั้ง', 'error');
+        showToast('ยังไม่มีเลขรายงานสำหรับพิมพ์ กรุณากด «เสร็จสิ้น» ให้ครบก่อน', 'error');
         return false;
     }
 
@@ -4970,30 +5018,31 @@ function initGradeReportWizard(config) {
     };
 
     document.getElementById('wizard-next')?.addEventListener('click', async () => {
-        const error = validateWizardStep(step, config);
-        if (error) {
-            showToast(error, 'error');
-            updateAttachmentChecklist(config);
-            return;
+        // ตรวจทุกขั้นที่ผ่านมาจนถึงขั้นปัจจุบัน เพื่อชี้จุดที่ยังไม่สมบูรณ์
+        for (let s = 1; s <= step; s += 1) {
+            const error = validateWizardStep(s, config);
+            if (error) {
+                go(s);
+                showWizardIncomplete(s, error);
+                updateAttachmentChecklist(config);
+                return;
+            }
         }
+        clearWizardIncomplete();
 
         if (step === 3) {
             const saved = await saveWizardReport(config);
-            if (!saved.ok) return;
-        }
-
-        if (step === 5) {
-            const finalized = await finalizeWizardAttachments(config);
-            if (!finalized.ok) return;
+            if (!saved.ok) {
+                showWizardIncomplete(3, saved.error || 'บันทึกไม่สำเร็จ กรุณาตรวจสอบข้อมูลในขั้นตอนจำนวนนักศึกษา');
+                return;
+            }
+            const finalized = await finalizeWizardAttachments(config, { requireExam: false });
+            if (!finalized.ok) {
+                showWizardIncomplete(3, finalized.error || 'แนบไฟล์ มข.11 ไม่สำเร็จ');
+                return;
+            }
+            clearWizardIncomplete();
             showWizardDone();
-            return;
-        }
-
-        if (step === 4) {
-            persistWizardState(config, 4);
-            prepareExamReportDownload(config);
-            go(5);
-            showExamReportDownloadNotice(config);
             return;
         }
 
@@ -5001,6 +5050,7 @@ function initGradeReportWizard(config) {
     });
 
     document.getElementById('wizard-back')?.addEventListener('click', () => {
+        clearWizardIncomplete();
         hideExamReportDownloadNotice();
         go(prevWizardStep(step, config));
     });

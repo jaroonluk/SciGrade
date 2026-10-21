@@ -145,19 +145,19 @@
         gap: 0.35rem 0;
     }
     .wizard-step-item {
-        flex: 1 1 calc(25% - 0.15rem);
+        flex: 1 1 calc(33.33% - 0.15rem);
         display: flex; flex-direction: column; align-items: center;
-        min-width: 4.6rem; position: relative;
+        min-width: 5.5rem; position: relative;
         --arrow: #d1d5db;
         --ink: #6b7280;
         --label: #9ca3af;
     }
     .wizard-chevron {
         width: 100%;
-        min-height: 2.35rem;
+        min-height: 3rem;
         display: flex; align-items: center; justify-content: center;
         background: var(--arrow); color: var(--ink);
-        font-size: 0.8rem; font-weight: 800;
+        font-size: 1.15rem; font-weight: 800;
         clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
         transition: background .25s ease, color .25s ease, filter .25s ease, transform .25s ease;
     }
@@ -165,27 +165,22 @@
         clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
         padding-left: 0.15rem;
     }
-    .wizard-arrow-num { position: relative; z-index: 1; }
+    .wizard-arrow-num { position: relative; z-index: 1; font-size: 1.2rem; font-weight: 800; letter-spacing: 0.02em; }
     .wizard-label {
-        font-size: .62rem; line-height: 1.2; color: var(--label);
-        max-width: 6rem; text-align: center; margin-top: 0.28rem;
+        font-size: .85rem; line-height: 1.25; color: var(--label); font-weight: 600;
+        max-width: 9rem; text-align: center; margin-top: 0.35rem;
+    }
+    .wizard-incomplete-msg {
+        border: 1px solid #fecaca; background: #fef2f2; color: #991b1b;
+        border-radius: 0.75rem; padding: 0.75rem 1rem; margin: 0 0 1rem;
+        font-size: 0.9rem; line-height: 1.45; white-space: pre-line;
     }
     .wizard-step-item.is-current[data-tone="1"],
     .wizard-step-item.is-done[data-tone="1"] { --arrow: #dc2626; --ink: #fff; --label: #b91c1c; }
     .wizard-step-item.is-current[data-tone="2"],
     .wizard-step-item.is-done[data-tone="2"] { --arrow: #ea580c; --ink: #fff; --label: #c2410c; }
     .wizard-step-item.is-current[data-tone="3"],
-    .wizard-step-item.is-done[data-tone="3"] { --arrow: #f97316; --ink: #fff; --label: #c2410c; }
-    .wizard-step-item.is-current[data-tone="4"],
-    .wizard-step-item.is-done[data-tone="4"] { --arrow: #f59e0b; --ink: #fff; --label: #b45309; }
-    .wizard-step-item.is-current[data-tone="5"],
-    .wizard-step-item.is-done[data-tone="5"] { --arrow: #ca8a04; --ink: #fff; --label: #854d0e; }
-    .wizard-step-item.is-current[data-tone="6"],
-    .wizard-step-item.is-done[data-tone="6"] { --arrow: #65a30d; --ink: #fff; --label: #3f6212; }
-    .wizard-step-item.is-current[data-tone="7"],
-    .wizard-step-item.is-done[data-tone="7"] { --arrow: #22c55e; --ink: #fff; --label: #15803d; }
-    .wizard-step-item.is-current[data-tone="8"],
-    .wizard-step-item.is-done[data-tone="8"] { --arrow: #16a34a; --ink: #fff; --label: #166534; }
+    .wizard-step-item.is-done[data-tone="3"] { --arrow: #16a34a; --ink: #fff; --label: #166534; }
     .wizard-step-item.is-current .wizard-chevron { transform: scale(1.04); filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }
     .wizard-step-item.is-current .wizard-label { font-weight: 700; }
     .wizard-trail.is-complete .wizard-step-item { --arrow: #16a34a; --ink: #fff; --label: #166534; }
@@ -197,11 +192,9 @@
     @@media (min-width: 768px) {
         .wizard-trail { flex-wrap: nowrap; }
         .wizard-step-item { flex: 1 1 0; min-width: 0; margin-left: -10px; }
-        .wizard-step-item:nth-child(1) { z-index: 5; }
-        .wizard-step-item:nth-child(2) { z-index: 4; }
-        .wizard-step-item:nth-child(3) { z-index: 3; }
-        .wizard-step-item:nth-child(4) { z-index: 2; }
-        .wizard-step-item:nth-child(5) { z-index: 1; }
+        .wizard-step-item:nth-child(1) { z-index: 3; }
+        .wizard-step-item:nth-child(2) { z-index: 2; }
+        .wizard-step-item:nth-child(3) { z-index: 1; }
         .wizard-step-item:first-child { margin-left: 0; }
         .wizard-step-item:nth-child(4n+1) .wizard-chevron,
         .wizard-chevron {
@@ -213,7 +206,9 @@
         .wizard-step-item:last-child .wizard-chevron {
             clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
         }
-        .wizard-label { font-size: .7rem; max-width: 7.2rem; }
+        .wizard-label { font-size: .95rem; max-width: 11rem; }
+        .wizard-arrow-num { font-size: 1.35rem; }
+        .wizard-chevron { min-height: 3.35rem; font-size: 1.25rem; }
     }
     .scheme-box { border: 1px solid #f0e0d0; background: #fff; }
     .scheme-box input:checked + span { color: #5C2E1F; font-weight: 600; }
@@ -235,22 +230,19 @@
                 </h2>
                 <ol id="wizard-stepper" class="wizard-trail" aria-label="ขั้นตอนการกรอกรายงาน">
                     @foreach ([
-                        1 => ['ข้อมูลรายวิชา', 'book-open'],
-                        2 => ['หมายเหตุ', 'message-square'],
-                        3 => ['จำนวนนักศึกษา', 'users'],
-                        4 => ['พิมพ์แบบรายงาน', 'printer'],
-                        5 => ['อัปโหลดแบบรายงาน', 'upload-cloud'],
-                    ] as $n => [$label, $icon])
+                        1 => '1. ข้อมูลรายวิชา',
+                        2 => '2. หมายเหตุ',
+                        3 => '3. จำนวนนักศึกษา',
+                    ] as $n => $label)
                         <li class="wizard-step-item {{ $n === 1 ? 'is-current' : '' }}" data-wizard-dot="{{ $n }}" data-tone="{{ $n }}">
                             <span class="wizard-chevron" aria-hidden="true">
-                                <span class="wizard-arrow-num inline-flex items-center justify-center gap-0.5">
-                                    <i data-lucide="{{ $icon }}" class="w-3.5 h-3.5"></i>
-                                </span>
+                                <span class="wizard-arrow-num">{{ $n }}</span>
                             </span>
                             <span class="wizard-label">{{ $label }}</span>
                         </li>
                     @endforeach
                 </ol>
+                <div id="wizard-incomplete-msg" class="wizard-incomplete-msg hidden" role="alert"></div>
                 <div id="course-context-banners" class="space-y-2 mb-5">
                     <div id="course-group-banner" class="group-note hidden rounded-lg px-3 py-2.5">
                         <p class="text-sm font-semibold text-sky-900">รายวิชานี้จัดกลุ่มตัดเกรดร่วมไว้แล้ว — ไม่ต้องกรอกรหัสซ้ำ</p>
@@ -764,154 +756,34 @@
                         </div>
                     </div>
 
-                    <div class="wizard-step space-y-4" data-wizard-step="4">
-                        <div class="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5 space-y-4">
-                            <div class="flex items-start gap-3">
-                                <span class="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-xl bg-violet-600 text-white shadow-sm">
-                                    <i data-lucide="printer" class="w-5 h-5"></i>
-                                </span>
-                                <div>
-                                    <h3 class="font-bold text-violet-950 text-base">พิมพ์แบบรายงานผลการสอบไล่</h3>
-                                    <p class="text-sm text-violet-900/75 mt-1">
-                                        กดปุ่มด้านล่างเพื่อเปิดแบบพิมพ์ หรือกด «ถัดไป» ระบบจะดาวน์โหลดแบบรายงานให้อัตโนมัติก่อนเข้าขั้นตอนอัปโหลด
-                                    </p>
-                                </div>
-                            </div>
-                            <button type="button" id="wizard-print-link"
-                               class="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-700 text-white rounded-lg text-sm font-semibold hover:bg-violet-800">
-                                <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์แบบรายงาน
-                            </button>
-                        </div>
-
-                        <div id="wizard-reg-files-print" class="rounded-xl border-2 border-teal-200 bg-teal-50/40 p-5 space-y-3">
-                            <div class="flex items-start gap-3">
-                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-teal-600 text-white">
-                                    <i data-lucide="files" class="w-5 h-5"></i>
-                                </span>
-                                <div>
-                                    <h3 class="font-bold text-teal-950">ไฟล์ มข.11 ที่อัปโหลดแล้ว</h3>
-                                    <p class="text-xs text-teal-900/75 mt-0.5">แสดงทุกไฟล์ใบส่งผลการศึกษาที่แนบไว้สำหรับรายวิชานี้</p>
-                                </div>
-                            </div>
-                            <div id="wizard-reg-files-print-list" class="space-y-2"></div>
-                        </div>
+                    {{-- ขั้นพิมพ์/อัปโหลดแบบรายงานถูกถอดออกจาก wizard — คง element บางตัวไว้เพื่อไม่ให้ JS เดิมพัง --}}
+                    <div id="wizard-reg-files-print-list" class="hidden"></div>
+                    <div id="wizard-reg-files-upload-list" class="hidden"></div>
+                    <div id="wizard-attachment-checklist" class="hidden">
+                        <p id="wizard-reg-check"></p>
+                        <p id="wizard-exam-check"></p>
                     </div>
-
-                    <div class="wizard-step space-y-4" data-wizard-step="5">
-                        <div id="wizard-section-overview" class="rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-sky-50 p-5 space-y-4 shadow-sm">
-                            <div class="flex items-start gap-3">
-                                <span class="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-xl bg-indigo-600 text-white shadow-sm">
-                                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                                </span>
-                                <div>
-                                    <h3 class="font-bold text-indigo-950 text-base">สรุป Section ของรายวิชานี้</h3>
-                                    <p id="wizard-section-overview-sub" class="text-sm text-indigo-900/75 mt-0.5">
-                                        ดูจำนวน Section ทั้งหมด ส่งแล้ว / ยังไม่ส่ง และกำลังส่งกลุ่มไหนอยู่
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                                <div class="rounded-xl border border-indigo-200 bg-white px-3 py-3 text-center shadow-sm">
-                                    <p id="wizard-sec-stat-total" class="text-2xl sm:text-3xl font-bold text-indigo-950 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-indigo-900/70 mt-1 flex items-center justify-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i>ทั้งหมด</p>
-                                </div>
-                                <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-center shadow-sm">
-                                    <p id="wizard-sec-stat-filled" class="text-2xl sm:text-3xl font-bold text-green-800 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-green-900/80 mt-1 flex items-center justify-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i>ส่งแล้ว</p>
-                                </div>
-                                <div class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-center shadow-sm">
-                                    <p id="wizard-sec-stat-remain" class="text-2xl sm:text-3xl font-bold text-amber-900 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-amber-900/80 mt-1 flex items-center justify-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i>ยังไม่ส่ง</p>
-                                </div>
-                                <div class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center shadow-sm">
-                                    <p id="wizard-sec-stat-current" class="text-2xl sm:text-3xl font-bold text-sky-900 tabular-nums">—</p>
-                                    <p class="text-xs sm:text-sm text-sky-900/80 mt-1 flex items-center justify-center gap-1"><i data-lucide="send" class="w-3.5 h-3.5"></i>กำลังส่ง</p>
-                                </div>
-                            </div>
-
-                            <div>
-                                <div class="flex items-center justify-between gap-2 text-xs text-[#7A4A3A] mb-1.5">
-                                    <span>ความคืบหน้าการส่งเอกสาร</span>
-                                    <span id="wizard-sec-progress-label" class="font-semibold text-[#5C2E1F]">—</span>
-                                </div>
-                                <div class="h-2.5 rounded-full bg-indigo-100 overflow-hidden">
-                                    <div id="wizard-sec-progress-bar" class="h-full rounded-full bg-indigo-600 transition-all duration-300" style="width:0%"></div>
-                                </div>
-                            </div>
-
-                            <div id="wizard-sec-current-box" class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
-                                <p class="text-xs font-semibold text-sky-900 uppercase tracking-wide">กำลังส่ง Section</p>
-                                <p id="wizard-sec-current-label" class="text-base font-bold text-sky-950 mt-1">—</p>
-                                <p id="wizard-sec-current-help" class="text-xs text-sky-900/75 mt-1"></p>
-                            </div>
-
-                            <div>
-                                <p class="text-xs font-semibold text-[#5C2E1F] mb-2">รายการกลุ่มเรียน</p>
-                                <div id="wizard-sec-chip-list" class="flex flex-wrap gap-1.5"></div>
-                            </div>
-                        </div>
-
-                        <div id="wizard-reg-files-upload" class="rounded-xl border-2 border-teal-200 bg-teal-50/50 p-5 space-y-3">
-                            <div class="flex items-start gap-3">
-                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-teal-600 text-white">
-                                    <i data-lucide="file-text" class="w-5 h-5"></i>
-                                </span>
-                                <div class="min-w-0 flex-1">
-                                    <h3 class="font-bold text-teal-950">ไฟล์ มข.11 ทั้งหมด</h3>
-                                    <p class="text-xs text-teal-900/75 mt-0.5">ไฟล์ใบส่งผลการศึกษาที่อัปโหลดเข้ามาพร้อมรายงานนี้</p>
-                                </div>
-                            </div>
-                            <div id="wizard-reg-files-upload-list" class="space-y-2"></div>
-                        </div>
-
-                        <div id="wizard-attachment-checklist" class="rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-[#FFFBF7] p-4 space-y-2">
-                            <p class="text-sm font-semibold text-[#5C2E1F] flex items-center gap-2">
-                                <i data-lucide="clipboard-check" class="w-4 h-4 text-amber-700"></i>
-                                ต้องมีไฟล์ครบก่อนเสร็จสิ้น
-                            </p>
-                            <p class="text-xs text-[#7A4A3A]/80">เมื่อกดเสร็จสิ้น ระบบจะอัปโหลดแบบฟอร์ม มข.11 และแบบรายงานของ Section ที่คุณกรอกเข้าสู่ระบบ</p>
-                            <p id="wizard-reg-check" class="text-sm text-[#7A4A3A]">แบบฟอร์ม มข.11</p>
-                            <p id="wizard-exam-check" class="text-sm text-[#7A4A3A]">แบบรายงานผลการสอบไล่</p>
-                        </div>
-
-                        <div class="rounded-xl border border-amber-200 bg-white p-5 space-y-4">
-                            <div class="flex items-start gap-3">
-                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-100 text-amber-800">
-                                    <i data-lucide="history" class="w-5 h-5"></i>
-                                </span>
-                                <div>
-                                    <h3 class="font-bold text-[#5C2E1F]">ประวัติแบบรายงานผลการสอบไล่</h3>
-                                    <p class="text-sm text-[#7A4A3A]/80 mt-1">
-                                        ระบบบันทึกทุกใบที่อัปโหลดไว้ตรวจสอบได้ — แบบรายงาน 1 ใบอาจผูกกับใบ มข.11 ได้หลาย Section
-                                    </p>
-                                </div>
-                            </div>
-                            <div id="wizard-exam-packets" class="space-y-3">
-                                <p class="text-sm text-[#7A4A3A]/70">ยังไม่มีแบบรายงานในรายงานนี้</p>
-                            </div>
-                        </div>
-
-                        <div id="wizard-exam-own-panel" class="rounded-xl border border-sky-200 bg-sky-50/60 p-5 space-y-3">
-                            <div class="flex items-start gap-3">
-                                <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-600 text-white">
-                                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-                                </span>
-                                <div>
-                                    <h3 class="font-bold text-[#0c4a6e]">อัปโหลดแบบรายงาน — Section ของคุณ</h3>
-                                    <p id="wizard-exam-own-help" class="text-sm text-[#0c4a6e]/80 mt-1">
-                                        หากคุณกรอกหลาย Section ในรอบนี้ สามารถอัปโหลดแบบรายงานไฟล์เดียว ครอบคลุม มข.11 ของหลาย Section ได้
-                                    </p>
-                                </div>
-                            </div>
-                            <p id="wizard-exam-own-secs" class="text-sm font-semibold text-[#0c4a6e]"></p>
-                            <div id="wizard-exam-file-row" class="hidden"></div>
-                            <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf"
-                                class="block w-full max-w-md text-sm text-[#5C2E1F] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-sky-700 file:text-white file:text-sm file:font-medium hover:file:bg-sky-800">
-                            <div id="wizard-exam-actions" class="hidden flex flex-wrap gap-2"></div>
-                            <p id="wizard-exam-status" class="text-xs text-[#7A4A3A]"></p>
-                        </div>
+                    <div id="wizard-section-overview" class="hidden">
+                        <p id="wizard-sec-stat-total"></p>
+                        <p id="wizard-sec-stat-filled"></p>
+                        <p id="wizard-sec-stat-remain"></p>
+                        <p id="wizard-sec-stat-current"></p>
+                        <span id="wizard-sec-progress-label"></span>
+                        <div id="wizard-sec-progress-bar"></div>
+                        <p id="wizard-sec-current-label"></p>
+                        <p id="wizard-sec-current-help"></p>
+                        <div id="wizard-sec-chip-list"></div>
                     </div>
+                    <div id="wizard-exam-packets" class="hidden"></div>
+                    <div id="wizard-exam-own-panel" class="hidden">
+                        <p id="wizard-exam-own-help"></p>
+                        <p id="wizard-exam-own-secs"></p>
+                        <div id="wizard-exam-file-row"></div>
+                        <input id="wizard-exam-upload" type="file" accept=".pdf,application/pdf" class="hidden">
+                        <div id="wizard-exam-actions" class="hidden"></div>
+                        <p id="wizard-exam-status"></p>
+                    </div>
+                    <button type="button" id="wizard-print-link" class="hidden" tabindex="-1" aria-hidden="true"></button>
 
                     <div id="wizard-nav" class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-amber-200">
                         <a id="btn-cancel" href="{{ $returnUrl }}" class="px-4 py-2 border border-amber-400 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-50 inline-flex items-center">ยกเลิก</a>
@@ -926,10 +798,9 @@
                     <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
                         <i data-lucide="check-circle" class="w-10 h-10 text-green-700"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-green-900">ดำเนินการรายงานผลการสอบไล่เรียบร้อยแล้ว</h3>
+                    <h3 class="text-xl font-bold text-green-900">บันทึกรายงานผลการสอบไล่เรียบร้อยแล้ว</h3>
                     <p class="mt-2 text-sm text-[#5C2E1F] leading-relaxed max-w-xl mx-auto">
-                        ระบบบันทึกข้อมูลรายวิชาและอัปโหลดไฟล์แนบครบแล้ว
-                        (แบบฟอร์ม มข.11 + แบบรายงานผลการสอบไล่)
+                        ระบบบันทึกข้อมูลรายวิชา หมายเหตุ จำนวนนักศึกษา และไฟล์ มข.11 (ถ้ามี) เรียบร้อยแล้ว
                         ท่านสามารถกลับหน้าหลักเพื่อกรอกรายวิชาถัดไป หรือไปติดตามสถานะที่ส่งแล้ว
                     </p>
                     <div class="mt-6 flex flex-wrap justify-center gap-3">

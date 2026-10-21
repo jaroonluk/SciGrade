@@ -55,7 +55,7 @@ class GradeReportMySectionsTest extends TestCase
         $this->assertStringContainsString('อาจารย์ สอง', $html);
         $this->assertStringContainsString('ลบ Section ของฉัน', $html);
         $this->assertStringContainsString('btn-delete-report', $html);
-        $this->assertStringContainsString('wizard_step=5', $html);
+        $this->assertStringContainsString('wizard_step=3', $html);
         $this->assertStringContainsString('data-my-sections="1,5"', $html);
     }
 
