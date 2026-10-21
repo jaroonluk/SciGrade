@@ -91,6 +91,7 @@
     .admin-trail-item[data-tone="docs"] .admin-chevron { --arrow: #ccfbf1; --ink: #0f766e; }
     .admin-trail-item[data-tone="status"] .admin-chevron { --arrow: #fde68a; --ink: #854d0e; }
     .admin-trail-item[data-tone="approve"] .admin-chevron { --arrow: #bbf7d0; --ink: #166534; }
+    .admin-trail-item[data-tone="report"] .admin-chevron { --arrow: #ffedd5; --ink: #9a3412; }
     .admin-trail-item[data-tone="thesis"] .admin-chevron { --arrow: #fef08a; --ink: #854d0e; }
     .admin-tone-thesis .admin-section-head {
         background: linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fff 100%);
@@ -440,12 +441,47 @@
     <div class="text-center mb-8">
         <h2 class="text-2xl font-bold text-[#5C2E1F]">ยินดีต้อนรับ, {{ $staffDisplayName }}</h2>
         <p class="text-[#7A4A3A]/80 mt-1 text-base">เลือกบทบาทและเมนูงานที่ต้องการดำเนินการ</p>
+        @php
+            $dashboardTermLabel = match ((int) $term) {
+                1 => 'ภาคต้น',
+                2 => 'ภาคปลาย',
+                default => 'ภาคการศึกษาพิเศษ',
+            };
+            $termQuery = ['term' => $term, 'year' => $year];
+        @endphp
+        <form method="GET" action="{{ route('dashboard') }}" class="mt-4 inline-flex flex-wrap items-end justify-center gap-3">
+            @if ($deptDepartmentId)
+                <input type="hidden" name="dept_department_id" value="{{ $deptDepartmentId }}">
+            @endif
+            <div class="text-left">
+                <label class="block text-xs font-medium text-[#7A4A3A] mb-1">ภาคการศึกษา</label>
+                <select name="term" class="border border-[#E8C4B8] rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]" onchange="this.form.submit()">
+                    <option value="1" @selected((int) $term === 1)>ภาคต้น</option>
+                    <option value="2" @selected((int) $term === 2)>ภาคปลาย</option>
+                    <option value="3" @selected((int) $term === 3)>ภาคการศึกษาพิเศษ</option>
+                </select>
+            </div>
+            <div class="text-left">
+                <label class="block text-xs font-medium text-[#7A4A3A] mb-1">ปีการศึกษา</label>
+                <select name="year" class="border border-[#E8C4B8] rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]" onchange="this.form.submit()">
+                    @foreach ($years as $y)
+                        <option value="{{ $y }}" @selected((int) $year === (int) $y)>{{ $y }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </form>
+        <p class="text-sm font-medium text-[#8B4513] mt-3">กำลังทำงานใน{{ $dashboardTermLabel }} ปีการศึกษา {{ $year }}</p>
     </div>
 
     <div class="form-section rounded-xl p-5 mb-8 no-print">
         <p class="text-sm font-semibold text-[#5C2E1F] mb-3">เลือกบทบาทการใช้งาน</p>
         <form method="POST" action="{{ route('role.set') }}" class="flex flex-wrap gap-3">
             @csrf
+            <input type="hidden" name="term" value="{{ $term }}">
+            <input type="hidden" name="year" value="{{ $year }}">
+            @if ($deptDepartmentId)
+                <input type="hidden" name="dept_department_id" value="{{ $deptDepartmentId }}">
+            @endif
             @foreach ($selectableRoles as $value)
                 @php
                     $label = match ($value) {
@@ -485,7 +521,7 @@
             </div>
             <div class="role-panel-body">
                 <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
-                    <a href="{{ route('grade-reports.upload') }}" class="entry-card tone-upload rounded-xl p-5 block h-full">
+                    <a href="{{ route('grade-reports.upload', $termQuery) }}" class="entry-card tone-upload rounded-xl p-5 block h-full">
                         <div class="flex items-start gap-4">
                             <div class="entry-icon">
                                 <i data-lucide="upload-cloud" class="w-7 h-7"></i>
@@ -602,7 +638,7 @@
                 </div>
                 <div class="admin-section-body">
                     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('dept-admin.reviews.index') }}" class="menu-card tone-review rounded-xl p-5 block">
+                        <a href="{{ route('dept-admin.reviews.index', $termQuery) }}" class="menu-card tone-review rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="list-checks" class="w-5 h-5"></i></div>
                                 <div>
@@ -612,7 +648,7 @@
                                 </div>
                             </div>
                         </a>
-                        <a href="{{ route('dept-admin.registrar-upload.index') }}" class="menu-card tone-review rounded-xl p-5 block">
+                        <a href="{{ route('dept-admin.registrar-upload.index', $termQuery) }}" class="menu-card tone-review rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="upload-cloud" class="w-5 h-5"></i></div>
                                 <div>
@@ -639,7 +675,7 @@
                 </div>
                 <div class="admin-section-body">
                     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('dept-admin.reg-grade-status.index') }}" class="menu-card tone-status rounded-xl p-5 block">
+                        <a href="{{ route('dept-admin.reg-grade-status.index', $termQuery) }}" class="menu-card tone-status rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
                                 <div>
@@ -649,7 +685,7 @@
                                 </div>
                             </div>
                         </a>
-                        <a href="{{ route('dept-admin.reviews.meeting-approval') }}" class="menu-card tone-status rounded-xl p-5 block">
+                        <a href="{{ route('dept-admin.reviews.meeting-approval', $termQuery) }}" class="menu-card tone-status rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="badge-check" class="w-5 h-5"></i></div>
                                 <div>
@@ -676,7 +712,7 @@
                 </div>
                 <div class="admin-section-body">
                     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('dept-admin.reports.form') }}" class="menu-card tone-print rounded-xl p-5 block">
+                        <a href="{{ route('dept-admin.reports.form', $termQuery) }}" class="menu-card tone-print rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="printer" class="w-5 h-5"></i></div>
                                 <div>
@@ -774,7 +810,7 @@
                     </div>
                 </div>
                 <div class="admin-section-body">
-                    <a href="{{ route('dept-admin.thesis-grades.index') }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
+                    <a href="{{ route('dept-admin.thesis-grades.index', $termQuery) }}" class="entry-card tone-thesis rounded-xl p-5 block max-w-xl">
                         <div class="flex items-start gap-4">
                             <div class="entry-icon p-2">
                                 <img src="{{ asset('images/icons/thesis-independent-study.svg') }}" alt="" class="w-9 h-9" width="36" height="36">
@@ -1150,7 +1186,7 @@
                 </div>
                 <div class="admin-section-body">
                     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <a href="{{ route('grade-reports.reports') }}" class="menu-card rounded-xl p-5 block">
+                        <a href="{{ route('grade-reports.reports', $termQuery) }}" class="menu-card rounded-xl p-5 block">
                             <div class="flex items-start gap-3">
                                 <div class="menu-icon"><i data-lucide="layers" class="w-5 h-5"></i></div>
                                 <div>

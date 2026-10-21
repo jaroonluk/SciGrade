@@ -28,7 +28,13 @@
 <body class="min-h-screen bg-[#FAF0E6]">
     <header class="canva-header shadow-md no-print">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-            <a href="{{ route('dashboard') }}" class="flex items-center gap-3 min-w-0">
+            @php
+                $dashboardHomeQuery = array_filter([
+                    'term' => request()->integer('term') ?: null,
+                    'year' => request()->integer('year') ?: null,
+                ]);
+            @endphp
+            <a href="{{ route('dashboard', $dashboardHomeQuery) }}" class="flex items-center gap-3 min-w-0">
                 <div class="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shrink-0">
                     <i data-lucide="graduation-cap" class="w-6 h-6 text-amber-900"></i>
                 </div>
@@ -86,7 +92,7 @@
     @hasSection('subnav')
         <nav class="no-print bg-white border-b border-amber-200">
             <div class="max-w-7xl mx-auto px-4 py-2 flex items-center gap-4 text-sm">
-                <a href="{{ route('dashboard') }}" class="text-[#8B4513] hover:underline flex items-center gap-1">
+                <a href="{{ route('dashboard', $dashboardHomeQuery ?? []) }}" class="text-[#8B4513] hover:underline flex items-center gap-1">
                     <i data-lucide="home" class="w-4 h-4"></i> หน้าหลัก
                 </a>
                 @yield('subnav')

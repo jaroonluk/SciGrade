@@ -28,7 +28,7 @@ class DepartmentReportController extends Controller
         private readonly DepartmentSubjectFilter $subjectFilter,
     ) {}
 
-    public function form(): View
+    public function form(Request $request): View
     {
         $staff = $this->requireStaff();
         $departments = $this->departmentAccess->allowedDepartments($staff);
@@ -43,8 +43,9 @@ class DepartmentReportController extends Controller
         }
 
         $initialDepartmentId = (int) old('department_id', $departments->first()?->department_id);
-        $term = old('term', AcademicTerm::defaultTerm());
-        $year = old('year', AcademicTerm::defaultYear());
+        $selected = AcademicTerm::fromRequest($request);
+        $term = (int) old('term', $selected['term']);
+        $year = (int) old('year', $selected['year']);
         $educationLevel = old('education_level', 'graduate');
 
         return view('dept-admin.reports.form', [

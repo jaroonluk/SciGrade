@@ -12,6 +12,7 @@ use App\Support\AcademicTerm;
 use App\Support\FacultyReportDepartments;
 use App\Support\SciGradeRole;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -24,7 +25,7 @@ class FacultyReportController extends Controller
         private readonly DepartmentSubjectFilter $subjectFilter,
     ) {}
 
-    public function form(): View
+    public function form(Request $request): View
     {
         abort_unless(SciGradeRole::isFacultyCapable(), 403);
 
@@ -40,11 +41,12 @@ class FacultyReportController extends Controller
         }
 
         $initialDepartmentId = old('department_id', $departments->first()?->department_id);
+        $selected = AcademicTerm::fromRequest($request);
 
         return view('faculty-admin.reports.form', [
             'departments' => $departments,
-            'term' => AcademicTerm::defaultTerm(),
-            'year' => AcademicTerm::defaultYear(),
+            'term' => (int) old('term', $selected['term']),
+            'year' => (int) old('year', $selected['year']),
             'years' => AcademicTerm::yearOptions(),
             'patternsByDepartment' => $patternsByDepartment,
             'initialDepartmentId' => $initialDepartmentId,

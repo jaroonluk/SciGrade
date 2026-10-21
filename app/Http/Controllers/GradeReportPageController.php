@@ -273,11 +273,13 @@ class GradeReportPageController extends Controller
         return back()->with('status', 'ส่งการแก้ไขเรียบร้อยแล้ว รอสาขาวิชาส่งรายงานผลการสอบไล่อีกครั้ง');
     }
 
-    public function upload(): View
+    public function upload(Request $request): View
     {
+        $selected = AcademicTerm::fromRequest($request);
+
         return view('grade-reports.upload', [
-            'term' => AcademicTerm::defaultTerm(),
-            'year' => AcademicTerm::defaultYear(),
+            'term' => $selected['term'],
+            'year' => $selected['year'],
             'years' => AcademicTerm::yearOptions(),
         ]);
     }

@@ -38,6 +38,30 @@ class AcademicTerm
     }
 
     /**
+     * ภาค/ปีจาก query string ของหน้าที่ผู้ใช้เปิดอยู่ ถ้าไม่ถูกต้องให้ใช้ค่าเริ่มต้น
+     *
+     * @return array{term: int, year: int}
+     */
+    public static function fromRequest(\Illuminate\Http\Request $request): array
+    {
+        $term = $request->integer('term');
+        $year = $request->integer('year');
+
+        if (! in_array($term, [1, 2, 3], true)) {
+            $term = self::defaultTerm();
+        }
+
+        if ($year < 2500 || $year > 2600) {
+            $year = self::defaultYear();
+        }
+
+        return [
+            'term' => $term,
+            'year' => $year,
+        ];
+    }
+
+    /**
      * @return list<int>
      */
     public static function yearOptions(int $from = 2565, int $to = 2575): array

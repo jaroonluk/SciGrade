@@ -26,10 +26,9 @@ class HomeController extends Controller
     public function index(Request $request): View
     {
         $role = SciGradeRole::current();
-        $defaultYear = AcademicTerm::defaultYear();
-        $defaultTerm = AcademicTerm::defaultTerm();
-        $term = (int) $request->input('term', $defaultTerm);
-        $year = (int) $request->input('year', $defaultYear);
+        $selected = AcademicTerm::fromRequest($request);
+        $term = $selected['term'];
+        $year = $selected['year'];
 
         $departments = collect();
         $deptDepartmentId = null;
@@ -113,6 +112,15 @@ class HomeController extends Controller
             'to_role' => $request->role,
         ]);
 
-        return redirect()->route('dashboard');
+        $selected = AcademicTerm::fromRequest($request);
+        $query = [
+            'term' => $selected['term'],
+            'year' => $selected['year'],
+        ];
+        if ($request->filled('dept_department_id')) {
+            $query['dept_department_id'] = $request->integer('dept_department_id');
+        }
+
+        return redirect()->route('dashboard', $query);
     }
 }
