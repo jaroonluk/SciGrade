@@ -230,9 +230,9 @@
                 </h2>
                 <ol id="wizard-stepper" class="wizard-trail" aria-label="ขั้นตอนการกรอกรายงาน">
                     @foreach ([
-                        1 => '1. ข้อมูลรายวิชา',
-                        2 => '2. หมายเหตุ',
-                        3 => '3. จำนวนนักศึกษา',
+                        1 => 'ข้อมูลรายวิชา',
+                        2 => 'หมายเหตุ',
+                        3 => 'จำนวนนักศึกษา',
                     ] as $n => $label)
                         <li class="wizard-step-item {{ $n === 1 ? 'is-current' : '' }}" data-wizard-dot="{{ $n }}" data-tone="{{ $n }}">
                             <span class="wizard-chevron" aria-hidden="true">

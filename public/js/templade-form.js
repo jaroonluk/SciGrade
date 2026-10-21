@@ -4316,9 +4316,9 @@ function migrateLegacyWizardStep(step) {
 
 function wizardStepTitle(step) {
     return ({
-        1: '1. ข้อมูลรายวิชา',
-        2: '2. หมายเหตุ',
-        3: '3. จำนวนนักศึกษา',
+        1: 'ข้อมูลรายวิชา',
+        2: 'หมายเหตุ',
+        3: 'จำนวนนักศึกษา',
     })[Number(step)] || `ขั้นตอนที่ ${step}`;
 }
 
