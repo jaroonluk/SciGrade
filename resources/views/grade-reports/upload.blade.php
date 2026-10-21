@@ -67,7 +67,7 @@
             <div>
                 <h2 class="text-lg font-bold text-[#5C2E1F]">อัปโหลดไฟล์จากสำนักทะเบียน (มข.11)</h2>
                 <p class="text-sm text-[#7A4A3A]/80 mt-1 leading-relaxed">
-                    เลือกภาค/ปีการศึกษา แล้วเพิ่มไฟล์ PDF ได้เรื่อยๆ (สูงสุด {{ $maxFiles }} ไฟล์)
+                    เลือกภาค/ปีการศึกษา แล้วเพิ่มไฟล์ มข.11 (สูงสุด {{ $maxFiles }} ไฟล์)
                 </p>
             </div>
         </div>
@@ -144,7 +144,7 @@
                 <p id="upload-client-error" class="hidden text-sm text-red-700 mt-2 whitespace-pre-line"></p>
                 <p class="text-xs text-[#7A4A3A]/80 mt-3">
                     ระบบจะ<strong class="text-[#5C2E1F]">อ่านข้อมูลจากเนื้อหาในไฟล์ PDF</strong>
-                    (รหัสวิชา, กลุ่มเรียน, คณะนักศึกษา, ตารางสรุปเกรด) โดยไม่ผูกกับชื่อไฟล์
+                    (รหัสวิชา, กลุ่มเรียน, คณะนักศึกษา, ตารางสรุปเกรด)
                 </p>
                 @error('grade_files')
                     {{-- shown in layout banner --}}
