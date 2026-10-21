@@ -4462,6 +4462,13 @@ function renderUploadedRegFiles() {
 
 function showWizardDone() {
     clearWizardState();
+    document.getElementById('save-overlay')?.classList.add('hidden');
+    document.getElementById('save-overlay-loading')?.classList.add('hidden');
+    document.getElementById('save-overlay-success')?.classList.add('hidden');
+    document.getElementById('save-overlay-error')?.classList.add('hidden');
+    document.getElementById('wizard-print-download-overlay')?.classList.add('hidden');
+    document.getElementById('toast')?.classList.add('hidden');
+    document.body.style.overflow = '';
     document.getElementById('grade-form')?.classList.add('hidden');
     document.getElementById('wizard-nav')?.classList.add('hidden');
     const stepper = document.getElementById('wizard-stepper');
@@ -4685,19 +4692,11 @@ async function finalizeWizardAttachments(config, options = {}) {
         }));
 
         loading?.classList.add('hidden');
-        const successMsg = document.getElementById('save-overlay-success-msg');
-        if (successMsg) {
-            successMsg.textContent = data.message
-                || 'บันทึกข้อมูลและแนบไฟล์ มข.11 เข้าสู่ระบบเรียบร้อยแล้ว';
-        }
-        success?.classList.remove('hidden');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        await new Promise((resolve) => setTimeout(resolve, 700));
-        overlay?.classList.add('hidden');
         success?.classList.add('hidden');
+        errorBox?.classList.add('hidden');
+        overlay?.classList.add('hidden');
         document.body.style.overflow = '';
         updateAttachmentChecklist(config);
-        showToast('บันทึกข้อมูลเรียบร้อย', 'success');
         return { ok: true, data };
     } catch (err) {
         loading?.classList.add('hidden');
