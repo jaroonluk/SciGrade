@@ -38,7 +38,6 @@ class GradeReportController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = GradeReport::query()
-            ->examReportable()
             ->with('gradeStds')
             ->when($request->filled('approv'), fn ($q) => $q->where('approv', $request->integer('approv')))
             ->when($request->filled('term'), fn ($q) => $q->where('term', (string) $request->integer('term')))
@@ -49,6 +48,8 @@ class GradeReportController extends Controller
         if ($request->input('role', 'instructor') === 'instructor') {
             $query->filledByInstructor($this->staffUsername());
         }
+
+        $query->examReportable();
 
         return response()->json($query->get()->map(fn (GradeReport $r) => $this->formatReport($r)));
     }

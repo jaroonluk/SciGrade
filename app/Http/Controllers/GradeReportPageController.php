@@ -596,12 +596,13 @@ class GradeReportPageController extends Controller
         $username = $this->resolveStaffUsername();
         $fillerNames = [];
         if ($username) {
+            // กรองภาค/ปีก่อน แล้วค่อยจำกัดตามอาจารย์ — ลดภาระ REGEXP ของ examReportable
             $reports = GradeReport::query()
-                ->examReportable()
-                ->with(['gradeStds', 'files', 'approvalLogs.approver'])
-                ->filledByInstructor($username)
                 ->where('term', (string) $term)
                 ->where('year', (string) $year)
+                ->filledByInstructor($username)
+                ->examReportable()
+                ->with(['gradeStds', 'files', 'approvalLogs.approver'])
                 ->orderByDesc('created_stamp')
                 ->orderByDesc('grade_id')
                 ->get();
@@ -639,19 +640,29 @@ class GradeReportPageController extends Controller
             }
         }
 
-        $names = [];
-        foreach ($usernames as $username) {
-            try {
-                $staff = TblUser::query()->with('titleRelation')->find($username);
-                $display = $staff?->displayName();
-                if (is_string($display) && trim($display) !== '') {
-                    $names[$username] = trim($display);
-                    continue;
-                }
-            } catch (\Throwable) {
-                // fall through
+        if ($usernames === []) {
+            return [];
+        }
+
+        $names = array_fill_keys(array_values($usernames), null);
+
+        try {
+            $staffRows = TblUser::query()
+                ->with('titleRelation')
+                ->whereIn('username', array_keys($names))
+                ->get()
+                ->keyBy('username');
+
+            foreach ($names as $username => $_) {
+                $display = $staffRows->get($username)?->displayName();
+                $names[$username] = (is_string($display) && trim($display) !== '')
+                    ? trim($display)
+                    : $username;
             }
-            $names[$username] = $username;
+        } catch (\Throwable) {
+            foreach ($names as $username => $_) {
+                $names[$username] = $username;
+            }
         }
 
         return $names;

@@ -85,17 +85,26 @@ class GradeReport extends Model
 
     /**
      * รายงานที่อาจารย์กรอกเอง — ทั้งที่เป็นเจ้าของ และที่เพิ่ม Section / แนบไฟล์ในวิชาร่วม
+     *
+     * ใช้ subquery ที่ไม่ผูกแถวต่อแถวแทน orWhereHas/EXISTS
+     * เพื่อไม่ให้สแกน grade_std ทั้งตารางซ้ำกับทุกแถวของ grade_report
      */
     public function scopeFilledByInstructor(Builder $query, string $username): Builder
     {
         $username = trim($username);
+        $gradeId = $query->qualifyColumn('grade_id');
+        $owner = $query->qualifyColumn('username');
 
-        return $query->where(function (Builder $inner) use ($username) {
-            $inner->where('username', $username)
-                ->orWhereHas('files', fn ($files) => $files->where('username', $username));
+        return $query->where(function (Builder $inner) use ($username, $gradeId, $owner) {
+            $inner->where($owner, $username)
+                ->orWhereIn($gradeId, GradeReportFile::query()
+                    ->select('grade_id')
+                    ->where('username', $username));
 
             if (GradeStd::hasUsernameColumn()) {
-                $inner->orWhereHas('gradeStds', fn ($stds) => $stds->where('username', $username));
+                $inner->orWhereIn($gradeId, GradeStd::query()
+                    ->select('grade_id')
+                    ->where('username', $username));
             }
         });
     }
