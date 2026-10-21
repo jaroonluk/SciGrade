@@ -559,7 +559,7 @@ class GradeReportPageController extends Controller
         return response()->json([
             'message' => $attachOnly
                 ? "แนบแบบฟอร์ม มข.11 Section {$section} แล้ว (ตั้งชื่อเป็น {$canonicalName}) — จะอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น"
-                : "อ่านไฟล์ มข.11 สำเร็จ — ตั้งชื่อเป็น {$canonicalName} ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อแนบใบขวางครบและกดเสร็จสิ้น",
+                : "อ่านไฟล์ มข.11 สำเร็จ — ตั้งชื่อเป็น {$canonicalName} ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้น",
             'parsed' => $attachOnly ? null : $parsed,
             'file_name' => $canonicalName,
             'section' => $section > 0 ? $section : null,

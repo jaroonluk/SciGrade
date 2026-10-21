@@ -12,7 +12,7 @@ use Tests\TestCase;
 class GradeReportMyExamFileLabelTest extends TestCase
 {
     #[Test]
-    public function my_page_shows_exam_files_by_submission_order_without_section(): void
+    public function my_page_hides_exam_report_column_and_print_for_instructors(): void
     {
         $this->actingAs(new User(['name' => 'อาจารย์ ทดสอบ', 'email' => 'teacher@kku.ac.th']));
 
@@ -50,17 +50,14 @@ class GradeReportMyExamFileLabelTest extends TestCase
             'term' => 2,
             'year' => 2568,
             'years' => [2568],
+            'staffUsername' => 'teacher01',
         ])->render();
 
-        $this->assertStringContainsString('แบบรายงานผลการสอบไล่(1)', $html);
-        $this->assertStringContainsString('แบบรายงานผลการสอบไล่(2)', $html);
-        $this->assertStringNotContainsString('2568_2_SC700001_01.pdf', $html);
-        $this->assertStringNotContainsString('2568_2_SC700001_05.pdf', $html);
-        $this->assertStringNotContainsString('Sec1', $html);
-        $this->assertStringNotContainsString('Sec5', $html);
-        $this->assertLessThan(
-            strpos($html, 'แบบรายงานผลการสอบไล่(2)'),
-            strpos($html, 'แบบรายงานผลการสอบไล่(1)'),
-        );
+        $this->assertStringNotContainsString('แบบรายงานผลการสอบไล่(1)', $html);
+        $this->assertStringNotContainsString('แบบรายงานผลการสอบไล่(2)', $html);
+        $this->assertStringNotContainsString('data-file-type="exam_report"', $html);
+        $this->assertStringNotContainsString('grade-reports/305955/print', $html);
+        $this->assertStringContainsString('ใบส่งผลการศึกษา (REG)', $html);
+        $this->assertStringContainsString('จัดทำโดย Admin สาขา', $html);
     }
 }

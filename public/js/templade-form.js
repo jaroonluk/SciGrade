@@ -3541,30 +3541,11 @@ function shouldSkipRegStep() {
 
 function requiredAttachmentError(config) {
     const hasReg = hasRegistrarAttachment(config);
-    const hasExam = hasExamReportAttachment(config);
-    if (hasReg && hasExam) return null;
-    if (!hasReg && !hasExam) {
-        const missing = missingRegSections();
-        const regMsg = missing.length
-            ? `แบบฟอร์ม มข.11 ยังไม่ครบ (ขาด Section ${missing.join(', ')})`
-            : 'แบบฟอร์ม มข.11';
-        const examMissing = missingExamSectionsForMe(config);
-        const examMsg = examMissing?.length && examMissing[0] !== 0
-            ? `แบบรายงานสำหรับ Section ${examMissing.join(', ')} ในขั้นตอนอัปโหลดแบบรายงาน`
-            : 'แบบรายงานผลการสอบไล่ ในขั้นตอนอัปโหลดแบบรายงาน';
-        return `กรุณาแนบไฟล์ให้ครบก่อนเสร็จสิ้น: ${regMsg} และ ${examMsg}`;
-    }
-    if (!hasReg) {
-        const missing = missingRegSections();
-        return missing.length
-            ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')} (อัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา)`
-            : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาอัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา';
-    }
-    const examMissing = missingExamSectionsForMe(config);
-    if (examMissing?.length && examMissing[0] !== 0) {
-        return `ยังไม่ได้เลือกแบบรายงานสำหรับ Section ${examMissing.join(', ')} — อัปโหลดไฟล์เดียวใช้ร่วมทุก Section ของคุณได้`;
-    }
-    return 'ยังไม่ได้แนบแบบรายงานผลการสอบไล่ กรุณาเลือกไฟล์ PDF ที่พิมพ์และลงนามแล้วในขั้นตอนนี้ก่อนเสร็จสิ้น';
+    if (hasReg) return null;
+    const missing = missingRegSections();
+    return missing.length
+        ? `ยังแนบแบบฟอร์ม มข.11 ไม่ครบ — ขาด Section ${missing.join(', ')} (อัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา)`
+        : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาอัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา';
 }
 
 function updateAttachmentChecklist(config) {
@@ -4616,7 +4597,6 @@ async function stageExamReport(config, file) {
 }
 
 async function finalizeWizardAttachments(config, options = {}) {
-    const requireExam = Boolean(options.requireExam);
     if (!config.currentReportId) {
         return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณากรอกจำนวนนักศึกษาให้ครบแล้วกดเสร็จสิ้นอีกครั้ง' };
     }
@@ -4631,12 +4611,9 @@ async function finalizeWizardAttachments(config, options = {}) {
                 : 'ยังไม่ได้แนบแบบฟอร์ม มข.11 — กรุณาอัปโหลดจากหน้าแรกหรือตอนกรอกจำนวนนักศึกษา',
         };
     }
-    if (requireExam && !hasExamReportAttachment(config)) {
-        return { ok: false, error: 'ยังไม่ได้เลือกแบบรายงานผลการสอบไล่' };
-    }
 
-    // ไม่มีไฟล์ค้างแนบ — จบได้เลยหลังบันทึกข้อมูล
-    if (!hasPendingOrSavedReg && !window.pendingExamFile && !config.hasPendingExam) {
+    // ไม่มี มข.11 ค้างแนบ — จบได้เลยหลังบันทึกข้อมูล (ไม่บังคับใบขวาง)
+    if (!hasPendingOrSavedReg) {
         return { ok: true, data: { skipped: true } };
     }
 
@@ -4651,13 +4628,6 @@ async function finalizeWizardAttachments(config, options = {}) {
     document.body.style.overflow = 'hidden';
 
     const formData = new FormData();
-    if (window.pendingExamFile) {
-        formData.append('attachment', window.pendingExamFile);
-        formData.append('file_type', 'exam_report');
-        examTargetSectionsThisRound(config).forEach((sec) => {
-            formData.append('exam_sections[]', String(sec));
-        });
-    }
     requiredRegSections().forEach((sec) => {
         formData.append('required_sections[]', String(sec));
     });
@@ -4684,21 +4654,12 @@ async function finalizeWizardAttachments(config, options = {}) {
         window.pendingExamFile = null;
         window.pendingRegFileName = null;
         config.hasPendingExam = false;
-        if (data.exam_file || config.hasExamReportFile) {
-            config.hasExamReportFile = true;
-        }
+        config.hasExamReportFile = false;
+        config.examFileDetail = null;
         config.hasRegistrarFile = true;
         window.wizardHasPendingReg = false;
         config.hasPendingRegistrar = false;
         config.regFilledFromPdf = false;
-
-        if (data.exam_file?.view_url) {
-            config.examFileDetail = {
-                file_id: data.exam_file.file_id,
-                name: data.exam_file.display_name || data.exam_file.original_name || 'ใบขวาง',
-                view_url: data.exam_file.view_url,
-            };
-        }
 
         Object.keys(window.regUploadBySection).forEach((sec) => {
             const info = window.regUploadBySection[sec];
@@ -5036,7 +4997,7 @@ function initGradeReportWizard(config) {
                 showWizardIncomplete(3, saved.error || 'บันทึกไม่สำเร็จ กรุณาตรวจสอบข้อมูลในขั้นตอนจำนวนนักศึกษา');
                 return;
             }
-            const finalized = await finalizeWizardAttachments(config, { requireExam: false });
+            const finalized = await finalizeWizardAttachments(config);
             if (!finalized.ok) {
                 showWizardIncomplete(3, finalized.error || 'แนบไฟล์ มข.11 ไม่สำเร็จ');
                 return;

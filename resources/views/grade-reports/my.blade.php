@@ -115,7 +115,6 @@
                         <th class="text-left">รายวิชา</th>
                         <th class="text-left" style="min-width:7.5rem">วันที่กรอก</th>
                         <th class="text-left" style="min-width:14rem">ความคืบหน้า / สถานะ</th>
-                        <th class="text-left" style="min-width:11rem">แบบรายงานผลการสอบไล่</th>
                         <th class="text-left" style="min-width:11rem">ใบส่งผลการศึกษา (REG)</th>
                         <th class="text-center">ทำรายการ</th>
                     </tr>
@@ -128,7 +127,6 @@
                             $canSubmitCorrections = $report->canSubmitCorrections();
                             $awaitingDept = $report->awaitingDeptResubmit();
                             $canEdit = $report->canEdit();
-                            $canPrint = $report->canPrint();
                             $ownsReport = $report->instructorOwns($staffUsername ?? null);
                             $mySections = $report->sectionsFilledBy($staffUsername ?? null);
                             $otherSections = $report->sectionsFilledByOthers($staffUsername ?? null);
@@ -200,7 +198,6 @@
                             </td>
                             <td>
                                 @php
-                                    $examFileGroups = \App\Models\GradeReportFile::groupExamReportsForDisplay($report->files);
                                     $regInstructorFiles = $report->files->filter(
                                         fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_REGISTRAR
                                             && $f->isInstructorUpload($report)
@@ -209,42 +206,6 @@
                                         fn ($f) => $f->isDeptAdminUpload($report)
                                     );
                                 @endphp
-                                <div class="space-y-2" data-report-files="{{ $report->grade_id }}" data-file-type="exam_report">
-                                    @if ($examFileGroups === [])
-                                        <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์</p>
-                                    @else
-                                        <div class="flex flex-col gap-1.5 file-list">
-                                            @foreach ($examFileGroups as $examGroup)
-                                                @php
-                                                    $file = $examGroup['file'];
-                                                    $examLabel = $examGroup['label'];
-                                                @endphp
-                                                <div class="file-chip" data-file-id="{{ $file->file_id }}" data-file-ids="{{ implode(',', $examGroup['file_ids']) }}">
-                                                    <i data-lucide="file-text" class="w-3.5 h-3.5 shrink-0 text-[#8B4513]"></i>
-                                                    <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
-                                                       target="_blank" rel="noopener noreferrer"
-                                                       class="hover:underline" title="{{ $examLabel }}">
-                                                        {{ $examLabel }}
-                                                    </a>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-
-                                    @if ($canEdit)
-                                        <p class="text-xs text-[#7A4A3A]/80 leading-relaxed">
-                                            ต้องการเปลี่ยนไฟล์ ให้กด «แก้ไข»
-                                        </p>
-                                    @elseif ($awaitingDept)
-                                        <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
-                                            ส่งการแก้ไขแล้ว — รอสาขา
-                                        </p>
-                                    @else
-                                        <p class="text-xs text-gray-500">ล็อกแล้ว</p>
-                                    @endif
-                                </div>
-                            </td>
-                            <td>
                                 <div class="space-y-2 min-w-[11rem]">
                                     <div class="reg-source-block reg-source-instructor space-y-2"
                                         data-report-files="{{ $report->grade_id }}"
@@ -321,21 +282,6 @@
                             <td>
                                 <div class="flex flex-wrap justify-center gap-2">
                                     @if ($canEdit)
-                                        @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', array_filter([
-                                                    'gradeReport' => $report->grade_id,
-                                                    'sections' => $mySecNums !== [] ? implode(',', $mySecNums) : null,
-                                                    'scope' => $mySecNums === [] ? 'all' : null,
-                                                ])) }}" target="_blank"
-                                               class="action-btn bg-amber-700 text-white hover:bg-amber-800"
-                                               title="พิมพ์เฉพาะ Section ที่คุณกรอก">
-                                                <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
-                                            </a>
-                                        @else
-                                            <span class="action-btn bg-gray-100 text-gray-400 cursor-not-allowed" title="กรอกจำนวนนักศึกษาก่อน">
-                                                <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
-                                            </span>
-                                        @endif
                                         @if ($canManageMine)
                                             <a href="{{ route('grade-reports.edit', ['gradeReport' => $report->grade_id, 'term' => $term, 'year' => $year, 'return' => 'my', 'wizard_step' => 3]) }}"
                                                class="action-btn border border-amber-300 text-[#5C2E1F] hover:bg-amber-50"
@@ -376,28 +322,8 @@
                                             </form>
                                         @endif
                                     @elseif ($awaitingDept)
-                                        @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', array_filter([
-                                                    'gradeReport' => $report->grade_id,
-                                                    'sections' => $mySecNums !== [] ? implode(',', $mySecNums) : null,
-                                                    'scope' => $mySecNums === [] ? 'all' : null,
-                                                ])) }}" target="_blank"
-                                               class="action-btn bg-amber-700 text-white hover:bg-amber-800">
-                                                <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
-                                            </a>
-                                        @endif
                                         <span class="text-xs text-amber-800 text-center block w-full mt-1">{{ $report->instructorTrackStatusLabel() }}</span>
                                     @else
-                                        @if ($canPrint)
-                                            <a href="{{ route('grade-reports.print', array_filter([
-                                                    'gradeReport' => $report->grade_id,
-                                                    'sections' => $mySecNums !== [] ? implode(',', $mySecNums) : null,
-                                                    'scope' => $mySecNums === [] ? 'all' : null,
-                                                ])) }}" target="_blank"
-                                               class="action-btn bg-amber-700 text-white hover:bg-amber-800">
-                                                <i data-lucide="printer" class="w-3.5 h-3.5"></i> พิมพ์
-                                            </a>
-                                        @endif
                                         <span class="text-xs text-gray-500 text-center block w-full mt-1">{{ $report->instructorTrackStatusLabel() }}</span>
                                     @endif
                                 </div>
@@ -408,10 +334,10 @@
             </table>
         </div>
         <p class="text-xs text-red-700 mt-3 leading-relaxed">
-            ** เมื่อสร้างแบบรายงานแล้ว ต้องกรอกจำนวนนักศึกษาก่อนจึงจะพิมพ์แบบฟอร์มได้<br>
             ** แก้ไข / ลบ ได้เฉพาะ Section ที่คุณเป็นคนกรอกเท่านั้น<br>
             ** ถ้าวิชานั้นมีผู้กรอกหลายคน เมื่อกดลบ ระบบจะแจ้งว่าลบ Section ไหนได้บ้าง และ Section ที่เหลือให้ติดต่อผู้กรอก<br>
-            ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด — กด «แก้ไข» เพื่ออัปโหลดหรือเปลี่ยนไฟล์ PDF
+            ** วิชาที่ส่งเกรดช้าและมี I ต้องแนบบันทึกมาพร้อมกับใบส่งเกรด — กด «แก้ไข» เพื่ออัปโหลดหรือเปลี่ยนไฟล์ มข.11<br>
+            ** ใบรายงานผลการสอบไล่ (ใบขวาง) จัดทำโดย Admin สาขา — อาจารย์ไม่ต้องพิมพ์หรืออัปโหลด
         </p>
     @endif
 </div>

@@ -11,9 +11,9 @@ use Tests\TestCase;
 class GradeReportPrintAccessTest extends TestCase
 {
     #[Test]
-    public function owner_may_print_own_report(): void
+    public function instructor_may_not_print_report(): void
     {
-        $this->assertTrue(GradeReportPrintAccess::allows(
+        $this->assertFalse(GradeReportPrintAccess::allows(
             SciGradeRole::INSTRUCTOR,
             'teacher01',
             $this->report('teacher01', 0),
@@ -21,31 +21,11 @@ class GradeReportPrintAccessTest extends TestCase
     }
 
     #[Test]
-    public function contributor_may_print_shared_draft_report(): void
-    {
-        $this->assertTrue(GradeReportPrintAccess::allows(
-            SciGradeRole::INSTRUCTOR,
-            'teacher02',
-            $this->report('teacher01', 0),
-        ));
-    }
-
-    #[Test]
-    public function contributor_may_not_print_approved_report(): void
+    public function contributor_may_not_print_shared_draft_report(): void
     {
         $this->assertFalse(GradeReportPrintAccess::allows(
             SciGradeRole::INSTRUCTOR,
             'teacher02',
-            $this->report('teacher01', 1),
-        ));
-    }
-
-    #[Test]
-    public function instructor_without_staff_username_may_not_print(): void
-    {
-        $this->assertFalse(GradeReportPrintAccess::allows(
-            SciGradeRole::INSTRUCTOR,
-            null,
             $this->report('teacher01', 0),
         ));
     }
@@ -57,6 +37,16 @@ class GradeReportPrintAccessTest extends TestCase
             SciGradeRole::DEPT_ADMIN,
             'dept01',
             $this->report('teacher01', 1),
+        ));
+    }
+
+    #[Test]
+    public function faculty_admin_may_print(): void
+    {
+        $this->assertTrue(GradeReportPrintAccess::allows(
+            SciGradeRole::FACULTY_ADMIN,
+            'fac01',
+            $this->report('teacher01', 2),
         ));
     }
 
