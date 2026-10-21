@@ -442,35 +442,8 @@
         <h2 class="text-2xl font-bold text-[#5C2E1F]">ยินดีต้อนรับ, {{ $staffDisplayName }}</h2>
         <p class="text-[#7A4A3A]/80 mt-1 text-base">เลือกบทบาทและเมนูงานที่ต้องการดำเนินการ</p>
         @php
-            $dashboardTermLabel = match ((int) $term) {
-                1 => 'ภาคต้น',
-                2 => 'ภาคปลาย',
-                default => 'ภาคการศึกษาพิเศษ',
-            };
             $termQuery = ['term' => $term, 'year' => $year];
         @endphp
-        <form method="GET" action="{{ route('dashboard') }}" class="mt-4 inline-flex flex-wrap items-end justify-center gap-3">
-            @if ($deptDepartmentId)
-                <input type="hidden" name="dept_department_id" value="{{ $deptDepartmentId }}">
-            @endif
-            <div class="text-left">
-                <label class="block text-xs font-medium text-[#7A4A3A] mb-1">ภาคการศึกษา</label>
-                <select name="term" class="border border-[#E8C4B8] rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]" onchange="this.form.submit()">
-                    <option value="1" @selected((int) $term === 1)>ภาคต้น</option>
-                    <option value="2" @selected((int) $term === 2)>ภาคปลาย</option>
-                    <option value="3" @selected((int) $term === 3)>ภาคการศึกษาพิเศษ</option>
-                </select>
-            </div>
-            <div class="text-left">
-                <label class="block text-xs font-medium text-[#7A4A3A] mb-1">ปีการศึกษา</label>
-                <select name="year" class="border border-[#E8C4B8] rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]" onchange="this.form.submit()">
-                    @foreach ($years as $y)
-                        <option value="{{ $y }}" @selected((int) $year === (int) $y)>{{ $y }}</option>
-                    @endforeach
-                </select>
-            </div>
-        </form>
-        <p class="text-sm font-medium text-[#8B4513] mt-3">กำลังทำงานใน{{ $dashboardTermLabel }} ปีการศึกษา {{ $year }}</p>
     </div>
 
     <div class="form-section rounded-xl p-5 mb-8 no-print">
