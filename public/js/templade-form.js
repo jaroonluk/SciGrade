@@ -4483,7 +4483,28 @@ function showWizardDone() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-async function saveWizardReport(config) {
+function showSaveOverlayLoading() {
+    const overlay = document.getElementById('save-overlay');
+    const loading = document.getElementById('save-overlay-loading');
+    const success = document.getElementById('save-overlay-success');
+    const errorBox = document.getElementById('save-overlay-error');
+    loading?.classList.remove('hidden');
+    success?.classList.add('hidden');
+    errorBox?.classList.add('hidden');
+    overlay?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function hideSaveOverlay() {
+    document.getElementById('save-overlay')?.classList.add('hidden');
+    document.getElementById('save-overlay-loading')?.classList.add('hidden');
+    document.getElementById('save-overlay-success')?.classList.add('hidden');
+    document.getElementById('save-overlay-error')?.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+async function saveWizardReport(config, options = {}) {
+    const keepOverlay = Boolean(options.keepOverlay);
     const payload = collectGradeReportPayload();
     const precheckError = validateGradeReportBeforeSave(payload);
 
@@ -4508,11 +4529,7 @@ async function saveWizardReport(config) {
         return { ok: false, error: precheckError };
     }
 
-    loading?.classList.remove('hidden');
-    success?.classList.add('hidden');
-    errorBox?.classList.add('hidden');
-    overlay?.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    showSaveOverlayLoading();
 
     const subjectCode = String(payload.subject_code || '').trim().replace(/\s+/g, '');
     // ถ้ารหัสวิชาเปลี่ยนจากที่ผูกไว้ และไม่ได้กำลัง append รายงานเดิม ให้สร้างใหม่
@@ -4566,9 +4583,10 @@ async function saveWizardReport(config) {
     if (!config.boundSubjectCode && subjectCode) {
         config.boundSubjectCode = subjectCode;
     }
-    loading?.classList.add('hidden');
-    overlay?.classList.add('hidden');
-    document.body.style.overflow = '';
+    // คง overlay ไว้ต่อเมื่อจะแนบ มข.11 ต่อทันที — กันขึ้น 2 รอบ
+    if (!keepOverlay) {
+        hideSaveOverlay();
+    }
     // ไฟล์ REG ยังเป็น pending จนกว่าจะกดเสร็จสิ้น — ไม่ทำเครื่องหมายว่าอัปโหลดเข้าฐานแล้ว
     persistWizardState(config, 3);
     refreshCourseContext();
@@ -4624,15 +4642,10 @@ async function finalizeWizardAttachments(config, options = {}) {
         return { ok: true, data: { skipped: true } };
     }
 
-    const overlay = document.getElementById('save-overlay');
-    const loading = document.getElementById('save-overlay-loading');
-    const success = document.getElementById('save-overlay-success');
-    const errorBox = document.getElementById('save-overlay-error');
-    loading?.classList.remove('hidden');
-    success?.classList.add('hidden');
-    errorBox?.classList.add('hidden');
-    overlay?.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    // ใช้ overlay จากขั้นบันทึกรายงานต่อเมื่อ reuseOverlay — ไม่ปิดแล้วเปิดใหม่
+    if (!options.reuseOverlay) {
+        showSaveOverlayLoading();
+    }
 
     const formData = new FormData();
     requiredRegSections().forEach((sec) => {
@@ -4691,19 +4704,20 @@ async function finalizeWizardAttachments(config, options = {}) {
             view_url: info.viewUrl,
         }));
 
-        loading?.classList.add('hidden');
-        success?.classList.add('hidden');
-        errorBox?.classList.add('hidden');
-        overlay?.classList.add('hidden');
-        document.body.style.overflow = '';
+        hideSaveOverlay();
         updateAttachmentChecklist(config);
         return { ok: true, data };
     } catch (err) {
+        const overlay = document.getElementById('save-overlay');
+        const loading = document.getElementById('save-overlay-loading');
+        const errorBox = document.getElementById('save-overlay-error');
         loading?.classList.add('hidden');
         const errorMsg = document.getElementById('save-overlay-error-msg');
         const message = err?.message || 'อัปโหลดไฟล์เข้าสู่ระบบไม่สำเร็จ';
         if (errorMsg) errorMsg.textContent = message;
         errorBox?.classList.remove('hidden');
+        overlay?.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
         if (typeof lucide !== 'undefined') lucide.createIcons();
         showToast(message, 'error');
         return { ok: false, error: message };
@@ -4991,12 +5005,14 @@ function initGradeReportWizard(config) {
         clearWizardIncomplete();
 
         if (step === 3) {
-            const saved = await saveWizardReport(config);
+            // มี มข.11 ที่ต้องแนบต่อ → คง overlay รอบเดียวตลอดบันทึก+finalize
+            const willAttachReg = hasRegistrarAttachment(config);
+            const saved = await saveWizardReport(config, { keepOverlay: willAttachReg });
             if (!saved.ok) {
                 showWizardIncomplete(3, saved.error || 'บันทึกไม่สำเร็จ กรุณาตรวจสอบข้อมูลในขั้นตอนจำนวนนักศึกษา');
                 return;
             }
-            const finalized = await finalizeWizardAttachments(config);
+            const finalized = await finalizeWizardAttachments(config, { reuseOverlay: willAttachReg });
             if (!finalized.ok) {
                 showWizardIncomplete(3, finalized.error || 'แนบไฟล์ มข.11 ไม่สำเร็จ');
                 return;
