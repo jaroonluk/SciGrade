@@ -109,6 +109,35 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_files_when_term_or_year_does_not_match_selection(): void
+    {
+        config(['filesystems.upload_disk' => 'local']);
+        Storage::fake('local');
+
+        $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $pending = Mockery::mock(InstructorPendingRegistrarService::class);
+
+        $file = UploadedFile::fake()->createWithContent('SC101011-01.pdf', '%PDF-term1');
+
+        $parser->shouldReceive('parse')
+            ->once()
+            ->andReturn($this->makeParsed('SC101011', 1, [
+                'term' => 1,
+                'year' => 2568,
+            ]));
+        $pending->shouldNotReceive('forgetAll');
+        $pending->shouldNotReceive('remember');
+
+        $service = new InstructorRegistrarUploadBatchService($parser, $pending);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('ไฟล์ มข.11 ไม่ตรงกับภาคการศึกษาและปีการศึกษาที่เลือกในหน้าจอ');
+
+        // หน้าจอเลือกภาคปลาย แต่ไฟล์เป็นภาคต้น
+        $service->process([$file], 2, 2568, 1);
+    }
+
+    #[Test]
     public function it_rejects_mixed_subjects(): void
     {
         config(['filesystems.upload_disk' => 'local']);

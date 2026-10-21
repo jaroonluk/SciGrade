@@ -48,6 +48,8 @@ class InstructorRegistrarUploadBatchService
         /** @var list<array{file: UploadedFile, parsed: array<string, mixed>, hash: string, name: string, section: int, subject: string}> $parsedRows */
         $parsedRows = [];
         $subjectCodes = [];
+        /** @var list<string> $termYearMismatches */
+        $termYearMismatches = [];
 
         foreach ($files as $uploaded) {
             $name = $uploaded->getClientOriginalName();
@@ -74,6 +76,12 @@ class InstructorRegistrarUploadBatchService
                 );
             }
 
+            $fileTerm = (int) ($parsed['term'] ?? $term);
+            $fileYear = (int) ($parsed['year'] ?? $year);
+            if ($fileTerm !== $term || $fileYear !== $year) {
+                $termYearMismatches[] = '• '.$name.' → '.$this->termYearLabel($fileTerm, $fileYear);
+            }
+
             $section = (int) ($parsed['grade_stds'][0]['sec'] ?? 0);
             $hash = hash_file('sha256', $tmpPath) ?: (uniqid('file_', true));
 
@@ -86,6 +94,16 @@ class InstructorRegistrarUploadBatchService
                 'subject' => $subject,
             ];
             $subjectCodes[$subject] = true;
+        }
+
+        if ($termYearMismatches !== []) {
+            throw new \InvalidArgumentException(
+                "ไฟล์ มข.11 ไม่ตรงกับภาคการศึกษาและปีการศึกษาที่เลือกในหน้าจอ\n"
+                ."กรุณาเลือกไฟล์ มข.11 ให้ตรงกับภาคการศึกษาและปีการศึกษาที่เลือก\n\n"
+                .'ที่เลือกบนหน้าจอ: '.$this->termYearLabel($term, $year)."\n"
+                ."พบในไฟล์:\n"
+                .implode("\n", $termYearMismatches)
+            );
         }
 
         if (count($subjectCodes) > 1) {
@@ -266,5 +284,17 @@ class InstructorRegistrarUploadBatchService
         }
 
         return $secs;
+    }
+
+    private function termYearLabel(int $term, int $year): string
+    {
+        $termLabel = match ($term) {
+            1 => 'ภาคต้น',
+            2 => 'ภาคปลาย',
+            3 => 'ภาคการศึกษาพิเศษ',
+            default => 'ภาคการศึกษาที่ '.$term,
+        };
+
+        return $termLabel.' ปีการศึกษา '.$year;
     }
 }

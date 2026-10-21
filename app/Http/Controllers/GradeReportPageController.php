@@ -322,7 +322,10 @@ class GradeReportPageController extends Controller
         } catch (RegistrarPdfParseException $e) {
             $message = $e->getMessage();
             $redirect = redirect()
-                ->route('grade-reports.upload')
+                ->route('grade-reports.upload', [
+                    'term' => $request->integer('term'),
+                    'year' => $request->integer('year'),
+                ])
                 ->withInput()
                 ->withErrors(['grade_files' => $message]);
 
@@ -333,7 +336,10 @@ class GradeReportPageController extends Controller
             return $redirect;
         } catch (\InvalidArgumentException $e) {
             return redirect()
-                ->route('grade-reports.upload')
+                ->route('grade-reports.upload', [
+                    'term' => $request->integer('term'),
+                    'year' => $request->integer('year'),
+                ])
                 ->withInput()
                 ->withErrors(['grade_files' => $e->getMessage()]);
         }
@@ -361,7 +367,10 @@ class GradeReportPageController extends Controller
         // ทุก Section ที่อัปโหลดมีข้อมูลอยู่แล้ว — กลับหน้าอัปโหลดพร้อมแจ้งเตือนอย่างเป็นมิตร
         if ($accepted === [] || $parsed === null) {
             $redirect = redirect()
-                ->route('grade-reports.upload')
+                ->route('grade-reports.upload', [
+                    'term' => $request->integer('term'),
+                    'year' => $request->integer('year'),
+                ])
                 ->withInput();
 
             if ($alreadyExistsMessage !== null) {
