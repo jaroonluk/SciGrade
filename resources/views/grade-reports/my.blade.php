@@ -202,9 +202,13 @@
                                         fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_REGISTRAR
                                             && $f->isInstructorUpload($report)
                                     );
+                                    $iLetterFiles = $report->files->filter(
+                                        fn ($f) => $f->resolvedType() === \App\Models\GradeReportFile::TYPE_I_LETTER
+                                    )->values();
                                     $regDeptFiles = $report->files->filter(
                                         fn ($f) => $f->isDeptAdminUpload($report)
                                     );
+                                    $instructorHasFiles = $regInstructorFiles->isNotEmpty() || $iLetterFiles->isNotEmpty();
                                 @endphp
                                 <div class="space-y-2 min-w-[11rem]">
                                     <div class="reg-source-block reg-source-instructor space-y-2"
@@ -212,7 +216,7 @@
                                         data-file-type="registrar"
                                         data-reg-source="instructor">
                                         <p class="reg-source-label">อาจารย์อัปโหลด</p>
-                                        @if ($regInstructorFiles->isEmpty())
+                                        @if (! $instructorHasFiles)
                                             <p class="text-xs text-gray-500 file-empty-msg">ยังไม่มีไฟล์</p>
                                         @else
                                             <div class="flex flex-col gap-1.5 file-list">
@@ -226,6 +230,19 @@
                                                            target="_blank" rel="noopener noreferrer"
                                                            class="hover:underline truncate max-w-[9rem]" title="{{ $regDisplayName }}">
                                                             {{ $regDisplayName }}
+                                                        </a>
+                                                    </div>
+                                                @endforeach
+                                                @foreach ($iLetterFiles as $file)
+                                                    @php
+                                                        $iLetterName = $file->original_name ?: $file->typeLabel();
+                                                    @endphp
+                                                    <div class="file-chip" data-file-id="{{ $file->file_id }}" data-file-type="i_letter">
+                                                        <i data-lucide="file-warning" class="w-3.5 h-3.5 shrink-0 text-sky-700"></i>
+                                                        <a href="{{ route('grade-reports.files.show', ['gradeReport' => $report->grade_id, 'file' => $file->file_id]) }}"
+                                                           target="_blank" rel="noopener noreferrer"
+                                                           class="hover:underline truncate max-w-[9rem]" title="{{ $iLetterName }}">
+                                                            {{ $iLetterName }}
                                                         </a>
                                                     </div>
                                                 @endforeach
