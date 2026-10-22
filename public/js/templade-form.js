@@ -647,10 +647,43 @@ function renderPriorRemarkLists(iEntries, otherEntries) {
     if (oBox) oBox.classList.toggle('hidden', !oItems.length);
 }
 
-function setRemarkCheckboxes(flags) {
+function setRemarkCheckboxes(flags, { includeI = false, includeOther = false } = {}) {
     const f = Number(flags) || 0;
     const joint = document.getElementById('remark-joint');
     if (joint) joint.checked = (f & REMARK_FLAG_JOINT) === REMARK_FLAG_JOINT;
+    if (includeI) {
+        const remarkI = document.getElementById('remark-i');
+        if (remarkI) remarkI.checked = (f & REMARK_FLAG_I) === REMARK_FLAG_I || hasGradeIStudents();
+    }
+    if (includeOther) {
+        const remarkOther = document.getElementById('remark-other');
+        if (remarkOther) remarkOther.checked = (f & REMARK_FLAG_OTHER) === REMARK_FLAG_OTHER;
+    }
+}
+
+/** ดึงสาเหตุ I จากข้อความหมายเหตุกลับเข้า gradeIStudents เพื่อแก้ไข */
+function hydrateGradeIStudentsFromIEntries(entries) {
+    if (!Array.isArray(entries) || !entries.length) return;
+    const incoming = entries.map((entry) => {
+        const text = String(entry || '').trim();
+        if (!text) return null;
+        const m = text.match(/^(\S+)\s+(.+?)\s*[:：]\s*(.*)$/u);
+        if (m) {
+            return {
+                student_code: m[1].trim(),
+                name: m[2].trim(),
+                reason: String(m[3] || '').trim(),
+                section: null,
+            };
+        }
+        return {
+            student_code: '',
+            name: text,
+            reason: '',
+            section: null,
+        };
+    }).filter(Boolean);
+    if (incoming.length) mergeGradeIStudents(incoming);
 }
 
 function clearRemarkInputs() {
@@ -2983,13 +3016,48 @@ function applyCourseContext(data) {
     }
     window.priorReportedSections = reported;
     window.courseGroupLocked = grouped;
-    window.sharedFieldsLocked = Boolean(prior);
-    window.priorSectionEvaEditable = Boolean(prior && Number(prior.statuseva) === 1);
+    const editingOwnReport = Boolean(window.wizardConfig?.openedAsEdit);
+    // โหมดแก้ไขรายงานของตนเอง — ห้ามล็อกฟิลด์/ทับหมายเหตุจากรายงานอื่น
+    window.sharedFieldsLocked = editingOwnReport ? false : Boolean(prior);
+    window.priorSectionEvaEditable = editingOwnReport
+        ? false
+        : Boolean(prior && Number(prior.statuseva) === 1);
     attachWizardToPriorReport(prior);
 
     renderCourseGroupBanner(members, grouped);
-    renderCoursePriorBanner(prior);
+    renderCoursePriorBanner(editingOwnReport ? null : prior);
     renderPriorSectionsBox(window.priorReportedSections);
+
+    if (editingOwnReport) {
+        // แสดงหมายเหตุจาก Sec อื่น (ถ้ามี) เป็นข้อมูลอ้างอิงเท่านั้น — ไม่เคลียร์ช่องแก้ไข
+        const priorRemarks = data?.prior_remarks || prior?.remarks || null;
+        const iEntries = Array.isArray(priorRemarks?.i_entries) ? priorRemarks.i_entries : [];
+        const oEntries = Array.isArray(priorRemarks?.other_entries) ? priorRemarks.other_entries : [];
+        window.priorIEntries = iEntries;
+        window.priorOtherEntries = oEntries;
+        window.priorRemarkFlags = Number(priorRemarks?.flags) || 0;
+        renderPriorRemarkLists(iEntries, oEntries);
+
+        if (grouped) {
+            const joint = document.getElementById('remark-joint');
+            if (joint) joint.checked = true;
+            setJointGradeSubjects(members
+                .filter((m) => !m.is_current)
+                .map((m) => ({ code: m.subject_code, name: m.subject || '' })));
+            groupMembersApplied = true;
+        }
+
+        applyPriorTeacherNames(prior);
+        setSharedFieldsLocked(false, {
+            sectionEvaEditable: false,
+            groupLocked: window.courseGroupLocked,
+        });
+        syncRemarkIFromGradeIStudents();
+        updateReasonFieldsState();
+        updateGradeILetterUi();
+        syncSectionEntryVisibility();
+        return;
+    }
 
     if (grouped) {
         const joint = document.getElementById('remark-joint');
@@ -3240,8 +3308,51 @@ function renderPriorSectionsBox(sections) {
     }).join('');
 }
 
+/**
+ * โหลดหมายเหตุเพื่อแก้ไข (โหมด edit) — ติ๊ก checkbox และใส่ค่าในช่องกรอก
+ * ต่างจากโหมดสร้างใหม่ที่แสดงเป็นข้อความ Sec ก่อนหน้าอย่างเดียว
+ */
+function hydrateEditableRemarksFromRecord(record) {
+    if (!record || (!record.reasonid && !record.reason)) return;
+    const parsed = parseRemarks(record.reason, record.reasonid);
+
+    window.priorRemarkFlags = 0;
+    window.priorIEntries = [];
+    window.priorOtherEntries = [];
+    renderPriorRemarkLists([], []);
+
+    setRemarkCheckboxes(parsed.flags, { includeI: true, includeOther: true });
+
+    if ((parsed.flags & REMARK_FLAG_JOINT) === REMARK_FLAG_JOINT && (parsed.joint_line || record.reason)) {
+        const subjects = parseJointGradeReason(record.reason);
+        setJointGradeSubjects(subjects);
+        enrichJointGradeSubjectNames(subjects).then(setJointGradeSubjects);
+    }
+
+    const i3 = document.getElementById('std-i3');
+    if (i3) {
+        i3.value = (parsed.other_entries || []).join(REMARK_ENTRY_SEP);
+    }
+
+    if ((parsed.flags & REMARK_FLAG_I) === REMARK_FLAG_I) {
+        hydrateGradeIStudentsFromIEntries(parsed.i_entries);
+        window.gradeISubStep = 1;
+    }
+
+    syncRemarkIFromGradeIStudents();
+    updateReasonFieldsState();
+    updateGradeILetterUi();
+}
+
 function applyRemarksFromRecord(record) {
     if (!record || (!record.reasonid && !record.reason)) return;
+
+    // โหมดแก้ไขรายงานเดิม — แสดงค่าในช่องแก้ไข ไม่ย้ายไปกล่อง «Sec ก่อนหน้า»
+    if (window.wizardConfig?.openedAsEdit) {
+        hydrateEditableRemarksFromRecord(record);
+        return;
+    }
+
     const parsed = parseRemarks(record.reason, record.reasonid);
 
     window.priorRemarkFlags = parsed.flags;
@@ -5386,11 +5497,42 @@ function initGradeReportWizard(config) {
     applySectionStdFormLayout();
 
     const go = (next) => {
-        step = next;
+        const target = Math.min(3, Math.max(1, Number(next) || 1));
+        step = target;
         persistWizardState(config, step);
         showWizardStep(step, config);
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('wizard_step', String(step));
+            window.history.replaceState({}, '', url.toString());
+        } catch {
+            /* ignore */
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+
+    // คลิกเลขขั้นตอนเพื่อไปแก้ไขขั้นที่ต้องการ
+    document.querySelectorAll('[data-wizard-dot]').forEach((el) => {
+        if (el.dataset.navBound === '1') return;
+        el.dataset.navBound = '1';
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('title', 'ไปยังขั้นตอนนี้');
+        const jump = () => {
+            const target = Number(el.dataset.wizardDot);
+            if (!(target >= 1 && target <= 3) || target === step) return;
+            clearWizardIncomplete();
+            hideExamReportDownloadNotice();
+            go(target);
+        };
+        el.addEventListener('click', jump);
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                jump();
+            }
+        });
+    });
 
     document.getElementById('wizard-next')?.addEventListener('click', async () => {
         // ตรวจทุกขั้นที่ผ่านมาจนถึงขั้นปัจจุบัน เพื่อชี้จุดที่ยังไม่สมบูรณ์

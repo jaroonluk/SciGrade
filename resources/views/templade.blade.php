@@ -151,6 +151,15 @@
         --arrow: #d1d5db;
         --ink: #6b7280;
         --label: #9ca3af;
+        cursor: pointer;
+    }
+    .wizard-step-item:hover .wizard-chevron {
+        filter: brightness(0.96);
+    }
+    .wizard-step-item:focus-visible {
+        outline: 2px solid #8B4513;
+        outline-offset: 3px;
+        border-radius: 0.35rem;
     }
     .wizard-chevron {
         width: 100%;
