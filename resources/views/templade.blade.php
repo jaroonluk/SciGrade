@@ -362,7 +362,7 @@
                                 <input type="checkbox" id="remark-i" name="remark_i" value="1" class="accent-amber-700 mt-1 shrink-0">
                                 <span class="text-[#5C2E1F] font-medium pt-0.5">ได้ I เนื่องจาก</span>
                             </label>
-                            <div id="grade-i-letter-box" class="hidden ml-6 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-emerald-50 px-3 py-3">
+                            <div id="grade-i-letter-box" class="hidden ml-6 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-emerald-50 px-3 py-3 space-y-3">
                                 <div class="flex flex-wrap items-center gap-3 justify-between">
                                     <div class="flex items-start gap-3 min-w-0">
                                         <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-600 text-white shadow-sm">
@@ -371,27 +371,38 @@
                                         <div class="min-w-0">
                                             <p class="text-sm font-semibold text-sky-950">แบบฟอร์มบันทึกชี้แจงให้เกรด I</p>
                                             <p id="grade-i-letter-hint" class="text-xs text-[#0c4a6e]/80 mt-0.5">
-                                                ดาวน์โหลด Word พร้อมข้อมูลจากใบ มข.11 (เมื่อมีนักศึกษาติดเกรด I)
+                                                กรอกรายละเอียดสาเหตุรายคน แล้วดาวน์โหลด Word รวมทุก Section ในไฟล์เดียว
                                             </p>
                                         </div>
                                     </div>
-                                    <button type="button" id="btn-download-i-letter" disabled
-                                        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
-                                        <i data-lucide="download" class="w-4 h-4"></i>
-                                        ดาวน์โหลด Word
-                                    </button>
+                                    <div class="flex flex-wrap gap-2 shrink-0">
+                                        <button type="button" id="btn-edit-i-details" disabled
+                                            class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-sky-600 text-sky-800 bg-white text-sm font-semibold hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                                            <i data-lucide="pencil-line" class="w-4 h-4"></i>
+                                            กรอกรายละเอียดการติด I
+                                        </button>
+                                        <button type="button" id="btn-download-i-letter" disabled
+                                            class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800 disabled:opacity-40 disabled:cursor-not-allowed">
+                                            <i data-lucide="download" class="w-4 h-4"></i>
+                                            ดาวน์โหลด Word
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="grade-i-detail-panel" class="hidden rounded-lg border border-sky-200 bg-white p-3 space-y-3">
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <p class="text-sm font-semibold text-sky-950">รายละเอียดสาเหตุเกรด I (รวมทุก Section)</p>
+                                        <p id="grade-i-detail-summary" class="text-xs text-[#0c4a6e]/80"></p>
+                                    </div>
+                                    <div id="grade-i-detail-list" class="space-y-3 max-h-80 overflow-y-auto"></div>
+                                    <p class="text-[0.7rem] text-[#7A4A3A]/80">ข้อความในช่องสาเหตุจะแสดงในคอลัมน์ «สาเหตุ» ของไฟล์ Word — หลาย Section รวมในหน้าเดียวและดาวน์โหลดไฟล์เดียว</p>
                                 </div>
                             </div>
                             <div id="prior-i-box" class="hidden ml-6 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
                                 <p class="text-[0.7rem] font-semibold text-[#854d0e] mb-1">ข้อความจากผู้กรอก Sec ก่อนหน้า (รหัสวิชาเดียวกัน)</p>
                                 <ul id="prior-i-list" class="list-disc pl-4 space-y-0.5 text-xs text-[#5C2E1F]"></ul>
                             </div>
-                            <div class="ml-6">
-                                <input id="std-i2" type="text" maxlength="400"
-                                    class="w-full border border-amber-200 rounded px-2 py-1.5 text-sm"
-                                    placeholder="กรอกเหตุผลเพิ่มเติม (บังคับเมื่อติ๊กข้อนี้)" disabled>
-                                <p class="text-[0.65rem] text-[#7A4A3A]/75 mt-1">ข้อความใหม่จะถูกเพิ่มต่อท้าย โดยไม่ทับข้อมูลเดิม — ใช้เป็นสาเหตุในแบบฟอร์ม Word ด้วย</p>
-                            </div>
+                            {{-- คง std-i2 ไว้แบบซ่อน เพื่อไม่ให้โค้ดเดิมที่อ้าง id พัง — ไม่ใช้กรอกเหตุผลรวมแล้ว --}}
+                            <input id="std-i2" type="hidden" value="">
                         </div>
 
                         <div class="space-y-2">

@@ -7,6 +7,7 @@ use App\Models\GradeReport;
 use App\Models\GradeReportFile;
 use App\Models\GradeType;
 use App\Models\TblUser;
+use App\Services\DeptAdmin\DepartmentSubjectFilter;
 use App\Services\Instructor\GradeReportIDocxExportService;
 use App\Services\Instructor\GradeReportSubmissionService;
 use App\Services\Instructor\InstructorPendingRegistrarService;
@@ -39,6 +40,7 @@ class GradeReportPageController extends Controller
         private readonly InstructorPendingRegistrarService $pendingRegistrar,
         private readonly InstructorRegistrarUploadBatchService $uploadBatch,
         private readonly GradeReportIDocxExportService $iLetterDocx,
+        private readonly DepartmentSubjectFilter $departmentSubjectFilter,
     ) {}
 
     /**
@@ -449,10 +451,19 @@ class GradeReportPageController extends Controller
             'students.*.name' => ['nullable', 'string', 'max:255'],
             'students.*.student_code' => ['nullable', 'string', 'max:32'],
             'students.*.section' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'students.*.reason' => ['nullable', 'string', 'max:1000'],
         ], [
             'students.required' => 'ไม่พบรายชื่อนักศึกษาที่ติดเกรด I จากไฟล์ มข.11',
             'students.min' => 'ไม่พบรายชื่อนักศึกษาที่ติดเกรด I จากไฟล์ มข.11',
         ]);
+
+        // ชื่อสาขาจากเงื่อนไขรหัสวิชา (หน้า department-patterns) — ทับค่าที่ส่งมาถ้าจับคู่ได้
+        $resolvedDepartment = $this->departmentSubjectFilter->departmentNameForSubject(
+            (string) $data['subject_code']
+        );
+        if (is_string($resolvedDepartment) && trim($resolvedDepartment) !== '') {
+            $data['department'] = trim($resolvedDepartment);
+        }
 
         try {
             return $this->iLetterDocx->download($data);

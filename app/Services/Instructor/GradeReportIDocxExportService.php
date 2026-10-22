@@ -59,9 +59,11 @@ class GradeReportIDocxExportService
 
         $office = $section->addTextRun(['spaceAfter' => 0]);
         $office->addText('ส่วนงาน', $bold);
+        $officeDept = $fields['department'] !== ''
+            ? $fields['department']
+            : 'สาขาวิชา...........................';
         $office->addText(
-            '      คณะวิทยาศาสตร์   สาขาวิชา'
-            .($fields['department'] !== '' ? $fields['department'] : '...........................')
+            '      คณะวิทยาศาสตร์   '.$officeDept
             .'  หมายเลขโทรศัพท์ …………………….',
             $font
         );

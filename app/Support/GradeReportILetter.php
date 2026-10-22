@@ -97,29 +97,35 @@ class GradeReportILetter
             if ($name === '' && $code === '') {
                 continue;
             }
+            $rowReason = trim((string) ($row['reason'] ?? ''));
             $students[] = [
                 'name' => $name !== '' ? $name : '................................',
                 'student_code' => $code !== '' ? $code : '..................',
-                'reason' => $reason !== '' ? $reason : '',
+                'reason' => $rowReason !== '' ? $rowReason : $reason,
             ];
         }
 
         $count = count($students);
-        $deptPart = $department !== '' ? $department : '..................';
         $codePart = $subjectCode !== '' ? $subjectCode : '...............';
         $namePart = $subject !== '' ? $subject : '.................';
+        $yearPart = $year !== '' ? (string) $year : '...........';
 
+        // ชื่อจาก tbldepartment / เงื่อนไขรหัสวิชา มักเป็น «สาขาวิชา...»
+        $departmentFull = self::normalizeDepartmentName($department);
+        $chairTitle = self::chairTitleForDepartment($departmentFull);
+
+        // ไม่ใส่คำกำกับในวงเล็บ เช่น (รหัสวิชา) (ชื่อวิชา) (ต้น/ปลาย)
         $subjectLine = 'ชี้แจงสาเหตุการให้เกรด I รายวิชา '.$codePart
-            .' (รหัสวิชา) '.($subject !== '' ? $subject : '.................')
-            .' (ชื่อวิชา) ประจำภาค '.$termLabel
-            .' (ต้น/ปลาย) ปีการศึกษา '.($year !== '' ? $year : '......................');
+            .($subject !== '' ? ' '.$subject : '')
+            .' ประจำภาค '.$termLabel
+            .' ปีการศึกษา '.$yearPart;
 
         $body = 'ตามที่นักศึกษาจำนวน '.($count > 0 ? $count : '......').' ราย ที่มีรายชื่อดังต่อไปนี้'
             .' ได้รับการประเมินเกรด I ในรายวิชา '.$codePart
-            .' (รหัสวิชา) '.$namePart
-            .' (ชื่อวิชา) กลุ่มที่ '.$sectionLabel
+            .($subject !== '' ? ' '.$namePart : '')
+            .' กลุ่มที่ '.$sectionLabel
             .' ประจำภาค '.$termLabel
-            .' (ต้น/ปลาย) ปีการศึกษา '.($year !== '' ? $year : '...........')
+            .' ปีการศึกษา '.$yearPart
             .' อาจารย์ประจำวิชา/อาจารย์ที่ปรึกษาโครงงาน ใคร่ขอชี้แจงสาเหตุที่นักศึกษา'
             .' แต่ละรายไม่สามารถปฏิบัติงานได้ครบตามเงื่อนไขที่อาจารย์ผู้สอนกำหนด'
             .' ด้วยเหตุจำเป็นหรือสุดวิสัยดังต่อไปนี้';
@@ -133,18 +139,67 @@ class GradeReportILetter
             'term_label' => $termLabel,
             'teacher' => $teacher,
             'section_label' => $sectionLabel,
-            'department' => $department,
+            'department' => $departmentFull,
             'reason' => $reason,
             'student_count' => $count,
             'students' => $students,
             'memo_no' => 'อว 660301.1.1. /.................',
             'letter_date' => ThaiDateTime::formatLongDate(now()),
-            'to_line' => 'คณบดีคณะวิทยาศาสตร์ ผ่านหัวหน้าสาขาวิชา'.$deptPart,
+            'to_line' => 'คณบดีคณะวิทยาศาสตร์ ผ่าน'.$chairTitle,
             'subject_line' => $subjectLine,
             'body' => $body,
-            'chair_title' => 'หัวหน้าสาขาวิชา'.($department !== '' ? $department : '........'),
+            'chair_title' => $chairTitle,
             'emblem_path' => public_path(self::EMBLEM_RELATIVE),
             'footer_path' => public_path(self::FOOTER_RELATIVE),
         ];
+    }
+
+    /**
+     * ปรับชื่อหน่วยงานให้ขึ้นต้นด้วย «สาขาวิชา» เมื่อยังไม่มีคำนำหน้า
+     */
+    public static function normalizeDepartmentName(?string $department): string
+    {
+        $name = trim((string) $department);
+        if ($name === '') {
+            return '';
+        }
+
+        if (str_starts_with($name, 'หัวหน้าสาขาวิชา')) {
+            $name = trim(mb_substr($name, mb_strlen('หัวหน้าสาขาวิชา')));
+        } elseif (str_starts_with($name, 'หัวหน้า')) {
+            $name = trim(mb_substr($name, mb_strlen('หัวหน้า')));
+        }
+
+        if ($name === '') {
+            return '';
+        }
+
+        if (
+            str_starts_with($name, 'สาขาวิชา')
+            || str_starts_with($name, 'หน่วยงาน')
+            || str_starts_with($name, 'ศูนย์')
+            || str_starts_with($name, 'สำนักงาน')
+        ) {
+            return $name;
+        }
+
+        return 'สาขาวิชา'.$name;
+    }
+
+    /**
+     * หัวหน้าสาขาวิชา + ชื่อหน่วยงาน (ไม่ซ้ำคำว่า สาขาวิชา)
+     */
+    public static function chairTitleForDepartment(?string $department): string
+    {
+        $full = self::normalizeDepartmentName($department);
+        if ($full === '') {
+            return 'หัวหน้าสาขาวิชา........';
+        }
+
+        if (str_starts_with($full, 'หัวหน้า')) {
+            return $full;
+        }
+
+        return 'หัวหน้า'.$full;
     }
 }

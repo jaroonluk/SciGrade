@@ -170,50 +170,150 @@ window.priorIEntries = [];
 window.priorOtherEntries = [];
 window.gradeIStudents = window.gradeIStudents || [];
 
+function gradeIStudentKey(row) {
+    const code = String(row?.student_code || '').trim();
+    const name = String(row?.name || '').trim();
+    const section = row?.section != null ? Number(row.section) : null;
+    return code || `${name}|${section || ''}`;
+}
+
 function mergeGradeIStudents(incoming, sectionHint = null) {
     if (!Array.isArray(incoming) || !incoming.length) return;
     const existing = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
-    const seen = new Set(
-        existing.map((s) => String(s.student_code || '').trim() || `${s.name || ''}|${s.section || ''}`)
-    );
-    const next = [...existing];
+    const byKey = new Map(existing.map((s) => [gradeIStudentKey(s), { ...s }]));
     incoming.forEach((row) => {
         if (!row) return;
         const name = String(row.name || '').trim();
         const code = String(row.student_code || '').trim();
         const section = row.section != null ? Number(row.section) : (sectionHint != null ? Number(sectionHint) : null);
-        const key = code || `${name}|${section || ''}`;
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        next.push({ name, student_code: code, section: section > 0 ? section : null });
+        const reason = String(row.reason || '').trim();
+        const key = gradeIStudentKey({ name, student_code: code, section });
+        if (!key) return;
+        const prev = byKey.get(key);
+        byKey.set(key, {
+            name: name || prev?.name || '',
+            student_code: code || prev?.student_code || '',
+            section: section > 0 ? section : (prev?.section || null),
+            reason: reason || prev?.reason || '',
+        });
     });
-    window.gradeIStudents = next;
+    window.gradeIStudents = Array.from(byKey.values()).sort((a, b) => {
+        const sa = Number(a.section) || 0;
+        const sb = Number(b.section) || 0;
+        if (sa !== sb) return sa - sb;
+        return String(a.student_code || '').localeCompare(String(b.student_code || ''), 'th');
+    });
     updateGradeILetterUi();
+}
+
+function syncGradeIDetailReasonsFromDom() {
+    const list = document.getElementById('grade-i-detail-list');
+    if (!list || !Array.isArray(window.gradeIStudents)) return;
+    list.querySelectorAll('[data-i-reason-key]').forEach((input) => {
+        const key = input.getAttribute('data-i-reason-key');
+        const student = window.gradeIStudents.find((s) => gradeIStudentKey(s) === key);
+        if (student) student.reason = String(input.value || '').trim();
+    });
+}
+
+function renderGradeIDetailPanel() {
+    const list = document.getElementById('grade-i-detail-list');
+    const summary = document.getElementById('grade-i-detail-summary');
+    const students = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
+    if (!list) return;
+
+    if (!students.length) {
+        list.innerHTML = '<p class="text-sm text-[#7A4A3A]/80">ยังไม่มีรายชื่อนักศึกษาเกรด I จากใบ มข.11</p>';
+        if (summary) summary.textContent = '';
+        return;
+    }
+
+    const sections = Array.from(new Set(students.map((s) => Number(s.section)).filter((n) => n > 0))).sort((a, b) => a - b);
+    if (summary) {
+        summary.textContent = sections.length > 1
+            ? `${students.length} ราย · Section ${sections.join(', ')} (รวมไฟล์เดียว)`
+            : `${students.length} ราย${sections.length ? ` · Section ${sections[0]}` : ''}`;
+    }
+
+    const groups = new Map();
+    students.forEach((s) => {
+        const sec = Number(s.section) > 0 ? Number(s.section) : 0;
+        if (!groups.has(sec)) groups.set(sec, []);
+        groups.get(sec).push(s);
+    });
+
+    const html = Array.from(groups.entries()).map(([sec, rows]) => {
+        const title = sec > 0 ? `Section ${sec}` : 'ไม่ระบุ Section';
+        const rowsHtml = rows.map((s, idx) => {
+            const key = gradeIStudentKey(s);
+            const label = [s.student_code, s.name].filter(Boolean).join(' · ') || `รายที่ ${idx + 1}`;
+            return `
+                <div class="rounded-lg border border-amber-100 bg-[#FFFBF7] p-2.5 space-y-1.5">
+                    <p class="text-xs font-semibold text-[#5C2E1F]">${escapeHtml(label)}</p>
+                    <label class="block text-[0.7rem] text-[#7A4A3A]">สาเหตุ (แสดงในช่องหมายเหตุของนักศึกษา)</label>
+                    <textarea data-i-reason-key="${escapeHtml(key)}" rows="2" maxlength="1000"
+                        class="w-full border border-amber-200 rounded px-2 py-1.5 text-sm"
+                        placeholder="กรอกสาเหตุการติดเกรด I ของนักศึกษาคนนี้">${escapeHtml(s.reason || '')}</textarea>
+                </div>`;
+        }).join('');
+        return `
+            <div class="space-y-2">
+                <p class="text-xs font-bold text-sky-900 border-b border-sky-100 pb-1">${title} · ${rows.length} ราย</p>
+                ${rowsHtml}
+            </div>`;
+    }).join('');
+
+    list.innerHTML = html;
+    list.querySelectorAll('[data-i-reason-key]').forEach((input) => {
+        input.addEventListener('input', () => syncGradeIDetailReasonsFromDom());
+        input.addEventListener('change', () => syncGradeIDetailReasonsFromDom());
+    });
+}
+
+function openGradeIDetailPanel() {
+    const panel = document.getElementById('grade-i-detail-panel');
+    if (!panel) return;
+    renderGradeIDetailPanel();
+    panel.classList.remove('hidden');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
 function updateGradeILetterUi() {
     const box = document.getElementById('grade-i-letter-box');
     const btn = document.getElementById('btn-download-i-letter');
+    const editBtn = document.getElementById('btn-edit-i-details');
     const hint = document.getElementById('grade-i-letter-hint');
+    const panel = document.getElementById('grade-i-detail-panel');
     const hasI = Boolean(document.getElementById('remark-i')?.checked);
     const students = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
     const count = students.length;
+    const filled = students.filter((s) => String(s.reason || '').trim()).length;
+    const sections = Array.from(new Set(students.map((s) => Number(s.section)).filter((n) => n > 0)));
 
     if (box) box.classList.toggle('hidden', !hasI);
+    if (!hasI && panel) panel.classList.add('hidden');
     if (btn) btn.disabled = !hasI || count === 0;
+    if (editBtn) editBtn.disabled = !hasI || count === 0;
     if (hint) {
         if (!hasI) {
-            hint.textContent = 'ดาวน์โหลด Word พร้อมข้อมูลจากใบ มข.11 (เมื่อมีนักศึกษาติดเกรด I)';
+            hint.textContent = 'กรอกรายละเอียดสาเหตุรายคน แล้วดาวน์โหลด Word รวมทุก Section ในไฟล์เดียว';
         } else if (count === 0) {
             hint.textContent = 'ยังไม่พบรายชื่อนักศึกษาเกรด I จากไฟล์ มข.11 — อัปโหลดใบส่งผลการศึกษาที่มีเกรด I ก่อน';
+        } else if (sections.length > 1) {
+            hint.textContent = `พบ ${count} ราย จาก Section ${sections.sort((a, b) => a - b).join(', ')} — กรอกรายละเอียดแล้วดาวน์โหลดไฟล์เดียว`;
         } else {
-            hint.textContent = `พบนักศึกษาเกรด I ${count} รายจากใบ มข.11 — กดดาวน์โหลดเพื่อกรอกแบบฟอร์ม Word`;
+            hint.textContent = `พบนักศึกษาเกรด I ${count} ราย — กรอกสาเหตุรายคนแล้วดาวน์โหลด Word${filled ? ` (กรอกแล้ว ${filled}/${count})` : ''}`;
         }
+    }
+    if (panel && !panel.classList.contains('hidden')) {
+        renderGradeIDetailPanel();
     }
     if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
 async function downloadGradeILetter() {
+    syncGradeIDetailReasonsFromDom();
     const students = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
     if (!students.length) {
         showToast('ไม่พบรายชื่อนักศึกษาที่ติดเกรด I จากไฟล์ มข.11', 'error');
@@ -241,12 +341,13 @@ async function downloadGradeILetter() {
             || 1),
         year: Number(document.getElementById('year-input')?.value || 0),
         teacher: document.getElementById('teacher-input')?.value?.trim() || '',
-        reason: document.getElementById('std-i2')?.value?.trim() || '',
+        reason: '',
         sections,
         students: students.map((s) => ({
             name: s.name || '',
             student_code: s.student_code || '',
             section: s.section || null,
+            reason: String(s.reason || '').trim(),
         })),
     };
 
@@ -538,12 +639,6 @@ function updateReasonFieldsState() {
     if (searchHint) searchHint.classList.toggle('hidden', Boolean(window.courseGroupLocked));
     if (panel) panel.classList.toggle('opacity-50', !isJoint && !window.courseGroupLocked);
 
-    const i2 = document.getElementById('std-i2');
-    if (i2) {
-        i2.disabled = !hasI;
-        i2.readOnly = false;
-        i2.classList.toggle('field-locked', false);
-    }
     const i3 = document.getElementById('std-i3');
     if (i3) {
         i3.disabled = !hasOther;
@@ -682,12 +777,14 @@ function setupReasonIdFields() {
         el.addEventListener('change', () => {
             updateReasonFieldsState();
             if (id === 'remark-i' && el.checked) {
-                document.getElementById('std-i2')?.focus();
+                openGradeIDetailPanel();
             }
             if (id === 'remark-other' && el.checked) {
                 document.getElementById('std-i3')?.focus();
             }
             if (id === 'remark-i' && !el.checked) {
+                const panel = document.getElementById('grade-i-detail-panel');
+                panel?.classList.add('hidden');
                 const i2 = document.getElementById('std-i2');
                 if (i2) i2.value = '';
             }
@@ -697,6 +794,19 @@ function setupReasonIdFields() {
             }
         });
     });
+
+    const editIBtn = document.getElementById('btn-edit-i-details');
+    if (editIBtn && editIBtn.dataset.bound !== '1') {
+        editIBtn.dataset.bound = '1';
+        editIBtn.addEventListener('click', () => {
+            const remarkI = document.getElementById('remark-i');
+            if (remarkI && !remarkI.checked) {
+                remarkI.checked = true;
+                updateReasonFieldsState();
+            }
+            openGradeIDetailPanel();
+        });
+    }
 
     const dlBtn = document.getElementById('btn-download-i-letter');
     if (dlBtn && dlBtn.dataset.bound !== '1') {
@@ -1030,8 +1140,20 @@ function buildReason() {
 
     if (hasI) {
         flags |= REMARK_FLAG_I;
-        const text = document.getElementById('std-i2')?.value?.trim();
-        if (text) parts.push(`ได้ I เนื่องจาก :${text}`);
+        syncGradeIDetailReasonsFromDom();
+        const detailParts = (Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [])
+            .map((s) => {
+                const who = [s.student_code, s.name].filter(Boolean).join(' ');
+                const why = String(s.reason || '').trim();
+                if (!who && !why) return '';
+                return why ? `${who}: ${why}` : who;
+            })
+            .filter(Boolean);
+        if (detailParts.length) {
+            parts.push(`ได้ I เนื่องจาก :${detailParts.join(REMARK_ENTRY_SEP)}`);
+        } else {
+            parts.push('ได้ I เนื่องจาก');
+        }
     }
 
     if (hasOther) {
@@ -2021,13 +2143,7 @@ function validateGradeReportBeforeSave(payload) {
         && !window.courseGroupLocked) {
         return 'ขั้นตอนที่ 2: กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
     }
-    if ((reasonidToFlags(payload.reasonid) & REMARK_FLAG_I) === REMARK_FLAG_I) {
-        const newI = document.getElementById('std-i2')?.value?.trim();
-        const checkedI = Boolean(document.getElementById('remark-i')?.checked);
-        if (checkedI && !newI) {
-            return 'ขั้นตอนที่ 2: กรุณากรอกเหตุผลในช่อง «ได้ I เนื่องจาก»';
-        }
-    }
+    // ได้ I — ไม่บังคับช่องเหตุผลรวมแล้ว กรอกรายคนในแบบฟอร์ม Word ได้
     if ((reasonidToFlags(payload.reasonid) & REMARK_FLAG_OTHER) === REMARK_FLAG_OTHER) {
         const newOther = document.getElementById('std-i3')?.value?.trim();
         const checkedOther = Boolean(document.getElementById('remark-other')?.checked);
@@ -4311,7 +4427,7 @@ function wizardStepFocusSelector(step, message = '') {
     }
     if (step === 2) {
         if (msg.includes('ตัดเกรดร่วม') || msg.includes('วิชาที่ตัดเกรด')) return '#joint-subject-search';
-        if (msg.includes('ได้ I')) return '#std-i2';
+        if (msg.includes('ได้ I') || msg.includes('เกรด I')) return '#btn-edit-i-details';
         if (msg.includes('อื่นๆ')) return '#std-i3';
         return '#remark-joint';
     }
@@ -4360,9 +4476,6 @@ function validateWizardStep(step, config) {
         const hasOther = Boolean(document.getElementById('remark-other')?.checked);
         if (isJoint && !jointGradeSubjects.length && !window.courseGroupLocked) {
             return 'กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
-        }
-        if (hasI && !document.getElementById('std-i2')?.value?.trim()) {
-            return 'กรุณากรอกเหตุผลในช่อง «ได้ I เนื่องจาก»';
         }
         if (hasOther && !document.getElementById('std-i3')?.value?.trim()) {
             return 'กรุณากรอกข้อความในช่อง «อื่นๆ»';
