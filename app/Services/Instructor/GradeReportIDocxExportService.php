@@ -32,115 +32,157 @@ class GradeReportIDocxExportService
 
         $section = $phpWord->addSection([
             'paperSize' => 'A4',
-            'marginTop' => 1008,
-            'marginBottom' => 1440,
-            'marginLeft' => 1440,
-            'marginRight' => 1440,
+            'marginTop' => 850,
+            'marginBottom' => 1134,
+            'marginLeft' => 1134,
+            'marginRight' => 1134,
         ]);
 
         $font = ['name' => 'TH SarabunPSK', 'size' => 16];
         $bold = ['name' => 'TH SarabunPSK', 'size' => 16, 'bold' => true];
-        $title = ['name' => 'TH SarabunPSK', 'size' => 22];
-        $small = ['name' => 'TH SarabunPSK', 'size' => 14];
+        $title = ['name' => 'TH SarabunPSK', 'size' => 22, 'bold' => true];
+        $paraTight = ['spaceBefore' => 0, 'spaceAfter' => 40, 'lineHeight' => 1.15];
+        $paraBody = [
+            'alignment' => Jc::BOTH,
+            'indentation' => ['firstLine' => 720],
+            'spaceBefore' => 120,
+            'spaceAfter' => 160,
+            'lineHeight' => 1.25,
+        ];
+        $paraClose = [
+            'alignment' => Jc::BOTH,
+            'indentation' => ['firstLine' => 720],
+            'spaceBefore' => 160,
+            'spaceAfter' => 280,
+            'lineHeight' => 1.25,
+        ];
+        $cellText = ['spaceBefore' => 20, 'spaceAfter' => 20, 'lineHeight' => 1.1];
 
-        $header = $section->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF', 'cellMargin' => 0]);
+        $header = $section->addTable([
+            'borderSize' => 0,
+            'borderColor' => 'FFFFFF',
+            'cellMargin' => 40,
+            'width' => 10080,
+            'unit' => TblWidth::TWIP,
+        ]);
         $header->addRow();
-        $logoCell = $header->addCell(1400, ['valign' => 'center', 'borderSize' => 0, 'borderColor' => 'FFFFFF']);
+        $logoCell = $header->addCell(1200, ['valign' => 'center', 'borderSize' => 0, 'borderColor' => 'FFFFFF']);
         if (is_file($fields['emblem_path'])) {
             $logoCell->addImage($fields['emblem_path'], [
-                'width' => 41,
-                'height' => 71,
+                'width' => 40,
+                'height' => 70,
             ]);
         }
-        $titleCell = $header->addCell(8600, ['valign' => 'center', 'borderSize' => 0, 'borderColor' => 'FFFFFF']);
-        $titleCell->addText('บันทึกข้อความ', $title, ['spaceAfter' => 0]);
+        $titleCell = $header->addCell(8880, ['valign' => 'center', 'borderSize' => 0, 'borderColor' => 'FFFFFF']);
+        $titleCell->addText('บันทึกข้อความ', $title, ['alignment' => Jc::LEFT, 'spaceAfter' => 0]);
 
-        $section->addTextBreak(1);
+        $section->addTextBreak(0);
 
-        $office = $section->addTextRun(['spaceAfter' => 0]);
-        $office->addText('ส่วนงาน', $bold);
         $officeDept = $fields['department'] !== ''
             ? $fields['department']
             : 'สาขาวิชา...........................';
-        $office->addText(
-            '      คณะวิทยาศาสตร์   '.$officeDept
-            .'  หมายเลขโทรศัพท์ …………………….',
-            $font
-        );
+        $office = $section->addTextRun($paraTight);
+        $office->addText('ส่วนงาน', $bold);
+        $office->addText('      คณะวิทยาศาสตร์   '.$officeDept.'  หมายเลขโทรศัพท์ …………………….', $font);
 
-        $meta = $section->addTextRun(['spaceAfter' => 0]);
-        $meta->addText('ที่', $bold);
-        $meta->addText('  '.$fields['memo_no'], $font);
-        $meta->addText('                         วันที่  '.$fields['letter_date'], $font);
+        $meta = $section->addTable([
+            'borderSize' => 0,
+            'borderColor' => 'FFFFFF',
+            'cellMargin' => 0,
+            'width' => 10080,
+            'unit' => TblWidth::TWIP,
+        ]);
+        $meta->addRow();
+        $metaLeft = $meta->addCell(5600, ['borderSize' => 0, 'borderColor' => 'FFFFFF']);
+        $metaRight = $meta->addCell(4480, ['borderSize' => 0, 'borderColor' => 'FFFFFF']);
+        $metaLeftRun = $metaLeft->addTextRun(['spaceAfter' => 0, 'lineHeight' => 1.15]);
+        $metaLeftRun->addText('ที่', $bold);
+        $metaLeftRun->addText('  '.$fields['memo_no'], $font);
+        $metaRightRun = $metaRight->addTextRun(['spaceAfter' => 0, 'lineHeight' => 1.15]);
+        $metaRightRun->addText('วันที่  ', $bold);
+        $metaRightRun->addText($fields['letter_date'], $font);
 
-        $subject = $section->addTextRun(['spaceAfter' => 120]);
+        $subject = $section->addTextRun([
+            'spaceBefore' => 80,
+            'spaceAfter' => 60,
+            'lineHeight' => 1.2,
+            'alignment' => Jc::BOTH,
+        ]);
         $subject->addText('เรื่อง', $bold);
         $subject->addText('  '.$fields['subject_line'], $font);
 
-        $to = $section->addTextRun(['spaceAfter' => 200]);
+        $to = $section->addTextRun([
+            'spaceBefore' => 40,
+            'spaceAfter' => 120,
+            'lineHeight' => 1.15,
+        ]);
         $to->addText('เรียน', $bold);
         $to->addText('  '.$fields['to_line'], $font);
 
-        $section->addText($fields['body'], $font, [
-            'alignment' => Jc::BOTH,
-            'indentation' => ['firstLine' => 1080],
-            'spaceAfter' => 200,
-        ]);
+        $section->addText($fields['body'], $font, $paraBody);
 
         $table = $section->addTable([
             'borderSize' => 6,
             'borderColor' => '000000',
-            'cellMargin' => 60,
-            'width' => 9360,
+            'cellMargin' => 80,
+            'width' => 10080,
             'unit' => TblWidth::TWIP,
         ]);
 
-        $widths = [900, 1800, 3200, 3460];
+        // ลำดับ / รหัส / ชื่อ-สกุล / สาเหตุ — รวมกว้างพอดีขอบกระดาษ
+        $widths = [900, 2000, 3400, 3780];
         $headers = ['ลำดับที่', 'รหัสประจำตัว', 'ชื่อ-สกุล', 'สาเหตุ'];
         $table->addRow();
         foreach ($headers as $i => $label) {
-            $table->addCell($widths[$i])->addText($label, $bold, ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
+            $table->addCell($widths[$i], ['valign' => 'center'])
+                ->addText($label, $bold, array_merge($cellText, ['alignment' => Jc::CENTER]));
         }
 
         foreach ($fields['students'] as $index => $student) {
             $table->addRow();
-            $table->addCell($widths[0])->addText((string) ($index + 1), $font, ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
-            $table->addCell($widths[1])->addText($student['student_code'], $font, ['spaceAfter' => 0]);
-            $table->addCell($widths[2])->addText($student['name'], $font, ['spaceAfter' => 0]);
-            $table->addCell($widths[3])->addText($student['reason'] !== '' ? $student['reason'] : '................................', $small, ['spaceAfter' => 0]);
+            $table->addCell($widths[0], ['valign' => 'top'])
+                ->addText((string) ($index + 1), $font, array_merge($cellText, ['alignment' => Jc::CENTER]));
+            $table->addCell($widths[1], ['valign' => 'top'])
+                ->addText($student['student_code'], $font, $cellText);
+            $table->addCell($widths[2], ['valign' => 'top'])
+                ->addText($student['name'], $font, $cellText);
+            $reasonText = $student['reason'] !== '' ? $student['reason'] : '................................';
+            $table->addCell($widths[3], ['valign' => 'top'])
+                ->addText($reasonText, $font, array_merge($cellText, ['alignment' => Jc::BOTH]));
         }
 
-        $section->addTextBreak(1);
-        $section->addText('จึงเรียนมาเพื่อโปรดพิจารณา', $font, [
-            'alignment' => Jc::BOTH,
-            'indentation' => ['firstLine' => 1080],
-            'spaceAfter' => 400,
-        ]);
+        $section->addText('จึงเรียนมาเพื่อโปรดพิจารณา', $font, $paraClose);
 
         $emptyCell = ['borderSize' => 0, 'borderColor' => 'FFFFFF'];
-        $right = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
+        $right = ['alignment' => Jc::CENTER, 'spaceBefore' => 0, 'spaceAfter' => 0, 'lineHeight' => 1.15];
         $teacher = $fields['teacher'] !== '' ? $fields['teacher'] : '..........................................................';
 
-        $sign = $section->addTable(['borderSize' => 0, 'borderColor' => 'FFFFFF', 'cellMargin' => 40]);
+        $sign = $section->addTable([
+            'borderSize' => 0,
+            'borderColor' => 'FFFFFF',
+            'cellMargin' => 40,
+            'width' => 10080,
+            'unit' => TblWidth::TWIP,
+        ]);
         $sign->addRow();
         $sign->addCell(4200, $emptyCell);
-        $sign->addCell(5000, $emptyCell)->addText('('.$teacher.')', $font, $right);
+        $sign->addCell(5880, $emptyCell)->addText('('.$teacher.')', $font, $right);
 
         $sign->addRow();
         $sign->addCell(4200, $emptyCell);
-        $sign->addCell(5000, $emptyCell)->addText('อาจารย์ประจำวิชา/อาจารย์ที่ปรึกษาโครงงาน', $font, $right);
+        $sign->addCell(5880, $emptyCell)->addText('อาจารย์ประจำวิชา', $font, $right);
 
         $sign->addRow();
-        $sign->addCell(4200, $emptyCell)->addText('', $font, ['spaceAfter' => 400]);
-        $sign->addCell(5000, $emptyCell)->addText('', $font, ['spaceAfter' => 400]);
-
-        $sign->addRow();
-        $sign->addCell(4200, $emptyCell);
-        $sign->addCell(5000, $emptyCell)->addText('(..........................................................)', $font, $right);
+        $sign->addCell(4200, $emptyCell)->addText('', $font, ['spaceAfter' => 360]);
+        $sign->addCell(5880, $emptyCell)->addText('', $font, ['spaceAfter' => 360]);
 
         $sign->addRow();
         $sign->addCell(4200, $emptyCell);
-        $sign->addCell(5000, $emptyCell)->addText($fields['chair_title'], $font, $right);
+        $sign->addCell(5880, $emptyCell)->addText('(..........................................................)', $font, $right);
+
+        $sign->addRow();
+        $sign->addCell(4200, $emptyCell);
+        $sign->addCell(5880, $emptyCell)->addText($fields['chair_title'], $font, $right);
 
         if (is_file($fields['footer_path'])) {
             $footer = $section->addFooter();
