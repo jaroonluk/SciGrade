@@ -51,6 +51,14 @@ class GradeReportFileController extends Controller
             ], 422);
         }
 
+        if ($fileType === GradeReportFile::TYPE_I_LETTER) {
+            GradeReportFile::query()
+                ->where('grade_id', $gradeReport->grade_id)
+                ->ofType(GradeReportFile::TYPE_I_LETTER)
+                ->get()
+                ->each(fn (GradeReportFile $old) => $old->delete());
+        }
+
         $uploaded = $request->file('attachment');
         $displayName = $this->attachmentNames->generateDisplayName($gradeReport, $fileType);
         $storedPath = $this->attachmentNames->storeUploadedFile($gradeReport, $uploaded, $fileType);

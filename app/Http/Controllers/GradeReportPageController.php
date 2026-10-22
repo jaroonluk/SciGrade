@@ -46,6 +46,7 @@ class GradeReportPageController extends Controller
     /**
      * @param  list<array{section: int, file_id: int, name: string, view_url: string}>  $registrarFileDetails
      * @param  array{file_id: int, name: string, view_url: string}|null  $examFileDetail
+     * @param  array{file_id: int, name: string, view_url: string}|null  $iLetterFileDetail
      */
     private function formView(
         ?int $reportId,
@@ -56,6 +57,7 @@ class GradeReportPageController extends Controller
         bool $hasExamReportFile = false,
         array $registrarFileDetails = [],
         ?array $examFileDetail = null,
+        ?array $iLetterFileDetail = null,
     ): View {
         $teacherHelpImageUrl = file_exists(public_path('images/teacher2.png'))
             ? asset('images/teacher2.png')
@@ -106,6 +108,8 @@ class GradeReportPageController extends Controller
             'registrarFileSections' => $registrarFileSections,
             'registrarFileDetails' => array_values($registrarFileDetails),
             'examFileDetail' => $examFileDetail,
+            'iLetterFileDetail' => $iLetterFileDetail,
+            'hasILetterFile' => $iLetterFileDetail !== null,
             'pendingRegistrarSections' => array_values(array_map(
                 fn ($row) => [
                     'section' => (int) ($row['section'] ?? 0),
@@ -177,6 +181,7 @@ class GradeReportPageController extends Controller
 
         $registrarFileDetails = [];
         $examFileDetail = null;
+        $iLetterFileDetail = null;
         foreach ($gradeReport->files as $file) {
             $type = $file->resolvedType();
             if ($type === GradeReportFile::TYPE_REGISTRAR) {
@@ -207,6 +212,15 @@ class GradeReportPageController extends Controller
                         'file' => $file->file_id,
                     ]),
                 ];
+            } elseif ($type === GradeReportFile::TYPE_I_LETTER && $iLetterFileDetail === null) {
+                $iLetterFileDetail = [
+                    'file_id' => (int) $file->file_id,
+                    'name' => (string) $file->original_name,
+                    'view_url' => route('grade-reports.files.show', [
+                        'gradeReport' => $gradeReport->grade_id,
+                        'file' => $file->file_id,
+                    ]),
+                ];
             }
         }
 
@@ -223,6 +237,7 @@ class GradeReportPageController extends Controller
             $hasExamReportFile,
             $registrarFileDetails,
             $examFileDetail,
+            $iLetterFileDetail,
         );
     }
 

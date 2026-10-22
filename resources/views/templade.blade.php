@@ -360,42 +360,112 @@
                         <div class="space-y-2">
                             <label class="flex items-start gap-2 text-sm">
                                 <input type="checkbox" id="remark-i" name="remark_i" value="1" class="accent-amber-700 mt-1 shrink-0">
-                                <span class="text-[#5C2E1F] font-medium pt-0.5">ได้ I เนื่องจาก</span>
+                                <div class="min-w-0 pt-0.5">
+                                    <span class="text-[#5C2E1F] font-medium">ได้ I เนื่องจาก</span>
+                                    <p id="remark-i-locked-hint" class="hidden text-xs text-sky-800 mt-0.5">
+                                        พบนักศึกษาติด I จากไฟล์ มข.11 — ระบบติ๊กให้อัตโนมัติและห้ามยกเลิก ต้องทำครบ 3 ขั้นตอนด้านล่าง
+                                    </p>
+                                </div>
                             </label>
                             <div id="grade-i-letter-box" class="hidden ml-6 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-emerald-50 px-3 py-3 space-y-3">
-                                <div class="flex flex-wrap items-center gap-3 justify-between">
-                                    <div class="flex items-start gap-3 min-w-0">
-                                        <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-600 text-white shadow-sm">
-                                            <i data-lucide="file-text" class="w-5 h-5"></i>
-                                        </span>
-                                        <div class="min-w-0">
-                                            <p class="text-sm font-semibold text-sky-950">แบบฟอร์มบันทึกชี้แจงให้เกรด I</p>
-                                            <p id="grade-i-letter-hint" class="text-xs text-[#0c4a6e]/80 mt-0.5">
-                                                กรอกรายละเอียดสาเหตุรายคน แล้วดาวน์โหลด Word รวมทุก Section ในไฟล์เดียว
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div class="flex flex-wrap gap-2 shrink-0">
-                                        <button type="button" id="btn-edit-i-details" disabled
-                                            class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-sky-600 text-sky-800 bg-white text-sm font-semibold hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed">
-                                            <i data-lucide="pencil-line" class="w-4 h-4"></i>
-                                            กรอกรายละเอียดการติด I
-                                        </button>
-                                        <button type="button" id="btn-download-i-letter" disabled
-                                            class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800 disabled:opacity-40 disabled:cursor-not-allowed">
-                                            <i data-lucide="download" class="w-4 h-4"></i>
-                                            ดาวน์โหลด Word
-                                        </button>
+                                <div class="flex items-start gap-3 min-w-0">
+                                    <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-600 text-white shadow-sm">
+                                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-semibold text-sky-950">เอกสารชี้แจงเกรด I</p>
+                                        <p id="grade-i-letter-hint" class="text-xs text-[#0c4a6e]/80 mt-0.5">
+                                            กรอกสาเหตุ → ดาวน์โหลด Word → เซ็นดิจิทัล → อัปโหลด PDF กลับเข้าสู่ระบบ
+                                        </p>
                                     </div>
                                 </div>
-                                <div id="grade-i-detail-panel" class="hidden rounded-lg border border-sky-200 bg-white p-3 space-y-3">
+
+                                <ol id="grade-i-substepper" class="grid grid-cols-1 sm:grid-cols-3 gap-2" aria-label="ขั้นตอนเอกสารเกรด I">
+                                    <li data-i-subdot="1" class="rounded-lg border border-sky-200 bg-white px-2.5 py-2 text-xs">
+                                        <span class="font-bold text-sky-900">1. กรอกสาเหตุ</span>
+                                        <p class="text-[0.65rem] text-[#0c4a6e]/75 mt-0.5">รายชื่อนักศึกษาติด I</p>
+                                    </li>
+                                    <li data-i-subdot="2" class="rounded-lg border border-sky-100 bg-white/70 px-2.5 py-2 text-xs opacity-70">
+                                        <span class="font-bold text-sky-900">2. ดาวน์โหลดและเซ็น</span>
+                                        <p class="text-[0.65rem] text-[#0c4a6e]/75 mt-0.5">Word แล้วเซ็นดิจิทัล</p>
+                                    </li>
+                                    <li data-i-subdot="3" class="rounded-lg border border-sky-100 bg-white/70 px-2.5 py-2 text-xs opacity-70">
+                                        <span class="font-bold text-sky-900">3. อัปโหลดเอกสาร</span>
+                                        <p class="text-[0.65rem] text-[#0c4a6e]/75 mt-0.5">PDF ที่เซ็นแล้ว</p>
+                                    </li>
+                                </ol>
+
+                                <div data-i-substep="1" class="rounded-lg border border-sky-200 bg-white p-3 space-y-3">
                                     <div class="flex flex-wrap items-center justify-between gap-2">
-                                        <p class="text-sm font-semibold text-sky-950">รายละเอียดสาเหตุเกรด I (รวมทุก Section)</p>
+                                        <p class="text-sm font-semibold text-sky-950">ขั้นตอนที่ 1 — กรอกสาเหตุการติด I</p>
                                         <p id="grade-i-detail-summary" class="text-xs text-[#0c4a6e]/80"></p>
                                     </div>
-                                    <div id="grade-i-detail-list" class="space-y-3 max-h-80 overflow-y-auto"></div>
-                                    <p class="text-[0.7rem] text-[#7A4A3A]/80">ข้อความในช่องสาเหตุจะแสดงในคอลัมน์ «สาเหตุ» ของไฟล์ Word — หลาย Section รวมในหน้าเดียวและดาวน์โหลดไฟล์เดียว</p>
+                                    <div id="grade-i-detail-panel">
+                                        <div id="grade-i-detail-list" class="space-y-3 max-h-80 overflow-y-auto"></div>
+                                    </div>
+                                    <p class="text-[0.7rem] text-[#7A4A3A]/80">กรอกสาเหตุครบทุกรายก่อนไปขั้นตอนถัดไป — ข้อความจะไปในคอลัมน์ «สาเหตุ» ของไฟล์ Word</p>
+                                    <div class="flex justify-end">
+                                        <button type="button" id="btn-i-substep-next-1"
+                                            class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800">
+                                            ถัดไป: ดาวน์โหลดเอกสาร
+                                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <div data-i-substep="2" class="hidden rounded-lg border border-sky-200 bg-white p-3 space-y-3">
+                                    <p class="text-sm font-semibold text-sky-950">ขั้นตอนที่ 2 — ดาวน์โหลด Word แล้วเซ็นดิจิทัล</p>
+                                    <div class="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-xs text-[#854d0e] space-y-1.5">
+                                        <p class="font-semibold">คำแนะนำ</p>
+                                        <ol class="list-decimal pl-4 space-y-1 text-[#7A4A3A]">
+                                            <li>กดดาวน์โหลดแบบฟอร์มบันทึกชี้แจงให้เกรด I (ไฟล์ Word รวมทุก Section ที่มีนักศึกษาติด I)</li>
+                                            <li>เปิดไฟล์แล้วตรวจสอบรายชื่อและสาเหตุ</li>
+                                            <li>เซ็นชื่อด้วย Digital Signature แล้วบันทึกเป็น PDF</li>
+                                            <li>กลับมาอัปโหลด PDF ในขั้นตอนถัดไป</li>
+                                        </ol>
+                                    </div>
+                                    <button type="button" id="btn-download-i-letter"
+                                        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800 disabled:opacity-40 disabled:cursor-not-allowed">
+                                        <i data-lucide="download" class="w-4 h-4"></i>
+                                        ดาวน์โหลด Word
+                                    </button>
+                                    <p id="grade-i-download-status" class="text-xs text-[#0c4a6e]/80"></p>
+                                    <div class="flex flex-wrap justify-between gap-2">
+                                        <button type="button" id="btn-i-substep-back-2"
+                                            class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-sky-300 text-sky-800 bg-white text-sm font-semibold hover:bg-sky-50">
+                                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                                            ย้อนกลับ
+                                        </button>
+                                        <button type="button" id="btn-i-substep-next-2"
+                                            class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800 disabled:opacity-40 disabled:cursor-not-allowed">
+                                            ถัดไป: อัปโหลดเอกสาร
+                                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div data-i-substep="3" class="hidden rounded-lg border border-sky-200 bg-white p-3 space-y-3">
+                                    <p class="text-sm font-semibold text-sky-950">ขั้นตอนที่ 3 — อัปโหลดเอกสารติด I ที่เซ็นแล้ว</p>
+                                    <p class="text-xs text-[#0c4a6e]/80">อัปโหลดไฟล์ PDF เท่านั้น — หากยังไม่อัปโหลด จะไม่สามารถผ่านขั้นตอนหมายเหตุ / กดเสร็จสิ้นได้</p>
+                                    <label class="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-dashed border-sky-300 bg-sky-50/50 px-3 py-3 cursor-pointer hover:bg-sky-50">
+                                        <span class="inline-flex items-center gap-2 text-sm font-semibold text-sky-900">
+                                            <i data-lucide="upload" class="w-4 h-4"></i>
+                                            เลือกไฟล์ PDF เอกสารติด I
+                                        </span>
+                                        <input type="file" id="wizard-i-letter-upload" accept="application/pdf,.pdf" class="text-xs text-[#0c4a6e]">
+                                    </label>
+                                    <div id="grade-i-upload-status" class="text-xs text-[#0c4a6e]/90"></div>
+                                    <div class="flex justify-start">
+                                        <button type="button" id="btn-i-substep-back-3"
+                                            class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-sky-300 text-sky-800 bg-white text-sm font-semibold hover:bg-sky-50">
+                                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                                            ย้อนกลับ
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {{-- ปุ่มเดิมคง id ไว้แบบซ่อน เพื่อไม่ให้โค้ดอ้างอิงพัง --}}
+                                <button type="button" id="btn-edit-i-details" class="hidden" tabindex="-1" aria-hidden="true"></button>
                             </div>
                             <div id="prior-i-box" class="hidden ml-6 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
                                 <p class="text-[0.7rem] font-semibold text-[#854d0e] mb-1">ข้อความจากผู้กรอก Sec ก่อนหน้า (รหัสวิชาเดียวกัน)</p>
@@ -918,6 +988,8 @@
         const registrarFileSections = @json($registrarFileSections ?? []);
         const registrarFileDetails = @json($registrarFileDetails ?? []);
         const examFileDetail = @json($examFileDetail ?? null);
+        const iLetterFileDetail = @json($iLetterFileDetail ?? null);
+        const hasILetterFile = @json($hasILetterFile ?? false);
                         const pendingRegistrarSections = @json($pendingRegistrarSections ?? []);
         const staffUsername = @json($staffUsername ?? null);
         const iLetterDocxUrl = @json(route('grade-reports.i-letter.docx'));
@@ -929,6 +1001,8 @@
             boundSubjectCode: null,
             staffUsername,
             iLetterDocxUrl,
+            hasILetterFile,
+            iLetterFileDetail,
         };
         initTempladeForm({ teacherHelpImageUrl });
 
@@ -965,9 +1039,11 @@
             hasPendingRegistrar,
             hasRegistrarFile,
             hasExamReportFile,
+            hasILetterFile,
             registrarFileSections,
             registrarFileDetails,
             examFileDetail,
+            iLetterFileDetail,
             pendingRegistrarSections,
             staffUsername,
             returnUrl,

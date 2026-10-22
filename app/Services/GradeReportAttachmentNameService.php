@@ -39,6 +39,8 @@ class GradeReportAttachmentNameService
         $directory = 'grade-report-files/'.$report->grade_id;
         if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
             $directory .= '/registrar';
+        } elseif ($fileType === GradeReportFile::TYPE_I_LETTER) {
+            $directory .= '/i_letter';
         }
 
         $filename = $this->generateDisplayName($report, $fileType, $sectionOverride);
@@ -66,6 +68,8 @@ class GradeReportAttachmentNameService
         $directory = 'grade-report-files/'.$report->grade_id;
         if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
             $directory .= '/registrar';
+        } elseif ($fileType === GradeReportFile::TYPE_I_LETTER) {
+            $directory .= '/i_letter';
         }
 
         $filename = $this->normalizePreferredFilename($preferredFilename)
@@ -128,6 +132,10 @@ class GradeReportAttachmentNameService
 
         if ($fileType === GradeReportFile::TYPE_REGISTRAR) {
             return 'REG_'.$base;
+        }
+
+        if ($fileType === GradeReportFile::TYPE_I_LETTER) {
+            return 'I_'.$year.'_'.$term.'_'.$subjectCode;
         }
 
         return $base;

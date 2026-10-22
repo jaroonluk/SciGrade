@@ -169,6 +169,9 @@ window.priorRemarkFlags = 0;
 window.priorIEntries = [];
 window.priorOtherEntries = [];
 window.gradeIStudents = window.gradeIStudents || [];
+window.gradeISubStep = window.gradeISubStep || 1;
+window.gradeILetterDownloaded = Boolean(window.gradeILetterDownloaded);
+window.pendingILetterFile = window.pendingILetterFile || null;
 
 function gradeIStudentKey(row) {
     const code = String(row?.student_code || '').trim();
@@ -203,6 +206,8 @@ function mergeGradeIStudents(incoming, sectionHint = null) {
         if (sa !== sb) return sa - sb;
         return String(a.student_code || '').localeCompare(String(b.student_code || ''), 'th');
     });
+    syncRemarkIFromGradeIStudents();
+    updateReasonFieldsState();
     updateGradeILetterUi();
 }
 
@@ -270,45 +275,186 @@ function renderGradeIDetailPanel() {
     });
 }
 
-function openGradeIDetailPanel() {
-    const panel = document.getElementById('grade-i-detail-panel');
-    if (!panel) return;
-    renderGradeIDetailPanel();
-    panel.classList.remove('hidden');
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function hasGradeIStudents() {
+    return Array.isArray(window.gradeIStudents) && window.gradeIStudents.length > 0;
+}
+
+function hasILetterAttachment(config = window.wizardConfig) {
+    return Boolean(
+        window.pendingILetterFile
+        || config?.hasILetterFile
+        || config?.iLetterFileDetail?.file_id
+    );
+}
+
+function syncRemarkIFromGradeIStudents() {
+    const remarkI = document.getElementById('remark-i');
+    const lockedHint = document.getElementById('remark-i-locked-hint');
+    const locked = hasGradeIStudents();
+    if (!remarkI) return locked;
+
+    if (locked) {
+        remarkI.checked = true;
+        remarkI.disabled = true;
+        remarkI.setAttribute('title', 'พบนักศึกษาติด I จาก มข.11 — ห้ามยกเลิก');
+    } else {
+        remarkI.disabled = false;
+        remarkI.removeAttribute('title');
+    }
+    lockedHint?.classList.toggle('hidden', !locked);
+    return locked;
+}
+
+function gradeIReasonsComplete() {
+    syncGradeIDetailReasonsFromDom();
+    const students = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
+    if (!students.length) return true;
+    return students.every((s) => String(s.reason || '').trim() !== '');
+}
+
+function validateGradeIWorkflow() {
+    if (!hasGradeIStudents()) return null;
+    syncRemarkIFromGradeIStudents();
+    if (!gradeIReasonsComplete()) {
+        window.gradeISubStep = 1;
+        updateGradeILetterUi();
+        return 'กรุณากรอกสาเหตุการติด I ให้ครบทุกรายก่อนไปขั้นตอนถัดไป';
+    }
+    if (!window.gradeILetterDownloaded && !hasILetterAttachment()) {
+        window.gradeISubStep = 2;
+        updateGradeILetterUi();
+        return 'กรุณาดาวน์โหลดเอกสาร Word ชี้แจงเกรด I แล้วเซ็นดิจิทัลก่อนอัปโหลด';
+    }
+    if (!hasILetterAttachment()) {
+        window.gradeISubStep = 3;
+        updateGradeILetterUi();
+        return 'กรุณาอัปโหลดเอกสารติด I (PDF ที่เซ็นดิจิทัลแล้ว) ก่อนผ่านขั้นตอนนี้';
+    }
+    return null;
+}
+
+function setGradeISubStep(step) {
+    const next = Math.min(3, Math.max(1, Number(step) || 1));
+    window.gradeISubStep = next;
+    updateGradeILetterUi();
+    document.querySelector(`[data-i-substep="${next}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateGradeIUploadStatus(config = window.wizardConfig) {
+    const el = document.getElementById('grade-i-upload-status');
+    if (!el) return;
+    if (window.pendingILetterFile) {
+        el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-emerald-800 font-semibold"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>เลือกไฟล์แล้ว: ${escapeHtml(window.pendingILetterFile.name)} — จะอัปโหลดเมื่อกดเสร็จสิ้น</span>`;
+    } else if (config?.iLetterFileDetail?.name) {
+        const name = escapeHtml(config.iLetterFileDetail.name);
+        const url = config.iLetterFileDetail.view_url
+            ? `<a href="${escapeHtml(config.iLetterFileDetail.view_url)}" target="_blank" rel="noopener" class="underline">เปิดดู</a>`
+            : '';
+        el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-emerald-800 font-semibold"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>อัปโหลดแล้ว: ${name}</span>${url ? ` · ${url}` : ''}`;
+    } else {
+        el.innerHTML = '<span class="text-amber-800">ยังไม่ได้อัปโหลดเอกสารติด I</span>';
+    }
     if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function stageILetterFile(file, config = window.wizardConfig) {
+    if (!file) return;
+    if (file.type && file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+        showToast('รองรับเฉพาะไฟล์ PDF', 'error');
+        return;
+    }
+    window.pendingILetterFile = file;
+    if (config) {
+        config.hasPendingILetter = true;
+        config.hasILetterFile = false;
+    }
+    updateGradeIUploadStatus(config);
+    updateGradeILetterUi();
+    showToast('เลือกเอกสารติด I แล้ว — กดเสร็จสิ้นเพื่ออัปโหลดเข้าสู่ระบบ', 'success');
+}
+
+function openGradeIDetailPanel() {
+    syncRemarkIFromGradeIStudents();
+    const remarkI = document.getElementById('remark-i');
+    if (remarkI && !remarkI.checked) {
+        remarkI.checked = true;
+    }
+    window.gradeISubStep = 1;
+    updateGradeILetterUi();
+    document.getElementById('grade-i-letter-box')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function updateGradeILetterUi() {
     const box = document.getElementById('grade-i-letter-box');
     const btn = document.getElementById('btn-download-i-letter');
-    const editBtn = document.getElementById('btn-edit-i-details');
     const hint = document.getElementById('grade-i-letter-hint');
-    const panel = document.getElementById('grade-i-detail-panel');
-    const hasI = Boolean(document.getElementById('remark-i')?.checked);
+    const dlStatus = document.getElementById('grade-i-download-status');
+    const next2 = document.getElementById('btn-i-substep-next-2');
+    const locked = syncRemarkIFromGradeIStudents();
+    const hasI = Boolean(document.getElementById('remark-i')?.checked) || locked;
     const students = Array.isArray(window.gradeIStudents) ? window.gradeIStudents : [];
     const count = students.length;
     const filled = students.filter((s) => String(s.reason || '').trim()).length;
     const sections = Array.from(new Set(students.map((s) => Number(s.section)).filter((n) => n > 0)));
+    const subStep = Math.min(3, Math.max(1, Number(window.gradeISubStep) || 1));
+    window.gradeISubStep = subStep;
 
     if (box) box.classList.toggle('hidden', !hasI);
-    if (!hasI && panel) panel.classList.add('hidden');
+
+    document.querySelectorAll('[data-i-substep]').forEach((el) => {
+        el.classList.toggle('hidden', Number(el.getAttribute('data-i-substep')) !== subStep);
+    });
+    document.querySelectorAll('[data-i-subdot]').forEach((el) => {
+        const n = Number(el.getAttribute('data-i-subdot'));
+        const active = n === subStep;
+        const done = n < subStep;
+        el.classList.toggle('opacity-70', !active && !done);
+        el.classList.toggle('border-sky-200', active || done);
+        el.classList.toggle('border-sky-100', !active && !done);
+        el.classList.toggle('bg-white', active || done);
+        el.classList.toggle('ring-2', active);
+        el.classList.toggle('ring-sky-300', active);
+        if (done) {
+            el.classList.add('border-emerald-300');
+        } else {
+            el.classList.remove('border-emerald-300');
+        }
+    });
+
     if (btn) btn.disabled = !hasI || count === 0;
-    if (editBtn) editBtn.disabled = !hasI || count === 0;
+    if (next2) next2.disabled = !window.gradeILetterDownloaded && !hasILetterAttachment();
+
     if (hint) {
         if (!hasI) {
-            hint.textContent = 'กรอกรายละเอียดสาเหตุรายคน แล้วดาวน์โหลด Word รวมทุก Section ในไฟล์เดียว';
+            hint.textContent = 'กรอกสาเหตุ → ดาวน์โหลด Word → เซ็นดิจิทัล → อัปโหลด PDF กลับเข้าสู่ระบบ';
         } else if (count === 0) {
             hint.textContent = 'ยังไม่พบรายชื่อนักศึกษาเกรด I จากไฟล์ มข.11 — อัปโหลดใบส่งผลการศึกษาที่มีเกรด I ก่อน';
         } else if (sections.length > 1) {
-            hint.textContent = `พบ ${count} ราย จาก Section ${sections.sort((a, b) => a - b).join(', ')} — กรอกรายละเอียดแล้วดาวน์โหลดไฟล์เดียว`;
+            hint.textContent = `พบ ${count} ราย จาก Section ${sections.sort((a, b) => a - b).join(', ')} — กรอกสาเหตุครบ แล้วทำตาม 3 ขั้นตอน`;
         } else {
-            hint.textContent = `พบนักศึกษาเกรด I ${count} ราย — กรอกสาเหตุรายคนแล้วดาวน์โหลด Word${filled ? ` (กรอกแล้ว ${filled}/${count})` : ''}`;
+            hint.textContent = `พบนักศึกษาเกรด I ${count} ราย — กรอกสาเหตุรายคนแล้วทำตามขั้นตอน${filled ? ` (กรอกแล้ว ${filled}/${count})` : ''}`;
         }
     }
-    if (panel && !panel.classList.contains('hidden')) {
+
+    if (dlStatus) {
+        if (window.gradeILetterDownloaded) {
+            dlStatus.textContent = 'ดาวน์โหลดแล้ว — กรุณาเซ็นดิจิทัลแล้วบันทึกเป็น PDF ก่อนอัปโหลดในขั้นตอนถัดไป';
+            dlStatus.className = 'text-xs text-emerald-800 font-medium';
+        } else if (hasILetterAttachment()) {
+            dlStatus.textContent = 'มีเอกสารติด I ในระบบแล้ว — สามารถไปขั้นตอนอัปโหลดหรือเปลี่ยนไฟล์ใหม่ได้';
+            dlStatus.className = 'text-xs text-emerald-800 font-medium';
+        } else {
+            dlStatus.textContent = 'ยังไม่ได้ดาวน์โหลดเอกสารในรอบนี้';
+            dlStatus.className = 'text-xs text-[#0c4a6e]/80';
+        }
+    }
+
+    if (hasI) {
         renderGradeIDetailPanel();
     }
+    updateGradeIUploadStatus(window.wizardConfig);
     if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
@@ -395,7 +541,8 @@ async function downloadGradeILetter() {
         a.click();
         a.remove();
         URL.revokeObjectURL(objectUrl);
-        showToast(`ดาวน์โหลดแบบฟอร์มเกรด I สำเร็จ (${students.length} ราย)`, 'success');
+        window.gradeILetterDownloaded = true;
+        showToast(`ดาวน์โหลดแบบฟอร์มเกรด I สำเร็จ (${students.length} ราย) — เซ็นดิจิทัลแล้วอัปโหลดในขั้นตอนถัดไป`, 'success');
     } catch (err) {
         showToast(err?.message || 'ดาวน์โหลดแบบฟอร์มไม่สำเร็จ', 'error');
     } finally {
@@ -772,7 +919,18 @@ function setupReasonIdFields() {
         const el = document.getElementById(id);
         if (!el || el.dataset.bound === '1') return;
         el.dataset.bound = '1';
+        el.addEventListener('click', (e) => {
+            if (id === 'remark-i' && hasGradeIStudents()) {
+                e.preventDefault();
+                syncRemarkIFromGradeIStudents();
+                showToast('พบนักศึกษาติด I — ไม่สามารถยกเลิกการติ๊กได้', 'error');
+            }
+        });
         el.addEventListener('change', () => {
+            if (id === 'remark-i' && hasGradeIStudents()) {
+                el.checked = true;
+                el.disabled = true;
+            }
             updateReasonFieldsState();
             if (id === 'remark-i' && el.checked) {
                 openGradeIDetailPanel();
@@ -780,11 +938,11 @@ function setupReasonIdFields() {
             if (id === 'remark-other' && el.checked) {
                 document.getElementById('std-i3')?.focus();
             }
-            if (id === 'remark-i' && !el.checked) {
-                const panel = document.getElementById('grade-i-detail-panel');
-                panel?.classList.add('hidden');
+            if (id === 'remark-i' && !el.checked && !hasGradeIStudents()) {
+                window.gradeISubStep = 1;
                 const i2 = document.getElementById('std-i2');
                 if (i2) i2.value = '';
+                updateGradeILetterUi();
             }
             if (id === 'remark-other' && !el.checked) {
                 const i3 = document.getElementById('std-i3');
@@ -796,21 +954,66 @@ function setupReasonIdFields() {
     const editIBtn = document.getElementById('btn-edit-i-details');
     if (editIBtn && editIBtn.dataset.bound !== '1') {
         editIBtn.dataset.bound = '1';
-        editIBtn.addEventListener('click', () => {
-            const remarkI = document.getElementById('remark-i');
-            if (remarkI && !remarkI.checked) {
-                remarkI.checked = true;
-                updateReasonFieldsState();
-            }
-            openGradeIDetailPanel();
-        });
+        editIBtn.addEventListener('click', () => openGradeIDetailPanel());
     }
 
     const dlBtn = document.getElementById('btn-download-i-letter');
     if (dlBtn && dlBtn.dataset.bound !== '1') {
         dlBtn.dataset.bound = '1';
         dlBtn.addEventListener('click', () => {
+            if (!gradeIReasonsComplete()) {
+                showToast('กรุณากรอกสาเหตุการติด I ให้ครบทุกรายก่อนดาวน์โหลด', 'error');
+                setGradeISubStep(1);
+                return;
+            }
             downloadGradeILetter();
+        });
+    }
+
+    const next1 = document.getElementById('btn-i-substep-next-1');
+    if (next1 && next1.dataset.bound !== '1') {
+        next1.dataset.bound = '1';
+        next1.addEventListener('click', () => {
+            if (!hasGradeIStudents()) {
+                showToast('ยังไม่พบรายชื่อนักศึกษาติด I จากไฟล์ มข.11', 'error');
+                return;
+            }
+            if (!gradeIReasonsComplete()) {
+                showToast('กรุณากรอกสาเหตุการติด I ให้ครบทุกราย', 'error');
+                return;
+            }
+            setGradeISubStep(2);
+        });
+    }
+    const next2 = document.getElementById('btn-i-substep-next-2');
+    if (next2 && next2.dataset.bound !== '1') {
+        next2.dataset.bound = '1';
+        next2.addEventListener('click', () => {
+            if (!window.gradeILetterDownloaded && !hasILetterAttachment()) {
+                showToast('กรุณาดาวน์โหลดเอกสาร Word ก่อนไปขั้นตอนอัปโหลด', 'error');
+                return;
+            }
+            setGradeISubStep(3);
+        });
+    }
+    const back2 = document.getElementById('btn-i-substep-back-2');
+    if (back2 && back2.dataset.bound !== '1') {
+        back2.dataset.bound = '1';
+        back2.addEventListener('click', () => setGradeISubStep(1));
+    }
+    const back3 = document.getElementById('btn-i-substep-back-3');
+    if (back3 && back3.dataset.bound !== '1') {
+        back3.dataset.bound = '1';
+        back3.addEventListener('click', () => setGradeISubStep(2));
+    }
+
+    const iUpload = document.getElementById('wizard-i-letter-upload');
+    if (iUpload && iUpload.dataset.bound !== '1') {
+        iUpload.dataset.bound = '1';
+        iUpload.addEventListener('change', () => {
+            const file = iUpload.files?.[0];
+            if (file) stageILetterFile(file, window.wizardConfig);
+            iUpload.value = '';
         });
     }
 
@@ -2823,7 +3026,7 @@ function applyCourseContext(data) {
         clearRemarkInputs();
         const remarkI = document.getElementById('remark-i');
         const remarkOther = document.getElementById('remark-other');
-        if (remarkI) remarkI.checked = false;
+        if (remarkI && !hasGradeIStudents()) remarkI.checked = false;
         if (remarkOther) remarkOther.checked = false;
     } else if (!prior?.payload) {
         window.priorIEntries = [];
@@ -2838,6 +3041,7 @@ function applyCourseContext(data) {
         sectionEvaEditable: window.priorSectionEvaEditable,
         groupLocked: window.courseGroupLocked,
     });
+    syncRemarkIFromGradeIStudents();
     updateReasonFieldsState();
     syncSectionEntryVisibility();
 }
@@ -3056,8 +3260,9 @@ function applyRemarksFromRecord(record) {
     clearRemarkInputs();
     const remarkI = document.getElementById('remark-i');
     const remarkOther = document.getElementById('remark-other');
-    if (remarkI) remarkI.checked = false;
+    if (remarkI && !hasGradeIStudents()) remarkI.checked = false;
     if (remarkOther) remarkOther.checked = false;
+    syncRemarkIFromGradeIStudents();
 }
 
 function applyPriorSharedFields(record) {
@@ -4425,7 +4630,9 @@ function wizardStepFocusSelector(step, message = '') {
     }
     if (step === 2) {
         if (msg.includes('ตัดเกรดร่วม') || msg.includes('วิชาที่ตัดเกรด')) return '#joint-subject-search';
-        if (msg.includes('ได้ I') || msg.includes('เกรด I')) return '#btn-edit-i-details';
+        if (msg.includes('อัปโหลดเอกสารติด I') || msg.includes('PDF ที่เซ็น')) return '#wizard-i-letter-upload';
+        if (msg.includes('ดาวน์โหลดเอกสาร') || msg.includes('เซ็นดิจิทัล')) return '#btn-download-i-letter';
+        if (msg.includes('ได้ I') || msg.includes('เกรด I') || msg.includes('สาเหตุ')) return '#grade-i-detail-list';
         if (msg.includes('อื่นๆ')) return '#std-i3';
         return '#remark-joint';
     }
@@ -4470,7 +4677,6 @@ function validateWizardStep(step, config) {
     }
     if (step === 2) {
         const isJoint = Boolean(document.getElementById('remark-joint')?.checked || window.courseGroupLocked);
-        const hasI = Boolean(document.getElementById('remark-i')?.checked);
         const hasOther = Boolean(document.getElementById('remark-other')?.checked);
         if (isJoint && !jointGradeSubjects.length && !window.courseGroupLocked) {
             return 'กรุณาเลือกวิชาที่ตัดเกรดร่วมกับอย่างน้อย 1 วิชา';
@@ -4478,6 +4684,8 @@ function validateWizardStep(step, config) {
         if (hasOther && !document.getElementById('std-i3')?.value?.trim()) {
             return 'กรุณากรอกข้อความในช่อง «อื่นๆ»';
         }
+        const iError = validateGradeIWorkflow();
+        if (iError) return iError;
         return null;
     }
     if (step === 3) {
@@ -4490,6 +4698,8 @@ function validateWizardStep(step, config) {
                 return `Section ${row?.sec ?? (i + 1)} ยังไม่ได้เลือกคณะ — แก้ไข Section แล้วเลือกคณะก่อน`;
             }
         }
+        const iError = validateGradeIWorkflow();
+        if (iError) return iError;
         return null;
     }
     return null;
@@ -4516,13 +4726,19 @@ function showWizardStep(step, config) {
     if (back) back.classList.toggle('hidden', step <= 1);
     if (next) next.textContent = step === 3 ? 'เสร็จสิ้น' : 'ถัดไป';
 
-    if (step === 2) refreshCourseContext();
+    if (step === 2) {
+        refreshCourseContext();
+        syncRemarkIFromGradeIStudents();
+        updateGradeILetterUi();
+    }
     if (step === 3) {
         applyGraduateFacultyDefault();
         refreshCourseContext();
         applySectionStdFormLayout();
         updateGradeRangeColumnHeaders();
         renderSectionStdList();
+        syncRemarkIFromGradeIStudents();
+        updateGradeILetterUi();
     }
     updateAttachmentChecklist(config);
     if (window.lucide?.createIcons) window.lucide.createIcons();
@@ -4707,6 +4923,49 @@ async function saveWizardReport(config, options = {}) {
 /** ไฟล์ใบขวางที่เลือกไว้ รออัปโหลดจริงตอนกดเสร็จสิ้น */
 window.pendingExamFile = null;
 
+async function uploadPendingILetter(config) {
+    if (!window.pendingILetterFile) {
+        return { ok: true, skipped: true };
+    }
+    if (!config.currentReportId) {
+        return { ok: false, error: 'ยังไม่มีเลขรายงาน — ไม่สามารถอัปโหลดเอกสารติด I ได้' };
+    }
+
+    const formData = new FormData();
+    formData.append('attachment', window.pendingILetterFile);
+    formData.append('file_type', 'i_letter');
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    try {
+        const res = await fetch(`/api/grade-reports/${config.currentReportId}/files`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+                Accept: 'application/json',
+            },
+            credentials: 'same-origin',
+            body: formData,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.message || 'อัปโหลดเอกสารติด I ไม่สำเร็จ');
+        }
+        window.pendingILetterFile = null;
+        config.hasPendingILetter = false;
+        config.hasILetterFile = true;
+        config.iLetterFileDetail = {
+            file_id: data.file_id,
+            name: data.display_name || data.original_name || 'เอกสารชี้แจงเกรด I.pdf',
+            view_url: data.view_url || null,
+        };
+        updateGradeIUploadStatus(config);
+        return { ok: true, data };
+    } catch (err) {
+        return { ok: false, error: err?.message || 'อัปโหลดเอกสารติด I ไม่สำเร็จ' };
+    }
+}
+
 async function stageExamReport(config, file) {
     if (!file) return;
     if (file.type && file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
@@ -4737,6 +4996,11 @@ async function finalizeWizardAttachments(config, options = {}) {
         return { ok: false, error: 'ยังไม่มีเลขรายงาน — กรุณากรอกจำนวนนักศึกษาให้ครบแล้วกดเสร็จสิ้นอีกครั้ง' };
     }
 
+    const iError = validateGradeIWorkflow();
+    if (iError) {
+        return { ok: false, error: iError };
+    }
+
     const hasPendingOrSavedReg = hasRegistrarAttachment(config);
     if (!hasPendingOrSavedReg && (config.cameFromUpload || window.wizardHasPendingReg)) {
         const missing = missingRegSections();
@@ -4748,8 +5012,10 @@ async function finalizeWizardAttachments(config, options = {}) {
         };
     }
 
-    // ไม่มี มข.11 ค้างแนบ — จบได้เลยหลังบันทึกข้อมูล (ไม่บังคับใบขวาง)
-    if (!hasPendingOrSavedReg) {
+    const needsIUpload = Boolean(window.pendingILetterFile);
+
+    // ไม่มี มข.11 ค้างแนบ — ยังอาจต้องอัปโหลดเอกสารติด I
+    if (!hasPendingOrSavedReg && !needsIUpload) {
         return { ok: true, data: { skipped: true } };
     }
 
@@ -4758,28 +5024,34 @@ async function finalizeWizardAttachments(config, options = {}) {
         showSaveOverlayLoading();
     }
 
-    const formData = new FormData();
-    requiredRegSections().forEach((sec) => {
-        formData.append('required_sections[]', String(sec));
-    });
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    try {
-        const res = await fetch(`/api/grade-reports/${config.currentReportId}/finalize-wizard`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': csrf,
-                'X-Requested-With': 'XMLHttpRequest',
-                Accept: 'application/json',
-            },
-            credentials: 'same-origin',
-            body: formData,
+    let data = { skipped: !hasPendingOrSavedReg };
+    if (hasPendingOrSavedReg) {
+        const formData = new FormData();
+        requiredRegSections().forEach((sec) => {
+            formData.append('required_sections[]', String(sec));
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            const msg = [data.message, data.hint].filter(Boolean).join(' — ')
-                || 'อัปโหลดไฟล์เข้าสู่ระบบไม่สำเร็จ';
-            throw new Error(msg);
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        try {
+            const res = await fetch(`/api/grade-reports/${config.currentReportId}/finalize-wizard`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
+                },
+                credentials: 'same-origin',
+                body: formData,
+            });
+            data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const msg = [data.message, data.hint].filter(Boolean).join(' — ')
+                    || 'อัปโหลดไฟล์เข้าสู่ระบบไม่สำเร็จ';
+                throw new Error(msg);
+            }
+        } catch (err) {
+            hideSaveOverlay();
+            return { ok: false, error: err?.message || 'อัปโหลดไฟล์เข้าสู่ระบบไม่สำเร็จ' };
         }
 
         window.pendingExamFile = null;
@@ -4814,7 +5086,17 @@ async function finalizeWizardAttachments(config, options = {}) {
             name: info.name,
             view_url: info.viewUrl,
         }));
+    }
 
+    if (needsIUpload) {
+        const iUploaded = await uploadPendingILetter(config);
+        if (!iUploaded.ok) {
+            hideSaveOverlay();
+            return { ok: false, error: iUploaded.error || 'อัปโหลดเอกสารติด I ไม่สำเร็จ' };
+        }
+    }
+
+    try {
         hideSaveOverlay();
         updateAttachmentChecklist(config);
         return { ok: true, data };
@@ -5068,6 +5350,14 @@ function initGradeReportWizard(config) {
         config.hasExamReportFile = true;
     }
 
+    if (config.iLetterFileDetail?.file_id || config.hasILetterFile) {
+        config.hasILetterFile = true;
+        window.gradeILetterDownloaded = true;
+        window.gradeISubStep = 3;
+    }
+    syncRemarkIFromGradeIStudents();
+    updateGradeILetterUi();
+
     // โหมดแก้ไขไม่ใช้ REG pending จาก session ของรายวิชาอื่นแบบรวม — ใช้ราย Section ด้านบน
     if (config.openedAsEdit) {
         window.wizardHasPendingReg = Object.values(window.regUploadBySection).some((x) => x.source === 'pending');
@@ -5107,8 +5397,11 @@ function initGradeReportWizard(config) {
         for (let s = 1; s <= step; s += 1) {
             const error = validateWizardStep(s, config);
             if (error) {
-                go(s);
-                showWizardIncomplete(s, error);
+                const jump = (error.includes('เกรด I') || error.includes('ติด I') || error.includes('เอกสารติด I'))
+                    ? 2
+                    : s;
+                go(jump);
+                showWizardIncomplete(jump, error);
                 updateAttachmentChecklist(config);
                 return;
             }
@@ -5116,16 +5409,21 @@ function initGradeReportWizard(config) {
         clearWizardIncomplete();
 
         if (step === 3) {
-            // มี มข.11 ที่ต้องแนบต่อ → คง overlay รอบเดียวตลอดบันทึก+finalize
-            const willAttachReg = hasRegistrarAttachment(config);
-            const saved = await saveWizardReport(config, { keepOverlay: willAttachReg });
+            // มี มข.11 / เอกสาร I ที่ต้องแนบต่อ → คง overlay รอบเดียวตลอดบันทึก+finalize
+            const willAttachFiles = hasRegistrarAttachment(config) || Boolean(window.pendingILetterFile);
+            const saved = await saveWizardReport(config, { keepOverlay: willAttachFiles });
             if (!saved.ok) {
                 showWizardIncomplete(3, saved.error || 'บันทึกไม่สำเร็จ กรุณาตรวจสอบข้อมูลในขั้นตอนจำนวนนักศึกษา');
                 return;
             }
-            const finalized = await finalizeWizardAttachments(config, { reuseOverlay: willAttachReg });
+            const finalized = await finalizeWizardAttachments(config, { reuseOverlay: willAttachFiles });
             if (!finalized.ok) {
-                showWizardIncomplete(3, finalized.error || 'แนบไฟล์ มข.11 ไม่สำเร็จ');
+                const err = finalized.error || 'แนบไฟล์ไม่สำเร็จ';
+                const jump = (err.includes('เกรด I') || err.includes('ติด I') || err.includes('เอกสารติด I'))
+                    ? 2
+                    : 3;
+                go(jump);
+                showWizardIncomplete(jump, err);
                 return;
             }
             clearWizardIncomplete();

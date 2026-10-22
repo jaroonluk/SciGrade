@@ -12,6 +12,8 @@ class GradeReportFile extends Model
 
     public const TYPE_REGISTRAR = 'registrar';
 
+    public const TYPE_I_LETTER = 'i_letter';
+
     protected $connection = 'scigrad';
 
     protected $table = 'grade_report_file';
@@ -57,6 +59,7 @@ class GradeReportFile extends Model
     {
         return match ($this->resolvedType()) {
             self::TYPE_REGISTRAR => 'ใบส่งผลการศึกษา (REG)',
+            self::TYPE_I_LETTER => 'เอกสารชี้แจงเกรด I',
             default => 'แบบรายงานผลการสอบไล่',
         };
     }
@@ -478,7 +481,7 @@ class GradeReportFile extends Model
      */
     public static function allowedTypes(): array
     {
-        return [self::TYPE_EXAM_REPORT, self::TYPE_REGISTRAR];
+        return [self::TYPE_EXAM_REPORT, self::TYPE_REGISTRAR, self::TYPE_I_LETTER];
     }
 
     /**
@@ -492,8 +495,14 @@ class GradeReportFile extends Model
             'all',
             self::TYPE_EXAM_REPORT,
             self::TYPE_REGISTRAR,
+            self::TYPE_I_LETTER,
             'registrar_instructor',
             'registrar_dept',
         ];
+    }
+
+    public function isILetter(): bool
+    {
+        return $this->resolvedType() === self::TYPE_I_LETTER;
     }
 }
