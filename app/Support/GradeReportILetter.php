@@ -57,26 +57,6 @@ class GradeReportILetter
         $department = trim((string) ($input['department'] ?? ''));
         $reason = trim((string) ($input['reason'] ?? ''));
 
-        $sections = [];
-        if (! empty($input['sections']) && is_array($input['sections'])) {
-            foreach ($input['sections'] as $sec) {
-                $n = (int) $sec;
-                if ($n > 0) {
-                    $sections[] = $n;
-                }
-            }
-        } elseif (! empty($input['section'])) {
-            $n = (int) $input['section'];
-            if ($n > 0) {
-                $sections[] = $n;
-            }
-        }
-        $sections = array_values(array_unique($sections));
-        sort($sections);
-        $sectionLabel = $sections === []
-            ? '......'
-            : implode(', ', array_map(fn ($s) => (string) (int) $s, $sections));
-
         $termShort = match ($term) {
             1 => 'ต้น',
             2 => 'ปลาย',
@@ -91,6 +71,7 @@ class GradeReportILetter
         };
 
         $students = [];
+        $sectionsFromStudents = [];
         foreach ($input['students'] ?? [] as $row) {
             $name = trim((string) ($row['name'] ?? ''));
             $code = trim((string) ($row['student_code'] ?? ''));
@@ -98,12 +79,42 @@ class GradeReportILetter
                 continue;
             }
             $rowReason = trim((string) ($row['reason'] ?? ''));
+            $sec = (int) ($row['section'] ?? 0);
+            if ($sec > 0) {
+                $sectionsFromStudents[] = $sec;
+            }
             $students[] = [
                 'name' => $name !== '' ? $name : '................................',
                 'student_code' => $code !== '' ? $code : '..................',
                 'reason' => $rowReason !== '' ? $rowReason : $reason,
+                'section' => $sec > 0 ? $sec : null,
             ];
         }
+
+        // กลุ่มที่... = เฉพาะ Section ที่มีนักศึกษาติด I เท่านั้น
+        $sections = array_values(array_unique($sectionsFromStudents));
+        sort($sections);
+        if ($sections === []) {
+            // fallback เมื่อไม่มี section ในรายชื่อนักศึกษา
+            if (! empty($input['sections']) && is_array($input['sections'])) {
+                foreach ($input['sections'] as $sec) {
+                    $n = (int) $sec;
+                    if ($n > 0) {
+                        $sections[] = $n;
+                    }
+                }
+            } elseif (! empty($input['section'])) {
+                $n = (int) $input['section'];
+                if ($n > 0) {
+                    $sections[] = $n;
+                }
+            }
+            $sections = array_values(array_unique($sections));
+            sort($sections);
+        }
+        $sectionLabel = $sections === []
+            ? '......'
+            : implode(', ', array_map(fn ($s) => (string) (int) $s, $sections));
 
         $count = count($students);
         $codePart = $subjectCode !== '' ? $subjectCode : '...............';

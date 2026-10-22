@@ -29,7 +29,7 @@ class GradeReportILetterTest extends TestCase
 
         $this->assertSame('SC101011', $fields['subject_code']);
         $this->assertSame(2, $fields['student_count']);
-        $this->assertSame('1, 2', $fields['section_label']);
+        $this->assertSame('1, 2', $fields['section_label']); // จากนักศึกษาติด I เท่านั้น
         $this->assertStringContainsString('เกรด I', $fields['body']);
         $this->assertStringContainsString('SC101011', $fields['subject_line']);
         $this->assertStringContainsString('BIOLOGY', $fields['subject_line']);
@@ -41,6 +41,29 @@ class GradeReportILetterTest extends TestCase
         $this->assertStringNotContainsString('(ชื่อวิชา)', $fields['body']);
         $this->assertStringNotContainsString('(ต้น/ปลาย)', $fields['body']);
         $this->assertSame('ป่วยและมีใบรับรองแพทย์', $fields['students'][0]['reason']);
+    }
+
+    #[Test]
+    public function section_label_includes_only_sections_with_grade_i_students(): void
+    {
+        $fields = GradeReportILetter::fields([
+            'subject_code' => 'SC101011',
+            'subject' => 'BIOLOGY',
+            'term' => 1,
+            'year' => 2567,
+            'teacher' => 'อ.สมชาย ใจดี',
+            'sections' => [1, 2, 3, 4], // Section อื่นที่ไม่มี I ต้องไม่โผล่
+            'students' => [
+                ['name' => 'นายเอ', 'student_code' => '663030001-2', 'section' => 2],
+                ['name' => 'นายบี', 'student_code' => '663030002-0', 'section' => 4],
+            ],
+        ]);
+
+        $this->assertSame('2, 4', $fields['section_label']);
+        $this->assertStringContainsString('กลุ่มที่ 2, 4', $fields['body']);
+        $this->assertStringNotContainsString('กลุ่มที่ 1', $fields['body']);
+        $this->assertStringNotContainsString('กลุ่มที่ 3', $fields['body']);
+        $this->assertSame('อ.สมชาย ใจดี', $fields['teacher']);
     }
 
     #[Test]
@@ -119,7 +142,7 @@ class GradeReportILetterTest extends TestCase
         $this->assertStringContainsString('663030001-2', $xml);
         $this->assertStringContainsString('เหตุสุดวิสัย', $xml);
         $this->assertStringContainsString('หัวหน้าสาขาวิชาชีววิทยา', $xml);
-        $this->assertStringContainsString('อาจารย์ประจำวิชา', $xml);
+        $this->assertStringContainsString('อาจารย์ประจำวิชา อ.ทดสอบ', $xml);
         $this->assertStringNotContainsString('อาจารย์ที่ปรึกษาโครงงาน', $xml);
         $this->assertStringNotContainsString('หัวหน้าสาขาวิชาสาขาวิชา', $xml);
         $this->assertStringNotContainsString('(รหัสวิชา)', $xml);

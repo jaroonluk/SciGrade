@@ -326,12 +326,10 @@ async function downloadGradeILetter() {
         return;
     }
 
+    // เฉพาะ Section ที่มีนักศึกษาติด I — ไม่รวม Section ที่ไม่มี I
     const sections = Array.from(new Set(
-        (typeof sectionStdRows !== 'undefined' && Array.isArray(sectionStdRows) ? sectionStdRows : [])
-            .map((r) => Number(r.sec))
-            .filter((n) => n > 0)
-            .concat(students.map((s) => Number(s.section)).filter((n) => n > 0))
-    ));
+        students.map((s) => Number(s.section)).filter((n) => n > 0)
+    )).sort((a, b) => a - b);
 
     const payload = {
         subject_code: document.getElementById('subject-code')?.value?.trim() || '',
