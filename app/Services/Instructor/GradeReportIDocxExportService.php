@@ -170,11 +170,8 @@ class GradeReportIDocxExportService
 
         $sign->addRow();
         $sign->addCell(4200, $emptyCell);
-        // ต่อท้ายด้วยชื่อจากช่องอาจารย์ผู้สอน (ขั้นตอนที่ 1)
-        $advisorLine = $fields['teacher'] !== ''
-            ? 'อาจารย์ประจำวิชา '.$fields['teacher']
-            : 'อาจารย์ประจำวิชา';
-        $sign->addCell(5880, $emptyCell)->addText($advisorLine, $font, $right);
+        // หลังตาราง: แสดงเฉพาะคำว่า «อาจารย์ประจำวิชา» ไม่ต่อด้วยชื่อ
+        $sign->addCell(5880, $emptyCell)->addText('อาจารย์ประจำวิชา', $font, $right);
 
         $sign->addRow();
         $sign->addCell(4200, $emptyCell)->addText('', $font, ['spaceAfter' => 360]);

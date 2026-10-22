@@ -142,7 +142,11 @@ class GradeReportILetterTest extends TestCase
         $this->assertStringContainsString('663030001-2', $xml);
         $this->assertStringContainsString('เหตุสุดวิสัย', $xml);
         $this->assertStringContainsString('หัวหน้าสาขาวิชาชีววิทยา', $xml);
-        $this->assertStringContainsString('อาจารย์ประจำวิชา อ.ทดสอบ', $xml);
+        // เนื้อหาก่อนตาราง: ชื่ออาจารย์แทนคำว่าอาจารย์ประจำวิชา
+        $this->assertStringContainsString('อ.ทดสอบ ใคร่ขอชี้แจงสาเหตุที่นักศึกษา', $xml);
+        // หลังตาราง: แสดงแค่คำว่าอาจารย์ประจำวิชา (ไม่ต่อด้วยชื่อ)
+        $this->assertStringContainsString('อาจารย์ประจำวิชา', $xml);
+        $this->assertStringNotContainsString('อาจารย์ประจำวิชา อ.ทดสอบ', $xml);
         $this->assertStringNotContainsString('อาจารย์ที่ปรึกษาโครงงาน', $xml);
         $this->assertStringNotContainsString('หัวหน้าสาขาวิชาสาขาวิชา', $xml);
         $this->assertStringNotContainsString('(รหัสวิชา)', $xml);
