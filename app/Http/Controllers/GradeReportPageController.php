@@ -159,8 +159,26 @@ class GradeReportPageController extends Controller
         ];
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
+        $uploadParsed = session('grade_upload_parsed');
+        if (is_array($uploadParsed) && $this->pendingRegistrar->hasPending()) {
+            $progress = $this->uploadBatch->sectionProgress(
+                (string) ($uploadParsed['subject_code'] ?? ''),
+                (int) ($uploadParsed['term'] ?? $request->integer('term') ?: AcademicTerm::defaultTerm()),
+                (int) ($uploadParsed['year'] ?? $request->integer('year') ?: AcademicTerm::defaultYear()),
+                is_string($uploadParsed['subject'] ?? null) ? (string) $uploadParsed['subject'] : null,
+            );
+            if ($progress['gated'] && ! $progress['complete']) {
+                return redirect()
+                    ->route('grade-reports.upload', [
+                        'term' => $progress['term'],
+                        'year' => $progress['year'],
+                    ])
+                    ->with('upload_section_incomplete', true);
+            }
+        }
+
         $uploadParsed = session()->pull('grade_upload_parsed');
 
         return $this->formView(
@@ -293,12 +311,75 @@ class GradeReportPageController extends Controller
     public function upload(Request $request): View
     {
         $selected = AcademicTerm::fromRequest($request);
+        $progress = $this->resolveUploadProgress(
+            $selected['term'],
+            $selected['year'],
+        );
 
         return view('grade-reports.upload', [
             'term' => $selected['term'],
             'year' => $selected['year'],
             'years' => AcademicTerm::yearOptions(),
+            'sectionProgress' => $progress,
         ]);
+    }
+
+    public function clearUploadProgress(Request $request): RedirectResponse
+    {
+        $this->pendingRegistrar->forgetAll();
+        session()->forget('grade_upload_parsed');
+
+        $term = $request->integer('term') ?: AcademicTerm::defaultTerm();
+        $year = $request->integer('year') ?: AcademicTerm::defaultYear();
+
+        return redirect()
+            ->route('grade-reports.upload', ['term' => $term, 'year' => $year])
+            ->with('status', 'ล้างไฟล์ มข.11 ที่แนบไว้แล้ว — สามารถเริ่มอัปโหลดใหม่ได้');
+    }
+
+    public function continueUpload(Request $request): RedirectResponse
+    {
+        $term = $request->integer('term') ?: AcademicTerm::defaultTerm();
+        $year = $request->integer('year') ?: AcademicTerm::defaultYear();
+        $parsed = session('grade_upload_parsed');
+
+        if (! is_array($parsed)) {
+            return redirect()
+                ->route('grade-reports.upload', ['term' => $term, 'year' => $year])
+                ->withErrors(['grade_files' => 'ยังไม่มีไฟล์ มข.11 ที่อ่านแล้ว — กรุณาอัปโหลดไฟล์ก่อน']);
+        }
+
+        $subjectCode = (string) ($parsed['subject_code'] ?? '');
+        $progressTerm = (int) ($parsed['term'] ?? $term);
+        $progressYear = (int) ($parsed['year'] ?? $year);
+        $progress = $this->uploadBatch->sectionProgress(
+            $subjectCode,
+            $progressTerm,
+            $progressYear,
+            is_string($parsed['subject'] ?? null) ? (string) $parsed['subject'] : null,
+        );
+
+        if ($progress['gated'] && ! $progress['complete']) {
+            return redirect()
+                ->route('grade-reports.upload', [
+                    'term' => $progressTerm,
+                    'year' => $progressYear,
+                ])
+                ->with('upload_section_incomplete', true);
+        }
+
+        $attached = (int) ($progress['attached_count'] ?? 0);
+        $status = $attached <= 1
+            ? 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน'
+            : "อ่านไฟล์ PDF สำเร็จ {$attached} ไฟล์ (วิชา {$progress['subject_code']}) — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน";
+
+        return redirect()
+            ->route('grade-reports.create', [
+                'term' => $progressTerm,
+                'year' => $progressYear,
+                'return' => 'dashboard',
+            ])
+            ->with('status', $status);
     }
 
     public function storeUpload(Request $request): RedirectResponse
@@ -329,19 +410,22 @@ class GradeReportPageController extends Controller
             fn ($file) => $file instanceof \Illuminate\Http\UploadedFile,
         ));
 
+        $term = $request->integer('term');
+        $year = $request->integer('year');
+
         try {
             $result = $this->uploadBatch->process(
                 $uploadedFiles,
-                $request->integer('term'),
-                $request->integer('year'),
+                $term,
+                $year,
                 auth()->id(),
             );
         } catch (RegistrarPdfParseException $e) {
             $message = $e->getMessage();
             $redirect = redirect()
                 ->route('grade-reports.upload', [
-                    'term' => $request->integer('term'),
-                    'year' => $request->integer('year'),
+                    'term' => $term,
+                    'year' => $year,
                 ])
                 ->withInput()
                 ->withErrors(['grade_files' => $message]);
@@ -354,8 +438,8 @@ class GradeReportPageController extends Controller
         } catch (\InvalidArgumentException $e) {
             return redirect()
                 ->route('grade-reports.upload', [
-                    'term' => $request->integer('term'),
-                    'year' => $request->integer('year'),
+                    'term' => $term,
+                    'year' => $year,
                 ])
                 ->withInput()
                 ->withErrors(['grade_files' => $e->getMessage()]);
@@ -385,15 +469,15 @@ class GradeReportPageController extends Controller
         if ($accepted === [] || $parsed === null) {
             $redirect = redirect()
                 ->route('grade-reports.upload', [
-                    'term' => $request->integer('term'),
-                    'year' => $request->integer('year'),
+                    'term' => $term,
+                    'year' => $year,
                 ])
                 ->withInput();
 
             if ($alreadyExistsMessage !== null) {
                 $redirect->with('upload_already_exists', $alreadyExistsMessage)
-                    ->with('upload_already_exists_term', $request->integer('term'))
-                    ->with('upload_already_exists_year', $request->integer('year'));
+                    ->with('upload_already_exists_term', $term)
+                    ->with('upload_already_exists_year', $year);
             }
             if ($duplicates !== []) {
                 $dupLines = array_map(
@@ -412,39 +496,118 @@ class GradeReportPageController extends Controller
             return $redirect;
         }
 
+        $previous = session('grade_upload_parsed');
+        if (is_array($previous)) {
+            $prevCode = Str::upper(trim((string) ($previous['subject_code'] ?? '')));
+            $nextCode = Str::upper(trim((string) ($parsed['subject_code'] ?? '')));
+            $sameCourse = $prevCode !== '' && $prevCode === $nextCode
+                && (int) ($previous['term'] ?? 0) === (int) ($parsed['term'] ?? $term)
+                && (int) ($previous['year'] ?? 0) === (int) ($parsed['year'] ?? $year);
+            if ($sameCourse) {
+                $parsed = $this->uploadBatch->mergeParsed($previous, $parsed);
+            }
+        }
         session(['grade_upload_parsed' => $parsed]);
 
-        $acceptedCount = count($accepted);
-        $status = $acceptedCount === 1
-            ? 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน'
-            : "อ่านไฟล์ PDF สำเร็จ {$acceptedCount} ไฟล์ (วิชา {$parsed['subject_code']}) — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน";
+        $progress = $this->uploadBatch->sectionProgress(
+            (string) ($parsed['subject_code'] ?? ''),
+            (int) ($parsed['term'] ?? $term),
+            (int) ($parsed['year'] ?? $year),
+            is_string($parsed['subject'] ?? null) ? (string) $parsed['subject'] : null,
+        );
 
-        $redirect = redirect()
-            ->route('grade-reports.create', [
-                'term' => (int) ($parsed['term'] ?? $request->integer('term')),
-                'year' => (int) ($parsed['year'] ?? $request->integer('year')),
-                'return' => 'dashboard',
-            ])
-            ->with('status', $status);
-
+        $dupFlash = null;
         if ($duplicates !== []) {
             $dupLines = array_map(
                 fn (array $d) => '• '.$d['name'].' — '.$d['reason'].' (ใช้ไฟล์ «'.$d['duplicate_of'].'» แทน)',
                 $duplicates,
             );
-            $redirect->with(
-                'upload_duplicates',
-                'พบไฟล์ซ้ำ '.count($duplicates).' ไฟล์ — ระบบอ่านเฉพาะไฟล์ที่ไม่ซ้ำ:'."\n".implode("\n", $dupLines),
-            );
+            $dupFlash = 'พบไฟล์ซ้ำ '.count($duplicates).' ไฟล์ — ระบบอ่านเฉพาะไฟล์ที่ไม่ซ้ำ:'."\n".implode("\n", $dupLines);
+        }
+
+        // ยังแนบ มข.11 ไม่ครบทุก Section ตามรายการ REG — ค้างที่หน้าอัปโหลด
+        if ($progress['gated'] && ! $progress['complete']) {
+            $redirect = redirect()
+                ->route('grade-reports.upload', [
+                    'term' => (int) ($parsed['term'] ?? $term),
+                    'year' => (int) ($parsed['year'] ?? $year),
+                ])
+                ->with('upload_section_incomplete', true);
+
+            if ($dupFlash !== null) {
+                $redirect->with('upload_duplicates', $dupFlash);
+            }
+            if ($alreadyExistsMessage !== null) {
+                $redirect->with('upload_already_exists', $alreadyExistsMessage)
+                    ->with('upload_already_exists_term', $term)
+                    ->with('upload_already_exists_year', $year);
+            }
+
+            return $redirect;
+        }
+
+        $acceptedCount = count($accepted);
+        $attachedTotal = max($acceptedCount, (int) ($progress['attached_count'] ?? $acceptedCount));
+        $status = $attachedTotal === 1
+            ? 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน'
+            : "อ่านไฟล์ PDF สำเร็จ {$attachedTotal} ไฟล์ (วิชา {$parsed['subject_code']}) — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน";
+
+        $redirect = redirect()
+            ->route('grade-reports.create', [
+                'term' => (int) ($parsed['term'] ?? $term),
+                'year' => (int) ($parsed['year'] ?? $year),
+                'return' => 'dashboard',
+            ])
+            ->with('status', $status);
+
+        if ($dupFlash !== null) {
+            $redirect->with('upload_duplicates', $dupFlash);
         }
 
         if ($alreadyExistsMessage !== null) {
             $redirect->with('upload_already_exists', $alreadyExistsMessage)
-                ->with('upload_already_exists_term', $request->integer('term'))
-                ->with('upload_already_exists_year', $request->integer('year'));
+                ->with('upload_already_exists_term', $term)
+                ->with('upload_already_exists_year', $year);
         }
 
         return $redirect;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveUploadProgress(int $term, int $year): ?array
+    {
+        $parsed = session('grade_upload_parsed');
+        $pending = $this->pendingRegistrar->pendingItems();
+
+        $subjectCode = '';
+        $subjectName = null;
+        $progressTerm = $term;
+        $progressYear = $year;
+
+        if (is_array($parsed)) {
+            $subjectCode = (string) ($parsed['subject_code'] ?? '');
+            $subjectName = is_string($parsed['subject'] ?? null) ? (string) $parsed['subject'] : null;
+            $progressTerm = (int) ($parsed['term'] ?? $term);
+            $progressYear = (int) ($parsed['year'] ?? $year);
+        } elseif ($pending !== []) {
+            $first = $pending[0];
+            $subjectCode = (string) ($first['subject_code'] ?? '');
+            $progressTerm = (int) ($first['term'] ?? $term);
+            $progressYear = (int) ($first['year'] ?? $year);
+        }
+
+        if ($subjectCode === '' || ! $this->pendingRegistrar->hasPending()) {
+            return null;
+        }
+
+        return $this->uploadBatch->sectionProgress(
+            $subjectCode,
+            $progressTerm,
+            $progressYear,
+            $subjectName,
+        );
     }
 
     /**

@@ -90,7 +90,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         $parser->shouldReceive('canonicalFilename')
             ->andReturnUsing(fn (string $code, int $sec) => sprintf('%s-%02d.pdf', $code, $sec));
 
-        $pending->shouldReceive('forgetAll')->once();
+        $pending->shouldReceive('pendingItems')->andReturn([]);
         $pending->shouldReceive('remember')->twice();
 
         $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
@@ -180,7 +180,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         );
         $parser->shouldReceive('canonicalFilename')->andReturn('SC101011-01.pdf');
 
-        $pending->shouldReceive('forgetAll')->once();
+        $pending->shouldReceive('pendingItems')->andReturn([]);
         $pending->shouldReceive('remember')->once();
 
         $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
@@ -218,7 +218,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         $parser->shouldReceive('canonicalFilename')
             ->andReturnUsing(fn (string $code, int $sec) => sprintf('%s-%02d.pdf', $code, $sec));
 
-        $pending->shouldReceive('forgetAll')->once();
+        $pending->shouldReceive('pendingItems')->andReturn([]);
         $pending->shouldReceive('remember')->once();
 
         $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
@@ -264,5 +264,88 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         $this->assertNull($result['merged']);
         $this->assertSame([], $result['accepted']);
         $this->assertCount(1, $result['already_exists']);
+    }
+
+    #[Test]
+    public function it_merges_parsed_payloads_by_section(): void
+    {
+        $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $pending = Mockery::mock(InstructorPendingRegistrarService::class);
+        $service = new InstructorRegistrarUploadBatchService($parser, $pending);
+
+        $base = $this->makeParsed('SC101011', 1, [
+            'grade_i_students' => [
+                ['name' => 'A', 'student_code' => '1', 'section' => 1],
+            ],
+        ]);
+        $incoming = $this->makeParsed('SC101011', 2, [
+            'grade_stds' => [[
+                'sec' => 1,
+                'fac' => 'SC',
+                'num_a' => 99,
+                'num_bb' => 0, 'num_b' => 0, 'num_cc' => 0, 'num_c' => 0,
+                'num_dd' => 0, 'num_d' => 0, 'num_f' => 0, 'num_i' => 0,
+                'num_s' => 0, 'num_v' => 0, 'num_w' => 0, 'num_ff' => 0, 'num_out' => 0,
+                'type_course' => 1, 'numstdevz' => null, 'evaluationscore' => null,
+            ], [
+                'sec' => 2,
+                'fac' => 'SC',
+                'num_a' => 5,
+                'num_bb' => 0, 'num_b' => 0, 'num_cc' => 0, 'num_c' => 0,
+                'num_dd' => 0, 'num_d' => 0, 'num_f' => 0, 'num_i' => 0,
+                'num_s' => 0, 'num_v' => 0, 'num_w' => 0, 'num_ff' => 0, 'num_out' => 0,
+                'type_course' => 1, 'numstdevz' => null, 'evaluationscore' => null,
+            ]],
+            'grade_i_students' => [
+                ['name' => 'B', 'student_code' => '2', 'section' => 2],
+            ],
+        ]);
+
+        $merged = $service->mergeParsed($base, $incoming);
+
+        $this->assertCount(2, $merged['grade_stds']);
+        $this->assertSame(99, (int) $merged['grade_stds'][0]['num_a']);
+        $this->assertSame(2, (int) $merged['grade_stds'][1]['sec']);
+        $this->assertCount(2, $merged['grade_i_students']);
+    }
+
+    #[Test]
+    public function it_builds_section_progress_from_reg_minus_existing(): void
+    {
+        $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $pending = Mockery::mock(InstructorPendingRegistrarService::class);
+        $pending->shouldReceive('pendingBySection')
+            ->once()
+            ->andReturn([
+                2 => ['section' => 2, 'name' => 'SC602005-02.pdf', 'path' => 'tmp/a.pdf'],
+            ]);
+
+        $service = Mockery::mock(InstructorRegistrarUploadBatchService::class, [$parser, $pending])
+            ->makePartial();
+        $service->shouldReceive('regSectionsForCourse')
+            ->once()
+            ->with('SC602005', 1, 2568)
+            ->andReturn([
+                'sections' => [1, 2, 3],
+                'from_reg' => true,
+                'subject_name' => 'PROBABILITY AND STATISTICS',
+            ]);
+        $service->shouldReceive('existingSectionsForCourse')
+            ->once()
+            ->with('SC602005', 1, 2568)
+            ->andReturn([1 => true]);
+
+        $progress = $service->sectionProgress('SC602005', 1, 2568, 'PROBABILITY AND STATISTICS');
+
+        $this->assertTrue($progress['gated']);
+        $this->assertFalse($progress['complete']);
+        $this->assertSame([2, 3], $progress['required_sections']);
+        $this->assertSame(2, $progress['required_count']);
+        $this->assertSame([2], $progress['attached_sections']);
+        $this->assertSame(1, $progress['attached_count']);
+        $this->assertSame([3], $progress['missing_sections']);
+        $this->assertSame(1, $progress['missing_count']);
+        $this->assertSame('SC602005', $progress['subject_code']);
+        $this->assertStringContainsString('ภาคต้น', $progress['term_label']);
     }
 }

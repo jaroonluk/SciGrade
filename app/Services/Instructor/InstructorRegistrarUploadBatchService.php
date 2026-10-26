@@ -3,12 +3,14 @@
 namespace App\Services\Instructor;
 
 use App\Models\GradeReport;
+use App\Models\GradeReportReg;
 use App\Models\GradReport2;
 use App\Services\RegistrarGradePdfParser;
 use App\Services\RegistrarPdfParseException;
 use App\Support\UploadStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Throwable;
 
 class InstructorRegistrarUploadBatchService
 {
@@ -23,6 +25,7 @@ class InstructorRegistrarUploadBatchService
      * อ่านหลายไฟล์ PDF ใบส่งผล — ต้องเป็นวิชาเดียวกัน
      * ไฟล์ซ้ำ (เนื้อหาหรือกลุ่มเรียนเดียวกัน) อ่านเพียงไฟล์แรก
      * Section ที่มีข้อมูลในระบบแล้วจะข้ามและแจ้งผู้ใช้
+     * ไฟล์ของวิชา/ภาค/ปีเดิมจะสะสมต่อใน session (ไม่ล้างของเดิม)
      *
      * @param  list<UploadedFile>  $files
      * @return array{
@@ -179,7 +182,7 @@ class InstructorRegistrarUploadBatchService
             throw new \InvalidArgumentException('ไฟล์ทั้งหมดซ้ำกัน กรุณาเลือกไฟล์ที่แตกต่างกัน');
         }
 
-        $this->pendingRegistrar->forgetAll();
+        $this->resetPendingIfCourseChanged($subjectCode, $term, $year);
 
         $merged = null;
         $gradeStds = [];
@@ -251,6 +254,216 @@ class InstructorRegistrarUploadBatchService
     }
 
     /**
+     * รวมผล parse จากรอบก่อนกับรอบใหม่ (แทนที่ grade_std ตาม Section ที่อัปโหลดซ้ำ)
+     *
+     * @param  array<string, mixed>  $base
+     * @param  array<string, mixed>  $incoming
+     * @return array<string, mixed>
+     */
+    public function mergeParsed(array $base, array $incoming): array
+    {
+        $merged = array_merge($base, $incoming);
+
+        $stdBySec = [];
+        foreach (array_merge($base['grade_stds'] ?? [], $incoming['grade_stds'] ?? []) as $std) {
+            if (! is_array($std)) {
+                continue;
+            }
+            $sec = (int) ($std['sec'] ?? 0);
+            if ($sec <= 0) {
+                continue;
+            }
+            $stdBySec[$sec] = $std;
+        }
+        ksort($stdBySec, SORT_NUMERIC);
+        $merged['grade_stds'] = array_values($stdBySec);
+
+        $iStudents = [];
+        $seenStudentCodes = [];
+        foreach (array_merge($base['grade_i_students'] ?? [], $incoming['grade_i_students'] ?? []) as $student) {
+            if (! is_array($student)) {
+                continue;
+            }
+            $code = trim((string) ($student['student_code'] ?? ''));
+            $key = $code !== '' ? $code : (string) ($student['name'] ?? '').'|'.($student['section'] ?? '');
+            if ($key === '' || isset($seenStudentCodes[$key])) {
+                continue;
+            }
+            $seenStudentCodes[$key] = true;
+            $iStudents[] = [
+                'name' => (string) ($student['name'] ?? ''),
+                'student_code' => $code,
+                'section' => isset($student['section']) ? (int) $student['section'] : null,
+            ];
+        }
+        $merged['grade_i_students'] = $iStudents;
+
+        return $merged;
+    }
+
+    /**
+     * Section ที่ต้องแนบ มข.11 จากรายการ REG หักกลุ่มที่มีในระบบแล้ว
+     *
+     * @return array{
+     *     gated: bool,
+     *     complete: bool,
+     *     subject_code: string,
+     *     subject_name: string,
+     *     term: int,
+     *     year: int,
+     *     term_label: string,
+     *     from_reg: bool,
+     *     required_sections: list<int>,
+     *     required_count: int,
+     *     attached_sections: list<int>,
+     *     attached_count: int,
+     *     missing_sections: list<int>,
+     *     missing_count: int,
+     *     existing_sections: list<int>,
+     *     pending_details: list<array{section: int, name: string, view_url: string}>,
+     * }
+     */
+    public function sectionProgress(
+        string $subjectCode,
+        int $term,
+        int $year,
+        ?string $subjectName = null,
+    ): array {
+        $code = GradReport2::normalizeCode($subjectCode);
+        $reg = $this->regSectionsForCourse($code, $term, $year);
+        $existingMap = $this->existingSectionsForCourse($code, $term, $year);
+        $existing = array_keys($existingMap);
+        sort($existing, SORT_NUMERIC);
+
+        $pendingMap = $this->pendingRegistrar->pendingBySection($code, $term, $year);
+        $pendingDetails = [];
+        foreach ($pendingMap as $sec => $row) {
+            $pendingDetails[] = [
+                'section' => (int) $sec,
+                'name' => (string) ($row['name'] ?? ''),
+                'view_url' => route('grade-reports.pending-registrar.show', ['section' => (int) $sec]),
+            ];
+        }
+
+        $name = trim((string) ($subjectName ?: $reg['subject_name'] ?: ''));
+        $termLabel = $this->termYearLabel($term, $year);
+
+        if (! $reg['from_reg']) {
+            $attached = array_keys($pendingMap);
+            sort($attached, SORT_NUMERIC);
+
+            return [
+                'gated' => false,
+                'complete' => $attached !== [],
+                'subject_code' => $code,
+                'subject_name' => $name,
+                'term' => $term,
+                'year' => $year,
+                'term_label' => $termLabel,
+                'from_reg' => false,
+                'required_sections' => $attached,
+                'required_count' => count($attached),
+                'attached_sections' => $attached,
+                'attached_count' => count($attached),
+                'missing_sections' => [],
+                'missing_count' => 0,
+                'existing_sections' => $existing,
+                'pending_details' => $pendingDetails,
+            ];
+        }
+
+        $required = array_values(array_filter(
+            $reg['sections'],
+            fn (int $sec) => ! isset($existingMap[$sec]),
+        ));
+        $attached = array_values(array_filter(
+            $required,
+            fn (int $sec) => isset($pendingMap[$sec]),
+        ));
+        $missing = array_values(array_diff($required, $attached));
+
+        return [
+            'gated' => true,
+            'complete' => $required === [] || $missing === [],
+            'subject_code' => $code,
+            'subject_name' => $name,
+            'term' => $term,
+            'year' => $year,
+            'term_label' => $termLabel,
+            'from_reg' => true,
+            'required_sections' => $required,
+            'required_count' => count($required),
+            'attached_sections' => $attached,
+            'attached_count' => count($attached),
+            'missing_sections' => $missing,
+            'missing_count' => count($missing),
+            'existing_sections' => $existing,
+            'pending_details' => $pendingDetails,
+        ];
+    }
+
+    /**
+     * Section ที่เปิดสอนจริงจาก grade_report_reg
+     *
+     * @return array{sections: list<int>, from_reg: bool, subject_name: string}
+     */
+    public function regSectionsForCourse(string $subjectCode, int $term, int $year): array
+    {
+        $code = GradReport2::normalizeCode($subjectCode);
+        if ($code === '' || $term < 1 || $year < 1) {
+            return ['sections' => [], 'from_reg' => false, 'subject_name' => ''];
+        }
+
+        try {
+            $rows = GradeReportReg::query()
+                ->whereRaw(
+                    "UPPER(REPLACE(REPLACE(TRIM(`COURSECODE`), ' ', ''), UNHEX('C2A0'), '')) = ?",
+                    [$code],
+                )
+                ->where(function ($query) use ($year) {
+                    $query->where('ACADYEAR', (string) $year)
+                        ->orWhere('ACADYEAR', $year)
+                        ->orWhereRaw('CAST(ACADYEAR AS UNSIGNED) = ?', [$year]);
+                })
+                ->where(function ($query) use ($term) {
+                    $query->where('SEMESTER', (string) $term)
+                        ->orWhere('SEMESTER', $term)
+                        ->orWhereRaw('CAST(SEMESTER AS UNSIGNED) = ?', [$term])
+                        ->orWhere('SEMESTER', str_pad((string) $term, 2, '0', STR_PAD_LEFT));
+                })
+                ->get(['SECTION', 'COURSENAMEENG']);
+        } catch (Throwable) {
+            return ['sections' => [], 'from_reg' => false, 'subject_name' => ''];
+        }
+
+        if ($rows->isEmpty()) {
+            return ['sections' => [], 'from_reg' => false, 'subject_name' => ''];
+        }
+
+        $sections = [];
+        $subjectName = '';
+        foreach ($rows as $row) {
+            $digits = preg_replace('/\D+/', '', (string) ($row->SECTION ?? '')) ?? '';
+            $sec = (int) $digits;
+            if ($sec > 0) {
+                $sections[$sec] = $sec;
+            }
+            if ($subjectName === '') {
+                $subjectName = trim((string) ($row->COURSENAMEENG ?? ''));
+            }
+        }
+
+        $values = array_values($sections);
+        sort($values, SORT_NUMERIC);
+
+        return [
+            'sections' => $values,
+            'from_reg' => $values !== [],
+            'subject_name' => $subjectName,
+        ];
+    }
+
+    /**
      * Section ที่มีข้อมูลจำนวนนักศึกษาในรายงานวิชานี้แล้ว (ภาค/ปีเดียวกัน)
      *
      * @return array<int, true>
@@ -286,7 +499,7 @@ class InstructorRegistrarUploadBatchService
         return $secs;
     }
 
-    private function termYearLabel(int $term, int $year): string
+    public function termYearLabel(int $term, int $year): string
     {
         $termLabel = match ($term) {
             1 => 'ภาคต้น',
@@ -296,5 +509,29 @@ class InstructorRegistrarUploadBatchService
         };
 
         return $termLabel.' ปีการศึกษา '.$year;
+    }
+
+    /**
+     * ถ้าคิว pending เป็นวิชา/ภาค/ปีอื่น ให้ล้างก่อนสะสมของใหม่
+     */
+    private function resetPendingIfCourseChanged(string $subjectCode, int $term, int $year): void
+    {
+        $items = $this->pendingRegistrar->pendingItems();
+        if ($items === []) {
+            return;
+        }
+
+        $code = GradReport2::normalizeCode($subjectCode);
+        foreach ($items as $item) {
+            $itemSubject = GradReport2::normalizeCode((string) ($item['subject_code'] ?? ''));
+            $sameCourse = $itemSubject !== '' && $itemSubject === $code
+                && (int) ($item['term'] ?? 0) === $term
+                && (int) ($item['year'] ?? 0) === $year;
+            if (! $sameCourse) {
+                $this->pendingRegistrar->forgetAll();
+
+                return;
+            }
+        }
     }
 }
