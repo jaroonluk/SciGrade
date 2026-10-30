@@ -158,6 +158,66 @@ TXT;
     }
 
     #[Test]
+    public function it_parses_glued_manual_and_count_columns_accurately(): void
+    {
+        // รูปแบบจริงจากใบ มข.11 ที่ PDF ดึงข้อความคอลัมน์ %+รวม+MANUAL+เกรด ติดกัน
+        // ตรงกับตาราง: A 100-80 (1), B+ 79-74 (3), ... F 34-0 (4), รวม 143
+        $text = <<<'TXT'
+CONTROL CODE:7461907
+หมายเหตุชื่อ-สกุลเกรดรหัสประจำตัวลำดับ
+ปริญญาตรี ภาคปกติ คณะวิทยาศาสตร์
+SC202002 : Chemistry Laboratory for Agricultural Science
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 1 / 2567
+ผู้สอน
+มหาวิทยาลัยขอนแก่น
+อ.ดร.ทดสอบ ระบบ กลุ่ม 1
+รายวิชา
+ระดับการศึกษา
+วิทยาเขต ขอนแก่น
+หน่วยกิต 1 (0-3-2)
+นายหนึ่ง ทดสอบA663020001-11
+นายสอง ทดสอบB+663020002-22
+%รวมMANUALเกรด
+0.701100-80A
+2.10379-74B+
+9.091373-69B
+48.957068-59C+
+31.474558-50C
+4.20649-41D+
+0.70140-35D
+2.804F
+100.00143รวม
+CONTROL CODE:7461907
+34-0
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC202002-01.pdf', 1, 2567);
+        $std = $parsed['grade_stds'][0];
+
+        $this->assertSame('SC202002', $parsed['subject_code']);
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('79-74', $parsed['score_bb']);
+        $this->assertSame('73-69', $parsed['score_b']);
+        $this->assertSame('68-59', $parsed['score_cc']);
+        $this->assertSame('58-50', $parsed['score_c']);
+        $this->assertSame('49-41', $parsed['score_dd']);
+        $this->assertSame('40-35', $parsed['score_d']);
+        $this->assertSame('34-0', $parsed['score_f']);
+        $this->assertSame(1, $std['num_a']);
+        $this->assertSame(3, $std['num_bb']);
+        $this->assertSame(13, $std['num_b']);
+        $this->assertSame(70, $std['num_cc']);
+        $this->assertSame(45, $std['num_c']);
+        $this->assertSame(6, $std['num_dd']);
+        $this->assertSame(1, $std['num_d']);
+        $this->assertSame(4, $std['num_f']);
+        $this->assertSame(143, $std['num_a'] + $std['num_bb'] + $std['num_b'] + $std['num_cc']
+            + $std['num_c'] + $std['num_dd'] + $std['num_d'] + $std['num_f']);
+    }
+
+    #[Test]
     public function it_selects_all_student_faculties_from_content(): void
     {
         $path = base_path('tests/Fixtures/registrar-pdfs/SC101011-multi-fac-sample.txt');

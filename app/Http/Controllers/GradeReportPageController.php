@@ -532,7 +532,8 @@ class GradeReportPageController extends Controller
                     'term' => (int) ($parsed['term'] ?? $term),
                     'year' => (int) ($parsed['year'] ?? $year),
                 ])
-                ->with('upload_section_incomplete', true);
+                ->with('upload_section_incomplete', true)
+                ->with('upload_score_range_notice', $this->pdfParser->unverifiedManualScoreRangesMessage());
 
             if ($dupFlash !== null) {
                 $redirect->with('upload_duplicates', $dupFlash);
@@ -552,13 +553,16 @@ class GradeReportPageController extends Controller
             ? 'อ่านไฟล์ PDF สำเร็จ — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน'
             : "อ่านไฟล์ PDF สำเร็จ {$attachedTotal} ไฟล์ (วิชา {$parsed['subject_code']}) — ไฟล์จะถูกอัปโหลดเข้าสู่ระบบเมื่อกดเสร็จสิ้นครบทุกขั้นตอน";
 
+        $scoreRangeNotice = $this->pdfParser->unverifiedManualScoreRangesMessage();
+
         $redirect = redirect()
             ->route('grade-reports.create', [
                 'term' => (int) ($parsed['term'] ?? $term),
                 'year' => (int) ($parsed['year'] ?? $year),
                 'return' => 'dashboard',
             ])
-            ->with('status', $status);
+            ->with('status', $status)
+            ->with('upload_score_range_notice', $scoreRangeNotice);
 
         if ($dupFlash !== null) {
             $redirect->with('upload_duplicates', $dupFlash);

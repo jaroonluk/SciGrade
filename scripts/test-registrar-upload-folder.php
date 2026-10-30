@@ -16,9 +16,12 @@ use App\Services\RegistrarPdfParseException;
 use App\Support\ImageOnlyPdfMessage;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\Settings;
 use PhpOffice\PhpWord\SimpleType\Jc;
 
 require __DIR__.'/../vendor/autoload.php';
+
+Settings::setOutputEscapingEnabled(true);
 
 $app = require __DIR__.'/../bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();

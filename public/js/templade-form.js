@@ -1794,6 +1794,7 @@ function applyParsedSectionFromPdf(parsed) {
         parseScoreRange(parsed.score_d, 'range-d-max', 'range-d-min');
         parseScoreRange(parsed.score_f, 'range-f-max', 'range-f-min');
         recalcAllGradeChains();
+        updateMk11ScoreRangeCard(parsed);
     }
     if (parsed.degree != null) window.parsedCourseDegree = Number(parsed.degree);
     if (parsed.type_course != null) setRadio('type_course', parsed.type_course);
@@ -2395,6 +2396,15 @@ function validateGradeReportBeforeSave(payload) {
         // ไม่บล็อกการบันทึก — ช่วงคะแนนแสดงในตารางสรุปเมื่อมีค่า
     }
 
+    const fromMk11Upload = Boolean(
+        window.sectionEntryViaUpload
+        || window.wizardConfig?.cameFromUpload
+        || window.wizardConfig?.regFilledFromPdf
+    );
+    if (fromMk11Upload && !hasManualScoreRangesFromForm()) {
+        return 'ขั้นตอนที่ 3: ระบบอ่านคอลัมน์ช่วงคะแนน (MANUAL) จากใบ มข.11 ไม่ได้ — ไม่สามารถกดผ่านได้ กรุณากลับไปอัปโหลดใบ มข.11 ที่มีช่วงคะแนนตัดเกรดครบ';
+    }
+
     // ประเมินรายวิชาถูกถอดออกจาก wizard แล้ว — ไม่บังคับกรอก
 
     if (!payload.grade_stds?.length) {
@@ -2766,6 +2776,77 @@ function parseScoreRange(value, maxId, minId) {
     if (minEl && parts[1]) minEl.value = parts[1];
 }
 
+function hasManualScoreRangesFromForm() {
+    const a = buildScoreRange('range-a-max', 'range-a-min');
+    if (a && /^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/.test(a)) {
+        return true;
+    }
+    let filled = 0;
+    [
+        ['range-bp-max', 'range-bp-min'],
+        ['range-b-max', 'range-b-min'],
+        ['range-cp-max', 'range-cp-min'],
+        ['range-c-max', 'range-c-min'],
+        ['range-dp-max', 'range-dp-min'],
+        ['range-d-max', 'range-d-min'],
+        ['range-f-max', 'range-f-min'],
+    ].forEach(([maxId, minId]) => {
+        const val = buildScoreRange(maxId, minId);
+        if (val && /^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/.test(val)) {
+            filled += 1;
+        }
+    });
+    return filled >= 2;
+}
+
+function updateMk11ScoreRangeCard(record = null) {
+    const card = document.getElementById('mk11-score-range-card');
+    const list = document.getElementById('mk11-score-range-list');
+    const missing = document.getElementById('mk11-score-range-missing');
+    if (!card || !list) return;
+
+    const fromUpload = Boolean(
+        record?.__fromUpload
+        || window.wizardConfig?.cameFromUpload
+        || window.wizardConfig?.regFilledFromPdf
+        || window.sectionEntryViaUpload
+    );
+    if (!fromUpload) {
+        card.classList.add('hidden');
+        return;
+    }
+
+    const pairs = [
+        ['A', record?.score_a || buildScoreRange('range-a-max', 'range-a-min')],
+        ['B+', record?.score_bb || buildScoreRange('range-bp-max', 'range-bp-min')],
+        ['B', record?.score_b || buildScoreRange('range-b-max', 'range-b-min')],
+        ['C+', record?.score_cc || buildScoreRange('range-cp-max', 'range-cp-min')],
+        ['C', record?.score_c || buildScoreRange('range-c-max', 'range-c-min')],
+        ['D+', record?.score_dd || buildScoreRange('range-dp-max', 'range-dp-min')],
+        ['D', record?.score_d || buildScoreRange('range-d-max', 'range-d-min')],
+        ['F', record?.score_f || buildScoreRange('range-f-max', 'range-f-min')],
+    ];
+
+    list.innerHTML = '';
+    let shown = 0;
+    pairs.forEach(([label, value]) => {
+        const text = String(value || '').trim();
+        if (!text || text === '-') return;
+        shown += 1;
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-1 rounded-full bg-white border border-amber-300 px-2.5 py-1 text-amber-950';
+        chip.innerHTML = `<span class="font-semibold">${label}</span><span class="tabular-nums">${text}</span>`;
+        list.appendChild(chip);
+    });
+
+    const ok = hasManualScoreRangesFromForm() || Boolean(record?.has_manual_score_ranges) || shown > 0;
+    card.classList.remove('hidden');
+    if (missing) {
+        missing.classList.toggle('hidden', ok);
+    }
+    if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
 function setRadio(name, value) {
     const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
     if (el) el.checked = true;
@@ -2807,6 +2888,7 @@ function populateFormFromRecord(record) {
     parseScoreRange(record.score_u, 'range-u-max', 'range-u-min');
     setGradeScheme(record.grade_scheme || (record.score_s || record.score_u ? 'both' : 'credit'));
     recalcAllGradeChains();
+    updateMk11ScoreRangeCard(record);
 
     const std = record.grade_std || {};
     const keepSavedFac = Boolean(record.__backendId || record.grade_id);

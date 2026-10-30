@@ -637,6 +637,23 @@
                     </div>
 
                     <div class="wizard-step space-y-5" data-wizard-step="3">
+                    <div id="mk11-score-range-card" class="hidden rounded-xl border border-amber-300 bg-amber-50/80 px-4 py-3.5 space-y-2">
+                        <div class="flex items-start gap-3">
+                            <span class="shrink-0 mt-0.5 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-amber-200 text-amber-950">
+                                <i data-lucide="ruler" class="w-5 h-5"></i>
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-bold text-amber-950">ช่วงคะแนนตัดเกรดจากใบ มข.11 (คอลัมน์ MANUAL)</p>
+                                <p id="mk11-score-range-notice" class="text-xs text-amber-900/90 mt-1 leading-relaxed">
+                                    ระบบอ่านช่วงคะแนนจากใบ มข.11 ได้แล้ว แต่ไม่สามารถตรวจสอบความถูกต้องของช่วงคะแนนการพิจารณาผลการเรียนได้ กรุณาตรวจสอบข้อมูลช่วงคะแนนก่อนนำ มข.11 เข้าสู่ระบบ
+                                </p>
+                                <div id="mk11-score-range-list" class="mt-2 flex flex-wrap gap-1.5 text-xs"></div>
+                                <p id="mk11-score-range-missing" class="hidden mt-2 text-sm font-semibold text-red-800">
+                                    ระบบอ่านคอลัมน์ช่วงคะแนน (MANUAL) ไม่ได้ — ไม่สามารถกดผ่านขั้นตอนนี้ได้ กรุณากลับไปอัปโหลดใบ มข.11 ที่มีช่วงคะแนนครบ
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                     <div id="section-std-form" class="rounded-xl border border-amber-200 bg-[#FFFBF7] p-5 space-y-5 shadow-sm">
                         <div id="section-std-header" class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-3">
                             <h3 class="font-bold text-[#5C2E1F] flex items-center gap-2 text-base">

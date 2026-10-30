@@ -79,6 +79,12 @@ class InstructorRegistrarUploadBatchService
                 );
             }
 
+            if (! $this->pdfParser->hasManualScoreRanges($parsed)) {
+                throw new RegistrarPdfParseException(
+                    $this->pdfParser->missingManualScoreRangesMessage($name)
+                );
+            }
+
             $fileTerm = (int) ($parsed['term'] ?? $term);
             $fileYear = (int) ($parsed['year'] ?? $year);
             if ($fileTerm !== $term || $fileYear !== $year) {

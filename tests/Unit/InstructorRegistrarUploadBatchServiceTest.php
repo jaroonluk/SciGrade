@@ -5,9 +5,11 @@ namespace Tests\Unit;
 use App\Services\Instructor\InstructorPendingRegistrarService;
 use App\Services\Instructor\InstructorRegistrarUploadBatchService;
 use App\Services\RegistrarGradePdfParser;
+use App\Services\RegistrarPdfParseException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -37,6 +39,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
             'score_dd' => null,
             'score_d' => null,
             'score_f' => null,
+            'has_manual_score_ranges' => true,
             'grade_stds' => [[
                 'sec' => $section,
                 'fac' => 'SC',
@@ -61,6 +64,22 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         ], $extra);
     }
 
+    private function stubManualRangeChecks(MockInterface $parser): void
+    {
+        $parser->shouldReceive('hasManualScoreRanges')
+            ->byDefault()
+            ->andReturnUsing(static function (array $parsed): bool {
+                if (array_key_exists('has_manual_score_ranges', $parsed)) {
+                    return (bool) $parsed['has_manual_score_ranges'];
+                }
+
+                return trim((string) ($parsed['score_a'] ?? '')) !== '';
+            });
+        $parser->shouldReceive('missingManualScoreRangesMessage')
+            ->byDefault()
+            ->andReturnUsing(static fn (?string $name = null): string => 'อ่าน MANUAL ไม่ได้'.($name ? ' (ไฟล์: '.$name.')' : ''));
+    }
+
     #[Test]
     public function it_merges_same_subject_sections_and_skips_duplicate_section(): void
     {
@@ -68,6 +87,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         Storage::fake('local');
 
         $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $this->stubManualRangeChecks($parser);
         $pending = Mockery::mock(InstructorPendingRegistrarService::class);
 
         $file1 = UploadedFile::fake()->createWithContent('SC101011-01.pdf', '%PDF-sec1-unique');
@@ -115,6 +135,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         Storage::fake('local');
 
         $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $this->stubManualRangeChecks($parser);
         $pending = Mockery::mock(InstructorPendingRegistrarService::class);
 
         $file = UploadedFile::fake()->createWithContent('SC101011-01.pdf', '%PDF-term1');
@@ -138,12 +159,41 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_files_without_manual_score_ranges(): void
+    {
+        config(['filesystems.upload_disk' => 'local']);
+        Storage::fake('local');
+
+        $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $this->stubManualRangeChecks($parser);
+        $pending = Mockery::mock(InstructorPendingRegistrarService::class);
+
+        $file = UploadedFile::fake()->createWithContent('SC001001-01.pdf', '%PDF-no-manual');
+
+        $parser->shouldReceive('parse')
+            ->once()
+            ->andReturn($this->makeParsed('SC001001', 1, [
+                'score_a' => null,
+                'has_manual_score_ranges' => false,
+            ]));
+        $pending->shouldNotReceive('remember');
+
+        $service = new InstructorRegistrarUploadBatchService($parser, $pending);
+
+        $this->expectException(RegistrarPdfParseException::class);
+        $this->expectExceptionMessage('อ่าน MANUAL ไม่ได้');
+
+        $service->process([$file], 2, 2568, 1);
+    }
+
+    #[Test]
     public function it_rejects_mixed_subjects(): void
     {
         config(['filesystems.upload_disk' => 'local']);
         Storage::fake('local');
 
         $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $this->stubManualRangeChecks($parser);
         $pending = Mockery::mock(InstructorPendingRegistrarService::class);
 
         $file1 = UploadedFile::fake()->createWithContent('A.pdf', '%PDF-a');
@@ -168,6 +218,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         Storage::fake('local');
 
         $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $this->stubManualRangeChecks($parser);
         $pending = Mockery::mock(InstructorPendingRegistrarService::class);
 
         $content = '%PDF-same-bytes';
@@ -201,6 +252,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         Storage::fake('local');
 
         $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $this->stubManualRangeChecks($parser);
         $pending = Mockery::mock(InstructorPendingRegistrarService::class);
 
         $file1 = UploadedFile::fake()->createWithContent('SC101011-01.pdf', '%PDF-sec1-unique');
@@ -245,6 +297,7 @@ class InstructorRegistrarUploadBatchServiceTest extends TestCase
         Storage::fake('local');
 
         $parser = Mockery::mock(RegistrarGradePdfParser::class);
+        $this->stubManualRangeChecks($parser);
         $pending = Mockery::mock(InstructorPendingRegistrarService::class);
 
         $file1 = UploadedFile::fake()->createWithContent('SC101011-01.pdf', '%PDF-sec1-only');

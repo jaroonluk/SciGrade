@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\Settings;
 use PhpOffice\PhpWord\SimpleType\Jc;
 
 require __DIR__.'/../vendor/autoload.php';
+
+Settings::setOutputEscapingEnabled(true);
 
 $outDir = __DIR__.'/../storage/app/test-reports';
 $upload = json_decode((string) file_get_contents($outDir.'/mk11-upload-test-term1-2567.json'), true) ?: [];

@@ -241,7 +241,74 @@ class RegistrarGradePdfParser
             'score_f' => $summary['ranges']['score_f'] ?? null,
             'grade_stds' => [$gradeStd],
             'grade_i_students' => $gradeIStudents,
+            'has_manual_score_ranges' => $this->summaryHasManualScoreRanges($summary['ranges']),
         ];
+    }
+
+    /**
+     * ตรวจว่าอ่านคอลัมน์ MANUAL (ช่วงคะแนนตัดเกรด) จากใบ มข.11 ได้หรือไม่
+     * ใช้ score_a เป็นสัญญาณหลักของวิชา Credit — ค่าเพียง score_f มักเป็นสัญญาณรบกวน
+     *
+     * @param  array<string, mixed>  $parsed
+     */
+    public function hasManualScoreRanges(array $parsed): bool
+    {
+        if (array_key_exists('has_manual_score_ranges', $parsed)) {
+            return (bool) $parsed['has_manual_score_ranges'];
+        }
+
+        return $this->summaryHasManualScoreRanges([
+            'score_a' => $parsed['score_a'] ?? null,
+            'score_bb' => $parsed['score_bb'] ?? null,
+            'score_b' => $parsed['score_b'] ?? null,
+            'score_cc' => $parsed['score_cc'] ?? null,
+            'score_c' => $parsed['score_c'] ?? null,
+            'score_dd' => $parsed['score_dd'] ?? null,
+            'score_d' => $parsed['score_d'] ?? null,
+            'score_f' => $parsed['score_f'] ?? null,
+        ]);
+    }
+
+    /**
+     * @param  array<string, string|null>  $ranges
+     */
+    public function summaryHasManualScoreRanges(array $ranges): bool
+    {
+        $a = trim((string) ($ranges['score_a'] ?? ''));
+        if ($a !== '' && preg_match('/^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/', $a) === 1) {
+            return true;
+        }
+
+        // วิชา Audit/S-U บางใบมีช่วงเฉพาะเกรดอื่นโดยไม่มี A — รับถ้ามีช่วงเกรดตัวอักษรอย่างน้อย 2 ช่อง
+        $filled = 0;
+        foreach (['score_bb', 'score_b', 'score_cc', 'score_c', 'score_dd', 'score_d', 'score_f'] as $key) {
+            $val = trim((string) ($ranges[$key] ?? ''));
+            if ($val !== '' && preg_match('/^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/', $val) === 1) {
+                $filled++;
+            }
+        }
+
+        return $filled >= 2;
+    }
+
+    public function missingManualScoreRangesMessage(?string $filename = null): string
+    {
+        $filePart = is_string($filename) && $filename !== ''
+            ? ' (ไฟล์: '.$filename.')'
+            : '';
+
+        return 'ระบบอ่านคอลัมน์ช่วงคะแนน (MANUAL) จากใบ มข.11 ไม่ได้'
+            .' จึงยังไปขั้นตอนตัดเกรดต่อไม่ได้'.$filePart."\n\n"
+            .'กรุณาตรวจสอบในระบบ REG ว่าได้กำหนดช่วงคะแนนการตัดเกรดครบแล้ว'
+            .' จากนั้นดาวน์โหลดใบ มข.11 ใหม่แล้วอัปโหลดอีกครั้ง'
+            .' (ใบที่คอลัมน์ MANUAL ว่างหรือเป็นเครื่องหมาย — จะอ่านช่วงคะแนนไม่ได้)';
+    }
+
+    public function unverifiedManualScoreRangesMessage(): string
+    {
+        return 'ระบบอ่านช่วงคะแนนจากใบ มข.11 ได้แล้ว'
+            .' แต่ไม่สามารถตรวจสอบความถูกต้องของช่วงคะแนนการพิจารณาผลการเรียนได้'
+            .' กรุณาตรวจสอบข้อมูลช่วงคะแนนก่อนนำ มข.11 เข้าสู่ระบบ';
     }
 
     public function invalidFormatMessage(): string
@@ -491,7 +558,188 @@ class RegistrarGradePdfParser
             $ranges = $this->parseTrailingScoreRanges($text);
         }
 
+        // บางไฟล์เกรด F หลุดช่วง MANUAL ออกนอกตาราง (เช่น เหลือ "34-0" ท้ายไฟล์)
+        $ranges = $this->fillMissingLetterRanges($ranges, $text);
+
         return ['counts' => $counts, 'ranges' => $ranges, 'uses_decimal' => $usesDecimal];
+    }
+
+    /**
+     * แยกจำนวนคน (คอลัมน์รวม) กับคะแนนสูงสุด (คอลัมน์ MANUAL) ที่ติดกันในข้อความ PDF
+     * เช่น "1100" → count=1,max=100 | "1373" → count=13,max=73 | "379" → count=3,max=79
+     *
+     * @return array{count: int, max: float}|null
+     */
+    private function splitGluedCountAndMax(string $middle, float $min): ?array
+    {
+        if ($middle === '' || preg_match('/^\d+$/', $middle) !== 1) {
+            return null;
+        }
+
+        $candidates = [];
+
+        // max = 100 (พบบ่อยที่เกรด A)
+        if (str_ends_with($middle, '100') && strlen($middle) >= 3) {
+            $countDigits = substr($middle, 0, -3);
+            $candidates[] = [
+                'count' => $countDigits === '' ? 0 : (int) $countDigits,
+                'max' => 100.0,
+            ];
+        }
+
+        // max สองหลัก (01–99) — รูปแบบมาตรฐาน B+ ลงไป และบางใบ A ที่ไม่ใช่ 100
+        if (strlen($middle) >= 2) {
+            $countDigits = substr($middle, 0, -2);
+            $max = (float) substr($middle, -2);
+            $candidates[] = [
+                'count' => $countDigits === '' ? 0 : (int) $countDigits,
+                'max' => $max,
+            ];
+        }
+
+        // max หลักเดียว (เช่น F เป็น 2-0 ในบางใบ)
+        if (strlen($middle) >= 1) {
+            $countDigits = substr($middle, 0, -1);
+            $max = (float) substr($middle, -1);
+            $candidates[] = [
+                'count' => $countDigits === '' ? 0 : (int) $countDigits,
+                'max' => $max,
+            ];
+        }
+
+        // ทั้งก้อนเป็น max ไม่มีจำนวน (count=0)
+        $candidates[] = [
+            'count' => 0,
+            'max' => (float) $middle,
+        ];
+
+        $valid = [];
+        foreach ($candidates as $candidate) {
+            $max = $candidate['max'];
+            if ($max < $min || $max > 100) {
+                continue;
+            }
+            // คะแนนสูงสุดของเกรดตัวอักษรทั่วไปไม่เกิน 100 และไม่ควรเป็น 0 ยกเว้น min ก็เป็น 0
+            if ($max === 0.0 && $min > 0) {
+                continue;
+            }
+            $valid[] = $candidate;
+        }
+
+        if ($valid === []) {
+            return null;
+        }
+
+        // เลือกแบบที่ max สมเหตุผลที่สุด: ชอบ max ใกล้ 100 สำหรับค่าสูง, และ max >= min
+        usort($valid, static function (array $a, array $b) use ($min): int {
+            // ชอบ max ที่ "ดูเป็นขอบบนเกรด" มากกว่า (สองหลักหรือ 100)
+            $score = static function (array $c) use ($min): int {
+                $max = $c['max'];
+                $s = 0;
+                if ($max === 100.0) {
+                    $s += 50;
+                }
+                if ($max >= 10 && $max <= 100) {
+                    $s += 20;
+                }
+                if ($max >= $min) {
+                    $s += 10;
+                }
+                // ชอบช่วงที่ไม่กว้างผิดปกติเกิน (เช่น max=3,min=69 ไม่ผ่านอยู่แล้ว)
+                if (($max - $min) <= 40) {
+                    $s += 5;
+                }
+                if (($max - $min) <= 25) {
+                    $s += 5;
+                }
+
+                return $s;
+            };
+
+            return $score($b) <=> $score($a);
+        });
+
+        return $valid[0];
+    }
+
+    /**
+     * เมื่อรู้จำนวนจาก % × รวม แล้ว — ตัดจำนวนออกจากต้น middle เหลือเป็น max
+     *
+     * @return array{count: int, max: float}|null
+     */
+    private function splitGluedCountAndMaxPreferCount(string $middle, int $count, float $min): ?array
+    {
+        $countStr = (string) $count;
+        if ($count === 0) {
+            $max = (float) $middle;
+            if ($max >= $min && $max <= 100) {
+                return ['count' => 0, 'max' => $max];
+            }
+
+            return null;
+        }
+
+        if (! str_starts_with($middle, $countStr)) {
+            return null;
+        }
+
+        $maxDigits = substr($middle, strlen($countStr));
+        if ($maxDigits === '' || ! ctype_digit($maxDigits)) {
+            return null;
+        }
+
+        $max = (float) $maxDigits;
+        if ($max < $min || $max > 100) {
+            return null;
+        }
+
+        return ['count' => $count, 'max' => $max];
+    }
+
+    /**
+     * เติมช่วงคะแนนที่ขาด โดยเฉพาะ F ที่ PDF แยก MANUAL ไปท้ายไฟล์
+     *
+     * @param  array<string, string>  $ranges
+     * @return array<string, string>
+     */
+    private function fillMissingLetterRanges(array $ranges, string $text): array
+    {
+        $order = ['score_a', 'score_bb', 'score_b', 'score_cc', 'score_c', 'score_dd', 'score_d', 'score_f'];
+
+        // ถ้าขาดเฉพาะ F และมี D — ต่อช่วงต่อเนื่องแบบจำนวนเต็ม: Fmax = Dmin - 1, Fmin = 0
+        if (! isset($ranges['score_f']) && isset($ranges['score_d'])) {
+            if (preg_match('/^(\d+)-(\d+)$/', $ranges['score_d'], $m)) {
+                $dMin = (int) $m[2];
+                if ($dMin > 0) {
+                    $ranges['score_f'] = sprintf('%d-%d', $dMin - 1, 0);
+                }
+            }
+        }
+
+        // เก็บช่วงกำพร้าท้ายไฟล์ เช่น "34-0" หลัง control code
+        if (! isset($ranges['score_f']) && preg_match_all('/(?<![\d.])(\d{1,3})\s*-\s*(\d{1,3})(?![\d.])/u', $text, $matches, PREG_SET_ORDER)) {
+            foreach (array_reverse($matches) as $match) {
+                $left = (int) $match[1];
+                $right = (int) $match[2];
+                if ($left > 100 || $right > 100) {
+                    continue;
+                }
+                if ($left >= $right && $right === 0 && $left > 0 && $left <= 50) {
+                    $ranges['score_f'] = sprintf('%d-%d', $left, $right);
+                    break;
+                }
+            }
+        }
+
+        // ไม่บังคับให้ครบทุกเกรด — คืนเฉพาะที่มีจริง
+        $ordered = [];
+        foreach ($order as $key) {
+            if (isset($ranges[$key])) {
+                $ordered[$key] = $ranges[$key];
+            }
+        }
+
+        return $ordered + $ranges;
     }
 
     /**
@@ -599,24 +847,43 @@ class RegistrarGradePdfParser
             return null;
         }
 
-        // รูปแบบติดกันไม่มีช่องว่างรอบเครื่องหมาย -: 0.000100-80A / 100.00159-55D+
-        // (อย่าใช้ \s* รอบ - เพราะจะไปชนรูปแบบเก่า "0.35280 - 100A")
-        if (preg_match('/^(\d+\.\d{2})(\d*)(\d+)-(\d+)('.self::GRADE_TOKEN.')$/u', $line, $match)) {
-            $grade = $this->normalizeGradeSymbol($match[5]);
+        // รูปแบบติดกัน: % + จำนวน(รวม) + MANUAL(max-min) + เกรด
+        // เช่น 0.701100-80A / 2.10379-74B+ / 9.091373-69B / 20.562222-0F
+        // ห้ามใช้ (\d*)(\d+) แบบโลภ เพราะจะแยก 1373 เป็น max=3 ผิด (ต้องเป็น count=13,max=73)
+        if (preg_match('/^(\d+\.\d{2})(\d+)-(\d+)('.self::GRADE_TOKEN.')$/u', $line, $match)) {
+            $grade = $this->normalizeGradeSymbol($match[4]);
             if ($grade === null) {
                 return null;
             }
+
             $percent = (float) $match[1];
-            $countDigits = $match[2];
-            $max = (float) $match[3];
-            $min = (float) $match[4];
-            if ($totalStudents !== null) {
-                $count = $percent < 0.005 ? 0 : (int) round($totalStudents * $percent / 100);
-            } elseif ($countDigits === '') {
-                $count = 0;
-            } else {
-                $count = (int) $countDigits;
+            $middle = $match[2]; // จำนวนคน + คะแนนสูงสุด ติดกัน
+            $min = (float) $match[3];
+            $split = $this->splitGluedCountAndMax($middle, $min);
+            if ($split === null) {
+                return null;
             }
+
+            $count = $split['count'];
+            // ยืนยันด้วยคอลัมน์ % × รวม เมื่อแยกจำนวนจากข้อความกำกวมเล็กน้อย
+            if ($totalStudents !== null && $percent >= 0.005) {
+                $fromPercent = (int) round($totalStudents * $percent / 100);
+                // ถ้าค่าจากหลักที่ติดกันเพี้ยนชัด (ต่างจาก % มาก) ให้เชื่อคอลัมน์ % × รวม
+                if ($count !== $fromPercent && abs($count - $fromPercent) > 1) {
+                    // ลองแยกใหม่โดยยึดจำนวนจาก % เป็นหลัก
+                    $alt = $this->splitGluedCountAndMaxPreferCount($middle, $fromPercent, $min);
+                    if ($alt !== null) {
+                        $count = $alt['count'];
+                        $split['max'] = $alt['max'];
+                    } else {
+                        $count = $fromPercent;
+                    }
+                }
+            } elseif ($totalStudents !== null && $percent < 0.005) {
+                $count = 0;
+            }
+
+            $max = $split['max'];
 
             return [
                 'percent' => $percent,
@@ -628,16 +895,26 @@ class RegistrarGradePdfParser
             ];
         }
 
-        // รูปแบบมี % + จำนวน + เกรด ไม่มีช่วงคะแนน: 66.674A / 16.671B+
+        // รูปแบบมี % + จำนวน + เกรด ไม่มีช่วงคะแนน: 66.674A / 16.671B+ / 2.804F
         if (preg_match('/^(\d+\.\d{2})(\d+)('.self::GRADE_TOKEN.')$/u', $line, $match)) {
             $grade = $this->normalizeGradeSymbol($match[3]);
             if ($grade === null) {
                 return null;
             }
 
+            $percent = (float) $match[1];
+            $count = (int) $match[2];
+            if ($totalStudents !== null) {
+                $fromPercent = $percent < 0.005 ? 0 : (int) round($totalStudents * $percent / 100);
+                // ถ้าจำนวนหลักที่ติด % ดูไม่สมเหตุ (เช่น 804 จาก 2.804F) ให้ใช้ % × รวม
+                if ($count !== $fromPercent && ($count > $totalStudents || abs($count - $fromPercent) > 1)) {
+                    $count = $fromPercent;
+                }
+            }
+
             return [
-                'percent' => (float) $match[1],
-                'count' => (int) $match[2],
+                'percent' => $percent,
+                'count' => $count,
                 'min' => null,
                 'max' => null,
                 'grade' => $grade,
