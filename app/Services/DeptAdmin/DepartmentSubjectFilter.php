@@ -59,7 +59,14 @@ class DepartmentSubjectFilter
                 $query->where(function (Builder $inner) use ($patterns): void {
                     foreach ($patterns as $pattern) {
                         $like = str_contains($pattern, '%') ? $pattern : $pattern.'%';
-                        $inner->orWhereRaw('subject_code LIKE ?', [$like]);
+                        // TRIM/UPPER กันรหัสที่มีช่องว่าง และรองรับ subject_code2
+                        $inner->orWhereRaw(
+                            "UPPER(REPLACE(REPLACE(TRIM(`subject_code`), ' ', ''), UNHEX('C2A0'), '')) LIKE ?",
+                            [$like]
+                        )->orWhereRaw(
+                            "UPPER(REPLACE(REPLACE(TRIM(IFNULL(`subject_code2`, '')), ' ', ''), UNHEX('C2A0'), '')) LIKE ?",
+                            [$like]
+                        );
                     }
                 });
             },
@@ -68,7 +75,13 @@ class DepartmentSubjectFilter
 
     public function applyToQuery(Builder $query, int $departmentId, ?string $educationLevel = null): Builder
     {
-        foreach ($this->subjectMatchers($departmentId, $educationLevel) as $matcher) {
+        $matchers = $this->subjectMatchers($departmentId, $educationLevel);
+        if ($matchers === []) {
+            // ไม่มีเงื่อนไขรหัสของสาขา = ไม่ให้ดึงทุกรายวิชาโดยบังเอิญ
+            return $query->whereRaw('1 = 0');
+        }
+
+        foreach ($matchers as $matcher) {
             $matcher($query);
         }
 

@@ -19,7 +19,7 @@
     </p>
 
     @error('export')
-        <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
+        <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm whitespace-pre-line">{{ $message }}</div>
     @enderror
 
     <form method="POST" action="{{ route('grade-reports.reports.export') }}" class="form-section rounded-xl p-6 space-y-5">
@@ -54,12 +54,16 @@
         <div>
             <label class="block text-sm font-medium text-[#5C2E1F] mb-1">ระดับการศึกษา *</label>
             <select name="education_level" required class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="all" @selected(old('education_level', 'all') === 'all')>รวมทั้งหมด</option>
                 <option value="bachelor" @selected(old('education_level') === 'bachelor')>ปริญญาตรี</option>
                 <option value="master" @selected(old('education_level') === 'master')>ปริญญาโท</option>
                 <option value="doctoral" @selected(old('education_level') === 'doctoral')>ปริญญาเอก</option>
-                <option value="graduate" @selected(old('education_level', 'graduate') === 'graduate')>บัณฑิตศึกษา (โท+เอก)</option>
-                <option value="all" @selected(old('education_level') === 'all')>รวมทั้งหมด</option>
+                <option value="graduate" @selected(old('education_level') === 'graduate')>บัณฑิตศึกษา (โท+เอก)</option>
             </select>
+            <p class="mt-1.5 text-xs text-[#7A4A3A] leading-relaxed">
+                ค่าเริ่มต้น «รวมทั้งหมด» จะพิมพ์ตามรหัสวิชาในสังกัดสาขาโดยไม่จำกัดระดับ —
+                เลือกเฉพาะปริญญาตรี/โท/เอกเมื่อต้องการกรองเพิ่ม
+            </p>
         </div>
 
         <div class="grid sm:grid-cols-2 gap-4">

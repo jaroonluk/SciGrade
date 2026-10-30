@@ -63,7 +63,34 @@ class FacultyReportController extends Controller
         $year = $request->integer('year') ?: null;
 
         if ($reports->isEmpty()) {
-            return back()->withErrors(['export' => 'ไม่พบข้อมูลตามเงื่อนไขที่เลือก']);
+            $status = \App\Enums\GradeApprovalStatus::tryFromValue((int) $request->input('report_status'));
+            $level = (string) $request->input('education_level', 'all');
+            $levelLabel = match ($level) {
+                'bachelor' => 'ปริญญาตรี',
+                'master' => 'ปริญญาโท',
+                'doctoral' => 'ปริญญาเอก',
+                'graduate' => 'บัณฑิตศึกษา (โท+เอก)',
+                default => 'รวมทั้งหมด',
+            };
+            $term = $request->integer('term') ?: null;
+            $year = $request->integer('year') ?: null;
+            $termYear = ($term || $year)
+                ? trim(($term ? match ($term) {
+                    1 => 'ภาคต้น',
+                    2 => 'ภาคปลาย',
+                    3 => 'ภาคการศึกษาพิเศษ',
+                    default => 'ภาค '.$term,
+                } : 'ทุกภาค').($year ? ' ปีการศึกษา '.$year : ''))
+                : 'ทุกภาค/ปี';
+
+            return back()->withErrors([
+                'export' => 'ไม่พบรายวิชาตามเงื่อนไขที่เลือก'
+                    ."\nสาขา: ".$department->department_name
+                    ."\nระดับการศึกษา: ".$levelLabel
+                    ."\n".$termYear
+                    ."\nสถานะ: ".$status->shortLabel()
+                    ."\nตรวจสอบว่ามีรายวิชาที่รหัสอยู่ในสังกัดสาขานี้และตรงสถานะ/ภาคปีที่เลือก หรือลองเปลี่ยนเป็น «รวมทั้งหมด»",
+            ])->withInput();
         }
 
         return $request->input('format') === 'word'
