@@ -879,12 +879,12 @@ class GradeReportPageController extends Controller
         );
     }
 
-    public function reports(FacultyReportController $facultyReports): View
+    public function reports(Request $request, FacultyReportController $facultyReports): View
     {
         $role = session('scigrade_role', 'instructor');
 
         if (SciGradeRole::isFacultyCapable($role)) {
-            return $facultyReports->form();
+            return $facultyReports->form($request);
         }
 
         return view('grade-reports.reports', compact('role'));
