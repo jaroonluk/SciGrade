@@ -22,7 +22,9 @@ class FacultyReportExportRequest extends FormRequest
         return [
             'department_id' => ['required', 'integer', Rule::in(FacultyReportDepartments::selectableIds())],
             'education_level' => ['required', 'string', 'in:bachelor,master,doctoral,graduate,all'],
-            'report_status' => ['required', 'integer', 'in:0,1,2'],
+            // ค่า approv ตาม workflow: ส่งแล้ว / นำเข้าที่ประชุมสาขา / ผ่านที่ประชุมสาขา /
+            // ตรวจแล้ว / ผ่านที่ประชุมกรรมการคณะฯ / ส่งกลับแก้ไข
+            'report_status' => ['required', 'integer', 'in:0,1,2,3,4,-1'],
             'format' => ['required', 'string', 'in:pdf,word'],
             'term' => ['nullable', 'integer', 'in:1,2,3'],
             'year' => ['nullable', 'integer', 'min:2500', 'max:2600'],

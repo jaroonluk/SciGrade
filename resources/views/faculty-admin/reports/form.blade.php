@@ -72,20 +72,36 @@
             </div>
         </div>
 
+        @php
+            $selectedReportStatus = (string) old('report_status', '1');
+            $reportStatusOptions = [
+                ['value' => '0', 'label' => 'ส่งแล้ว', 'hint' => 'อาจารย์ส่งรายงานแล้ว รอสาขานำเข้าที่ประชุม', 'color' => 'text-amber-800'],
+                ['value' => '4', 'label' => 'นำเข้าที่ประชุมสาขา', 'hint' => 'นำเข้าวาระแล้ว รอผลมติที่ประชุมสาขา', 'color' => 'text-indigo-800'],
+                ['value' => '1', 'label' => 'ผ่านการรับรองผลสอบ (ที่ประชุมสาขาวิชา)', 'hint' => 'ผ่านที่ประชุมสาขาแล้ว — รอ Admin กลางตรวจ', 'color' => 'text-sky-800'],
+                ['value' => '3', 'label' => 'ตรวจแล้ว', 'hint' => 'Admin กลางตรวจแล้ว — รอผ่านที่ประชุมกรรมการคณะฯ', 'color' => 'text-orange-800'],
+                ['value' => '2', 'label' => 'ผ่านที่ประชุมกรรมการคณะฯ', 'hint' => 'รับรองผลสอบระดับคณะเรียบร้อย', 'color' => 'text-green-800'],
+                ['value' => '-1', 'label' => 'ส่งกลับแก้ไข', 'hint' => 'ส่งกลับให้อาจารย์แก้ไขและส่งใหม่', 'color' => 'text-red-800'],
+            ];
+        @endphp
         <div>
-            <p class="text-sm font-medium text-[#5C2E1F] mb-2">รูปแบบรายงาน *</p>
-            <label class="flex items-center gap-2 text-sm mb-2">
-                <input type="radio" name="report_status" value="0" @checked(old('report_status') === '0') class="accent-amber-700">
-                ยังไม่ผ่านการรับรองผลสอบ (ที่ประชุมสาขาวิชา)
-            </label>
-            <label class="flex items-center gap-2 text-sm mb-2">
-                <input type="radio" name="report_status" value="1" @checked(old('report_status', '1') === '1') class="accent-amber-700">
-                ผ่านการรับรองผลสอบ (ที่ประชุมสาขาวิชา)
-            </label>
-            <label class="flex items-center gap-2 text-sm">
-                <input type="radio" name="report_status" value="2" @checked(old('report_status') === '2') class="accent-amber-700">
-                ผ่านที่ประชุมกรรมการคณะฯ
-            </label>
+            <p class="text-sm font-medium text-[#5C2E1F] mb-1">รูปแบบรายงาน *</p>
+            <p class="text-xs text-[#7A4A3A]/80 mb-3">เลือกสถานะเดียวกับหน้าสถานะการส่งเกรด — ระบบพิมพ์เฉพาะรายวิชาในสถานะนั้น</p>
+            <div class="grid gap-2">
+                @foreach ($reportStatusOptions as $option)
+                    <label class="flex items-start gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm cursor-pointer hover:border-amber-400 hover:bg-amber-50/40 has-[:checked]:border-[#8B4513] has-[:checked]:bg-amber-50">
+                        <input type="radio"
+                               name="report_status"
+                               value="{{ $option['value'] }}"
+                               @checked($selectedReportStatus === $option['value'])
+                               required
+                               class="mt-1 accent-amber-700">
+                        <span class="min-w-0">
+                            <span class="block font-semibold {{ $option['color'] }}">{{ $option['label'] }}</span>
+                            <span class="block text-xs text-[#7A4A3A]/80 mt-0.5">{{ $option['hint'] }}</span>
+                        </span>
+                    </label>
+                @endforeach
+            </div>
         </div>
 
         <div>
