@@ -317,11 +317,11 @@ class DepartmentSubjectFilter
     }
 
     /**
-     * กรองใบรายงานผลการสอบ (ใบขวาง) สำหรับ Admin สาขา:
-     * - สาขาทั่วไป: รหัสวิชาตาม department-patterns และต้องมีอาจารย์ในสาขานั้นกรอก
-     * - งานบริการการศึกษา: ใช้เฉพาะรหัสวิชาตาม patterns ไม่เช็กผู้กรอก
+     * กรองใบรายงานผลการสอบแบบเข้ม: รหัสวิชาตาม patterns + ผู้กรอกต้องสังกัดสาขา
+     * (งานบริการการศึกษาใช้ patterns อย่างเดียว)
      *
-     * Admin กลางใช้ applyDepartmentsToQuery() แทน (patterns อย่างเดียว)
+     * หน้า reviews / พิมพ์ใบขวางของ Admin สาขาใช้ applyDepartmentsToQuery() แทน
+     * เพื่อให้เห็นวิชาที่สาขาดูแลแม้ผู้กรอกจะอยู่หน่วยงานอื่น
      *
      * @param  list<int>  $departmentIds
      */

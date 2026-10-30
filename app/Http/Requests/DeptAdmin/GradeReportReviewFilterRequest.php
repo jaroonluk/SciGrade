@@ -47,6 +47,8 @@ class GradeReportReviewFilterRequest extends FormRequest
             'term' => $this->integer('term') ?: null,
             'year' => $this->integer('year') ?: null,
             'education_level' => $educationLevel,
+            // ตามรหัสวิชาที่สาขาดูแล — รวมกรณีอาจารย์ต่างหน่วยงานเป็นผู้กรอก
+            'require_department_instructor' => false,
         ];
     }
 }

@@ -23,6 +23,10 @@ class GradeReportPolicy
             && $this->staffAuth->findByEmail($user->email) !== null;
     }
 
+    /**
+     * ตรวจ/อนุมัติรายงานของสาขา — ตามรหัสวิชาที่สาขาดูแล
+     * (ไม่บังคับว่าอาจารย์ผู้กรอกต้องสังกัดสาขาเดียวกัน)
+     */
     public function reviewDept(User $user, GradeReport $report): bool
     {
         if (! SciGradeRole::isDeptAdmin()) {
@@ -34,12 +38,11 @@ class GradeReportPolicy
             return false;
         }
 
-        return $this->reportInAllowedDepartments($staff, $report, requireDepartmentInstructor: true);
+        return $this->reportInAllowedDepartments($staff, $report);
     }
 
     /**
      * เปลี่ยนสถานะบนหน้า reg-grade-status — ตามรหัสวิชาของสาขา
-     * (ไม่บังคับว่าผู้กรอกต้องเป็นอาจารย์ในสาขา เพราะหน้านี้อ้างอิงจาก REG)
      */
     public function manageRegGradeStatus(User $user, GradeReport $report): bool
     {
@@ -52,41 +55,21 @@ class GradeReportPolicy
             return false;
         }
 
-        return $this->reportInAllowedDepartments($staff, $report, requireDepartmentInstructor: false);
+        return $this->reportInAllowedDepartments($staff, $report);
     }
 
-    private function reportInAllowedDepartments($staff, GradeReport $report, bool $requireDepartmentInstructor = true): bool
+    private function reportInAllowedDepartments($staff, GradeReport $report): bool
     {
         $allowedIds = $this->departmentAccess->allowedDepartmentIds($staff);
         if ($allowedIds === []) {
             return false;
         }
 
-        if (! $requireDepartmentInstructor) {
-            return GradeReport::query()
-                ->whereKey($report->grade_id)
-                ->where(function ($query) use ($allowedIds): void {
-                    $this->subjectFilter->applyDepartmentsToQuery($query, $allowedIds);
-                })
-                ->exists();
-        }
-
-        foreach ($allowedIds as $departmentId) {
-            $matches = GradeReport::query()
-                ->whereKey($report->grade_id)
-                ->where(function ($query) use ($departmentId): void {
-                    $this->subjectFilter->applyToQuery($query, $departmentId);
-                    if (! $this->subjectFilter->isEducationServicesDepartment($departmentId)) {
-                        $this->subjectFilter->applyFilledByDepartmentInstructors($query, $departmentId);
-                    }
-                })
-                ->exists();
-
-            if ($matches) {
-                return true;
-            }
-        }
-
-        return false;
+        return GradeReport::query()
+            ->whereKey($report->grade_id)
+            ->where(function ($query) use ($allowedIds): void {
+                $this->subjectFilter->applyDepartmentsToQuery($query, $allowedIds);
+            })
+            ->exists();
     }
 }

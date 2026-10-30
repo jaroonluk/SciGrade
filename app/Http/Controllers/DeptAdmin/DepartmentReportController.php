@@ -83,7 +83,7 @@ class DepartmentReportController extends Controller
             'term' => $request->filled('term') ? $request->integer('term') : null,
             'year' => $request->filled('year') ? $request->integer('year') : null,
             'education_level' => $request->input('education_level', 'all'),
-            'require_department_instructor' => true,
+            'require_department_instructor' => false,
         ]);
 
         return response()->json($summary);

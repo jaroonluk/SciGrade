@@ -47,7 +47,8 @@ class DepartmentReportQueryService
             $query,
             $departmentIds,
             DepartmentSubjectPattern::fromReportFilter($filters['education_level'] ?? null),
-            (bool) ($filters['require_department_instructor'] ?? true),
+            // ค่าเริ่มต้น: กรองตามรหัสวิชาที่สาขาดูแล — ไม่บังคับว่าอาจารย์ผู้กรอกต้องสังกัดสาขาเดียวกัน
+            (bool) ($filters['require_department_instructor'] ?? false),
         );
 
         if (! empty($filters['term'])) {
@@ -116,7 +117,7 @@ class DepartmentReportQueryService
             $query,
             $departmentIds,
             DepartmentSubjectPattern::fromReportFilter($filters['education_level'] ?? null),
-            (bool) ($filters['require_department_instructor'] ?? true),
+            (bool) ($filters['require_department_instructor'] ?? false),
         );
 
         if (! empty($filters['term'])) {
@@ -153,9 +154,9 @@ class DepartmentReportQueryService
     }
 
     /**
-     * Admin กลาง: กรองตามรหัสวิชา (patterns) อย่างเดียว
-     * Admin สาขา: patterns + ต้องเป็นอาจารย์ในสาขา/หน่วยงานที่รับผิดชอบกรอก
-     *              (ยกเว้นงานบริการการศึกษา — ใช้ patterns อย่างเดียว)
+     * กรองตามรหัสวิชา (department patterns) เป็นหลัก
+     * ถ้า requireDepartmentInstructor = true จะบังคับเพิ่มว่าผู้กรอกต้องสังกัดสาขานั้น
+     * (ปกติไม่ใช้ — เพราะอาจารย์ต่างหน่วยงานอาจกรอกรหัสวิชาของสาขาได้)
      *
      * @param  list<int>  $departmentIds
      */
