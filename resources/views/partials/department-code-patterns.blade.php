@@ -1,13 +1,15 @@
 {{--
   แสดงเงื่อนไขรหัสวิชาที่ใช้กรองตามสาขา
   Required: $patternsByDepartment = [id => ['name' => string, 'patterns' => list<array{pattern,label,kind}>]]
-  Optional: $panelId, $selectName, $initialDepartmentId, $helpText
+  Optional: $panelId, $selectName, $initialDepartmentId, $helpText, $panelTitle, $countLabel
 --}}
 @php
     $panelId = $panelId ?? 'department-code-patterns';
     $selectName = $selectName ?? 'department_id';
     $initialDepartmentId = (string) ($initialDepartmentId ?? '');
     $helpText = $helpText ?? 'รายงานจะรวมเฉพาะรายวิชาที่รหัสตรงตามเงื่อนไขของสาขานี้ — ใช้ตรวจสอบก่อนเพิ่ม/ลบข้อมูล';
+    $panelTitle = $panelTitle ?? 'เงื่อนไขรหัสวิชาของสาขา';
+    $countLabel = $countLabel ?? 'จำนวนเงื่อนไข';
     $initial = $initialDepartmentId !== '' && isset($patternsByDepartment[(int) $initialDepartmentId])
         ? $patternsByDepartment[(int) $initialDepartmentId]
         : null;
@@ -60,15 +62,15 @@
      data-help="{{ $helpText }}">
     <div class="px-4 py-3 border-b border-[#E8C4B8]/60 flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-            <p class="text-xs font-semibold uppercase tracking-wide text-[#A0522D]/80">เงื่อนไขรหัสวิชาของสาขา</p>
+            <p class="js-dept-pattern-title text-xs font-semibold uppercase tracking-wide text-[#A0522D]/80">{{ $panelTitle }}</p>
             <h4 class="js-dept-pattern-name text-base font-bold text-[#5C2E1F] mt-0.5 flex items-center gap-2">
-                <i data-lucide="filter" class="w-4 h-4 text-[#8B4513]"></i>
+                <i data-lucide="book-marked" class="w-4 h-4 text-[#8B4513]"></i>
                 <span>{{ $initial['name'] ?? '—' }}</span>
             </h4>
-            <p class="js-dept-pattern-help text-xs text-[#7A4A3A]/80 mt-1">{{ $helpText }}</p>
+            <p class="js-dept-pattern-help text-xs text-[#7A4A3A]/80 mt-1 leading-relaxed">{{ $helpText }}</p>
         </div>
         <div class="shrink-0 rounded-lg bg-white/80 border border-[#E8C4B8]/70 px-3 py-2 text-center">
-            <p class="text-[0.65rem] text-[#A0522D]/70">จำนวนเงื่อนไข</p>
+            <p class="js-dept-pattern-count-label text-[0.65rem] text-[#A0522D]/70">{{ $countLabel }}</p>
             <p class="js-dept-pattern-count text-lg font-bold text-[#8B4513] leading-none">{{ $initial ? count($initial['patterns']) : 0 }}</p>
         </div>
     </div>
@@ -96,7 +98,7 @@
             </div>
         @elseif ($initial)
             <div class="text-sm text-amber-800 bg-amber-50/80 rounded-lg px-3 py-2">
-                ยังไม่ได้กำหนดเงื่อนไขรหัสวิชาสำหรับสาขานี้
+                ยังไม่ได้กำหนดรหัสวิชาในสังกัดสาขานี้ — กรุณาตั้งเงื่อนไขรหัสวิชาก่อนพิมพ์รายงาน
             </div>
         @endif
     </div>
@@ -148,7 +150,7 @@
             if (!patterns.length) {
                 bodyEl.innerHTML = `
                     <div class="text-sm text-amber-800 bg-amber-50/80 rounded-lg px-3 py-2">
-                        ยังไม่ได้กำหนดเงื่อนไขรหัสวิชาสำหรับสาขานี้
+                        ยังไม่ได้กำหนดรหัสวิชาในสังกัดสาขานี้ — กรุณาตั้งเงื่อนไขรหัสวิชาก่อนพิมพ์รายงาน
                     </div>
                 `;
                 return;

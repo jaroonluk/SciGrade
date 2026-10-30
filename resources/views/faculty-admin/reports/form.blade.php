@@ -12,7 +12,11 @@
 @section('content')
 <div class="max-w-4xl mx-auto">
     <h2 class="text-xl font-bold text-[#5C2E1F] mb-2">แบบรายงานผลการสอบไล่สำหรับเจ้าหน้าที่</h2>
-    <p class="text-sm text-[#7A4A3A]/80 mb-6">เลือกสาขาวิชา ภาค/ปีการศึกษา และสถานะ — ระบบพิมพ์ตามรหัสวิชาที่ตั้งในหน้าเงื่อนไขรายวิชาของสาขานั้น โดยไม่จำกัดว่าใครเป็นผู้กรอก</p>
+    <p class="text-sm text-[#7A4A3A]/80 mb-6">
+        เลือกสาขาวิชา ภาค/ปีการศึกษา และสถานะ —
+        ระบบพิมพ์ตาม <strong class="text-[#5C2E1F]">รหัสวิชาในสังกัดสาขา</strong> ที่ตั้งไว้
+        โดยไม่จำกัดว่าใครเป็นผู้กรอก
+    </p>
 
     @error('export')
         <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ $message }}</div>
@@ -22,7 +26,7 @@
         @csrf
 
         <div>
-            <label class="block text-sm font-medium text-[#5C2E1F] mb-1">สาขาวิชา *</label>
+            <label class="block text-sm font-medium text-[#5C2E1F] mb-1" for="report-department-id">สาขาวิชา *</label>
             <select name="department_id" id="report-department-id" required class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white">
                 @foreach ($departments as $dept)
                     <option value="{{ $dept->department_id }}" @selected(old('department_id', $initialDepartmentId ?? null) == $dept->department_id)>
@@ -30,6 +34,11 @@
                     </option>
                 @endforeach
             </select>
+            <p class="mt-1.5 text-xs text-[#7A4A3A] leading-relaxed">
+                เลือกสาขาที่ต้องการพิมพ์ — ระบบจะดึงเฉพาะ
+                <strong class="text-[#5C2E1F]">รหัสวิชาในสังกัดสาขานั้น</strong>
+                ตามเงื่อนไขที่ตั้งไว้ (ไม่ขึ้นกับว่าใครเป็นผู้กรอก)
+            </p>
         </div>
 
         @include('partials.department-code-patterns', [
@@ -37,7 +46,9 @@
             'initialDepartmentId' => $initialDepartmentId ?? $departments->first()?->department_id,
             'selectName' => 'department_id',
             'panelId' => 'faculty-report-dept-patterns',
-            'helpText' => 'รายงานจะรวมเฉพาะรายวิชาที่รหัสตรงตามเงื่อนไขของสาขานี้ — ใช้ตรวจสอบก่อนเพิ่ม/ลบข้อมูลในอนาคต',
+            'panelTitle' => 'รหัสวิชาในสังกัดสาขาวิชา',
+            'countLabel' => 'จำนวนเงื่อนไขรหัส',
+            'helpText' => 'รายการด้านล่างคือรหัสวิชา/รูปแบบรหัสที่อยู่ในสังกัดสาขาที่เลือก — รายงานจะพิมพ์เฉพาะวิชาที่รหัสตรงเงื่อนไขเหล่านี้',
         ])
 
         <div>
