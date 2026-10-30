@@ -151,7 +151,8 @@ class RegistrarGradePdfParser
             $this->failParse('missing_control_code', $originalFilename);
         }
 
-        if (! preg_match('/(?:^|\n)\s*([A-Z]{2}\d{5,8})\s*:\s*([^\n]+)/u', $text, $subjectMatch)) {
+        // รองรับทั้งรหัสแบบ SC101011 และรหัสตัวเลขเก่า เช่น 326493
+        if (! preg_match('/(?:^|\n)\s*([A-Z]{2}\d{5,8}|\d{6,8})\s*:\s*([^\n]+)/u', $text, $subjectMatch)) {
             $this->failParse('missing_subject', $originalFilename);
         }
 
@@ -182,6 +183,10 @@ class RegistrarGradePdfParser
         }
 
         $summary = $this->parseGradeSummary($text);
+        if (array_sum($summary['counts']) === 0 && $summary['ranges'] === []) {
+            // บางไฟล์ตารางสรุปเป็นรูปแบบที่อ่านช่วงคะแนนไม่ได้ — นับจากรายชื่อนักศึกษาแทน
+            $summary = $this->summarizeFromStudents($allStudents, $summary);
+        }
         if (array_sum($summary['counts']) === 0 && $summary['ranges'] === []) {
             $this->failParse('missing_summary', $originalFilename);
         }
@@ -262,7 +267,7 @@ class RegistrarGradePdfParser
         $hasTitle = str_contains($text, 'ใบส่งผลการศึกษา');
         $hasControl = preg_match('/control\s*code\s*:/iu', $text) === 1
             || preg_match('/controlcode\s*:/iu', $text) === 1;
-        $hasSubject = preg_match('/(?:^|\n)\s*[A-Z]{2}\d{5,8}\s*:/u', $text) === 1;
+        $hasSubject = preg_match('/(?:^|\n)\s*(?:[A-Z]{2}\d{5,8}|\d{6,8})\s*:/u', $text) === 1;
 
         return ! $hasTitle && ! $hasControl && ! $hasSubject;
     }
@@ -283,7 +288,24 @@ class RegistrarGradePdfParser
             throw new RegistrarPdfParseException($this->imagePdfMessage());
         }
 
-        throw new RegistrarPdfParseException($this->invalidFormatMessage());
+        $hint = match ($reason) {
+            'missing_subject' => 'ไม่พบรหัสวิชาในไฟล์ (รองรับแบบ SC101011 หรือรหัสตัวเลข 6–8 หลัก)',
+            'missing_control_code' => 'ไม่พบ Control Code ของใบส่งผลการศึกษา',
+            'missing_section' => 'ไม่พบกลุ่มเรียน (Section) ในไฟล์',
+            'missing_students' => 'ไม่พบรายชื่อนักศึกษา/เกรดในไฟล์ — ถ้าเป็นชื่อต่างชาติหรือ Section ว่าง ให้ตรวจสอบไฟล์จาก REG อีกครั้ง',
+            'missing_summary' => 'ไม่พบตารางสรุปเกรดท้ายใบ และนับจากรายชื่อนักศึกษาไม่ได้',
+            default => null,
+        };
+
+        $message = $this->invalidFormatMessage();
+        if ($hint !== null) {
+            $message .= ' ['.$hint.']';
+        }
+        if (is_string($detail) && $detail !== '') {
+            $message .= ' ('.$detail.')';
+        }
+
+        throw new RegistrarPdfParseException($message);
     }
 
     private function normalizeText(string $text): string
@@ -353,8 +375,9 @@ class RegistrarGradePdfParser
     private function parseStudents(string $text): array
     {
         $students = [];
-        // รองรับเฉพาะเกรดในชุดที่กำหนด — อื่น ๆ ข้าม (เว้นไว้)
-        $pattern = '/(?:<>\s*)?((?:นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)[^\n]{0,80}?)('.self::GRADE_TOKEN.')(\d{9})-(\d+)/u';
+        // รองรับคำนำหน้าไทย + อังกฤษ (Ms./Mr./Mrs./Miss) และเกรดในชุดที่กำหนด
+        $namePrefix = '(?:นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.|Ms\.|Mrs\.|Miss\.?|Mr\.)';
+        $pattern = '/(?:<>\s*)?('.$namePrefix.'[^\n]{0,80}?)('.self::GRADE_TOKEN.')(\d{9})-(\d+)/u';
 
         $matched = preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
         if ($matched) {
@@ -374,6 +397,35 @@ class RegistrarGradePdfParser
         }
 
         return $students;
+    }
+
+    /**
+     * สร้างตารางนับเกรดจากรายชื่อ เมื่ออ่านตารางสรุปท้ายใบไม่ได้
+     *
+     * @param  list<array{name: string, student_code: string, grade: string}>  $students
+     * @param  array{counts: array<string, int>, ranges: array<string, string>, uses_decimal: bool}  $summary
+     * @return array{counts: array<string, int>, ranges: array<string, string>, uses_decimal: bool}
+     */
+    private function summarizeFromStudents(array $students, array $summary): array
+    {
+        $counts = array_fill_keys(array_values(self::GRADE_KEYS), 0);
+        foreach ($students as $student) {
+            $field = self::GRADE_KEYS[$student['grade'] ?? ''] ?? null;
+            if ($field === null) {
+                continue;
+            }
+            $counts[$field]++;
+        }
+
+        if (array_sum($counts) === 0) {
+            return $summary;
+        }
+
+        return [
+            'counts' => $counts,
+            'ranges' => $summary['ranges'] ?? [],
+            'uses_decimal' => (bool) ($summary['uses_decimal'] ?? false),
+        ];
     }
 
     /**
@@ -545,6 +597,52 @@ class RegistrarGradePdfParser
             }
 
             return null;
+        }
+
+        // รูปแบบติดกันไม่มีช่องว่างรอบเครื่องหมาย -: 0.000100-80A / 100.00159-55D+
+        // (อย่าใช้ \s* รอบ - เพราะจะไปชนรูปแบบเก่า "0.35280 - 100A")
+        if (preg_match('/^(\d+\.\d{2})(\d*)(\d+)-(\d+)('.self::GRADE_TOKEN.')$/u', $line, $match)) {
+            $grade = $this->normalizeGradeSymbol($match[5]);
+            if ($grade === null) {
+                return null;
+            }
+            $percent = (float) $match[1];
+            $countDigits = $match[2];
+            $max = (float) $match[3];
+            $min = (float) $match[4];
+            if ($totalStudents !== null) {
+                $count = $percent < 0.005 ? 0 : (int) round($totalStudents * $percent / 100);
+            } elseif ($countDigits === '') {
+                $count = 0;
+            } else {
+                $count = (int) $countDigits;
+            }
+
+            return [
+                'percent' => $percent,
+                'count' => $count,
+                'min' => min($min, $max),
+                'max' => max($min, $max),
+                'grade' => $grade,
+                'uses_decimal' => false,
+            ];
+        }
+
+        // รูปแบบมี % + จำนวน + เกรด ไม่มีช่วงคะแนน: 66.674A / 16.671B+
+        if (preg_match('/^(\d+\.\d{2})(\d+)('.self::GRADE_TOKEN.')$/u', $line, $match)) {
+            $grade = $this->normalizeGradeSymbol($match[3]);
+            if ($grade === null) {
+                return null;
+            }
+
+            return [
+                'percent' => (float) $match[1],
+                'count' => (int) $match[2],
+                'min' => null,
+                'max' => null,
+                'grade' => $grade,
+                'uses_decimal' => false,
+            ];
         }
 
         // รูปแบบ >>เกรด เช่น 0.00080 >>S / 0.00083 >>A (ไม่มีช่วงคะแนนในแถว)
