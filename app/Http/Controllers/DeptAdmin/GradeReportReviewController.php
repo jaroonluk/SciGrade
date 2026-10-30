@@ -219,18 +219,33 @@ class GradeReportReviewController extends Controller
     {
         $departmentIds = $this->uploadDepartmentIds($request);
 
-        $validated = $request->validate([
+        $request->validate([
             'term' => ['required', 'integer', 'in:1,2,3'],
             'year' => ['required', 'integer', 'min:2500', 'max:2600'],
-            'filenames' => ['required', 'array', 'min:1', 'max:40'],
-            'filenames.*' => ['required', 'string', 'max:255'],
+            'attachments' => ['required', 'array', 'min:1', 'max:40'],
+            'attachments.*' => ['required', 'file', 'mimes:pdf', 'max:20480'],
+        ], [
+            'attachments.required' => 'กรุณาเลือกไฟล์ PDF',
+            'attachments.max' => 'ตรวจสอบได้ไม่เกิน 40 ไฟล์ต่อครั้ง',
+            'attachments.*.mimes' => 'รองรับเฉพาะไฟล์ PDF',
+            'attachments.*.max' => 'แต่ละไฟล์ต้องไม่เกิน 20 MB',
         ]);
+
+        $uploaded = $request->file('attachments', []);
+        if ($uploaded instanceof UploadedFile) {
+            $files = [$uploaded];
+        } else {
+            $files = array_values(array_filter(
+                is_array($uploaded) ? $uploaded : [],
+                fn ($file) => $file instanceof UploadedFile,
+            ));
+        }
 
         return response()->json([
             'results' => $this->registrarUpload->preview(
-                $validated['filenames'],
-                (int) $validated['term'],
-                (int) $validated['year'],
+                $files,
+                (int) $request->integer('term'),
+                (int) $request->integer('year'),
                 $departmentIds,
             ),
         ]);

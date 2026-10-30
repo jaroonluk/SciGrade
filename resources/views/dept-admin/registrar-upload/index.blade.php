@@ -83,24 +83,22 @@
                     </div>
                 </div>
                 <p class="text-xs text-[#7A4A3A]/80 leading-relaxed">
-                    ระบบจับคู่ไฟล์กับรายวิชาตามภาค/ปีที่เลือกด้านบน
-                    หากต้องการอัปโหลดไปภาคอื่น ให้เปลี่ยนค่าก่อนเลือกไฟล์
+                    ระบบอ่าน <strong class="text-[#5C2E1F]">รหัสวิชา · Section · ภาค/ปี</strong> จากเนื้อหาในไฟล์ PDF
+                    แล้วจับคู่กับรายวิชาตามภาค/ปีที่เลือกด้านบน — ไม่บังคับตั้งชื่อไฟล์
                 </p>
             </div>
 
             <div id="registrar-bulk-upload" class="space-y-4"
                 data-preview-url="{{ route('dept-admin.reviews.registrar-files.preview') }}"
                 data-upload-url="{{ route('dept-admin.reviews.registrar-files.store') }}">
-                <div class="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-3 text-xs text-[#7A4A3A] space-y-1">
+                <div class="rounded-xl border border-teal-100 bg-teal-50/40 px-4 py-3 text-xs text-[#7A4A3A] space-y-1.5">
                     <p class="font-semibold text-[#5C2E1F] inline-flex items-center gap-1.5">
-                        <i data-lucide="info" class="w-3.5 h-3.5"></i>
-                        รูปแบบชื่อไฟล์
+                        <i data-lucide="scan-text" class="w-3.5 h-3.5 text-teal-700"></i>
+                        ตรวจสอบจากเนื้อหาไฟล์ มข.11
                     </p>
                     <p>
-                        ใช้ชื่อไฟล์แบบ
-                        <code class="upload-hint-code">รหัสวิชา-กลุ่ม.pdf</code>
-                        เช่น
-                        <code class="upload-hint-code">SC101011-01.pdf</code>
+                        ตั้งชื่อไฟล์อย่างไรก็ได้ — ระบบอ่านรายละเอียดจากใบส่งผลการศึกษา
+                        แล้วตรวจว่าตรงกับสาขา/ภาค/ปีที่เลือกหรือไม่ หากผิดจะแจ้งจุดที่ต้องแก้
                     </p>
                     <p>อัปโหลดได้เมื่อรายวิชายังเป็นบันทึกแล้ว นำเข้าที่ประชุม หรือผ่านที่ประชุมสาขา (คณะยังไม่ตรวจ) · แนะนำไม่เกิน 20 ไฟล์ต่อครั้ง</p>
                 </div>
@@ -129,17 +127,18 @@
                 </div>
 
                 <div id="registrar-preview-wrap" class="hidden overflow-x-auto rounded-xl border border-amber-100">
-                    <div class="px-3 py-2 bg-amber-50 border-b border-amber-100 text-xs font-semibold text-[#5C2E1F]">
-                        พรีวิวก่อนอัปโหลด
+                    <div class="px-3 py-2 bg-amber-50 border-b border-amber-100 text-xs font-semibold text-[#5C2E1F] flex items-center justify-between gap-2">
+                        <span>พรีวิวจากเนื้อหา PDF</span>
+                        <span id="registrar-preview-busy" class="hidden text-[11px] font-medium text-teal-800">กำลังอ่านไฟล์…</span>
                     </div>
-                    <table class="w-full text-xs min-w-[640px]">
+                    <table class="w-full text-xs min-w-[720px]">
                         <thead class="bg-white">
                             <tr class="text-[#7A4A3A]">
                                 <th class="px-3 py-2 text-left font-medium">ชื่อไฟล์ต้นฉบับ</th>
-                                <th class="px-3 py-2 text-left font-medium">รหัส / กลุ่ม</th>
+                                <th class="px-3 py-2 text-left font-medium">จากไฟล์ (รหัส / Sec / ภาคปี)</th>
                                 <th class="px-3 py-2 text-left font-medium">วิชาที่จับคู่</th>
                                 <th class="px-3 py-2 text-right font-medium">ขนาด</th>
-                                <th class="px-3 py-2 text-left font-medium">สถานะจับคู่</th>
+                                <th class="px-3 py-2 text-left font-medium">ผลการตรวจสอบ</th>
                             </tr>
                         </thead>
                         <tbody id="registrar-preview-body"></tbody>
@@ -242,28 +241,44 @@
 
     let selectedFiles = [];
 
+    const termLabel = (term, year) => {
+        const t = Number(term);
+        const name = t === 1 ? 'ภาคต้น' : (t === 2 ? 'ภาคปลาย' : (t === 3 ? 'ภาคพิเศษ' : `ภาค ${t || '—'}`));
+        return year ? `${name} ${year}` : name;
+    };
+
     const renderPreview = (rows) => {
         previewBody.innerHTML = '';
         (rows || []).forEach((row, index) => {
             const file = selectedFiles[index];
             const tr = document.createElement('tr');
-            tr.className = 'border-t border-amber-100 ' + (row.ok ? 'bg-green-50/60' : 'bg-red-50/70');
+            tr.className = 'border-t border-amber-100 align-top ' + (row.ok ? 'bg-green-50/60' : 'bg-red-50/70');
             const matched = row.matched
                 ? `${row.subject_code || ''} ${row.subject || ''}`.trim()
-                : 'ไม่พบ';
-            const codeSec = (row.course_code || '—') + (row.section ? '-' + row.section : '');
+                : '—';
+            const fromFile = [
+                row.course_code || '—',
+                row.section ? `Sec ${row.section}` : null,
+                (row.file_term || row.file_year) ? termLabel(row.file_term, row.file_year) : null,
+            ].filter(Boolean).join(' · ');
+            const statusHtml = row.ok
+                ? '<span class="font-semibold text-emerald-800">จับคู่ได้ — พร้อมอัปโหลด</span>'
+                : `<span class="font-semibold text-red-800">ต้องแก้ไข</span><div class="mt-1 whitespace-pre-line text-red-900/90">${esc(row.reason || 'จับคู่ไม่ได้')}</div>`;
             tr.innerHTML = `
                 <td class="px-3 py-2">${esc(row.original_name || '')}</td>
-                <td class="px-3 py-2 font-medium">${esc(codeSec)}</td>
+                <td class="px-3 py-2 font-medium">${esc(fromFile)}</td>
                 <td class="px-3 py-2">${esc(matched)}</td>
-                <td class="px-3 py-2 text-right">${esc(formatSize(file?.size))}</td>
-                <td class="px-3 py-2">${esc(row.ok ? 'จับคู่ได้' : (row.reason || 'จับคู่ไม่ได้'))}</td>
+                <td class="px-3 py-2 text-right">${esc(formatSize(file?.size ?? row.size))}</td>
+                <td class="px-3 py-2">${statusHtml}</td>
             `;
             previewBody.appendChild(tr);
         });
         previewWrap.classList.toggle('hidden', previewBody.children.length === 0);
-        uploadBtn.disabled = selectedFiles.length === 0;
+        const anyOk = (rows || []).some((row) => row.ok);
+        uploadBtn.disabled = selectedFiles.length === 0 || !anyOk;
     };
+
+    const previewBusy = document.getElementById('registrar-preview-busy');
 
     const previewFiles = async () => {
         setError('');
@@ -272,33 +287,38 @@
             previewWrap.classList.add('hidden');
             previewBody.innerHTML = '';
             uploadBtn.disabled = true;
+            if (previewBusy) previewBusy.classList.add('hidden');
             return;
         }
         try {
-            const body = {
-                term: Number(termEl.value),
-                year: Number(yearEl.value),
-                filenames: selectedFiles.map((f) => f.name),
-            };
-            if (deptEl.value) body.department_id = Number(deptEl.value);
+            if (previewBusy) previewBusy.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            const form = new FormData();
+            form.append('term', termEl.value);
+            form.append('year', yearEl.value);
+            if (deptEl.value) form.append('department_id', deptEl.value);
+            selectedFiles.forEach((file) => form.append('attachments[]', file));
             const res = await fetch(uploadBox.dataset.previewUrl, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': csrf(),
                     'X-Requested-With': 'XMLHttpRequest',
                 },
-                body: JSON.stringify(body),
+                body: form,
             });
             const data = await res.json();
             if (!res.ok) {
-                setError(firstError(data) || 'ไม่สามารถตรวจสอบชื่อไฟล์ได้');
+                setError(firstError(data) || 'ไม่สามารถอ่านไฟล์ PDF ได้');
+                uploadBtn.disabled = false;
                 return;
             }
             renderPreview(data.results || []);
         } catch (e) {
-            setError('ไม่สามารถตรวจสอบชื่อไฟล์ได้');
+            setError('ไม่สามารถอ่านไฟล์ PDF ได้');
+            uploadBtn.disabled = selectedFiles.length === 0;
+        } finally {
+            if (previewBusy) previewBusy.classList.add('hidden');
         }
     };
 
@@ -384,6 +404,7 @@
                         detailTd.append(' ', link);
                     }
                 } else {
+                    detailTd.classList.add('whitespace-pre-line', 'text-red-900');
                     detailTd.textContent = row.reason || '';
                 }
                 tr.append(nameTd, statusTd, detailTd);
