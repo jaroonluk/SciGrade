@@ -663,6 +663,113 @@ class RegistrarGradePdfParser
     }
 
     /**
+     * แยกจำนวนคน + ขอบเขตล่างทศนิยม ที่ติดกัน เช่น
+     * "979.50" → count=9,min=79.50 | "1759.50" → count=17,min=59.50 | "30" → count=3,min=0
+     *
+     * @return array{count: int, min: float}|null
+     */
+    private function splitGluedCountAndDecimalMin(string $left, ?int $totalStudents, float $percent, float $max): ?array
+    {
+        $left = trim($left);
+        if ($left === '') {
+            return null;
+        }
+
+        $expectedCount = null;
+        if ($totalStudents !== null) {
+            $expectedCount = $percent < 0.005
+                ? 0
+                : (int) round($totalStudents * $percent / 100);
+        }
+
+        // ยึดจำนวนจาก % × รวม ก่อน ถ้าตัดต้นแล้วเหลือ min ที่สมเหตุผล
+        if ($expectedCount !== null) {
+            if ($expectedCount === 0) {
+                if (preg_match('/^\d+(?:\.\d+)?$/', $left) === 1) {
+                    $min = (float) $left;
+                    if ($min >= 0 && $min <= $max) {
+                        return ['count' => 0, 'min' => $min];
+                    }
+                }
+            } else {
+                $prefix = (string) $expectedCount;
+                if (str_starts_with($left, $prefix)) {
+                    $rest = substr($left, strlen($prefix));
+                    if ($rest !== '' && preg_match('/^\d+(?:\.\d+)?$/', $rest) === 1) {
+                        $min = (float) $rest;
+                        if ($min >= 0 && $min <= $max) {
+                            return ['count' => $expectedCount, 'min' => $min];
+                        }
+                    }
+                }
+            }
+        }
+
+        $candidates = [];
+
+        // left มีทศนิยม: แยก count|min โดย min = \d+\.\d{2} ท้ายสุด
+        if (preg_match('/^(\d*)(\d+\.\d{2})$/', $left, $m)) {
+            $candidates[] = [
+                'count' => $m[1] === '' ? 0 : (int) $m[1],
+                'min' => (float) $m[2],
+            ];
+            // กรณี count กินหลักของ min เช่น 1759.50 → ลอง min สองหลักก่อนจุด
+            if ($m[1] !== '' && preg_match('/^(\d+)(\d{2}\.\d{2})$/', $left, $m2)) {
+                $candidates[] = [
+                    'count' => (int) $m2[1],
+                    'min' => (float) $m2[2],
+                ];
+            }
+        }
+
+        // left เป็นจำนวนเต็มล้วน: แยก count + min (เช่น 30 → 3|0, 5673 → 56|73)
+        if (preg_match('/^\d+$/', $left) === 1) {
+            for ($minLen = 1; $minLen <= min(4, strlen($left)); $minLen++) {
+                if (strlen($left) < $minLen) {
+                    continue;
+                }
+                if (strlen($left) === $minLen) {
+                    $candidates[] = ['count' => 0, 'min' => (float) $left];
+                    continue;
+                }
+                $candidates[] = [
+                    'count' => (int) substr($left, 0, -$minLen),
+                    'min' => (float) substr($left, -$minLen),
+                ];
+            }
+        }
+
+        $valid = [];
+        foreach ($candidates as $candidate) {
+            $min = $candidate['min'];
+            if ($min < 0 || $min > $max) {
+                continue;
+            }
+            $score = 0;
+            if ($expectedCount !== null && $candidate['count'] === $expectedCount) {
+                $score += 100;
+            }
+            if (($max - $min) <= 15) {
+                $score += 20;
+            } elseif (($max - $min) <= 25) {
+                $score += 10;
+            }
+            if ($min >= 10 || $min === 0.0) {
+                $score += 5;
+            }
+            $valid[] = ['candidate' => $candidate, 'score' => $score];
+        }
+
+        if ($valid === []) {
+            return null;
+        }
+
+        usort($valid, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+
+        return $valid[0]['candidate'];
+    }
+
+    /**
      * เมื่อรู้จำนวนจาก % × รวม แล้ว — ตัดจำนวนออกจากต้น middle เหลือเป็น max
      *
      * @return array{count: int, max: float}|null
@@ -802,11 +909,8 @@ class RegistrarGradePdfParser
 
     private function formatBoundary(float $value): string
     {
-        if (fmod($value, 1.0) === 0.0) {
-            return number_format($value, 2, '.', '');
-        }
-
-        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+        // คงทศนิยม 2 ตำแหน่งให้ตรงคอลัมน์ MANUAL บนใบ มข.11 (เช่น 79.50, 67.00)
+        return number_format($value, 2, '.', '');
     }
 
     /**
@@ -845,6 +949,55 @@ class RegistrarGradePdfParser
             }
 
             return null;
+        }
+
+        // รูปแบบทศนิยมขอบเขตล่างติดจำนวน: 12.86979.50 >>A / 0.00079.50 >>A
+        // = % + จำนวน + min(เช่น 79.50) แล้ว >>เกรด (max ของ A = 100)
+        if (preg_match('/^(\d+\.\d{2})(.+?)\s*>>\s*('.self::GRADE_TOKEN.')$/u', $line, $match)
+            && preg_match('/^\d/', $match[2]) === 1
+            && str_contains($match[2], '.')) {
+            $grade = $this->normalizeGradeSymbol($match[3]);
+            if ($grade !== null) {
+                $percent = (float) $match[1];
+                $split = $this->splitGluedCountAndDecimalMin($match[2], $totalStudents, $percent, 100.0);
+                if ($split !== null) {
+                    $hasScoreRange = in_array($grade, ['A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F'], true);
+
+                    return [
+                        'percent' => $percent,
+                        'count' => $split['count'],
+                        'min' => $hasScoreRange ? $split['min'] : null,
+                        'max' => $hasScoreRange ? 100.0 : null,
+                        'grade' => $grade,
+                        'uses_decimal' => $hasScoreRange,
+                    ];
+                }
+            }
+        }
+
+        // รูปแบบทศนิยม: 5.71474.50 - 79.49B+ / 24.291759.50 - 69.49C+ / 4.2930 - 34.49F
+        // = % + จำนวน + min - maxเกรด (left มีจุดทศนิยม หรือเป็นจำนวน+min เต็ม)
+        if (preg_match('/^(\d+\.\d{2})(.+?)\s*-\s*(\d+(?:\.\d+)?)('.self::GRADE_TOKEN.')$/u', $line, $match)
+            && preg_match('/^\d/', $match[2]) === 1
+            && (str_contains($match[2], '.') || str_contains($match[3], '.'))) {
+            $grade = $this->normalizeGradeSymbol($match[4]);
+            $max = (float) $match[3];
+            if ($grade !== null && $max >= 0 && $max <= 100) {
+                $percent = (float) $match[1];
+                $split = $this->splitGluedCountAndDecimalMin($match[2], $totalStudents, $percent, $max);
+                if ($split !== null) {
+                    $min = $split['min'];
+
+                    return [
+                        'percent' => $percent,
+                        'count' => $split['count'],
+                        'min' => min($min, $max),
+                        'max' => max($min, $max),
+                        'grade' => $grade,
+                        'uses_decimal' => true,
+                    ];
+                }
+            }
         }
 
         // รูปแบบติดกัน: % + จำนวน(รวม) + MANUAL(max-min) + เกรด

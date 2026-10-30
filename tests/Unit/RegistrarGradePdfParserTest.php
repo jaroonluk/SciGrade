@@ -158,6 +158,65 @@ TXT;
     }
 
     #[Test]
+    public function it_parses_sc602005_decimal_boundary_summary(): void
+    {
+        // รูปแบบทศนิยมจาก SC602005: % + จำนวน + ขอบเขตล่าง.50 ติดกัน
+        $text = <<<'TXT'
+CONTROL CODE:6603715
+หมายเหตุชื่อ-สกุลเกรดรหัสประจำตัวลำดับ
+ปริญญาตรี ภาคปกติ คณะวิทยาศาสตร์
+SC602005 : PROBABILITY AND STATISTICS
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 1 / 2567
+ผู้สอน
+มหาวิทยาลัยขอนแก่น
+ผศ.ดร.ทดสอบ ระบบ กลุ่ม 1
+รายวิชา
+ระดับการศึกษา
+วิทยาเขต ขอนแก่น
+หน่วยกิต 3 (3-0-6)
+นายหนึ่ง ทดสอบA663020001-11
+นายสอง ทดสอบB663020002-22
+%รวมMANUALเกรด
+12.86979.50 >>A
+5.71474.50 - 79.49B+
+4.29369.50 - 74.49B
+24.291759.50 - 69.49C+
+15.711149.50 - 59.49C
+28.572039.50 - 49.49D+
+1.43134.50 - 39.49D
+4.2930 - 34.49F
+2.862<<->>W
+100.0070รวม
+CONTROL CODE:6603715
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC602005-01.pdf', 1, 2567);
+        $std = $parsed['grade_stds'][0];
+
+        $this->assertSame('SC602005', $parsed['subject_code']);
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame(0, $parsed['intflag']);
+        $this->assertSame('100.00-79.50', $parsed['score_a']);
+        $this->assertSame('79.49-74.50', $parsed['score_bb']);
+        $this->assertSame('74.49-69.50', $parsed['score_b']);
+        $this->assertSame('69.49-59.50', $parsed['score_cc']);
+        $this->assertSame('59.49-49.50', $parsed['score_c']);
+        $this->assertSame('49.49-39.50', $parsed['score_dd']);
+        $this->assertSame('39.49-34.50', $parsed['score_d']);
+        $this->assertSame('34.49-0.00', $parsed['score_f']);
+        $this->assertSame(9, $std['num_a']);
+        $this->assertSame(4, $std['num_bb']);
+        $this->assertSame(3, $std['num_b']);
+        $this->assertSame(17, $std['num_cc']);
+        $this->assertSame(11, $std['num_c']);
+        $this->assertSame(20, $std['num_dd']);
+        $this->assertSame(1, $std['num_d']);
+        $this->assertSame(3, $std['num_f']);
+        $this->assertSame(2, $std['num_w']);
+    }
+
+    #[Test]
     public function it_parses_glued_manual_and_count_columns_accurately(): void
     {
         // รูปแบบจริงจากใบ มข.11 ที่ PDF ดึงข้อความคอลัมน์ %+รวม+MANUAL+เกรด ติดกัน
