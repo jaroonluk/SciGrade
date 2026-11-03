@@ -411,4 +411,247 @@ TXT;
             @unlink($tmp);
         }
     }
+
+    #[Test]
+    public function it_joins_broken_manual_lines_and_reads_ranges(): void
+    {
+        $text = <<<'TXT'
+CONTROL CODE:1188541
+SC152102 : Test Subject
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 2 / 2567
+ผู้สอน มหาวิทยาลัยขอนแก่น อ.ทดสอบ กลุ่ม 1
+หน่วยกิต 1 (0-3-2)
+นายหนึ่ง ทดสอบA663020001-11
+%รวมMANUALเกรด
+20.007100
+-80
+A
+5.71279
+-75
+B+
+14.29574
+-70
+B
+11.43469
+-65
+C+
+20.00764
+-60
+C
+11.43459
+-55
+D+
+14.29554
+-50
+D
+0.00049
+-0
+F
+100.0035รวม
+CONTROL CODE:1188541
+controlcode : 1188541
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC152102-01.pdf', 2, 2567);
+
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('79-75', $parsed['score_bb']);
+        $this->assertSame('49-0', $parsed['score_f']);
+    }
+
+    #[Test]
+    public function it_parses_ascending_min_max_glued_manual_rows(): void
+    {
+        $text = <<<'TXT'
+CONTROL CODE:1965126
+SC153602 : Test Subject
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 2 / 2567
+ผู้สอน มหาวิทยาลัยขอนแก่น อ.ทดสอบ กลุ่ม 1
+หน่วยกิต 2 (1-3-4)
+นายหนึ่ง ทดสอบB663020001-11
+%รวมMANUALเกรด
+0.00085-100A
+9.09380-84B+
+27.27975-79B
+21.21770-74C+
+36.361260-69C
+0.00055-59D+
+6.06250-54D
+0.0000-49F
+100.0033รวม
+CONTROL CODE:1965126
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC153602-01.pdf', 2, 2567);
+
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-85', $parsed['score_a']);
+        $this->assertSame('84-80', $parsed['score_bb']);
+        $this->assertSame('49-0', $parsed['score_f']);
+    }
+
+    #[Test]
+    public function it_parses_trailing_spaced_max_min_ranges(): void
+    {
+        $text = <<<'TXT'
+CONTROL CODE:4324853
+SC101004 : Test Subject
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 2 / 2567
+ผู้สอน มหาวิทยาลัยขอนแก่น อ.ทดสอบ กลุ่ม 1
+หน่วยกิต 1 (0-2-1)
+นายหนึ่ง ทดสอบA663020001-11
+%รวมMANUALเกรด
+30.1128A
+25.8124B+
+30.1128B
+3.233C+
+1.081C
+1.081D+
+1.081D
+3.233F
+100.0093รวม
+CONTROL CODE:4324853
+controlcode : 4324853
+100 - 80
+79 - 75
+74 - 70
+69 - 65
+64 - 60
+59 - 55
+54 - 50
+49 - 0
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC101004-01.pdf', 2, 2567);
+
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('49-0', $parsed['score_f']);
+    }
+
+    #[Test]
+    public function it_does_not_treat_credit_hours_as_score_f(): void
+    {
+        $text = <<<'TXT'
+CONTROL CODE:9522191
+SC001001 : Test Subject
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 2 / 2567
+ผู้สอน มหาวิทยาลัยขอนแก่น อ.ทดสอบ กลุ่ม 1
+หน่วยกิต 3 (3-0-6)
+นายหนึ่ง ทดสอบA663020001-11
+%รวมMANUALเกรด
+44.3343<<->>A
+38.1437<<->>B+
+5.155<<->>B
+4.124<<->>C+
+3.093<<->>C
+1.031<<->>D+
+3.093<<->>F
+1.031<<->>W
+100.0097รวม
+CONTROL CODE:9522191
+controlcode : 9522191
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC001001-01.pdf', 2, 2567);
+
+        $this->assertFalse($parsed['has_manual_score_ranges']);
+        $this->assertNull($parsed['score_a']);
+        $this->assertNull($parsed['score_f']);
+    }
+
+    #[Test]
+    public function it_accepts_su_manual_thresholds_as_readable(): void
+    {
+        $text = <<<'TXT'
+CONTROL CODE:6177547
+SC002001 : Test Subject
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 2 / 2567
+ผู้สอน มหาวิทยาลัยขอนแก่น อ.ทดสอบ กลุ่ม 1
+หน่วยกิต 1 (0-2-2)
+นายหนึ่ง ทดสอบS663020001-11
+%รวมMANUALเกรด
+95.0411580 >>S
+0.8310 - 79.99U
+4.135<<->>W
+100.00121รวม
+CONTROL CODE:6177547
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC002001-01.pdf', 2, 2567);
+
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+    }
+
+    #[Test]
+    public function it_parses_horizontal_grade_manual_percent_table(): void
+    {
+        $text = <<<'TXT'
+CONTROL CODE:9205348
+SC101014 : BIOLOGY FOR AGRICULTURE II LABORATORY
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 2 / 2568
+ผู้สอน มหาวิทยาลัยขอนแก่น อ.ทดสอบ กลุ่ม 1
+หน่วยกิต 1 (0-2-1)
+นายหนึ่ง ทดสอบA663020001-11
+เกรด MANUAL รวม %
+A 80 - 100 4 2.06
+B+ 75 - 79 3 1.55
+B 70 - 74 19 9.79
+C+ 65 - 69 28 14.43
+C 60 - 64 43 22.16
+D+ 55 - 59 41 21.13
+D 50 - 54 23 11.86
+F 0 - 49 32 16.49
+W - 1 0.52
+รวม 194 100.00
+CONTROL CODE:9205348
+controlcode : 9205348
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC101014-01.pdf', 2, 2568);
+
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('79-75', $parsed['score_bb']);
+        $this->assertSame('49-0', $parsed['score_f']);
+        $this->assertSame(4, $parsed['grade_stds'][0]['num_a']);
+        $this->assertSame(32, $parsed['grade_stds'][0]['num_f']);
+    }
+
+    #[Test]
+    public function it_reads_trailing_ranges_when_summary_is_t_score_empty(): void
+    {
+        $text = <<<'TXT'
+CONTROL CODE:1181654
+SC252104 : Organic Chemistry Laboratory II
+ใบส่งผลการศึกษา
+ภาคการศึกษาที่ 2 / 2568
+ผู้สอน มหาวิทยาลัยขอนแก่น อ.ทดสอบ กลุ่ม 1
+หน่วยกิต 1 (0-3-2)
+นายหนึ่ง ทดสอบA663020001-11
+%รวมT-SCOREเกรด
+13.794<<->>A
+24.147<<->>B+
+27.598<<->>B
+27.598<<->>C+
+6.902<<->>C
+100.0029รวม
+CONTROL CODE:1181654
+controlcode : 1181654100-80 79-72 71-64 63-56 55-48
+TXT;
+
+        $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC252104-01.pdf', 2, 2568);
+
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('79-72', $parsed['score_bb']);
+        $this->assertSame('55-48', $parsed['score_c']);
+    }
 }
