@@ -587,6 +587,8 @@ TXT;
         $parsed = (new RegistrarGradePdfParser)->parseText($text, 'SC002001-01.pdf', 2, 2567);
 
         $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_s']);
+        $this->assertSame('79.99-0.00', $parsed['score_u']);
     }
 
     #[Test]
@@ -653,5 +655,80 @@ TXT;
         $this->assertSame('100-80', $parsed['score_a']);
         $this->assertSame('79-72', $parsed['score_bb']);
         $this->assertSame('55-48', $parsed['score_c']);
+    }
+
+    #[Test]
+    public function it_parses_tesseract_thai_spacing_and_manual_arrows(): void
+    {
+        $ocr = <<<'TXT'
+ใบ ส ่ ง ผล ก า ร ศึ ก ษา
+ร า ย ว ิ ชา $C002004 : FUNDAMENTAL OF PERSONAL IDENTIFICATION
+ภา ค ก า ร ศึ ก ษา ท ี ่ 1 / 2568
+ผ ศ . ด ร . ท ด ส อ บ ก ล ุ่ ม 1
+1 643020528-6 A น า ย อ า ฤ ญ ช์
+เก ร ด MANUAL ร ว ม %
+A 80 >> 492 74.66
+B+ 75 - 79.99 87 13.20
+B 70 - 74.99 37 5.61
+C+ 65 - 69.99 12 1.82
+0 60 - 64.99 6 0.91
+D+ 55 - 59.99 3 0.46
+D 50 - 54.99 1 0.15
+F 0 - 49.99 12 1.82
+Ww <<->> 9 1.37
+ร ว ม 659 100.00
+controlcode : 51009048
+TXT;
+
+        $parser = new RegistrarGradePdfParser;
+        $parsed = $parser->parseText($parser->normalizeOcrText($ocr), 'SC002004-01.pdf', 1, 2568);
+
+        $this->assertSame('SC002004', $parsed['subject_code']);
+        $this->assertSame(1, $parsed['term']);
+        $this->assertSame(2568, $parsed['year']);
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('79.99-75.00', $parsed['score_bb']);
+        $this->assertSame('64.99-60.00', $parsed['score_c']);
+        $this->assertSame('49.99-0.00', $parsed['score_f']);
+        $this->assertSame(492, $parsed['grade_stds'][0]['num_a']);
+        $this->assertSame(6, $parsed['grade_stds'][0]['num_c']);
+        $this->assertSame(12, $parsed['grade_stds'][0]['num_f']);
+        $this->assertSame(9, $parsed['grade_stds'][0]['num_w']);
+        $this->assertSame(1, $parsed['grade_stds'][0]['sec']);
+        $this->assertSame('FUNDAMENTAL OF PERSONAL IDENTIFICATION', $parsed['subject']);
+    }
+
+    #[Test]
+    public function it_repairs_garbled_ocr_subject_code_and_misread_grade_letters(): void
+    {
+        $ocr = <<<'TXT'
+ภาคการศึกษาที่ 1 / 2568
+รายวิชา ธ 6 ๐ 554231 : Theoretical Physics หน่วยกิต 3 (3-0-6)
+ผู้สอนรศ.ดร.ทดสอบกลุ่ม 1
+1 653020113-6 A นายทดสอบหนึ่ง
+เกรด MANUAL รวม %
+A 100-80 <<->> 2 100.00
+8+ 75 - 79.99 0 0.00
+8 70 - 74.99 0 0.00
+C4 65 - 69.99 0 0.00
+0 60 - 64.99 0 0.00
+F 0-49.99 0 0.00
+รวม 2 100.00
+TXT;
+
+        $parser = new RegistrarGradePdfParser;
+        $parsed = $parser->parseText($parser->normalizeOcrText($ocr, 'SC554231-01.pdf'), 'SC554231-01.pdf', 1, 2568);
+
+        $this->assertSame('SC554231', $parsed['subject_code']);
+        $this->assertSame('Theoretical Physics', $parsed['subject']);
+        $this->assertTrue($parsed['has_manual_score_ranges']);
+        $this->assertSame('100-80', $parsed['score_a']);
+        $this->assertSame('79.99-75.00', $parsed['score_bb']);
+        $this->assertSame('74.99-70.00', $parsed['score_b']);
+        $this->assertSame('69.99-65.00', $parsed['score_cc']);
+        $this->assertSame('64.99-60.00', $parsed['score_c']);
+        $this->assertSame('49.99-0.00', $parsed['score_f']);
+        $this->assertSame(2, $parsed['grade_stds'][0]['num_a']);
     }
 }

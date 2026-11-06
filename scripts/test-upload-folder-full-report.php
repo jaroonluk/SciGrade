@@ -58,6 +58,8 @@ $scoreLabels = [
     'score_dd' => 'D+',
     'score_d' => 'D',
     'score_f' => 'F',
+    'score_s' => 'S',
+    'score_u' => 'U',
 ];
 
 $termLabel = static function (int $t, int $y): string {

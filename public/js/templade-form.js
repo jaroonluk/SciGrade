@@ -1793,6 +1793,13 @@ function applyParsedSectionFromPdf(parsed) {
         parseScoreRange(parsed.score_dd, 'range-dp-max', 'range-dp-min');
         parseScoreRange(parsed.score_d, 'range-d-max', 'range-d-min');
         parseScoreRange(parsed.score_f, 'range-f-max', 'range-f-min');
+        parseScoreRange(parsed.score_s, 'range-s-max', 'range-s-min');
+        parseScoreRange(parsed.score_u, 'range-u-max', 'range-u-min');
+        if (parsed.score_s || parsed.score_u) {
+            const hasCredit = ['score_a', 'score_bb', 'score_b', 'score_cc', 'score_c', 'score_dd', 'score_d', 'score_f']
+                .some((key) => String(parsed[key] || '').trim() !== '');
+            setGradeScheme(hasCredit ? 'both' : 'audit');
+        }
         recalcAllGradeChains();
         updateMk11ScoreRangeCard(parsed);
     }
@@ -2781,6 +2788,11 @@ function hasManualScoreRangesFromForm() {
     if (a && /^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/.test(a)) {
         return true;
     }
+    const s = buildScoreRange('range-s-max', 'range-s-min');
+    const u = buildScoreRange('range-u-max', 'range-u-min');
+    if ((s && /^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/.test(s)) || (u && /^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/.test(u))) {
+        return true;
+    }
     let filled = 0;
     [
         ['range-bp-max', 'range-bp-min'],
@@ -2825,6 +2837,8 @@ function updateMk11ScoreRangeCard(record = null) {
         ['D+', record?.score_dd || buildScoreRange('range-dp-max', 'range-dp-min')],
         ['D', record?.score_d || buildScoreRange('range-d-max', 'range-d-min')],
         ['F', record?.score_f || buildScoreRange('range-f-max', 'range-f-min')],
+        ['S', record?.score_s || buildScoreRange('range-s-max', 'range-s-min')],
+        ['U', record?.score_u || buildScoreRange('range-u-max', 'range-u-min')],
     ];
 
     list.innerHTML = '';

@@ -40,6 +40,8 @@ class RegistrarGradePdfParser
         'D+' => 'score_dd',
         'D' => 'score_d',
         'F' => 'score_f',
+        'S' => 'score_s',
+        'U' => 'score_u',
     ];
 
     /**
@@ -106,22 +108,34 @@ class RegistrarGradePdfParser
 
         try {
             try {
-                $text = $this->parser->parseFile($absolutePath)->getText();
-            } catch (\Throwable $e) {
-                $this->failParse('pdf_extract', $originalFilename, $e->getMessage());
-            }
+                return $this->parseFromTextLayer($absolutePath, $originalFilename, $termFallback, $yearFallback);
+            } catch (RegistrarPdfParseException $first) {
+                if (! $this->shouldRetryWithOcr($first)) {
+                    throw $first;
+                }
 
-            if (! is_string($text) || trim($text) === '') {
-                throw new RegistrarPdfParseException($this->imagePdfMessage());
-            }
+                $ocrText = (new RegistrarPdfOcrExtractor)->extract($absolutePath);
+                if ($ocrText === null || trim($ocrText) === '') {
+                    throw $first;
+                }
 
-            $normalized = $this->normalizeText($text);
-            if ($this->isLikelyImageOnlyReg($normalized)) {
-                throw new RegistrarPdfParseException($this->imagePdfMessage());
-            }
+                try {
+                    $parsed = $this->parseText(
+                        $this->normalizeOcrText($ocrText, $originalFilename),
+                        $originalFilename,
+                        $termFallback,
+                        $yearFallback
+                    );
+                    $parsed['read_via_ocr'] = true;
 
-            // ต้อง parse ทั้งไฟล์ภายใต้ memory/PCRE ที่ขยายแล้ว — อย่าคืนค่า limit ก่อน parseText
-            return $this->parseText($text, $originalFilename, $termFallback, $yearFallback);
+                    return $parsed;
+                } catch (RegistrarPdfParseException $second) {
+                    throw new RegistrarPdfParseException(
+                        $first->getMessage()."\n\nระบบลองอ่านด้วย OCR แล้ว แต่ยังอ่านโครงสร้างใบ มข.11 ไม่ครบ",
+                        previous: $second
+                    );
+                }
+            }
         } finally {
             if ($previousMemoryLimit !== false) {
                 ini_set('memory_limit', (string) $previousMemoryLimit);
@@ -133,6 +147,154 @@ class RegistrarGradePdfParser
                 ini_set('pcre.recursion_limit', (string) $previousRecursion);
             }
         }
+    }
+
+    /**
+     * อ่านจาก text layer ของ PDF ถ้าโครงสร้างใบ มข.11 ไม่ครบจะโยนให้ parse() ไปลอง OCR
+     *
+     * @return array<string, mixed>
+     */
+    private function parseFromTextLayer(string $absolutePath, string $originalFilename, int $termFallback, int $yearFallback): array
+    {
+        try {
+            $text = $this->parser->parseFile($absolutePath)->getText();
+        } catch (\Throwable $e) {
+            $this->failParse('pdf_extract', $originalFilename, $e->getMessage());
+        }
+
+        if (! is_string($text) || trim($text) === '') {
+            throw new RegistrarPdfParseException($this->imagePdfMessage());
+        }
+
+        $normalized = $this->normalizeText($text);
+        if ($this->isLikelyImageOnlyReg($normalized)) {
+            throw new RegistrarPdfParseException($this->imagePdfMessage());
+        }
+
+        return $this->parseText($text, $originalFilename, $termFallback, $yearFallback);
+    }
+
+    /**
+     * ลอง OCR เฉพาะตอนอ่านข้อความไม่ได้หรือโครงสร้างใบไม่ครบ
+     * ไฟล์ที่มีข้อความแต่คอลัมน์ MANUAL ว่างอยู่แล้วไม่ส่งเข้า OCR
+     */
+    private function shouldRetryWithOcr(RegistrarPdfParseException $e): bool
+    {
+        $message = $e->getMessage();
+        if (str_contains($message, 'ระบบลองอ่านด้วย OCR')) {
+            return false;
+        }
+        if (ImageOnlyPdfMessage::matches($message)) {
+            return true;
+        }
+
+        foreach ([
+            'ไม่พบรหัสวิชา',
+            'ไม่พบ Control Code',
+            'ไม่พบกลุ่มเรียน',
+            'ไม่พบรายชื่อนักศึกษา',
+            'ไม่พบตารางสรุปเกรด',
+        ] as $hint) {
+            if (str_contains($message, $hint)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * จัดข้อความจาก Tesseract ให้ parser เดิมใช้ได้
+     * Tesseract ภาษาไทยมักแทรกช่องว่างระหว่างตัวอักษร และอ่านรหัส SC เป็น $C หรือ ธ6
+     */
+    public function normalizeOcrText(string $text, string $filename = ''): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = strtr($text, [
+            '๐' => '0', '๑' => '1', '๒' => '2', '๓' => '3', '๔' => '4',
+            '๕' => '5', '๖' => '6', '๗' => '7', '๘' => '8', '๙' => '9',
+        ]);
+        $text = preg_replace('/(?<=\p{Thai})\s+(?=\p{Thai})/u', '', $text) ?? $text;
+        $text = preg_replace('/(?<=\p{Thai})\s*\.\s*(?=\p{Thai})/u', '.', $text) ?? $text;
+        $text = preg_replace('/(?<=\p{Thai})(กลุ่ม\s*\d+)/u', ' $1', $text) ?? $text;
+        $text = preg_replace('/\$\s*C(?=\d)/', 'SC', $text) ?? $text;
+        $text = preg_replace('/(?<![A-Za-z])C(\d{5,8})\s*:/u', 'SC$1 :', $text) ?? $text;
+        $text = preg_replace('/controlcode/iu', 'control code', $text) ?? $text;
+        $text = $this->repairOcrSubjectCode($text, $filename);
+
+        $lines = preg_split('/\n/u', $text) ?: [];
+        $text = implode("\n", array_map($this->rewriteOcrGradeLine(...), $lines));
+
+        $looksLikeGradeSheet = preg_match('/ภาคการศึกษาที่|เกรด\s*MANUAL|รายวิชา/u', $text) === 1;
+        if ($looksLikeGradeSheet && ! str_contains($text, 'ใบส่งผลการศึกษา')) {
+            $text = "ใบส่งผลการศึกษา\n".$text;
+        }
+        if ($looksLikeGradeSheet && preg_match('/control\s*code\s*:/iu', $text) !== 1) {
+            $text .= "\ncontrol code : 0";
+        }
+
+        return $text;
+    }
+
+    /**
+     * รหัสวิชาที่ OCR อ่านนำหน้าเพี้ยน แต่ตัวเลขตรงกับชื่อไฟล์ เช่น SC554231-01.pdf
+     */
+    private function repairOcrSubjectCode(string $text, string $filename): string
+    {
+        if (preg_match('/([A-Z]{2})(\d{5,8})/i', pathinfo($filename, PATHINFO_FILENAME), $fromName) !== 1) {
+            return $text;
+        }
+
+        $code = strtoupper($fromName[1].$fromName[2]);
+        if (preg_match('/'.preg_quote($code, '/').'\s*:/i', $text) === 1) {
+            return $text;
+        }
+
+        $digits = preg_quote($fromName[2], '/');
+        if (preg_match('/[^\n]{0,24}'.$digits.'\s*:/u', $text) !== 1) {
+            return $text;
+        }
+
+        return preg_replace('/[^\n]{0,24}'.$digits.'\s*:/u', $code.' :', $text, 1) ?? $text;
+    }
+
+    /**
+     * แถวตาราง MANUAL จาก OCR: "A 80 >> 492", เกรด C ที่ถูกอ่านเป็น 0 และ B+ ที่ถูกอ่านเป็น 8+
+     */
+    private function rewriteOcrGradeLine(string $line): string
+    {
+        $trim = trim($line);
+        if (preg_match('/^W+\s*<<\s*-*\s*>>\s*(\d+)/iu', $trim, $match) === 1) {
+            return 'W <<->> '.$match[1];
+        }
+
+        if (preg_match(
+            '/^(8\+|B\+|A|B|C4|C\+|Cc|C|D\+|D|F|S|U|8|0|O)\s+(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)(?:\s*<<\s*-*\s*>{1,2})?(?:\s+(\d+))?/iu',
+            $trim,
+            $match
+        ) === 1) {
+            $left = (float) $match[2];
+            $right = (float) $match[3];
+            if ($left <= 100 && $right <= 100) {
+                $token = strtoupper($match[1]);
+                $grade = match ($token) {
+                    '8+' => 'B+',
+                    '8' => 'B',
+                    'C4' => 'C+',
+                    '0', 'O', 'CC' => 'C',
+                    default => $token,
+                };
+                $count = $match[4] ?? '';
+
+                return trim($grade.' '.$match[2].' - '.$match[3].($count !== '' ? ' '.$count : ''));
+            }
+        }
+
+        if (preg_match('/^('.self::GRADE_TOKEN.')\s+(\d+(?:\.\d+)?)\s*>>\s*(\d+)/u', $trim, $match) === 1) {
+            return $match[1].' 100 - '.$match[2].' '.$match[3];
+        }
+
+        return $line;
     }
 
     /**
@@ -152,12 +314,15 @@ class RegistrarGradePdfParser
         }
 
         // รองรับทั้งรหัสแบบ SC101011 และรหัสตัวเลขเก่า เช่น 326493
-        if (! preg_match('/(?:^|\n)\s*([A-Z]{2}\d{5,8}|\d{6,8})\s*:\s*([^\n]+)/u', $text, $subjectMatch)) {
+        // OCR มักวางรหัสวิชาไว้กลางบรรทัดหลังคำว่า รายวิชา
+        if (! preg_match('/(?:^|\n)\s*([A-Z]{2}\d{5,8}|\d{6,8})\s*:\s*([^\n]+)/u', $text, $subjectMatch)
+            && ! preg_match('/([A-Z]{2}\d{5,8})\s*:\s*([^\n]+)/u', $text, $subjectMatch)) {
             $this->failParse('missing_subject', $originalFilename);
         }
 
         $subjectCode = strtoupper(trim($subjectMatch[1]));
         $subjectName = trim($subjectMatch[2]);
+        $subjectName = trim((string) preg_replace('/\s*หน่วยกิต\s*\d.*$/u', '', $subjectName));
 
         $term = $termFallback;
         $year = $yearFallback;
@@ -239,6 +404,8 @@ class RegistrarGradePdfParser
             'score_dd' => $summary['ranges']['score_dd'] ?? null,
             'score_d' => $summary['ranges']['score_d'] ?? null,
             'score_f' => $summary['ranges']['score_f'] ?? null,
+            'score_s' => $summary['ranges']['score_s'] ?? null,
+            'score_u' => $summary['ranges']['score_u'] ?? null,
             'grade_stds' => [$gradeStd],
             'grade_i_students' => $gradeIStudents,
             'has_manual_score_ranges' => $this->summaryHasManualScoreRanges($summary['ranges'])
@@ -267,6 +434,8 @@ class RegistrarGradePdfParser
             'score_dd' => $parsed['score_dd'] ?? null,
             'score_d' => $parsed['score_d'] ?? null,
             'score_f' => $parsed['score_f'] ?? null,
+            'score_s' => $parsed['score_s'] ?? null,
+            'score_u' => $parsed['score_u'] ?? null,
         ]);
     }
 
@@ -278,6 +447,13 @@ class RegistrarGradePdfParser
         $a = trim((string) ($ranges['score_a'] ?? ''));
         if ($a !== '' && preg_match('/^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/', $a) === 1) {
             return true;
+        }
+
+        foreach (['score_s', 'score_u'] as $key) {
+            $val = trim((string) ($ranges[$key] ?? ''));
+            if ($val !== '' && preg_match('/^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/', $val) === 1) {
+                return true;
+            }
         }
 
         // วิชา Audit/S-U บางใบมีช่วงเฉพาะเกรดอื่นโดยไม่มี A — รับถ้ามีช่วงเกรดตัวอักษรอย่างน้อย 2 ช่อง
@@ -464,6 +640,40 @@ class RegistrarGradePdfParser
             }
         }
 
+        // OCR อ่านแถวเป็น ลำดับ รหัส เกรด ชื่อ เช่น "1 643020528-6 A นาย..."
+        // เกรด S บางครั้งถูกอ่านเป็น Ss หรือตัว ธ ที่ติดกับคำนำหน้า
+        $ocrGrade = '(?:Ss|ธร|'.self::GRADE_TOKEN.'|ธ)';
+        $ocrPattern = '/(?:^|\n)\s*\d*\s*\|?\s*(\d{9})-(\d)\s*('.$ocrGrade.')\s*('.$namePrefix.'[^\n]{0,120})/u';
+        $ocrMatched = preg_match_all($ocrPattern, $text, $ocrMatches, PREG_SET_ORDER);
+        if ($ocrMatched) {
+            $seen = [];
+            foreach ($students as $student) {
+                $seen[$student['student_code']] = true;
+            }
+            foreach ($ocrMatches as $match) {
+                $rawGrade = $match[3];
+                $grade = $this->normalizeGradeSymbol($rawGrade);
+                if ($grade === null && preg_match('/^(?:Ss|S|ธ|ธร)$/u', $rawGrade) === 1) {
+                    $grade = 'S';
+                }
+                if ($grade === null) {
+                    continue;
+                }
+                $checkDigit = substr((string) $match[2], 0, 1);
+                $code = $match[1].'-'.$checkDigit;
+                if (isset($seen[$code])) {
+                    continue;
+                }
+                $seen[$code] = true;
+                $name = trim(preg_replace('/\s+/u', ' ', $match[4]) ?? $match[4]);
+                $students[] = [
+                    'name' => $name,
+                    'student_code' => $code,
+                    'grade' => $grade,
+                ];
+            }
+        }
+
         return $students;
     }
 
@@ -589,6 +799,13 @@ class RegistrarGradePdfParser
         // บางไฟล์เกรด F หลุดช่วง MANUAL ออกนอกตาราง (เช่น เหลือ "34-0" ท้ายไฟล์)
         $ranges = $this->fillMissingLetterRanges($ranges, $text);
 
+        foreach ($ranges as $range) {
+            if (str_contains((string) $range, '.')) {
+                $usesDecimal = true;
+                break;
+            }
+        }
+
         return [
             'counts' => $counts,
             'ranges' => $ranges,
@@ -648,6 +865,10 @@ class RegistrarGradePdfParser
             if ($countField !== null && isset($row[4]) && $row[4] !== '') {
                 $counts[$countField] = (int) $row[4];
             }
+        }
+
+        if (preg_match('/(?:^|\n)\s*W+\s*<<->>\s*(\d+)/iu', $body, $withdrawn) === 1) {
+            $counts['num_w'] = (int) $withdrawn[1];
         }
 
         if (! $this->summaryHasManualScoreRanges($ranges)) {
